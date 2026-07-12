@@ -18,10 +18,10 @@ export default async function BarberPortalLayout({ children }: { children: React
   if (!barber) redirect('/barber-portal/login')
 
   return (
-    <div className="min-h-screen bg-ink">
-      <div className="bg-ink-soft border-b border-stroke-dark px-6 py-3 flex items-center justify-between">
+    <div className="min-h-screen bg-canvas">
+      <div className="bg-surface border-b border-line px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <span className="text-cream font-display text-lg tracking-[0.14em]">PORTAL</span>
+          <span className="text-fg font-display text-lg tracking-[0.14em]">PORTAL</span>
           <span className="text-muted text-xs font-sans">{barber.name}</span>
         </div>
         <LogoutButton redirectTo="/barber-portal/login" />

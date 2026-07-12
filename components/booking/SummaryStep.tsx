@@ -27,25 +27,25 @@ export default function SummaryStep({
   const barberName = barber === 'any' || barber === null ? 'Ingen preferanse' : barber.name
 
   const row = (label: string, value: string) => (
-    <div className="flex items-start justify-between py-3 border-b border-stroke-dark/50 last:border-0">
+    <div className="flex items-start justify-between py-3 border-b border-line/50 last:border-0">
       <span className="text-muted text-xs font-sans uppercase tracking-[0.22em] shrink-0 mr-4">{label}</span>
-      <span className="text-cream text-sm font-sans text-right">{value}</span>
+      <span className="text-fg text-sm font-sans text-right">{value}</span>
     </div>
   )
 
   return (
     <div>
-      <h2 className="font-display text-xl text-cream mb-1">Bekreft booking</h2>
+      <h2 className="font-display text-xl text-fg mb-1">Bekreft booking</h2>
       <p className="text-muted text-sm font-sans mb-7">Sjekk at alt stemmer før du bekrefter.</p>
 
-      <div className="border border-stroke-dark bg-ink-soft p-4 mb-6">
+      <div className="border border-line bg-surface p-4 mb-6">
         {row('Tjeneste', service.name)}
         {row('Barber', barberName)}
         {row('Dato', formattedDate)}
         {row('Tid', time.slice(0, 5))}
         {row('Pris', `${service.price.toLocaleString('nb-NO')} kr`)}
         {row('Varighet', `${service.duration_minutes} min`)}
-        <div className="border-t border-stroke-dark pt-3 mt-1 space-y-1">
+        <div className="border-t border-line pt-3 mt-1 space-y-1">
           {row('Navn', name)}
           {row('E-post', email)}
           {row('Telefon', phone)}
@@ -62,7 +62,7 @@ export default function SummaryStep({
       <button
         onClick={onSubmit}
         disabled={submitting}
-        className="w-full py-3.5 bg-forest hover:bg-forest-mid text-cream font-sans text-sm tracking-[0.18em] uppercase transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full py-3.5 bg-accent hover:bg-accent-hover text-accent-fg font-sans text-sm tracking-[0.18em] uppercase transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {submitting ? 'Sender…' : 'Bekreft time'}
       </button>

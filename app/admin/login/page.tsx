@@ -26,10 +26,10 @@ export default function AdminLogin() {
   }
 
   return (
-    <main className="min-h-screen bg-ink flex items-center justify-center px-4">
+    <main className="min-h-screen bg-canvas flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <p className="text-[9px] tracking-[0.42em] text-muted font-sans mb-2 uppercase">Downtown Barbers</p>
-        <h1 className="font-display text-2xl text-cream mb-8">Admin-panel</h1>
+        <h1 className="font-display text-2xl text-fg mb-8">Admin-panel</h1>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -39,7 +39,7 @@ export default function AdminLogin() {
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
-              className="w-full bg-ink-soft border border-stroke-dark px-3 py-2.5 text-sm font-sans text-cream placeholder:text-muted/40 outline-none focus:border-forest transition-colors"
+              className="w-full bg-surface border border-line px-3 py-2.5 text-sm font-sans text-fg placeholder:text-muted/40 outline-none focus:border-accent transition-colors"
             />
           </div>
           <div>
@@ -49,14 +49,14 @@ export default function AdminLogin() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
-              className="w-full bg-ink-soft border border-stroke-dark px-3 py-2.5 text-sm font-sans text-cream placeholder:text-muted/40 outline-none focus:border-forest transition-colors"
+              className="w-full bg-surface border border-line px-3 py-2.5 text-sm font-sans text-fg placeholder:text-muted/40 outline-none focus:border-accent transition-colors"
             />
           </div>
           {error && <p className="text-red-400 text-sm font-sans">{error}</p>}
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-forest hover:bg-forest-mid text-cream font-sans text-sm tracking-[0.18em] uppercase transition-colors duration-200 disabled:opacity-50"
+            className="w-full py-3 bg-accent hover:bg-accent-hover text-accent-fg font-sans text-sm tracking-[0.18em] uppercase transition-colors duration-200 disabled:opacity-50"
           >
             {loading ? 'Logger inn…' : 'Logg inn'}
           </button>

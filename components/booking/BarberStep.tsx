@@ -29,7 +29,7 @@ export default function BarberStep({ selected, onSelect }: Props) {
 
   return (
     <div>
-      <h2 className="font-display text-xl text-cream mb-1">Velg barber</h2>
+      <h2 className="font-display text-xl text-fg mb-1">Velg barber</h2>
       <p className="text-muted text-sm font-sans mb-7">Valgfritt – vi matcher deg med beste tilgjengelige.</p>
 
       <div className="space-y-2">
@@ -42,25 +42,25 @@ export default function BarberStep({ selected, onSelect }: Props) {
               onClick={() => onSelect(isAny ? 'any' : (item as Barber))}
               className={`w-full text-left p-4 border transition-colors duration-150 flex items-center gap-4 group ${
                 active
-                  ? 'border-forest bg-forest/10'
-                  : 'border-stroke-dark hover:border-forest/50 bg-ink-soft hover:bg-ink-mid'
+                  ? 'border-accent bg-accent/10'
+                  : 'border-line hover:border-accent/50 bg-surface hover:bg-surface-2'
               }`}
             >
               <div className={`w-10 h-10 flex items-center justify-center shrink-0 font-display text-base ${
-                active ? 'bg-forest text-cream' : 'bg-ink-mid text-muted group-hover:bg-stroke-dark'
+                active ? 'bg-accent text-accent-fg' : 'bg-surface-2 text-muted group-hover:bg-line'
               }`}>
                 {isAny ? '✦' : item.name.charAt(0)}
               </div>
               <div>
-                <p className={`font-sans text-sm font-medium transition-colors ${active ? 'text-cream' : 'text-cream/80 group-hover:text-cream'}`}>
+                <p className={`font-sans text-sm font-medium transition-colors ${active ? 'text-fg' : 'text-fg/80 group-hover:text-fg'}`}>
                   {item.name}
                 </p>
                 <p className="text-muted text-xs mt-0.5 font-sans">{item.role}</p>
               </div>
               {active && (
-                <div className="ml-auto w-4 h-4 flex items-center justify-center">
+                <div className="ml-auto w-4 h-4 flex items-center justify-center text-accent">
                   <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                    <path d="M1 5.5L3.5 8L9 2" stroke="#3D8A69" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M1 5.5L3.5 8L9 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </div>
               )}

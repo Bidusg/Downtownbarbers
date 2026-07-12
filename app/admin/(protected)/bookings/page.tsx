@@ -8,8 +8,8 @@ const STATUS_OPTIONS = ['confirmed', 'completed', 'cancelled'] as const
 type Status = typeof STATUS_OPTIONS[number]
 const STATUS_LABELS: Record<Status, string> = { confirmed: 'Bekreftet', completed: 'Fullført', cancelled: 'Kansellert' }
 const STATUS_COLORS: Record<Status, string> = {
-  confirmed: 'text-forest-light bg-forest/10',
-  completed: 'text-muted bg-ink-mid',
+  confirmed: 'text-accent-soft bg-accent/10',
+  completed: 'text-muted bg-surface-2',
   cancelled: 'text-red-400 bg-red-900/10',
 }
 
@@ -62,7 +62,7 @@ export default function AllBookings() {
   return (
     <div>
       <div className="mb-7">
-        <h1 className="font-display text-2xl text-cream mb-1">Alle bookinger</h1>
+        <h1 className="font-display text-2xl text-fg mb-1">Alle bookinger</h1>
         <p className="text-muted text-sm font-sans">Filtrer og administrer alle timer.</p>
       </div>
 
@@ -71,12 +71,12 @@ export default function AllBookings() {
           type="date"
           value={filterDate}
           onChange={e => setFilterDate(e.target.value)}
-          className="bg-ink-soft border border-stroke-dark px-3 py-2 text-sm font-sans text-cream outline-none focus:border-forest transition-colors"
+          className="bg-surface border border-line px-3 py-2 text-sm font-sans text-fg outline-none focus:border-accent transition-colors"
         />
         <select
           value={filterBarber}
           onChange={e => setFilterBarber(e.target.value)}
-          className="bg-ink-soft border border-stroke-dark px-3 py-2 text-sm font-sans text-cream outline-none focus:border-forest transition-colors"
+          className="bg-surface border border-line px-3 py-2 text-sm font-sans text-fg outline-none focus:border-accent transition-colors"
         >
           <option value="">Alle barberer</option>
           {barbers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -84,7 +84,7 @@ export default function AllBookings() {
         <select
           value={filterStatus}
           onChange={e => setFilterStatus(e.target.value)}
-          className="bg-ink-soft border border-stroke-dark px-3 py-2 text-sm font-sans text-cream outline-none focus:border-forest transition-colors"
+          className="bg-surface border border-line px-3 py-2 text-sm font-sans text-fg outline-none focus:border-accent transition-colors"
         >
           <option value="">Alle statuser</option>
           {STATUS_OPTIONS.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
@@ -92,7 +92,7 @@ export default function AllBookings() {
         {(filterDate || filterBarber || filterStatus) && (
           <button
             onClick={() => { setFilterDate(''); setFilterBarber(''); setFilterStatus('') }}
-            className="text-muted hover:text-cream text-xs font-sans uppercase tracking-[0.14em] transition-colors"
+            className="text-muted hover:text-fg text-xs font-sans uppercase tracking-[0.14em] transition-colors"
           >
             Nullstill
           </button>
@@ -104,10 +104,10 @@ export default function AllBookings() {
       ) : bookings.length === 0 ? (
         <p className="text-muted font-sans text-sm">Ingen bookinger funnet.</p>
       ) : (
-        <div className="border border-stroke-dark overflow-x-auto">
+        <div className="border border-line overflow-x-auto">
           <table className="w-full text-sm font-sans min-w-[640px]">
             <thead>
-              <tr className="border-b border-stroke-dark bg-ink-soft">
+              <tr className="border-b border-line bg-surface">
                 {['Dato', 'Tid', 'Kunde', 'Tjeneste', 'Barber', 'Status', ''].map(h => (
                   <th key={h} className="text-left text-[9px] tracking-[0.22em] text-muted uppercase px-4 py-3">{h}</th>
                 ))}
@@ -115,15 +115,15 @@ export default function AllBookings() {
             </thead>
             <tbody>
               {bookings.map(b => (
-                <tr key={b.id} className="border-b border-stroke-dark/50 last:border-0 hover:bg-ink-mid/40 transition-colors">
-                  <td className="px-4 py-3 text-cream/80 whitespace-nowrap">{fmtDate(b.booking_date)}</td>
-                  <td className="px-4 py-3 text-cream">{String(b.booking_time).slice(0, 5)}</td>
+                <tr key={b.id} className="border-b border-line/50 last:border-0 hover:bg-surface-2/40 transition-colors">
+                  <td className="px-4 py-3 text-fg/80 whitespace-nowrap">{fmtDate(b.booking_date)}</td>
+                  <td className="px-4 py-3 text-fg">{String(b.booking_time).slice(0, 5)}</td>
                   <td className="px-4 py-3">
-                    <p className="text-cream">{b.customer_name}</p>
+                    <p className="text-fg">{b.customer_name}</p>
                     <p className="text-muted text-xs">{b.customer_email}</p>
                   </td>
-                  <td className="px-4 py-3 text-cream/80">{b.services?.name}</td>
-                  <td className="px-4 py-3 text-cream/80">{b.barbers?.name}</td>
+                  <td className="px-4 py-3 text-fg/80">{b.services?.name}</td>
+                  <td className="px-4 py-3 text-fg/80">{b.barbers?.name}</td>
                   <td className="px-4 py-3">
                     <span className={`text-[9px] uppercase tracking-[0.16em] px-2 py-0.5 ${STATUS_COLORS[b.status as Status] ?? 'text-muted'}`}>
                       {STATUS_LABELS[b.status as Status] ?? b.status}
@@ -134,7 +134,7 @@ export default function AllBookings() {
                       value={b.status}
                       disabled={isPending}
                       onChange={e => handleStatus(b.id, e.target.value as Status)}
-                      className="bg-ink border border-stroke-dark px-2 py-1 text-xs font-sans text-cream outline-none focus:border-forest transition-colors"
+                      className="bg-canvas border border-line px-2 py-1 text-xs font-sans text-fg outline-none focus:border-accent transition-colors"
                     >
                       {STATUS_OPTIONS.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
                     </select>

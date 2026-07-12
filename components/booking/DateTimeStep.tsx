@@ -76,19 +76,19 @@ export default function DateTimeStep({ service, barber, selectedDate, selectedTi
 
   return (
     <div>
-      <h2 className="font-display text-xl text-cream mb-1">Velg dato og tid</h2>
+      <h2 className="font-display text-xl text-fg mb-1">Velg dato og tid</h2>
       <p className="text-muted text-sm font-sans mb-6">Grønne felt er tilgjengelige.</p>
 
       {/* Calendar */}
-      <div className="mb-6 border border-stroke-dark bg-ink-soft p-4">
+      <div className="mb-6 border border-line bg-surface p-4">
         <div className="flex items-center justify-between mb-4">
-          <button onClick={prevMonth} className="w-7 h-7 flex items-center justify-center text-muted hover:text-cream transition-colors">
+          <button onClick={prevMonth} className="w-7 h-7 flex items-center justify-center text-muted hover:text-fg transition-colors">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 11L5 7L9 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </button>
-          <p className="text-cream text-sm font-sans capitalize">
+          <p className="text-fg text-sm font-sans capitalize">
             {NB_MONTHS[calStart.getMonth()]} {calStart.getFullYear()}
           </p>
-          <button onClick={nextMonth} className="w-7 h-7 flex items-center justify-center text-muted hover:text-cream transition-colors">
+          <button onClick={nextMonth} className="w-7 h-7 flex items-center justify-center text-muted hover:text-fg transition-colors">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 3L9 7L5 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </button>
         </div>
@@ -110,10 +110,10 @@ export default function DateTimeStep({ service, barber, selectedDate, selectedTi
                 onClick={() => handleDay(day)}
                 className={`w-8 h-8 mx-auto flex items-center justify-center text-xs font-sans transition-colors duration-150 ${
                   isSel
-                    ? 'bg-forest text-cream'
+                    ? 'bg-accent text-accent-fg'
                     : past
-                    ? 'text-stroke-dark cursor-not-allowed'
-                    : 'text-cream/70 hover:text-cream hover:bg-ink-mid'
+                    ? 'text-line cursor-not-allowed'
+                    : 'text-fg/70 hover:text-fg hover:bg-surface-2'
                 }`}
               >
                 {day}
@@ -145,10 +145,10 @@ export default function DateTimeStep({ service, barber, selectedDate, selectedTi
                   onClick={() => slot.available && onSelect(selectedDate, slot.time)}
                   className={`py-2 text-xs font-sans text-center border transition-colors duration-150 ${
                     selectedTime === slot.time
-                      ? 'bg-forest border-forest text-cream'
+                      ? 'bg-accent border-accent text-accent-fg'
                       : slot.available
-                      ? 'border-stroke-dark hover:border-forest/60 text-cream/80 hover:text-cream bg-ink-soft hover:bg-ink-mid'
-                      : 'border-stroke-dark/40 text-stroke-dark cursor-not-allowed'
+                      ? 'border-line hover:border-accent/60 text-fg/80 hover:text-fg bg-surface hover:bg-surface-2'
+                      : 'border-line/40 text-line cursor-not-allowed'
                   }`}
                 >
                   {slot.time.slice(0, 5)}

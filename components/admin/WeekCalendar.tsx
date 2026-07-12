@@ -257,16 +257,16 @@ export default function WeekCalendar({ barberId, adminMode }: Props) {
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => setWs(d => addDays(d, -7))}
-            className="w-8 h-8 flex items-center justify-center text-muted hover:text-cream border border-stroke-dark hover:border-forest/50 transition-colors"
+            className="w-8 h-8 flex items-center justify-center text-muted hover:text-fg border border-line hover:border-accent/50 transition-colors"
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
               <path d="M8 2L4 6L8 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
-          <span className="text-cream text-sm font-sans w-52 text-center">{weekLabel}</span>
+          <span className="text-fg text-sm font-sans w-52 text-center">{weekLabel}</span>
           <button
             onClick={() => setWs(d => addDays(d, 7))}
-            className="w-8 h-8 flex items-center justify-center text-muted hover:text-cream border border-stroke-dark hover:border-forest/50 transition-colors"
+            className="w-8 h-8 flex items-center justify-center text-muted hover:text-fg border border-line hover:border-accent/50 transition-colors"
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
               <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -276,7 +276,7 @@ export default function WeekCalendar({ barberId, adminMode }: Props) {
         {!isCurrentWeek && (
           <button
             onClick={() => { setWs(getWeekStart(new Date())); setMobileDay(Math.min((new Date().getDay() + 6) % 7, 5)) }}
-            className="px-3 py-1 text-[10px] font-sans text-muted hover:text-cream border border-stroke-dark hover:border-forest/50 transition-colors uppercase tracking-[0.14em]"
+            className="px-3 py-1 text-[10px] font-sans text-muted hover:text-fg border border-line hover:border-accent/50 transition-colors uppercase tracking-[0.14em]"
           >
             I dag
           </button>
@@ -284,7 +284,7 @@ export default function WeekCalendar({ barberId, adminMode }: Props) {
         {adminMode && (
           <button
             onClick={() => openNewBooking(todayISO)}
-            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-forest hover:bg-forest-mid text-cream text-[10px] font-sans uppercase tracking-[0.16em] transition-colors"
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent-hover text-accent-fg text-[10px] font-sans uppercase tracking-[0.16em] transition-colors"
           >
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
               <path d="M5 1V9M1 5H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -318,8 +318,8 @@ export default function WeekCalendar({ barberId, adminMode }: Props) {
                 onClick={() => toggleBarber(b.name)}
                 className={`flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-sans border transition-colors ${
                   active
-                    ? 'text-cream border-transparent'
-                    : 'border-stroke-dark text-muted hover:text-cream hover:border-stroke-mid'
+                    ? 'text-fg border-transparent'
+                    : 'border-line text-muted hover:text-fg hover:border-line-2'
                 }`}
                 style={active ? { backgroundColor: `${color}25`, borderColor: `${color}60` } : {}}
               >
@@ -329,18 +329,18 @@ export default function WeekCalendar({ barberId, adminMode }: Props) {
             )
           })}
 
-          <div className="w-px h-4 bg-stroke-dark mx-1 hidden sm:block" />
+          <div className="w-px h-4 bg-line mx-1 hidden sm:block" />
 
           {/* Cancelled toggle */}
           <button
             onClick={() => setShowCancelled(v => !v)}
             className={`flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-sans border transition-colors ${
               showCancelled
-                ? 'border-stroke-mid text-cream/60 bg-ink-mid'
-                : 'border-stroke-dark text-muted hover:text-cream'
+                ? 'border-line-2 text-fg/60 bg-surface-2'
+                : 'border-line text-muted hover:text-fg'
             }`}
           >
-            <span className={`w-3 h-3 border flex items-center justify-center transition-colors ${showCancelled ? 'border-muted bg-muted/20' : 'border-stroke-mid'}`}>
+            <span className={`w-3 h-3 border flex items-center justify-center transition-colors ${showCancelled ? 'border-muted bg-muted/20' : 'border-line-2'}`}>
               {showCancelled && <svg width="7" height="7" viewBox="0 0 7 7" fill="none"><path d="M1 3.5L3 5.5L6 1.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
             </span>
             Vis kansellerte
@@ -357,7 +357,7 @@ export default function WeekCalendar({ barberId, adminMode }: Props) {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Søk kunde…"
-              className="bg-ink border border-stroke-dark pl-7 pr-3 py-1 text-[11px] font-sans text-cream placeholder:text-muted/40 outline-none focus:border-forest/60 transition-colors w-36"
+              className="bg-canvas border border-line pl-7 pr-3 py-1 text-[11px] font-sans text-fg placeholder:text-muted/40 outline-none focus:border-accent/60 transition-colors w-36"
             />
           </div>
         </div>
@@ -375,48 +375,48 @@ export default function WeekCalendar({ barberId, adminMode }: Props) {
               onClick={() => setMobileDay(i)}
               className={`flex-shrink-0 px-3 py-1.5 text-xs font-sans border transition-colors duration-150 ${
                 mobileDay === i
-                  ? 'border-forest bg-forest/10 text-cream'
+                  ? 'border-accent bg-accent/10 text-fg'
                   : isToday
-                  ? 'border-forest/40 text-muted hover:text-cream'
-                  : 'border-stroke-dark text-muted hover:text-cream'
+                  ? 'border-accent/40 text-muted hover:text-fg'
+                  : 'border-line text-muted hover:text-fg'
               }`}
             >
               {DAYS_SHORT[(d.getDay() + 6) % 7]} {d.getDate()}
-              {count > 0 && <span className="ml-1" style={{ color: '#3D8A69' }}>·{count}</span>}
+              {count > 0 && <span className="ml-1 text-accent-soft">·{count}</span>}
             </button>
           )
         })}
       </div>
 
       {loading ? (
-        <div className="border border-stroke-dark py-16 text-center text-muted font-sans text-sm">Laster kalender…</div>
+        <div className="border border-line py-16 text-center text-muted font-sans text-sm">Laster kalender…</div>
       ) : (
-        <div className="border border-stroke-dark overflow-x-auto">
+        <div className="border border-line overflow-x-auto">
           <div className="min-w-[480px]">
             {/* Day headers */}
-            <div className="flex border-b border-stroke-dark">
-              <div className="w-12 shrink-0 border-r border-stroke-dark" />
+            <div className="flex border-b border-line">
+              <div className="w-12 shrink-0 border-r border-line" />
               {days.map((d, i) => {
                 const iso = toISO(d)
                 const isToday = iso === todayISO
                 return (
                   <div
                     key={iso}
-                    className={`flex-1 border-r border-stroke-dark last:border-r-0 ${isToday ? 'bg-forest/5' : ''} ${i !== mobileDay ? 'hidden sm:block' : ''}`}
+                    className={`flex-1 border-r border-line last:border-r-0 ${isToday ? 'bg-accent/5' : ''} ${i !== mobileDay ? 'hidden sm:block' : ''}`}
                   >
                     <div className="flex items-center justify-between px-1.5 py-2">
                       <div className="text-center flex-1">
-                        <p className={`text-[8px] tracking-[0.22em] font-sans uppercase ${isToday ? 'text-forest-light' : 'text-muted'}`}>
+                        <p className={`text-[8px] tracking-[0.22em] font-sans uppercase ${isToday ? 'text-accent-soft' : 'text-muted'}`}>
                           {DAYS_SHORT[(d.getDay() + 6) % 7]}
                         </p>
-                        <p className={`text-sm font-sans font-medium leading-tight ${isToday ? 'text-cream' : 'text-cream/60'}`}>
+                        <p className={`text-sm font-sans font-medium leading-tight ${isToday ? 'text-fg' : 'text-fg/60'}`}>
                           {d.getDate()}
                         </p>
                       </div>
                       {adminMode && (
                         <button
                           onClick={() => openNewBooking(iso)}
-                          className="text-muted/40 hover:text-forest-light transition-colors pr-1"
+                          className="text-muted/40 hover:text-accent-soft transition-colors pr-1"
                           title="Ny time denne dagen"
                         >
                           <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
@@ -433,9 +433,9 @@ export default function WeekCalendar({ barberId, adminMode }: Props) {
             {/* Time grid */}
             <div className="flex">
               {/* Time axis */}
-              <div className="w-12 shrink-0 border-r border-stroke-dark">
+              <div className="w-12 shrink-0 border-r border-line">
                 {timeSlots.map((t, i) => (
-                  <div key={t} style={{ height: SLOT_H }} className="flex items-start justify-end pr-2 border-b border-stroke-dark/20 last:border-0">
+                  <div key={t} style={{ height: SLOT_H }} className="flex items-start justify-end pr-2 border-b border-line/20 last:border-0">
                     {i % 2 === 0 && (
                       <span className="text-[9px] text-muted/60 font-sans mt-1">{t}</span>
                     )}
@@ -454,10 +454,10 @@ export default function WeekCalendar({ barberId, adminMode }: Props) {
                 return (
                   <div
                     key={iso}
-                    className={`flex-1 relative border-r border-stroke-dark last:border-r-0 ${
-                      isToday ? 'bg-forest/[0.03]' : ''
+                    className={`flex-1 relative border-r border-line last:border-r-0 ${
+                      isToday ? 'bg-accent/[0.03]' : ''
                     } ${di !== mobileDay ? 'hidden sm:block' : ''} ${
-                      isDropTarget ? 'bg-forest/5' : ''
+                      isDropTarget ? 'bg-accent/5' : ''
                     }`}
                     style={{ height: TOTAL_SLOTS * SLOT_H }}
                     onDragOver={adminMode ? (e) => onDragOver(e, iso) : undefined}
@@ -468,7 +468,7 @@ export default function WeekCalendar({ barberId, adminMode }: Props) {
                     {timeSlots.map((_, i) => (
                       <div
                         key={i}
-                        className={`absolute w-full border-b ${i % 2 === 0 ? 'border-stroke-dark/25' : 'border-stroke-dark/10'}`}
+                        className={`absolute w-full border-b ${i % 2 === 0 ? 'border-line/25' : 'border-line/10'}`}
                         style={{ top: i * SLOT_H, height: SLOT_H }}
                       />
                     ))}
@@ -476,8 +476,8 @@ export default function WeekCalendar({ barberId, adminMode }: Props) {
                     {/* Drop indicator line */}
                     {adminMode && isDropTarget && dropHover && (
                       <div
-                        className="absolute w-full pointer-events-none z-20"
-                        style={{ top: slotTop(dropHover.time) - 1, height: 2, backgroundColor: '#3D8A69' }}
+                        className="absolute w-full pointer-events-none z-20 bg-accent-soft"
+                        style={{ top: slotTop(dropHover.time) - 1, height: 2 }}
                       />
                     )}
 
@@ -569,12 +569,12 @@ export default function WeekCalendar({ barberId, adminMode }: Props) {
 
       {/* Admin: Drop confirmation dialog */}
       {adminMode && dropConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/80 backdrop-blur-[2px]">
-          <div className="bg-ink-soft border border-stroke-dark w-full max-w-xs shadow-2xl p-6">
-            <p className="text-cream font-sans font-semibold mb-1">Flytt time?</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-canvas/80 backdrop-blur-[2px]">
+          <div className="bg-surface border border-line w-full max-w-xs shadow-2xl p-6">
+            <p className="text-fg font-sans font-semibold mb-1">Flytt time?</p>
             <p className="text-muted text-sm font-sans mb-4">
               {dropConfirm.booking.customer_name} flyttes til{' '}
-              <span className="text-cream">
+              <span className="text-fg">
                 {(() => {
                   const d = new Date(dropConfirm.date + 'T12:00:00')
                   return `${DAYS_SHORT[(d.getDay() + 6) % 7]} ${d.getDate()}. ${MONTHS_SHORT[d.getMonth()]} kl ${dropConfirm.time}`
@@ -585,13 +585,13 @@ export default function WeekCalendar({ barberId, adminMode }: Props) {
               <button
                 onClick={confirmDrop}
                 disabled={dropSubmitting}
-                className="flex-1 py-2.5 bg-forest hover:bg-forest-mid text-cream text-xs font-sans uppercase tracking-[0.16em] transition-colors disabled:opacity-50"
+                className="flex-1 py-2.5 bg-accent hover:bg-accent-hover text-accent-fg text-xs font-sans uppercase tracking-[0.16em] transition-colors disabled:opacity-50"
               >
                 {dropSubmitting ? 'Lagrer…' : 'Bekreft'}
               </button>
               <button
                 onClick={() => setDropConfirm(null)}
-                className="flex-1 py-2.5 border border-stroke-dark text-muted hover:text-cream text-xs font-sans uppercase tracking-[0.16em] transition-colors"
+                className="flex-1 py-2.5 border border-line text-muted hover:text-fg text-xs font-sans uppercase tracking-[0.16em] transition-colors"
               >
                 Avbryt
               </button>
@@ -603,18 +603,18 @@ export default function WeekCalendar({ barberId, adminMode }: Props) {
       {/* Barber portal: simple popup */}
       {!adminMode && popup && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/75 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-canvas/75 backdrop-blur-sm"
           onClick={() => setPopup(null)}
         >
           <div
-            className="bg-ink-soft border border-stroke-dark w-full max-w-sm shadow-2xl"
+            className="bg-surface border border-line w-full max-w-sm shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
             <div className="h-1 w-full" style={{ backgroundColor: barberColor(popup.barbers?.name ?? '') }} />
             <div className="p-5">
               <div className="flex items-start justify-between mb-5">
                 <div>
-                  <p className="text-cream font-sans font-semibold text-base">{popup.customer_name}</p>
+                  <p className="text-fg font-sans font-semibold text-base">{popup.customer_name}</p>
                   <p className="text-muted text-xs font-sans mt-0.5">
                     {(() => {
                       const d = new Date(popup.booking_date + 'T12:00:00')
@@ -622,7 +622,7 @@ export default function WeekCalendar({ barberId, adminMode }: Props) {
                     })()}
                   </p>
                 </div>
-                <button onClick={() => setPopup(null)} className="text-muted hover:text-cream transition-colors -mt-0.5">
+                <button onClick={() => setPopup(null)} className="text-muted hover:text-fg transition-colors -mt-0.5">
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                     <path d="M3 3L13 13M13 3L3 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                   </svg>
@@ -639,13 +639,13 @@ export default function WeekCalendar({ barberId, adminMode }: Props) {
                 ] as [string, string][]).map(([label, value]) => (
                   <div key={label} className="flex gap-4">
                     <span className="text-[9px] tracking-[0.22em] text-muted font-sans uppercase w-16 shrink-0 pt-0.5">{label}</span>
-                    <span className="text-cream text-sm font-sans break-all">{value}</span>
+                    <span className="text-fg text-sm font-sans break-all">{value}</span>
                   </div>
                 ))}
               </div>
               <a
                 href={`tel:${popup.customer_phone}`}
-                className="mt-5 flex items-center justify-center gap-2 w-full py-2 border border-stroke-dark hover:border-forest/50 text-muted hover:text-cream text-xs font-sans uppercase tracking-[0.14em] transition-colors duration-150"
+                className="mt-5 flex items-center justify-center gap-2 w-full py-2 border border-line hover:border-accent/50 text-muted hover:text-fg text-xs font-sans uppercase tracking-[0.14em] transition-colors duration-150"
               >
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                   <path d="M10.5 8.5c0 .2-.04.39-.13.57a1.88 1.88 0 0 1-.36.52c-.21.22-.44.38-.7.47-.25.09-.52.14-.81.14-.42 0-.87-.1-1.34-.3a10.4 10.4 0 0 1-1.34-.79 10.24 10.24 0 0 1-1.27-1.26A10.3 10.3 0 0 1 3.77 6.4c-.2-.47-.3-.91-.3-1.33 0-.28.05-.55.14-.8.09-.26.24-.5.46-.71.22-.22.46-.33.72-.33.1 0 .2.02.29.06.1.04.18.1.25.2l.85 1.19c.07.1.12.2.16.3.04.09.06.18.06.26 0 .1-.03.2-.08.3-.05.1-.12.2-.21.29l-.28.3a.2.2 0 0 0-.06.15c0 .03 0 .06.02.1.02.03.04.06.06.09.15.26.33.51.55.75.22.24.46.46.72.66.03.02.06.04.1.06.04.02.07.02.1.02a.2.2 0 0 0 .15-.07l.28-.29c.09-.1.19-.17.29-.21.1-.05.2-.07.3-.07.08 0 .17.02.26.06.1.04.2.09.3.16l1.2.87c.1.07.16.15.2.25.03.1.05.2.05.31Z" stroke="currentColor" strokeWidth="1" strokeMiterlimit="10"/>

@@ -8,7 +8,7 @@ export default function Hero() {
   return (
     <section
       id="hjem"
-      className="relative min-h-screen bg-ink flex flex-col justify-end overflow-hidden"
+      className="relative min-h-screen bg-canvas flex flex-col justify-end overflow-hidden"
     >
       {/* Atmospheric right-side image */}
       <div className="absolute inset-y-0 right-0 w-1/2 xl:w-2/5 pointer-events-none">
@@ -20,7 +20,7 @@ export default function Hero() {
           className="object-cover opacity-[0.18]"
           sizes="50vw"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-ink via-ink/70 to-ink/20" />
+        <div className="absolute inset-0 bg-gradient-to-r from-canvas via-canvas/70 to-canvas/20" />
       </div>
 
       {/* Subtle grid overlay */}
@@ -28,7 +28,7 @@ export default function Hero() {
         className="absolute inset-0 opacity-[0.025] pointer-events-none"
         style={{
           backgroundImage:
-            'repeating-linear-gradient(0deg,transparent,transparent 79px,#F3F0E7 79px,#F3F0E7 80px),repeating-linear-gradient(90deg,transparent,transparent 79px,#F3F0E7 79px,#F3F0E7 80px)',
+            'repeating-linear-gradient(0deg,transparent,transparent 79px,oklch(var(--fg)) 79px,oklch(var(--fg)) 80px),repeating-linear-gradient(90deg,transparent,transparent 79px,oklch(var(--fg)) 79px,oklch(var(--fg)) 80px)',
         }}
       />
 
@@ -54,11 +54,11 @@ export default function Hero() {
               initial={{ y: 120, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ duration: 1.05, delay: 0.05, ease: [0.25, 0, 0, 1] }}
-              className="font-display text-cream leading-[0.87] tracking-tight"
+              className="font-display text-fg leading-[0.87] tracking-tight"
               style={{ fontSize: 'clamp(52px, 9vw, 148px)' }}
             >
               <span className="block">Der presisjon</span>
-              <span className="block font-normal italic text-cream/90">møter stil.</span>
+              <span className="block font-normal italic text-fg/90">møter stil.</span>
             </motion.h1>
           </div>
         </div>
@@ -75,7 +75,7 @@ export default function Hero() {
 
           <Link
             href="/booking"
-            className="shrink-0 inline-flex items-center gap-3 px-8 py-4 bg-forest text-cream text-[10px] tracking-[0.28em] font-sans hover:bg-forest-mid transition-colors duration-300"
+            className="shrink-0 inline-flex items-center gap-3 px-8 py-4 bg-accent text-accent-fg text-[10px] tracking-[0.28em] font-sans hover:bg-accent-hover transition-colors duration-300"
           >
             BOOK NÅ
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0">

@@ -17,15 +17,15 @@ const social = [
 
 export default function Footer() {
   return (
-    <footer className="bg-ink border-t border-stroke-dark">
+    <footer className="bg-canvas border-t border-line">
       <div className="max-w-[1440px] mx-auto px-6 lg:px-12 pt-14 pb-10">
         <div className="grid md:grid-cols-3 gap-10 mb-12">
           {/* Brand */}
           <div>
-            <p className="font-display text-cream text-[9px] tracking-[0.38em] font-light mb-0.5">
+            <p className="font-display text-fg text-[9px] tracking-[0.38em] font-light mb-0.5">
               DOWNTOWN
             </p>
-            <p className="font-display text-cream text-[26px] tracking-[0.18em] font-bold leading-tight">
+            <p className="font-display text-fg text-[26px] tracking-[0.18em] font-bold leading-tight">
               BARBERS
             </p>
             <p className="text-muted text-[11px] font-sans mt-2.5 leading-snug">
@@ -34,7 +34,7 @@ export default function Footer() {
             </p>
             <a
               href="tel:+4746358764"
-              className="mt-3 block text-muted text-[11px] font-sans hover:text-cream transition-colors duration-200"
+              className="mt-3 block text-muted text-[11px] font-sans hover:text-fg transition-colors duration-200"
             >
               +47 463 58 764
             </a>
@@ -47,7 +47,7 @@ export default function Footer() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-muted/70 hover:text-cream text-[11px] tracking-[0.15em] font-sans transition-colors duration-200 self-start"
+                className="text-muted/70 hover:text-fg text-[11px] tracking-[0.15em] font-sans transition-colors duration-200 self-start"
               >
                 {link.label.toUpperCase()}
               </Link>
@@ -64,7 +64,7 @@ export default function Footer() {
                   href={s.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-muted/70 hover:text-cream text-[11px] tracking-[0.15em] font-sans transition-colors duration-200 self-start inline-flex items-center gap-2"
+                  className="text-muted/70 hover:text-fg text-[11px] tracking-[0.15em] font-sans transition-colors duration-200 self-start inline-flex items-center gap-2"
                 >
                   {s.label.toUpperCase()}
                   <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="opacity-40">
@@ -76,11 +76,11 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-stroke-dark pt-7 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="border-t border-line pt-7 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <p className="text-muted/60 text-[10px] font-sans tracking-[0.05em]">
             © 2025 Downtown Barbers. Alle rettigheter forbeholdt.
           </p>
-          <p className="text-stroke-dark text-[10px] font-sans tracking-[0.2em]">
+          <p className="text-line text-[10px] font-sans tracking-[0.2em]">
             OSLO · SIDEN 2013
           </p>
         </div>

@@ -98,22 +98,22 @@ export default function NewBookingSlideOver({ open, defaultDate, defaultBarberId
             key="backdrop"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.18 }}
-            className="fixed inset-0 bg-ink/60 backdrop-blur-[2px] z-40"
+            className="fixed inset-0 bg-canvas/60 backdrop-blur-[2px] z-40"
             onClick={onClose}
           />
           <motion.div
             key="panel"
             initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
             transition={{ type: 'tween', duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed right-0 top-0 h-full w-full sm:w-[420px] bg-ink-soft border-l border-stroke-dark z-50 flex flex-col overflow-hidden shadow-2xl"
+            className="fixed right-0 top-0 h-full w-full sm:w-[420px] bg-surface border-l border-line z-50 flex flex-col overflow-hidden shadow-2xl"
           >
             {/* Forest top strip */}
-            <div className="h-[3px] bg-forest shrink-0" />
+            <div className="h-[3px] bg-accent shrink-0" />
 
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-stroke-dark shrink-0">
-              <p className="text-cream font-sans font-semibold text-base">Ny time</p>
-              <button onClick={onClose} className="text-muted hover:text-cream transition-colors">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-line shrink-0">
+              <p className="text-fg font-sans font-semibold text-base">Ny time</p>
+              <button onClick={onClose} className="text-muted hover:text-fg transition-colors">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path d="M3 3L13 13M13 3L3 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
@@ -130,7 +130,7 @@ export default function NewBookingSlideOver({ open, defaultDate, defaultBarberId
                   <select
                     value={serviceId}
                     onChange={e => setServiceId(e.target.value)}
-                    className="w-full bg-ink border border-stroke-dark px-3 py-2 text-sm font-sans text-cream outline-none focus:border-forest transition-colors"
+                    className="w-full bg-canvas border border-line px-3 py-2 text-sm font-sans text-fg outline-none focus:border-accent transition-colors"
                   >
                     <option value="">Velg tjeneste…</option>
                     {services.map(s => (
@@ -149,7 +149,7 @@ export default function NewBookingSlideOver({ open, defaultDate, defaultBarberId
                   <select
                     value={barberId}
                     onChange={e => setBarberId(e.target.value)}
-                    className="w-full bg-ink border border-stroke-dark px-3 py-2 text-sm font-sans text-cream outline-none focus:border-forest transition-colors"
+                    className="w-full bg-canvas border border-line px-3 py-2 text-sm font-sans text-fg outline-none focus:border-accent transition-colors"
                   >
                     <option value="">Velg barber…</option>
                     {barbers.map(b => (
@@ -168,7 +168,7 @@ export default function NewBookingSlideOver({ open, defaultDate, defaultBarberId
                     value={date}
                     onChange={e => setDate(e.target.value)}
                     min={new Date().toISOString().split('T')[0]}
-                    className="w-full bg-ink border border-stroke-dark px-3 py-2 text-sm font-sans text-cream outline-none focus:border-forest transition-colors"
+                    className="w-full bg-canvas border border-line px-3 py-2 text-sm font-sans text-fg outline-none focus:border-accent transition-colors"
                   />
                 </div>
 
@@ -192,10 +192,10 @@ export default function NewBookingSlideOver({ open, defaultDate, defaultBarberId
                           onClick={() => slot.available && setTime(slot.time)}
                           className={`py-1.5 text-xs font-sans border transition-colors ${
                             time === slot.time
-                              ? 'bg-forest border-forest text-cream'
+                              ? 'bg-accent border-accent text-accent-fg'
                               : slot.available
-                              ? 'border-stroke-dark text-cream/70 hover:border-forest/50 hover:text-cream bg-ink'
-                              : 'border-stroke-dark/30 text-muted/30 cursor-not-allowed'
+                              ? 'border-line text-fg/70 hover:border-accent/50 hover:text-fg bg-canvas'
+                              : 'border-line/30 text-muted/30 cursor-not-allowed'
                           }`}
                         >
                           {slot.time.slice(0, 5)}
@@ -206,7 +206,7 @@ export default function NewBookingSlideOver({ open, defaultDate, defaultBarberId
                 </div>
 
                 {/* Divider */}
-                <div className="border-t border-stroke-dark pt-2">
+                <div className="border-t border-line pt-2">
                   <p className="text-[9px] tracking-[0.28em] text-muted font-sans uppercase">Kundeinfo</p>
                 </div>
 
@@ -220,7 +220,7 @@ export default function NewBookingSlideOver({ open, defaultDate, defaultBarberId
                     value={name}
                     onChange={e => setName(e.target.value)}
                     placeholder="Fullt navn"
-                    className="w-full bg-ink border border-stroke-dark px-3 py-2 text-sm font-sans text-cream placeholder:text-muted/40 outline-none focus:border-forest transition-colors"
+                    className="w-full bg-canvas border border-line px-3 py-2 text-sm font-sans text-fg placeholder:text-muted/40 outline-none focus:border-accent transition-colors"
                   />
                 </div>
 
@@ -234,7 +234,7 @@ export default function NewBookingSlideOver({ open, defaultDate, defaultBarberId
                     value={phone}
                     onChange={e => setPhone(e.target.value)}
                     placeholder="+47 XXX XX XXX"
-                    className="w-full bg-ink border border-stroke-dark px-3 py-2 text-sm font-sans text-cream placeholder:text-muted/40 outline-none focus:border-forest transition-colors"
+                    className="w-full bg-canvas border border-line px-3 py-2 text-sm font-sans text-fg placeholder:text-muted/40 outline-none focus:border-accent transition-colors"
                   />
                 </div>
 
@@ -246,7 +246,7 @@ export default function NewBookingSlideOver({ open, defaultDate, defaultBarberId
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     placeholder="kunde@epost.no"
-                    className="w-full bg-ink border border-stroke-dark px-3 py-2 text-sm font-sans text-cream placeholder:text-muted/40 outline-none focus:border-forest transition-colors"
+                    className="w-full bg-canvas border border-line px-3 py-2 text-sm font-sans text-fg placeholder:text-muted/40 outline-none focus:border-accent transition-colors"
                   />
                 </div>
 
@@ -258,7 +258,7 @@ export default function NewBookingSlideOver({ open, defaultDate, defaultBarberId
                     onChange={e => setNotes(e.target.value)}
                     rows={3}
                     placeholder="Valgfritt…"
-                    className="w-full bg-ink border border-stroke-dark px-3 py-2 text-sm font-sans text-cream placeholder:text-muted/40 outline-none focus:border-forest transition-colors resize-none"
+                    className="w-full bg-canvas border border-line px-3 py-2 text-sm font-sans text-fg placeholder:text-muted/40 outline-none focus:border-accent transition-colors resize-none"
                   />
                 </div>
               </div>
@@ -269,11 +269,11 @@ export default function NewBookingSlideOver({ open, defaultDate, defaultBarberId
             </div>
 
             {/* Footer CTA */}
-            <div className="border-t border-stroke-dark p-5 shrink-0">
+            <div className="border-t border-line p-5 shrink-0">
               <button
                 onClick={handleSubmit}
                 disabled={submitting}
-                className="w-full py-3 bg-forest hover:bg-forest-mid text-cream text-xs font-sans uppercase tracking-[0.18em] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full py-3 bg-accent hover:bg-accent-hover text-accent-fg text-xs font-sans uppercase tracking-[0.18em] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {submitting ? 'Oppretter…' : 'Opprett time'}
               </button>

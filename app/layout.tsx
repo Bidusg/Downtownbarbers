@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Playfair_Display, Inter } from 'next/font/google'
 import './globals.css'
 
@@ -13,6 +13,13 @@ const inter = Inter({
   variable: '--font-inter',
   display: 'swap',
 })
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#F8F5EF' },
+    { media: '(prefers-color-scheme: dark)', color: '#211E1A' },
+  ],
+}
 
 export const metadata: Metadata = {
   title: 'Downtown Barbers | Oslo',

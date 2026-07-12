@@ -37,7 +37,7 @@ export default function BarberPortal() {
     <div>
       <div className="mb-6">
         <p className="text-muted text-xs font-sans uppercase tracking-[0.22em] mb-1">Mine timer</p>
-        <h1 className="font-display text-2xl text-cream">{barberName}</h1>
+        <h1 className="font-display text-2xl text-fg">{barberName}</h1>
       </div>
       <WeekCalendar barberId={barberId} />
     </div>

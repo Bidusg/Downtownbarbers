@@ -26,7 +26,7 @@ export default function Navbar() {
   return (
     <motion.header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-        scrolled ? 'bg-ink/96 backdrop-blur-md py-3 border-b border-stroke-dark' : 'bg-transparent py-6'
+        scrolled ? 'bg-canvas/96 backdrop-blur-md py-3 border-b border-line' : 'bg-transparent py-6'
       }`}
       initial={{ y: -100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
@@ -34,10 +34,10 @@ export default function Navbar() {
     >
       <div className="max-w-[1440px] mx-auto px-6 lg:px-12 flex items-center justify-between">
         <Link href="#hjem" className="flex flex-col leading-none group">
-          <span className="font-display text-cream text-[9px] tracking-[0.35em] font-light">
+          <span className="font-display text-fg text-[9px] tracking-[0.35em] font-light">
             DOWNTOWN
           </span>
-          <span className="font-display text-cream text-[22px] tracking-[0.18em] font-bold leading-tight">
+          <span className="font-display text-fg text-[22px] tracking-[0.18em] font-bold leading-tight">
             BARBERS
           </span>
         </Link>
@@ -47,7 +47,7 @@ export default function Navbar() {
             <Link
               key={link.href}
               href={link.href}
-              className="text-cream/60 hover:text-cream text-[10px] tracking-[0.22em] font-sans transition-colors duration-200"
+              className="text-fg/60 hover:text-fg text-[10px] tracking-[0.22em] font-sans transition-colors duration-200"
             >
               {link.label}
             </Link>
@@ -57,7 +57,7 @@ export default function Navbar() {
         <div className="flex items-center gap-4">
           <Link
             href="/booking"
-            className="hidden lg:inline-flex items-center px-6 py-2.5 border border-forest text-forest hover:bg-forest hover:text-cream text-[10px] tracking-[0.22em] font-sans transition-all duration-300"
+            className="hidden lg:inline-flex items-center px-6 py-2.5 border border-accent text-accent hover:bg-accent hover:text-accent-fg text-[10px] tracking-[0.22em] font-sans transition-all duration-300"
           >
             BOOK NÅ
           </Link>
@@ -68,17 +68,17 @@ export default function Navbar() {
             aria-label={open ? 'Lukk meny' : 'Åpne meny'}
           >
             <span
-              className={`block w-6 h-px bg-cream origin-center transition-all duration-300 ${
+              className={`block w-6 h-px bg-fg origin-center transition-all duration-300 ${
                 open ? 'rotate-45 translate-y-[7px]' : ''
               }`}
             />
             <span
-              className={`block w-4 h-px bg-cream transition-all duration-300 ${
+              className={`block w-4 h-px bg-fg transition-all duration-300 ${
                 open ? 'opacity-0 translate-x-2' : ''
               }`}
             />
             <span
-              className={`block w-6 h-px bg-cream origin-center transition-all duration-300 ${
+              className={`block w-6 h-px bg-fg origin-center transition-all duration-300 ${
                 open ? '-rotate-45 -translate-y-[7px]' : ''
               }`}
             />
@@ -93,7 +93,7 @@ export default function Navbar() {
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.35, ease: [0.25, 0, 0, 1] }}
-            className="lg:hidden overflow-hidden bg-ink/98 border-t border-stroke-dark"
+            className="lg:hidden overflow-hidden bg-canvas/98 border-t border-line"
           >
             <div className="max-w-[1440px] mx-auto px-6 py-6 flex flex-col gap-1">
               {navLinks.map((link, i) => (
@@ -106,7 +106,7 @@ export default function Navbar() {
                   <Link
                     href={link.href}
                     onClick={() => setOpen(false)}
-                    className="block text-cream/70 hover:text-cream text-[11px] tracking-[0.22em] font-sans py-3 border-b border-stroke-dark/40 transition-colors"
+                    className="block text-fg/70 hover:text-fg text-[11px] tracking-[0.22em] font-sans py-3 border-b border-line/40 transition-colors"
                   >
                     {link.label}
                   </Link>
@@ -114,7 +114,7 @@ export default function Navbar() {
               ))}
               <Link
                 href="/booking"
-                className="mt-4 block text-center py-3.5 border border-forest text-forest text-[10px] tracking-[0.25em] font-sans hover:bg-forest hover:text-cream transition-all duration-300"
+                className="mt-4 block text-center py-3.5 border border-accent text-accent text-[10px] tracking-[0.25em] font-sans hover:bg-accent hover:text-accent-fg transition-all duration-300"
                 onClick={() => setOpen(false)}
               >
                 BOOK NÅ

@@ -208,13 +208,13 @@ export default function PaymentModal({ booking, onClose, onCompleted }: Props) {
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-ink/85 backdrop-blur-[3px]"
+        className="absolute inset-0 bg-canvas/85 backdrop-blur-[3px]"
         onClick={handleBackdropClick}
       />
 
       {/* Modal box */}
       <motion.div
-        className="relative z-10 bg-ink-soft border border-stroke-dark w-full max-w-sm shadow-2xl overflow-hidden"
+        className="relative z-10 bg-surface border border-line w-full max-w-sm shadow-2xl overflow-hidden"
         initial={{ scale: 0.96, y: 12 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.96, y: 12 }}
@@ -225,9 +225,9 @@ export default function PaymentModal({ booking, onClose, onCompleted }: Props) {
           {/* ── IDLE ─────────────────────────────────────── */}
           {state === 'idle' && (
             <motion.div key="idle" {...VIEW} transition={{ duration: 0.15 }}>
-              <div className="flex items-center justify-between px-5 py-4 border-b border-stroke-dark">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-line">
                 <p className="text-[9px] tracking-[0.28em] text-muted font-sans uppercase">Fullfør betaling</p>
-                <button onClick={onClose} className="text-muted hover:text-cream transition-colors">
+                <button onClick={onClose} className="text-muted hover:text-fg transition-colors">
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                     <path d="M3 3L13 13M13 3L3 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                   </svg>
@@ -235,8 +235,8 @@ export default function PaymentModal({ booking, onClose, onCompleted }: Props) {
               </div>
 
               {/* Booking summary */}
-              <div className="px-5 pt-6 pb-5 border-b border-stroke-dark/40 text-center">
-                <p className="text-cream/80 text-xs font-sans mb-0.5">
+              <div className="px-5 pt-6 pb-5 border-b border-line/40 text-center">
+                <p className="text-fg/80 text-xs font-sans mb-0.5">
                   {booking.customer_name}
                 </p>
                 <p className="text-muted text-[10px] font-sans mb-1">
@@ -247,7 +247,7 @@ export default function PaymentModal({ booking, onClose, onCompleted }: Props) {
                 </p>
 
                 <div className="flex items-baseline justify-center gap-1.5">
-                  <span className="font-display text-[3.25rem] text-cream leading-none tracking-tight">
+                  <span className="font-display text-[3.25rem] text-fg leading-none tracking-tight">
                     {price.toLocaleString('nb-NO')}
                   </span>
                   <span className="text-xl text-muted font-sans font-light">kr</span>
@@ -272,12 +272,12 @@ export default function PaymentModal({ booking, onClose, onCompleted }: Props) {
                 <button
                   onClick={handleCash}
                   disabled={cashLoading}
-                  className="w-full py-3.5 bg-forest hover:bg-forest-mid text-cream font-sans text-sm font-medium transition-colors disabled:opacity-60"
+                  className="w-full py-3.5 bg-accent hover:bg-accent-hover text-accent-fg font-sans text-sm font-medium transition-colors disabled:opacity-60"
                 >
                   {cashLoading ? (
                     <span className="flex items-center justify-center gap-2">
                       <motion.span
-                        className="inline-block w-3.5 h-3.5 border border-cream/40 border-t-cream rounded-full"
+                        className="inline-block w-3.5 h-3.5 border border-fg/40 border-t-fg rounded-full"
                         animate={{ rotate: 360 }}
                         transition={{ repeat: Infinity, duration: 0.8, ease: 'linear' }}
                       />
@@ -295,18 +295,18 @@ export default function PaymentModal({ booking, onClose, onCompleted }: Props) {
               <div className="flex justify-center mb-6">
                 <VippsSpinner />
               </div>
-              <p className="text-cream font-sans font-semibold text-lg mb-1.5">
+              <p className="text-fg font-sans font-semibold text-lg mb-1.5">
                 Venter på Vipps-betaling…
               </p>
               <p className="text-muted text-sm font-sans mb-2">
                 Kunden godkjenner i Vipps-appen
               </p>
-              <p className="text-cream/60 text-sm font-sans font-medium mb-8">
+              <p className="text-fg/60 text-sm font-sans font-medium mb-8">
                 {price.toLocaleString('nb-NO')} kr · {booking.barbers?.name}
               </p>
               <button
                 onClick={handleCancelVipps}
-                className="px-6 py-2 border border-stroke-dark text-muted hover:text-cream text-xs font-sans uppercase tracking-[0.16em] transition-colors"
+                className="px-6 py-2 border border-line text-muted hover:text-fg text-xs font-sans uppercase tracking-[0.16em] transition-colors"
               >
                 Avbryt
               </button>
@@ -324,11 +324,11 @@ export default function PaymentModal({ booking, onClose, onCompleted }: Props) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.62, duration: 0.3 }}
               >
-                <p className="text-cream font-sans font-semibold text-xl mb-3">
+                <p className="text-fg font-sans font-semibold text-xl mb-3">
                   Betaling mottatt!
                 </p>
                 <div className="flex items-baseline justify-center gap-1.5 mb-1">
-                  <span className="font-display text-4xl text-cream leading-none">
+                  <span className="font-display text-4xl text-fg leading-none">
                     {price.toLocaleString('nb-NO')}
                   </span>
                   <span className="text-lg text-muted font-sans">kr</span>
@@ -337,8 +337,8 @@ export default function PaymentModal({ booking, onClose, onCompleted }: Props) {
                   {method === 'vipps' ? 'Vipps' : 'Kasse'}
                 </p>
 
-                <div className="border-t border-stroke-dark/50 pt-4 mb-6">
-                  <p className="text-cream/70 text-sm font-sans">{booking.customer_name}</p>
+                <div className="border-t border-line/50 pt-4 mb-6">
+                  <p className="text-fg/70 text-sm font-sans">{booking.customer_name}</p>
                   <p className="text-muted text-xs font-sans mt-0.5">
                     {booking.services?.name} · {booking.barbers?.name}
                   </p>
@@ -346,7 +346,7 @@ export default function PaymentModal({ booking, onClose, onCompleted }: Props) {
 
                 <button
                   onClick={onCompleted}
-                  className="w-full py-3 bg-forest hover:bg-forest-mid text-cream text-xs font-sans uppercase tracking-[0.18em] transition-colors"
+                  className="w-full py-3 bg-accent hover:bg-accent-hover text-accent-fg text-xs font-sans uppercase tracking-[0.18em] transition-colors"
                 >
                   Lukk
                 </button>
@@ -365,7 +365,7 @@ export default function PaymentModal({ booking, onClose, onCompleted }: Props) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.62, duration: 0.3 }}
               >
-                <p className="text-red-300 font-sans font-semibold text-xl mb-2">
+                <p className="text-danger font-sans font-semibold text-xl mb-2">
                   Betaling feilet
                 </p>
                 <p className="text-muted text-sm font-sans mb-8">
@@ -383,7 +383,7 @@ export default function PaymentModal({ booking, onClose, onCompleted }: Props) {
                   <button
                     onClick={handleCash}
                     disabled={cashLoading}
-                    className="flex-1 py-2.5 bg-forest hover:bg-forest-mid text-cream text-xs font-sans uppercase tracking-[0.14em] transition-colors disabled:opacity-50"
+                    className="flex-1 py-2.5 bg-accent hover:bg-accent-hover text-accent-fg text-xs font-sans uppercase tracking-[0.14em] transition-colors disabled:opacity-50"
                   >
                     Betalt i kasse
                   </button>

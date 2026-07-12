@@ -40,7 +40,7 @@ export default function Services() {
   const inView = useInView(ref, { once: true, margin: '-80px' })
 
   return (
-    <section id="tjenester" ref={ref} className="bg-ink py-24 lg:py-36">
+    <section id="tjenester" ref={ref} className="bg-canvas py-24 lg:py-36">
       <div className="max-w-[1440px] mx-auto px-6 lg:px-12">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-16">
@@ -57,11 +57,11 @@ export default function Services() {
               initial={{ opacity: 0, y: 32 }}
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.8, delay: 0.1, ease: [0.25, 0, 0, 1] }}
-              className="font-display text-cream leading-none tracking-tight"
+              className="font-display text-fg leading-none tracking-tight"
               style={{ fontSize: 'clamp(36px, 4.5vw, 64px)' }}
             >
               Hva vi gjør
-              <span className="text-forest">.</span>
+              <span className="text-accent-soft">.</span>
             </motion.h2>
           </div>
 
@@ -73,7 +73,7 @@ export default function Services() {
           >
             <Link
               href="/booking"
-              className="inline-flex items-center gap-2.5 px-7 py-3.5 border border-forest text-forest text-[10px] tracking-[0.25em] font-sans hover:bg-forest hover:text-cream transition-all duration-300"
+              className="inline-flex items-center gap-2.5 px-7 py-3.5 border border-accent text-accent text-[10px] tracking-[0.25em] font-sans hover:bg-accent hover:text-accent-fg transition-all duration-300"
             >
               BESTILL NÅ
             </Link>
@@ -81,14 +81,14 @@ export default function Services() {
         </div>
 
         {/* Service cards */}
-        <div className="grid md:grid-cols-3 gap-px bg-stroke-dark">
+        <div className="grid md:grid-cols-3 gap-px bg-line">
           {services.map((s, i) => (
             <motion.article
               key={s.num}
               initial={{ opacity: 0, y: 48 }}
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.85, delay: 0.12 * i, ease: [0.25, 0, 0, 1] }}
-              className="group bg-ink-soft hover:bg-ink-mid transition-colors duration-400 p-7 flex flex-col gap-5"
+              className="group bg-surface hover:bg-surface-2 transition-colors duration-400 p-7 flex flex-col gap-5"
             >
               <div className="relative aspect-[4/3] overflow-hidden">
                 <Image
@@ -102,10 +102,10 @@ export default function Services() {
 
               <div className="flex items-start justify-between">
                 <span className="text-muted text-[9px] tracking-[0.3em] font-sans">{s.category}</span>
-                <span className="text-stroke-dark text-[10px] tracking-[0.15em] font-sans">{s.num}</span>
+                <span className="text-line text-[10px] tracking-[0.15em] font-sans">{s.num}</span>
               </div>
 
-              <h3 className="font-display text-cream leading-tight" style={{ fontSize: 'clamp(24px, 2.2vw, 30px)' }}>
+              <h3 className="font-display text-fg leading-tight" style={{ fontSize: 'clamp(24px, 2.2vw, 30px)' }}>
                 {s.headline}
                 <br />
                 <span className="font-normal italic">{s.sub}</span>
@@ -115,7 +115,7 @@ export default function Services() {
 
               <Link
                 href="/booking"
-                className="inline-flex items-center gap-2 text-forest text-[10px] tracking-[0.2em] font-sans hover:text-forest-light transition-colors duration-200 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300"
+                className="inline-flex items-center gap-2 text-accent text-[10px] tracking-[0.2em] font-sans hover:text-accent-soft transition-colors duration-200 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300"
               >
                 BOOK DENNE →
               </Link>

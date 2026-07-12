@@ -13,7 +13,7 @@ export default function LogoutButton({ redirectTo }: { redirectTo: string }) {
   return (
     <button
       onClick={handleLogout}
-      className="text-muted hover:text-cream text-xs font-sans uppercase tracking-[0.12em] transition-colors duration-150"
+      className="text-muted hover:text-fg text-xs font-sans uppercase tracking-[0.12em] transition-colors duration-150"
     >
       Logg ut
     </button>

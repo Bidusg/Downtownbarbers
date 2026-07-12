@@ -18,7 +18,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!adminRow) redirect('/admin/login')
 
   return (
-    <div className="min-h-screen bg-ink">
+    <div className="min-h-screen bg-canvas">
       <AdminNav />
       <div className="px-6 lg:px-10 py-8">{children}</div>
     </div>

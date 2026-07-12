@@ -2,9 +2,71 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Downtown Barbers — warm monochrome, two first-class themes.
+ *
+ * Light (default): linen canvas, espresso foreground. A tailor's studio in
+ * daylight — white that feels like fabric, not laboratory.
+ * Dark (prefers-color-scheme): espresso canvas, linen foreground.
+ *
+ * Every token is an OKLCH triple consumed by tailwind.config.ts as
+ * oklch(var(--x) / <alpha>). Semantics, not colors: canvas/surface/fg/
+ * muted/line + accent (the CTA block, which is simply the inverse ink)
+ * + a bronze whisper (accent-soft) for micro-labels.
+ */
+:root {
+  color-scheme: light dark;
+
+  --canvas: 97.3% 0.007 85;
+  --surface: 99.2% 0.004 85;
+  --surface-2: 93.8% 0.009 85;
+
+  --fg: 23% 0.012 50;
+  --fg-soft: 30% 0.014 50;
+  --muted: 47% 0.014 60;
+
+  --line: 88% 0.01 82;
+  --line-2: 80% 0.012 80;
+
+  --accent: 23% 0.012 50;
+  --accent-hover: 32% 0.015 50;
+  --accent-soft: 46% 0.05 60;
+  --accent-fg: 97.3% 0.007 85;
+
+  --danger: 44% 0.15 27;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --canvas: 16.5% 0.008 45;
+    --surface: 20% 0.009 45;
+    --surface-2: 24% 0.01 45;
+
+    --fg: 94% 0.009 85;
+    --fg-soft: 88% 0.012 85;
+    --muted: 66% 0.014 70;
+
+    --line: 29% 0.01 50;
+    --line-2: 37% 0.012 55;
+
+    --accent: 94% 0.009 85;
+    --accent-hover: 86% 0.014 80;
+    --accent-soft: 73% 0.05 70;
+    --accent-fg: 16.5% 0.008 45;
+
+    --danger: 70% 0.13 22;
+  }
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
   }
 
   * {
@@ -13,20 +75,26 @@
   }
 
   body {
-    @apply bg-cream text-ink font-sans;
+    @apply bg-canvas text-fg font-sans;
   }
 
   ::selection {
-    @apply bg-forest text-cream;
+    @apply bg-fg text-canvas;
+  }
+
+  :focus-visible {
+    outline: 2px solid oklch(var(--accent-soft));
+    outline-offset: 2px;
   }
 
   ::-webkit-scrollbar {
     width: 4px;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-ink;
+    background: oklch(var(--canvas));
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-forest-mid rounded-full;
+    background: oklch(var(--line-2));
+    border-radius: 999px;
   }
 }

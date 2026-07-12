@@ -45,10 +45,10 @@ export default function ProductCard({ product }: { product: ShopProduct }) {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-40px' }}
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      className="group bg-ink-soft border border-stroke-dark hover:border-forest/50 transition-colors duration-300 flex flex-col"
+      className="group bg-surface border border-line hover:border-accent/50 transition-colors duration-300 flex flex-col"
     >
       {/* Image */}
-      <div className="aspect-square bg-gradient-to-br from-ink-mid to-ink-soft border-b border-stroke-dark/60 grid place-items-center overflow-hidden">
+      <div className="aspect-square bg-gradient-to-br from-surface-2 to-surface border-b border-line/60 grid place-items-center overflow-hidden">
         {product.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -69,20 +69,20 @@ export default function ProductCard({ product }: { product: ShopProduct }) {
 
       {/* Content */}
       <div className="p-5 flex flex-col gap-2.5 flex-grow">
-        <h2 className="font-display text-cream text-lg leading-snug">{product.title}</h2>
+        <h2 className="font-display text-fg text-lg leading-snug">{product.title}</h2>
         <p className="text-muted font-sans text-[13px] leading-relaxed flex-grow">
           {product.description}
         </p>
 
-        <div className="flex items-center justify-between mt-3 pt-4 border-t border-stroke-dark/50">
-          <span className="font-display text-cream text-xl">
+        <div className="flex items-center justify-between mt-3 pt-4 border-t border-line/50">
+          <span className="font-display text-fg text-xl">
             {nok.format(Number(product.price.amount))}
           </span>
 
           <button
             onClick={buy}
             disabled={!product.available || status === 'loading'}
-            className="px-5 py-2.5 bg-forest hover:bg-forest-mid text-cream text-[10px] tracking-[0.2em] font-sans uppercase transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-forest"
+            className="px-5 py-2.5 bg-accent hover:bg-accent-hover text-accent-fg text-[10px] tracking-[0.2em] font-sans uppercase transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-accent"
           >
             {!product.available
               ? 'Utsolgt'
@@ -98,7 +98,7 @@ export default function ProductCard({ product }: { product: ShopProduct }) {
           </p>
         )}
         {status === 'error' && (
-          <p role="alert" className="text-red-300 font-sans text-xs leading-relaxed">
+          <p role="alert" className="text-danger font-sans text-xs leading-relaxed">
             Kunne ikke åpne kassen. Prøv igjen om litt.
           </p>
         )}

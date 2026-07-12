@@ -24,7 +24,7 @@ export default async function AdminDashboard() {
     <div>
       <div className="mb-6">
         <p className="text-muted text-xs font-sans uppercase tracking-[0.22em] mb-1">I dag</p>
-        <h1 className="font-display text-2xl text-cream capitalize">{formattedToday}</h1>
+        <h1 className="font-display text-2xl text-fg capitalize">{formattedToday}</h1>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
@@ -34,8 +34,8 @@ export default async function AdminDashboard() {
           { label: 'Fullført', value: completed },
           { label: 'Kansellert', value: cancelled },
         ].map(stat => (
-          <div key={stat.label} className="bg-ink-soft border border-stroke-dark px-4 py-3">
-            <p className="text-2xl font-display text-cream">{stat.value}</p>
+          <div key={stat.label} className="bg-surface border border-line px-4 py-3">
+            <p className="text-2xl font-display text-fg">{stat.value}</p>
             <p className="text-[9px] text-muted font-sans mt-1 uppercase tracking-[0.18em]">{stat.label}</p>
           </div>
         ))}

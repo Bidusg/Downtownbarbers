@@ -28,7 +28,7 @@ export default function Team() {
   const inView = useInView(ref, { once: true, margin: '-80px' })
 
   return (
-    <section id="team" ref={ref} className="bg-cream-dark py-24 lg:py-36">
+    <section id="team" ref={ref} className="bg-surface-2 py-24 lg:py-36">
       <div className="max-w-[1440px] mx-auto px-6 lg:px-12">
         <motion.p
           initial={{ opacity: 0 }}
@@ -43,11 +43,11 @@ export default function Team() {
           initial={{ opacity: 0, y: 32 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.8, delay: 0.1, ease: [0.25, 0, 0, 1] }}
-          className="font-display text-ink leading-[0.88] tracking-tight mb-16"
+          className="font-display text-fg leading-[0.88] tracking-tight mb-16"
           style={{ fontSize: 'clamp(40px, 5vw, 72px)' }}
         >
           Møt folkene
-          <span className="block font-normal italic text-forest">bak saksene.</span>
+          <span className="block font-normal italic text-accent-soft">bak saksene.</span>
         </motion.h2>
 
         <motion.div
@@ -70,11 +70,11 @@ export default function Team() {
                 </span>
 
                 {/* Hover state */}
-                <div className="absolute inset-0 bg-forest opacity-0 group-hover:opacity-100 transition-opacity duration-350 flex flex-col items-center justify-center gap-3">
-                  <p className="text-cream font-display text-lg tracking-wide">{member.name}</p>
+                <div className="absolute inset-0 bg-accent opacity-0 group-hover:opacity-100 transition-opacity duration-350 flex flex-col items-center justify-center gap-3">
+                  <p className="text-accent-fg font-display text-lg tracking-wide">{member.name}</p>
                   <Link
                     href="/booking"
-                    className="text-cream/80 text-[9px] tracking-[0.28em] font-sans border border-cream/30 px-4 py-2 hover:bg-cream/10 transition-colors duration-200"
+                    className="text-accent-fg/80 text-[9px] tracking-[0.28em] font-sans border border-accent-fg/30 px-4 py-2 hover:bg-accent-fg/10 transition-colors duration-200"
                     onClick={(e) => e.stopPropagation()}
                   >
                     BOOK
@@ -82,7 +82,7 @@ export default function Team() {
                 </div>
               </div>
 
-              <p className="font-sans text-ink text-sm font-medium leading-tight">{member.name}</p>
+              <p className="font-sans text-fg text-sm font-medium leading-tight">{member.name}</p>
               <p className="font-sans text-muted text-[10px] tracking-[0.15em] mt-0.5">
                 {member.role.toUpperCase()}
               </p>

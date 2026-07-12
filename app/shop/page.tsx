@@ -18,15 +18,15 @@ export default async function ShopPage() {
   return (
     <>
       <Navbar />
-      <main className="bg-ink min-h-screen">
+      <main className="bg-canvas min-h-screen">
         <div className="max-w-[1440px] mx-auto px-6 lg:px-12 pt-36 pb-16">
           <p className="text-muted text-[9px] tracking-[0.35em] font-sans mb-6">NETTBUTIKK</p>
           <h1
-            className="font-display text-cream leading-[0.88] tracking-tight mb-4"
+            className="font-display text-fg leading-[0.88] tracking-tight mb-4"
             style={{ fontSize: 'clamp(44px, 6vw, 96px)' }}
           >
             Behold stilen
-            <span className="block font-normal italic text-cream/85">hjemme.</span>
+            <span className="block font-normal italic text-fg/85">hjemme.</span>
           </h1>
           <p className="text-muted font-sans text-[15px] leading-relaxed max-w-[48ch] mt-6">
             Håndplukket av barberne våre. Bestill her — betaling, frakt og
@@ -36,14 +36,14 @@ export default async function ShopPage() {
           {isMock && (
             <p
               role="status"
-              className="inline-block mt-8 px-3 py-1.5 border border-stroke-dark text-muted text-[10px] tracking-[0.2em] font-sans uppercase"
+              className="inline-block mt-8 px-3 py-1.5 border border-line text-muted text-[10px] tracking-[0.2em] font-sans uppercase"
             >
               Demo — eksempelprodukter til butikken kobles til
             </p>
           )}
         </div>
 
-        <div className="border-t border-stroke-dark" />
+        <div className="border-t border-line" />
 
         <div className="max-w-[1440px] mx-auto px-6 lg:px-12 py-16">
           <ProductGrid products={products} />

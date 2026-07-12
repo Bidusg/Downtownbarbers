@@ -91,12 +91,12 @@ export default function BookingWizard() {
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
         className="text-center py-12 px-4"
       >
-        <div className="w-14 h-14 bg-forest/20 border border-forest mx-auto flex items-center justify-center mb-6">
+        <div className="w-14 h-14 bg-accent/10 border border-accent text-accent mx-auto flex items-center justify-center mb-6">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path d="M5 12.5L9.5 17L19 7" stroke="#3D8A69" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M5 12.5L9.5 17L19 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
-        <h2 className="font-display text-2xl text-cream mb-3">Time bekreftet</h2>
+        <h2 className="font-display text-2xl text-fg mb-3">Time bekreftet</h2>
         <p className="text-muted font-sans text-sm leading-relaxed max-w-sm mx-auto mb-2">
           Takk, {contact.name}. En bekreftelse er sendt til {contact.email}.
         </p>
@@ -105,7 +105,7 @@ export default function BookingWizard() {
         </p>
         <a
           href="/"
-          className="inline-block mt-8 px-6 py-2.5 border border-stroke-dark text-cream/70 text-xs font-sans tracking-[0.16em] uppercase hover:border-forest/50 hover:text-cream transition-colors duration-200"
+          className="inline-block mt-8 px-6 py-2.5 border border-line text-fg/70 text-xs font-sans tracking-[0.16em] uppercase hover:border-accent/50 hover:text-fg transition-colors duration-200"
         >
           Tilbake til forsiden
         </a>
@@ -181,11 +181,11 @@ export default function BookingWizard() {
       </div>
 
       {step < 5 && (
-        <div className="flex items-center justify-between mt-8 pt-5 border-t border-stroke-dark">
+        <div className="flex items-center justify-between mt-8 pt-5 border-t border-line">
           {step > 1 ? (
             <button
               onClick={prev}
-              className="flex items-center gap-2 text-muted hover:text-cream text-xs font-sans uppercase tracking-[0.18em] transition-colors duration-150"
+              className="flex items-center gap-2 text-muted hover:text-fg text-xs font-sans uppercase tracking-[0.18em] transition-colors duration-150"
             >
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                 <path d="M8 2L4 6L8 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -197,7 +197,7 @@ export default function BookingWizard() {
           <button
             onClick={next}
             disabled={!canNext}
-            className="flex items-center gap-2 px-5 py-2.5 bg-forest hover:bg-forest-mid text-cream text-xs font-sans uppercase tracking-[0.18em] transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-5 py-2.5 bg-accent hover:bg-accent-hover text-accent-fg text-xs font-sans uppercase tracking-[0.18em] transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {step === 4 ? 'Gå til bekreftelse' : 'Neste'}
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">

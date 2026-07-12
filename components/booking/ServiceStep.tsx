@@ -29,7 +29,7 @@ export default function ServiceStep({ selected, onSelect }: Props) {
 
   return (
     <div>
-      <h2 className="font-display text-xl text-cream mb-1">Velg tjeneste</h2>
+      <h2 className="font-display text-xl text-fg mb-1">Velg tjeneste</h2>
       <p className="text-muted text-sm font-sans mb-7">Hva kan vi gjøre for deg i dag?</p>
 
       {categories.map(cat => (
@@ -44,12 +44,12 @@ export default function ServiceStep({ selected, onSelect }: Props) {
                   onClick={() => onSelect(service)}
                   className={`w-full text-left p-4 border transition-colors duration-150 flex items-center justify-between group ${
                     active
-                      ? 'border-forest bg-forest/10'
-                      : 'border-stroke-dark hover:border-forest/50 bg-ink-soft hover:bg-ink-mid'
+                      ? 'border-accent bg-accent/10'
+                      : 'border-line hover:border-accent/50 bg-surface hover:bg-surface-2'
                   }`}
                 >
                   <div>
-                    <p className={`font-sans text-sm font-medium transition-colors ${active ? 'text-cream' : 'text-cream/80 group-hover:text-cream'}`}>
+                    <p className={`font-sans text-sm font-medium transition-colors ${active ? 'text-fg' : 'text-fg/80 group-hover:text-fg'}`}>
                       {service.name}
                     </p>
                     {service.description && (
@@ -58,7 +58,7 @@ export default function ServiceStep({ selected, onSelect }: Props) {
                     <p className="text-muted text-xs mt-1.5 font-sans">{service.duration_minutes} min</p>
                   </div>
                   <div className="ml-4 shrink-0 text-right">
-                    <p className={`font-sans text-base font-medium transition-colors ${active ? 'text-forest-light' : 'text-cream/60 group-hover:text-cream/80'}`}>
+                    <p className={`font-sans text-base font-medium transition-colors ${active ? 'text-accent-soft' : 'text-fg/60 group-hover:text-fg/80'}`}>
                       {service.price % 1 === 0
                         ? `${service.price.toLocaleString('nb-NO')} kr`
                         : `fra ${Math.floor(service.price).toLocaleString('nb-NO')} kr`}
