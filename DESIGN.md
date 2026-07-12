@@ -2,8 +2,8 @@
 
 Varm monokrom i to likeverdige moduser som følger `prefers-color-scheme`.
 Referansefamilie: Aesop-varm retail-minimalisme — lin, ikke laboratorium.
-Ingen dekorativ aksentfarge: CTA-er er invertert blekk, og en hvisken av
-bronse bærer mikroetiketter og kuraterte detaljer.
+CTA-er er invertert blekk; merkeoransjen fra originalsiden (#F47721)
+bærer mikroetiketter og kuraterte detaljer som eneste kromatiske stemme.
 
 ## Theme
 
@@ -29,13 +29,13 @@ Semantiske navn — aldri råfarger i komponenter.
 | `line-2` | 80% 0.012 80 | 37% 0.012 55 | Sterkere rammer, scrollbar |
 | `accent` | = fg | = fg | CTA-blokker (invertert blekk) |
 | `accent-hover` | 32% 0.015 50 | 86% 0.014 80 | CTA-hover |
-| `accent-soft` | 46% 0.05 60 | 73% 0.05 70 | Bronse-hvisken: mikroetiketter, kuraterte ord |
+| `accent-soft` | 58% 0.17 42 | 70% 0.17 45 | Merkeoransje (fra #F47721): mikroetiketter, kuraterte ord. Lys modus er en dypere, brent utgave for kontrast på lin; mørk modus er tilnærmet ren #F47721 |
 | `accent-fg` | = canvas (lys) | = canvas (mørk) | Tekst PÅ accent-flater |
 | `danger` | 44% 0.15 27 | 70% 0.13 22 | Feilmeldinger |
 
 Regler:
 - Tekst på `bg-accent` bruker alltid `text-accent-fg`, aldri `text-fg`.
-- `accent-soft` er den eneste kromatiske stemmen — brukes sparsomt (italic-ord i overskrifter, tellere, understreker). Aldri som flatefarge.
+- `accent-soft` er den eneste kromatiske stemmen — brukes sparsomt (italic-ord i overskrifter, tellere, understreker). Aldri som flatefarge. Verdien er avledet av merkeoransjen #F47721 fra downtownbarbers.no.
 - Funksjonsfarger beholdes: Vipps-oransje `#FF5B24`, suksess `#10B981`, feil-ikoner `#EF4444`, barber-identitetsfarger i admin-kalenderen.
 - E-postmalen (`app/api/booking-confirmation`) beholder sitt faste mørke design — e-postklienter følger ikke systemtema pålitelig.
 
@@ -54,4 +54,4 @@ Framer-motion: entrance-reveals med `[0.25, 0, 0, 1]` / `[0.16, 1, 0.3, 1]`-kurv
 
 ## Accessibility
 
-WCAG AA verifisert på tokennivå: brødtekst ≥4.5:1, muted ≥4.5:1 på canvas, accent-soft ≥4.5:1 på canvas i begge moduser. Synlig `:focus-visible`-outline i accent-soft. Fargebruk bærer aldri mening alene.
+WCAG AA verifisert på tokennivå: brødtekst ≥4.5:1, muted ≥4.5:1 på canvas. `accent-soft` holder ≥3:1 i lys modus (kun store display-ord og dekorative detaljer) og ≥4.5:1 i mørk — bruk den ikke på liten brødtekst i lys modus. Synlig `:focus-visible`-outline i accent-soft. Fargebruk bærer aldri mening alene.

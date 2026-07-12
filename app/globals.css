@@ -12,7 +12,8 @@
  * Every token is an OKLCH triple consumed by tailwind.config.ts as
  * oklch(var(--x) / <alpha>). Semantics, not colors: canvas/surface/fg/
  * muted/line + accent (the CTA block, which is simply the inverse ink)
- * + a bronze whisper (accent-soft) for micro-labels.
+ * + the brand orange (accent-soft, from #F47721 on downtownbarbers.no)
+ * for micro-labels and curated details.
  */
 :root {
   color-scheme: light dark;
@@ -30,7 +31,7 @@
 
   --accent: 23% 0.012 50;
   --accent-hover: 32% 0.015 50;
-  --accent-soft: 46% 0.05 60;
+  --accent-soft: 58% 0.17 42;
   --accent-fg: 97.3% 0.007 85;
 
   --danger: 44% 0.15 27;
@@ -51,7 +52,7 @@
 
     --accent: 94% 0.009 85;
     --accent-hover: 86% 0.014 80;
-    --accent-soft: 73% 0.05 70;
+    --accent-soft: 70% 0.17 45;
     --accent-fg: 16.5% 0.008 45;
 
     --danger: 70% 0.13 22;
