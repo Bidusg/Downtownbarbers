@@ -148,10 +148,37 @@ export default function PaymentModal({ booking, onClose, onCompleted }: Props) {
     }
   }
 
-  const handleVipps = () => {
+  const handleVipps = async () => {
     setMethod('vipps')
     setState('vipps-pending')
-    timerRef.current = setTimeout(() => saveAndComplete('vipps'), 3000)
+    try {
+      const res = await fetch('/api/vipps/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: booking.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Vipps create failed')
+
+      if (data.mode === 'mock') {
+        // Simulated approval delay, then complete through the real code
+        // path: the mock webhook marks the booking paid in Supabase.
+        timerRef.current = setTimeout(async () => {
+          try {
+            const hook = await fetch(data.redirectUrl)
+            if (!hook.ok) throw new Error('mock webhook failed')
+            if (mounted.current) setState('success')
+          } catch {
+            if (mounted.current) setState('failed')
+          }
+        }, 3000)
+      } else {
+        // Test/production: hand over to Vipps' hosted payment page.
+        window.location.href = data.redirectUrl
+      }
+    } catch {
+      if (mounted.current) setState('failed')
+    }
   }
 
   const handleCash = async () => {

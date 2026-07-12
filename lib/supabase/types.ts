@@ -38,6 +38,11 @@ export type Booking = {
   status: 'confirmed' | 'cancelled' | 'completed'
   notes: string | null
   created_at: string
+  payment_method?: 'vipps' | 'cash' | null
+  paid_at?: string | null
+  payment_provider?: string | null
+  payment_status?: 'unpaid' | 'paid' | 'refunded'
+  vipps_reference?: string | null
   services?: Pick<Service, 'id' | 'name' | 'price' | 'duration_minutes'>
   barbers?: Pick<Barber, 'id' | 'name' | 'role'>
 }
