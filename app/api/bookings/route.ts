@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
+import { config } from '@/lib/config'
 
 function toMin(t: string) {
   const [h, m] = t.split(':').map(Number)
@@ -100,8 +101,7 @@ export async function POST(req: NextRequest) {
   const formattedDate = bDate.toLocaleDateString('nb-NO', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
-  fetch(`${baseUrl}/api/booking-confirmation`, {
+  fetch(`${config.baseUrl}/api/booking-confirmation`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
