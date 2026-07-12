@@ -9,7 +9,7 @@ const navLinks = [
   { label: 'OM OSS', href: '#om-oss' },
   { label: 'TJENESTER', href: '#tjenester' },
   { label: 'TEAM', href: '#team' },
-  { label: 'BUTIKK', href: '#butikk' },
+  { label: 'NETTBUTIKK', href: '/shop' },
   { label: 'LEDIGE STILLINGER', href: '#jobb' },
 ]
 
