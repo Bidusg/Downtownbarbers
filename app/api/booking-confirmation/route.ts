@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
+import { config } from '@/lib/config'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { error } = await resend.emails.send({
-    from: 'Downtown Barbers <booking@downtownbarbers.no>',
+    from: config.email.from,
     to: [email],
     subject: `Timebekreftelse – ${date} kl ${time}`,
     html: html({ name, email, date, time, barber, service }),
