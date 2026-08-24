@@ -30,6 +30,8 @@ export type AdminBooking = {
   status: string;
   price_nok: number;
   customer: string;
+  customerPhone: string | null;
+  customerEmail: string | null;
   service: string;
   barber: string;
 };
@@ -153,12 +155,14 @@ export async function getUpcomingBookings(): Promise<AdminBooking[]> {
     const { data } = await sb
       .from("bookings")
       .select(
-        "id, start_at, status, price_nok, customers(full_name), services(name), staff(full_name)",
+        "id, start_at, status, price_nok, customers(full_name, phone, email), services(name), staff(full_name)",
       )
       .order("start_at", { ascending: true })
-      .limit(50);
+      .limit(100);
     return (data ?? []).map((r) => {
-      const c = r.customers as { full_name?: string } | null;
+      const c = r.customers as
+        | { full_name?: string; phone?: string; email?: string }
+        | null;
       const s = r.services as { name?: string } | null;
       const b = r.staff as { full_name?: string } | null;
       return {
@@ -167,6 +171,8 @@ export async function getUpcomingBookings(): Promise<AdminBooking[]> {
         status: r.status,
         price_nok: r.price_nok,
         customer: c?.full_name ?? "—",
+        customerPhone: c?.phone ?? null,
+        customerEmail: c?.email ?? null,
         service: s?.name ?? "—",
         barber: b?.full_name ?? "—",
       } as AdminBooking;

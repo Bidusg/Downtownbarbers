@@ -261,8 +261,13 @@ insert into settings (key, value) values
 on conflict (key) do nothing;
 
 insert into service_categories (name, sort_order) values
-  ('Hår & klipp', 1), ('Skjegg & grooming', 2), ('Ansikt & detalj', 3), ('Farge & behandling', 4)
+  ('Hår & klipp', 1), ('Skjegg & grooming', 2), ('Ansikt & detalj', 3)
 on conflict do nothing;
+
+-- Rydd bort tom demokategori hvis den finnes fra tidligere og ikke har tjenester
+delete from service_categories c
+where c.name = 'Farge & behandling'
+  and not exists (select 1 from services s where s.category_id = c.id);
 
 insert into staff (employee_number, full_name, title, active) values
   ('DB-001','David','Master Barber',true),
@@ -377,6 +382,56 @@ from (values
   ('Gavekort 500 kr','Digitalt gavekort til bruk på tjenester og produkter.',500,999,true)
 ) as v(name,descr,price,stock,gc)
 where not exists (select 1 from products);
+
+-- =====================================================================
+-- EKTE TILGJENGELIGHET + SIKRET BETALINGSBELØP (0010)
+--   available_slots: ledige starttider (Man–lør 09–19, søndag stengt),
+--     tar hensyn til varighet, sperrer fortid, unngår overlapp.
+--   booking_amount_ore: pris for booking i øre (Vipps henter server-side).
+-- =====================================================================
+create or replace function available_slots(
+  p_barber text, p_service text, p_date date
+) returns text[]
+language plpgsql security definer set search_path = public as $$
+declare
+  v_staff uuid; v_dur int;
+  v_open time := '09:00'; v_close time := '19:00'; v_step interval := '15 minutes';
+  v_dow int; slot time; slot_start timestamptz; slot_end timestamptz;
+  res text[] := '{}';
+begin
+  select id into v_staff from staff where full_name = p_barber and active limit 1;
+  select duration_min into v_dur from services where name = p_service limit 1;
+  v_dur := coalesce(v_dur, 30);
+
+  v_dow := extract(dow from p_date);   -- 0 = søndag
+  if v_dow = 0 then return res; end if;
+
+  slot := v_open;
+  while slot + make_interval(mins => v_dur) <= v_close loop
+    slot_start := (p_date + slot) at time zone 'Europe/Oslo';
+    slot_end := slot_start + make_interval(mins => v_dur);
+    if slot_start > now() then
+      if not exists (
+        select 1 from bookings b
+        where b.staff_id = v_staff
+          and b.status in ('pending','confirmed','completed')
+          and b.start_at < slot_end and b.end_at > slot_start
+      ) then
+        res := res || to_char(slot, 'HH24:MI');
+      end if;
+    end if;
+    slot := slot + v_step;
+  end loop;
+  return res;
+end $$;
+grant execute on function available_slots(text, text, date) to anon, authenticated;
+
+create or replace function booking_amount_ore(p_booking uuid)
+returns int
+language sql security definer set search_path = public as $$
+  select coalesce(round(price_nok * 100)::int, 0) from bookings where id = p_booking;
+$$;
+grant execute on function booking_amount_ore(uuid) to anon, authenticated;
 
 -- =====================================================================
 -- VERIFISERING – kjør gjerne dette for å bekrefte at alt finnes

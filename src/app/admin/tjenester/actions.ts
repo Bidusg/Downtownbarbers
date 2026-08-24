@@ -16,6 +16,21 @@ export async function createService(formData: FormData) {
   revalidatePath("/admin/tjenester");
 }
 
+export async function updateService(id: string, formData: FormData) {
+  const sb = await createClient();
+  await sb
+    .from("services")
+    .update({
+      name: String(formData.get("name") ?? ""),
+      description: String(formData.get("description") ?? ""),
+      price_nok: Number(formData.get("price_nok") ?? 0),
+      duration_min: Number(formData.get("duration_min") ?? 30),
+      category_id: String(formData.get("category_id") ?? "") || null,
+    })
+    .eq("id", id);
+  revalidatePath("/admin/tjenester");
+}
+
 export async function toggleService(id: string, active: boolean) {
   const sb = await createClient();
   await sb.from("services").update({ active }).eq("id", id);

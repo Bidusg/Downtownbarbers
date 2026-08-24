@@ -1,6 +1,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { sendBookingConfirmation } from "@/lib/email";
+import { isValidEmail, isValidNorwegianPhone, titleCase } from "@/lib/validate";
 
 export type BookingInput = {
   serviceName: string;
@@ -10,60 +12,55 @@ export type BookingInput = {
   name: string;
   email: string;
   phone: string;
+  price?: string; // vises i e-post
 };
 
 export async function createBooking(
   input: BookingInput,
 ): Promise<{ ok?: true; error?: string; bookingId?: string }> {
+  // Server-side validering – klienten kan omgås, så vi stoler aldri på den.
+  const name = titleCase(input.name);
+  if (!name) return { error: "Navn mangler." };
+  if (!isValidEmail(input.email)) return { error: "Ugyldig e-postadresse." };
+  if (!isValidNorwegianPhone(input.phone))
+    return { error: "Ugyldig norsk telefonnummer." };
+  if (!input.date || !input.time)
+    return { error: "Dato og tid må velges." };
+
   try {
     const sb = await createClient();
+    const startIso = new Date(`${input.date}T${input.time}:00`).toISOString();
 
-    const { data: svc } = await sb
-      .from("services")
-      .select("id, price_nok, duration_min")
-      .eq("name", input.serviceName)
-      .maybeSingle();
+    const { data: bookingId, error } = await sb.rpc("create_booking", {
+      p_service: input.serviceName,
+      p_barber: input.barberName,
+      p_start: startIso,
+      p_name: name,
+      p_email: input.email.trim(),
+      p_phone: input.phone.trim(),
+    });
 
-    const { data: staff } = await sb
-      .from("staff")
-      .select("id")
-      .eq("full_name", input.barberName)
-      .maybeSingle();
+    if (error) {
+      // Vanligste årsak: funksjonen create_booking finnes ikke enda i databasen.
+      return {
+        error:
+          "Kunne ikke lagre bookingen. Kjør supabase/setup_all.sql på nytt i Supabase (den legger til create_booking-funksjonen).",
+      };
+    }
 
-    const { data: customer } = await sb
-      .from("customers")
-      .insert({
-        full_name: input.name,
-        email: input.email,
-        phone: input.phone,
-      })
-      .select("id")
-      .maybeSingle();
+    // E-postbekreftelse (hopper stille over hvis RESEND_API_KEY mangler)
+    await sendBookingConfirmation({
+      to: input.email.trim(),
+      name,
+      service: input.serviceName,
+      barber: input.barberName,
+      date: input.date,
+      time: input.time,
+      price: input.price ?? "",
+    });
 
-    const start = new Date(`${input.date}T${input.time}:00`);
-    const end = new Date(
-      start.getTime() + (svc?.duration_min ?? 30) * 60000,
-    );
-
-    const { data: booking, error } = await sb
-      .from("bookings")
-      .insert({
-        customer_id: customer?.id ?? null,
-        staff_id: staff?.id ?? null,
-        service_id: svc?.id ?? null,
-        start_at: start.toISOString(),
-        end_at: end.toISOString(),
-        status: "confirmed",
-        price_nok: svc?.price_nok ?? 0,
-      })
-      .select("id")
-      .maybeSingle();
-
-    if (error) return { error: "Kunne ikke lagre bookingen. Prøv igjen." };
-    return { ok: true, bookingId: booking?.id };
+    return { ok: true, bookingId: (bookingId as string) ?? undefined };
   } catch {
-    return {
-      error: "Noe gikk galt. Er databasen koblet til (.env.local)?",
-    };
+    return { error: "Noe gikk galt. Er databasen koblet til (.env.local)?" };
   }
 }

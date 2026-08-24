@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createBooking } from "@/app/booking/actions";
+import { getAvailableSlots } from "@/app/booking/availability-actions";
+import { isValidEmail, isValidNorwegianPhone } from "@/lib/validate";
 
 export type WizService = {
   name: string;
@@ -13,15 +15,9 @@ export type WizBarber = { name: string; title: string };
 
 const STEPS = ["Tjeneste", "Barber", "Tid", "Kontakt"];
 
-function slots() {
-  const out: string[] = [];
-  for (let h = 9; h < 19; h++) {
-    for (const m of [0, 30]) {
-      if (h === 18 && m === 30) continue;
-      out.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
-    }
-  }
-  return out;
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 export function BookingWizard({
@@ -44,11 +40,35 @@ export function BookingWizard({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const times = useMemo(() => slots(), []);
+  const [slots, setSlots] = useState<string[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+
+  const min = useMemo(() => todayStr(), []);
   const cats = useMemo(
     () => Array.from(new Set(services.map((s) => s.category))),
     [services],
   );
+
+  // Hent ledige tider når dato/barber/tjeneste er valgt
+  useEffect(() => {
+    let active = true;
+    if (step === 2 && date && barber && service) {
+      setLoadingSlots(true);
+      setTime("");
+      getAvailableSlots(barber.name, service.name, date).then((s) => {
+        if (active) {
+          setSlots(s);
+          setLoadingSlots(false);
+        }
+      });
+    }
+    return () => {
+      active = false;
+    };
+  }, [step, date, barber, service]);
+
+  const emailOk = isValidEmail(email);
+  const phoneOk = isValidNorwegianPhone(phone);
 
   const canNext =
     (step === 0 && service) ||
@@ -67,6 +87,7 @@ export function BookingWizard({
       name,
       email,
       phone,
+      price: service!.price,
     });
     setPending(false);
     if (res?.error) setError(res.error);
@@ -76,15 +97,10 @@ export function BookingWizard({
     }
   }
 
-  const depositOre = (() => {
-    const digits = (service?.price ?? "").replace(/\D/g, "");
-    return digits ? Number(digits) * 100 : 0;
-  })();
-
   if (done) {
     return (
       <div className="border border-line bg-surface p-10 text-center">
-        <p className="font-display text-3xl font-bold text-fg">Takk, {name.split(" ")[0]}! 💈</p>
+        <p className="font-display text-3xl font-bold text-fg">Takk! 💈</p>
         <p className="mt-4 text-muted">
           Timen din er bekreftet: <strong className="text-fg">{service?.name}</strong> hos{" "}
           <strong className="text-fg">{barber?.name}</strong>
@@ -92,9 +108,9 @@ export function BookingWizard({
           {date} kl. {time}
         </p>
         <p className="mt-6 text-sm text-muted">Vi sender en bekreftelse på e-post.</p>
-        {bookingId && depositOre > 0 && (
+        {bookingId && (
           <a
-            href={`/api/vipps/create?booking=${bookingId}&amount=${depositOre}`}
+            href={`/api/vipps/create?booking=${bookingId}`}
             className="mt-6 inline-block bg-accent-soft px-6 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
           >
             Betal depositum med Vipps
@@ -106,7 +122,6 @@ export function BookingWizard({
 
   return (
     <div className="border border-line bg-surface">
-      {/* Stegindikator */}
       <div className="flex border-b border-line">
         {STEPS.map((s, i) => (
           <div
@@ -126,7 +141,6 @@ export function BookingWizard({
       </div>
 
       <div className="p-6">
-        {/* Steg 1: tjeneste */}
         {step === 0 && (
           <div className="space-y-6">
             {cats.map((cat) => (
@@ -161,7 +175,6 @@ export function BookingWizard({
           </div>
         )}
 
-        {/* Steg 2: barber */}
         {step === 1 && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {barbers.map((b) => (
@@ -185,7 +198,6 @@ export function BookingWizard({
           </div>
         )}
 
-        {/* Steg 3: tid */}
         {step === 2 && (
           <div className="space-y-5">
             <div>
@@ -195,39 +207,49 @@ export function BookingWizard({
               <input
                 type="date"
                 value={date}
+                min={min}
                 onChange={(e) => setDate(e.target.value)}
                 className="border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
               />
             </div>
             <div>
               <label className="mb-2 block text-xs font-semibold tracking-wide text-muted uppercase">
-                Ledige tider
+                Ledige tider {service ? `· ${service.duration}` : ""}
               </label>
-              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-                {times.map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setTime(t)}
-                    className={
-                      "border py-2 text-sm transition-colors " +
-                      (time === t
-                        ? "border-accent-soft bg-accent-soft/10 text-fg"
-                        : "border-line text-muted hover:border-line-2 hover:text-fg")
-                    }
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
+              {!date ? (
+                <p className="text-sm text-muted">Velg en dato først.</p>
+              ) : loadingSlots ? (
+                <p className="text-sm text-muted">Henter ledige tider …</p>
+              ) : slots.length === 0 ? (
+                <p className="text-sm text-muted">
+                  Ingen ledige tider denne dagen (stengt eller fullt). Prøv en annen dato.
+                </p>
+              ) : (
+                <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                  {slots.map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setTime(t)}
+                      className={
+                        "border py-2 text-sm transition-colors " +
+                        (time === t
+                          ? "border-accent-soft bg-accent-soft/10 text-fg"
+                          : "border-line text-muted hover:border-line-2 hover:text-fg")
+                      }
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* Steg 4: kontakt */}
         {step === 3 && (
           <div className="space-y-4">
             <div className="mb-2 border border-line bg-surface-2 p-4 text-sm text-muted">
-              <strong className="text-fg">{service?.name}</strong> hos{" "}
+              <strong className="text-fg">{service?.name}</strong> ({service?.duration}) hos{" "}
               <strong className="text-fg">{barber?.name}</strong> · {date} kl. {time} ·{" "}
               <span className="text-fg">{service?.price}</span>
             </div>
@@ -237,25 +259,35 @@ export function BookingWizard({
               onChange={(e) => setName(e.target.value)}
               className="w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
             />
-            <input
-              placeholder="E-post"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
-            />
-            <input
-              placeholder="Telefon"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
-            />
+            <div>
+              <input
+                placeholder="E-post"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
+              />
+              {email && !emailOk && (
+                <p className="mt-1 text-xs text-danger">Ugyldig e-postadresse.</p>
+              )}
+            </div>
+            <div>
+              <input
+                placeholder="Telefon (8 siffer)"
+                inputMode="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
+              />
+              {phone && !phoneOk && (
+                <p className="mt-1 text-xs text-danger">Ugyldig norsk telefonnummer.</p>
+              )}
+            </div>
             {error && <p className="text-sm text-danger">{error}</p>}
           </div>
         )}
       </div>
 
-      {/* Navigasjon */}
       <div className="flex items-center justify-between border-t border-line p-4">
         <button
           onClick={() => setStep((s) => Math.max(0, s - 1))}
@@ -275,7 +307,7 @@ export function BookingWizard({
         ) : (
           <button
             onClick={submit}
-            disabled={pending || !name || !email || !phone}
+            disabled={pending || !name.trim() || !emailOk || !phoneOk}
             className="bg-accent px-6 py-2.5 text-sm font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-40"
           >
             {pending ? "Bekrefter …" : "Bekreft booking"}

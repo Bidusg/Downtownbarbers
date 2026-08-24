@@ -12,6 +12,16 @@ export default function AdminDashboard() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
+      {/* Demodata-varsel – tallene her er eksempeldata inntil ekte salg/regnskap er koblet på */}
+      <div className="flex items-start gap-3 border border-accent-soft/30 bg-accent-soft/5 px-4 py-3 text-sm">
+        <span className="mt-0.5 text-accent-soft">●</span>
+        <p className="text-muted">
+          <strong className="text-fg">Demodata.</strong> Tallene i dashboardet
+          (omsetning, graf, månedsmål) er eksempeldata for å vise oppsettet. De
+          byttes til ekte tall når salg og regnskap registreres i systemet.
+        </p>
+      </div>
+
       {/* KPI-er (admin ser kroner) */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile label="Omsetning i dag" value={nok(adminKpis.revenueToday)} sub="14 salg" />
