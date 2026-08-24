@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Old/backup code, not part of the deployed app:
+    "_previous-version/**",
+    "_to_delete/**",
   ]),
 ]);
 

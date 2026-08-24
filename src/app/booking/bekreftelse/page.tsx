@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 
@@ -35,12 +36,12 @@ export default async function Bekreftelse({
             </p>
           </>
         )}
-        <a
+        <Link
           href="/"
           className="mt-10 border border-line-2 px-6 py-3 text-sm font-semibold text-fg hover:border-fg"
         >
           Til forsiden
-        </a>
+        </Link>
       </section>
       <Footer />
     </div>
