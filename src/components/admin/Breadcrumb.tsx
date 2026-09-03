@@ -11,6 +11,7 @@ const titles: Record<string, string> = {
   "/admin/produkter": "Produkter",
   "/admin/regnskap": "Regnskap",
   "/admin/rating": "Rating",
+  "/admin/nettside": "Nettside",
 };
 
 export function Breadcrumb() {

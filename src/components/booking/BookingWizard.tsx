@@ -41,7 +41,7 @@ export function BookingWizard({
   const [error, setError] = useState<string | null>(null);
 
   const [slots, setSlots] = useState<string[]>([]);
-  const [loadedSlotsKey, setLoadedSlotsKey] = useState<string | null>(null);
+  const [loadingSlots, setLoadingSlots] = useState(false);
 
   const min = useMemo(() => todayStr(), []);
   const cats = useMemo(
@@ -49,26 +49,23 @@ export function BookingWizard({
     [services],
   );
 
-  const slotsKey =
-    step === 2 && date && barber && service
-      ? `${date}__${barber.name}__${service.name}`
-      : null;
-  const loadingSlots = slotsKey !== null && slotsKey !== loadedSlotsKey;
-
   // Hent ledige tider når dato/barber/tjeneste er valgt
   useEffect(() => {
-    if (!slotsKey || !barber || !service) return;
     let active = true;
-    getAvailableSlots(barber.name, service.name, date).then((s) => {
-      if (active) {
-        setSlots(s);
-        setLoadedSlotsKey(slotsKey);
-      }
-    });
+    if (step === 2 && date && barber && service) {
+      setLoadingSlots(true);
+      setTime("");
+      getAvailableSlots(barber.name, service.name, date).then((s) => {
+        if (active) {
+          setSlots(s);
+          setLoadingSlots(false);
+        }
+      });
+    }
     return () => {
       active = false;
     };
-  }, [slotsKey, barber, service, date]);
+  }, [step, date, barber, service]);
 
   const emailOk = isValidEmail(email);
   const phoneOk = isValidNorwegianPhone(phone);
@@ -157,10 +154,7 @@ export function BookingWizard({
                     .map((s) => (
                       <button
                         key={s.name}
-                        onClick={() => {
-                          setService(s);
-                          setTime("");
-                        }}
+                        onClick={() => setService(s)}
                         className={
                           "flex items-center justify-between border p-4 text-left transition-colors " +
                           (service?.name === s.name
@@ -186,10 +180,7 @@ export function BookingWizard({
             {barbers.map((b) => (
               <button
                 key={b.name}
-                onClick={() => {
-                  setBarber(b);
-                  setTime("");
-                }}
+                onClick={() => setBarber(b)}
                 className={
                   "border p-4 text-center transition-colors " +
                   (barber?.name === b.name
@@ -217,10 +208,7 @@ export function BookingWizard({
                 type="date"
                 value={date}
                 min={min}
-                onChange={(e) => {
-                  setDate(e.target.value);
-                  setTime("");
-                }}
+                onChange={(e) => setDate(e.target.value)}
                 className="border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
               />
             </div>

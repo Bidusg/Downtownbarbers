@@ -1,14 +1,50 @@
+import Link from "next/link";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { requireRole } from "@/lib/auth";
 import { getShopToday, getTodayBookings } from "@/lib/dashboard-queries";
+import { getUpcomingBookings } from "@/lib/admin-queries";
 import { ShopBookingList } from "@/components/kasse/ShopBookingList";
+
+function dayLabel(iso: string) {
+  try {
+    return new Date(iso).toLocaleDateString("nb-NO", {
+      weekday: "long",
+      day: "2-digit",
+      month: "short",
+    });
+  } catch {
+    return iso;
+  }
+}
+function timeLabel(iso: string) {
+  try {
+    return new Date(iso).toLocaleTimeString("nb-NO", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
+}
 
 export default async function KasseDashboard() {
   await requireRole(["shop", "admin"]);
-  const [today, todayBookings] = await Promise.all([
+  const [today, todayBookings, upcoming] = await Promise.all([
     getShopToday(),
     getTodayBookings(),
+    getUpcomingBookings(),
   ]);
+  // Kommende (etter i dag), gruppert per dag – uten kroner (shop ser aldri omsetning)
+  const startTomorrow = new Date();
+  startTomorrow.setHours(0, 0, 0, 0);
+  startTomorrow.setDate(startTomorrow.getDate() + 1);
+  const future = upcoming.filter((b) => new Date(b.start_at) >= startTomorrow);
+  const byDay = new Map<string, typeof future>();
+  for (const b of future) {
+    const k = dayLabel(b.start_at);
+    if (!byDay.has(k)) byDay.set(k, []);
+    byDay.get(k)!.push(b);
+  }
   const pct = today.customersTarget
     ? Math.round((today.customersServed / today.customersTarget) * 100)
     : 0;
@@ -36,6 +72,14 @@ export default async function KasseDashboard() {
       </header>
 
       <main className="mx-auto max-w-3xl space-y-8 p-6">
+        <Link
+          href="/kasse/stempling"
+          className="flex items-center justify-between border border-line bg-accent px-6 py-4 text-accent-fg transition-opacity hover:opacity-90"
+        >
+          <span className="font-display text-lg font-bold">Stemplingsur — vakt / pause</span>
+          <span className="text-sm opacity-80">Åpne →</span>
+        </Link>
+
         <section className="border border-line bg-surface p-8">
           <p className="text-[10px] font-semibold tracking-[0.2em] text-muted uppercase">
             Dagens fremdrift
@@ -72,6 +116,35 @@ export default async function KasseDashboard() {
                 </li>
               ))}
             </ul>
+          )}
+        </section>
+
+        <section className="border border-line bg-surface p-6">
+          <h2 className="mb-4 font-display text-lg font-bold">Kommende bookinger</h2>
+          {future.length === 0 ? (
+            <p className="text-sm text-muted">Ingen kommende bookinger enda.</p>
+          ) : (
+            <div className="space-y-5">
+              {Array.from(byDay.entries()).map(([day, list]) => (
+                <div key={day}>
+                  <p className="mb-2 text-xs font-semibold tracking-wide text-accent-soft uppercase">
+                    {day}
+                  </p>
+                  <ul className="divide-y divide-line">
+                    {list.map((b) => (
+                      <li key={b.id} className="flex items-center gap-4 py-3">
+                        <span className="font-display text-sm font-bold text-fg">
+                          {timeLabel(b.start_at)}
+                        </span>
+                        <span className="flex-1 text-sm text-fg">{b.customer}</span>
+                        <span className="text-sm text-muted">{b.service}</span>
+                        <span className="text-xs text-muted">{b.barber}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
           )}
         </section>
 

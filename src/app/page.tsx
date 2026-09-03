@@ -1,11 +1,12 @@
+import type { CSSProperties } from "react";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
-import { salon } from "@/lib/data/salon";
 import {
   getPublicServices,
   getPublicBarbers,
   groupByCategory,
 } from "@/lib/queries";
+import { getSiteSettings } from "@/lib/site-settings";
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
@@ -16,23 +17,28 @@ function Label({ children }: { children: React.ReactNode }) {
 }
 
 export default async function Home() {
-  const [services, team] = await Promise.all([
+  const [services, team, s] = await Promise.all([
     getPublicServices(),
     getPublicBarbers(),
+    getSiteSettings(),
   ]);
   const serviceCategories = groupByCategory(services);
+  const accentStyle = {
+    ["--color-accent-soft"]: s.accent_hex,
+  } as CSSProperties;
+
   return (
-    <div id="top" className="bg-canvas text-fg">
+    <div id="top" className="bg-canvas text-fg" style={accentStyle}>
       <Header />
 
       {/* HERO */}
       <section className="mx-auto max-w-6xl px-5 py-24 sm:py-32">
-        <Label>Oslo · Siden {salon.established}</Label>
+        <Label>Oslo · Siden {s.established}</Label>
         <h1 className="mt-6 max-w-3xl font-display text-5xl leading-[0.95] font-bold tracking-tight sm:text-7xl">
-          Klipp skarpt.{" "}
-          <span className="italic text-accent-soft">Se enda skarpere ut.</span>
+          {s.hero_title}{" "}
+          <span className="italic text-accent-soft">{s.hero_italic}</span>
         </h1>
-        <p className="mt-7 max-w-xl text-lg text-muted">{salon.intro}</p>
+        <p className="mt-7 max-w-xl text-lg text-muted">{s.intro}</p>
         <div className="mt-10 flex flex-wrap items-center gap-4">
           <a
             href="/booking"
@@ -46,10 +52,12 @@ export default async function Home() {
           >
             Se tjenester
           </a>
-          <span className="text-sm text-muted">
-            ★ {salon.rating.toString().replace(".", ",")} ({salon.ratingCount}{" "}
-            vurderinger)
-          </span>
+          {s.show_rating && (
+            <span className="text-sm text-muted">
+              ★ {s.rating_value.toString().replace(".", ",")} ({s.rating_count}{" "}
+              vurderinger)
+            </span>
+          )}
         </div>
       </section>
 
@@ -58,8 +66,7 @@ export default async function Home() {
         <div className="mx-auto max-w-6xl px-5 py-20">
           <Label>Om oss</Label>
           <p className="mt-6 max-w-3xl font-display text-2xl leading-snug sm:text-3xl">
-            Premium håndverk midt i Oslo sentrum. Presis, erfaren, rolig – vi tar
-            hånd om detaljene før du rekker å spørre, i stolen som i speilet.
+            {s.about_text}
           </p>
         </div>
       </section>
@@ -78,21 +85,19 @@ export default async function Home() {
                   {cat.name}
                 </h3>
                 <ul className="space-y-5">
-                  {cat.services.map((s) => (
+                  {cat.services.map((sv) => (
                     <li
-                      key={s.name}
+                      key={sv.name}
                       className="border-b border-line pb-5 last:border-0"
                     >
                       <div className="flex items-baseline justify-between gap-4">
-                        <span className="font-medium text-fg">{s.name}</span>
+                        <span className="font-medium text-fg">{sv.name}</span>
                         <span className="font-display text-sm whitespace-nowrap text-fg">
-                          {s.price}
+                          {sv.price}
                         </span>
                       </div>
-                      <p className="mt-1.5 text-sm text-muted">
-                        {s.description}
-                      </p>
-                      <p className="mt-1 text-xs text-muted">{s.duration}</p>
+                      <p className="mt-1.5 text-sm text-muted">{sv.description}</p>
+                      <p className="mt-1 text-xs text-muted">{sv.duration}</p>
                     </li>
                   ))}
                 </ul>
@@ -102,15 +107,13 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* STATEMENT / BOOKING CTA (invertert blekk) */}
+      {/* STATEMENT / BOOKING CTA */}
       <section className="border-t border-line bg-accent text-accent-fg">
         <div className="mx-auto max-w-6xl px-5 py-24 text-center">
           <h2 className="mx-auto max-w-2xl font-display text-4xl leading-tight font-bold sm:text-5xl">
-            Klar for en skarpere fade?
+            {s.cta_title}
           </h2>
-          <p className="mx-auto mt-5 max-w-md text-base opacity-80">
-            Velg tjeneste, barber og tid på sekunder.
-          </p>
+          <p className="mx-auto mt-5 max-w-md text-base opacity-80">{s.cta_text}</p>
           <a
             href="/booking"
             className="mt-10 inline-block border border-accent-fg/40 px-8 py-3.5 text-sm font-semibold tracking-wide uppercase transition-colors hover:bg-accent-fg hover:text-accent"
@@ -147,7 +150,7 @@ export default async function Home() {
           <div>
             <Label>Åpningstider</Label>
             <ul className="mt-8 space-y-3.5">
-              {salon.openingHours.map((o) => (
+              {s.opening_hours.map((o) => (
                 <li
                   key={o.day}
                   className="flex justify-between border-b border-line pb-3.5 text-sm"
@@ -161,12 +164,19 @@ export default async function Home() {
           <div id="kontakt">
             <Label>Kontakt</Label>
             <div className="mt-8 space-y-3 text-fg">
-              <p>{salon.address}</p>
+              <p>{s.address}</p>
               <p>
-                <a href={`tel:${salon.phone}`} className="hover:text-accent-soft">
-                  {salon.phone}
+                <a href={`tel:${s.phone}`} className="hover:text-accent-soft">
+                  {s.phone}
                 </a>
               </p>
+              {s.email && (
+                <p>
+                  <a href={`mailto:${s.email}`} className="hover:text-accent-soft">
+                    {s.email}
+                  </a>
+                </p>
+              )}
             </div>
           </div>
         </div>

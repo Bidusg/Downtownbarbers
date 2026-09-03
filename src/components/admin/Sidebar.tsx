@@ -11,6 +11,7 @@ const items = [
   { label: "Produkter", href: "/admin/produkter" },
   { label: "Regnskap", href: "/admin/regnskap" },
   { label: "Rating", href: "/admin/rating" },
+  { label: "Nettside", href: "/admin/nettside" },
 ];
 
 export function Sidebar() {

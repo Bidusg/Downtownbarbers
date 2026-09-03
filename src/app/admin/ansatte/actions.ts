@@ -52,3 +52,16 @@ export async function toggleStaff(id: string, active: boolean) {
   await sb.from("staff").update({ active }).eq("id", id);
   revalidatePath("/admin/ansatte");
 }
+
+/** Setter 4-sifret stemplings-PIN for en ansatt (via sikker RPC). */
+export async function setStaffPin(
+  id: string,
+  pin: string,
+): Promise<{ ok?: true; error?: string }> {
+  if (!/^\d{4}$/.test(pin)) return { error: "PIN må være 4 siffer." };
+  const sb = await createClient();
+  const { error } = await sb.rpc("set_staff_pin", { p_staff: id, p_pin: pin });
+  if (error) return { error: "Kunne ikke lagre PIN." };
+  revalidatePath("/admin/ansatte");
+  return { ok: true };
+}

@@ -2,7 +2,49 @@
 
 import { useState, useTransition } from "react";
 import type { AdminStaff } from "@/lib/admin-queries";
-import { createStaff, toggleStaff } from "@/app/admin/ansatte/actions";
+import { createStaff, toggleStaff, setStaffPin } from "@/app/admin/ansatte/actions";
+
+function PinCell({ id }: { id: string }) {
+  const [open, setOpen] = useState(false);
+  const [pin, setPin] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  if (!open) {
+    return (
+      <button
+        onClick={() => { setOpen(true); setMsg(null); }}
+        className="text-xs text-accent-soft hover:underline"
+      >
+        Sett PIN
+      </button>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        value={pin}
+        onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+        inputMode="numeric"
+        placeholder="4 siffer"
+        className="w-20 border border-line-2 bg-canvas px-2 py-1 text-xs outline-none focus:border-accent-soft"
+      />
+      <button
+        onClick={() =>
+          start(async () => {
+            const r = await setStaffPin(id, pin);
+            if (r.error) setMsg(r.error);
+            else { setMsg("Lagret ✓"); setPin(""); setTimeout(() => setOpen(false), 900); }
+          })
+        }
+        disabled={pending || pin.length !== 4}
+        className="bg-accent px-2 py-1 text-xs font-semibold text-accent-fg disabled:opacity-40"
+      >
+        Lagre
+      </button>
+      {msg && <span className="text-xs text-muted">{msg}</span>}
+    </div>
+  );
+}
 
 export function StaffManager({ staff }: { staff: AdminStaff[] }) {
   const [open, setOpen] = useState(false);
@@ -54,13 +96,14 @@ export function StaffManager({ staff }: { staff: AdminStaff[] }) {
               <th className="px-4 py-3">Ansattnr</th>
               <th className="px-4 py-3">Tittel</th>
               <th className="px-4 py-3">Kontrakt</th>
+              <th className="px-4 py-3">Stemplings-PIN</th>
               <th className="px-4 py-3">Status</th>
             </tr>
           </thead>
           <tbody>
             {staff.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted">
+                <td colSpan={6} className="px-4 py-8 text-center text-muted">
                   Ingen ansatte enda – koble til Supabase eller legg til den første.
                 </td>
               </tr>
@@ -85,6 +128,9 @@ export function StaffManager({ staff }: { staff: AdminStaff[] }) {
                   ) : (
                     <span className="text-xs text-muted">Mangler</span>
                   )}
+                </td>
+                <td className="px-4 py-3">
+                  <PinCell id={s.id} />
                 </td>
                 <td className="px-4 py-3">
                   <button
