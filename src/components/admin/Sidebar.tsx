@@ -8,6 +8,7 @@ const items = [
   { label: "Tjenester", href: "/admin/tjenester" },
   { label: "Ansatte", href: "/admin/ansatte" },
   { label: "Kunder", href: "/admin/kunder" },
+  { label: "Oppfølging", href: "/admin/oppfolging" },
   { label: "Produkter", href: "/admin/produkter" },
   { label: "Regnskap", href: "/admin/regnskap" },
   { label: "Rating", href: "/admin/rating" },

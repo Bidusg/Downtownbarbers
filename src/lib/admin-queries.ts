@@ -123,29 +123,121 @@ export type AdminCustomer = {
   phone: string | null;
   email: string | null;
   category: string | null;
-  visits: number;
+  visits: number; // antall bookinger som ikke er avbestilt
+  lastVisit: string | null; // ISO – siste booking
+  totalSpent: number; // sum av fullførte bookinger (kr)
+  noShows: number;
 };
+
+type CustomerBookingRow = {
+  status: string;
+  price_nok: number;
+  start_at: string;
+};
+
+function summarizeBookings(rows: CustomerBookingRow[]) {
+  const active = rows.filter((b) => b.status !== "cancelled");
+  const lastVisit = active.reduce<string | null>(
+    (acc, b) => (!acc || b.start_at > acc ? b.start_at : acc),
+    null,
+  );
+  const totalSpent = rows
+    .filter((b) => b.status === "completed")
+    .reduce((s, b) => s + (Number(b.price_nok) || 0), 0);
+  const noShows = rows.filter((b) => b.status === "no_show").length;
+  return { visits: active.length, lastVisit, totalSpent, noShows };
+}
 
 export async function getCustomers(): Promise<AdminCustomer[]> {
   try {
     const sb = await createClient();
     const { data } = await sb
       .from("customers")
-      .select("id, full_name, phone, email, category, bookings(count)")
+      .select("id, full_name, phone, email, category, bookings(status, price_nok, start_at)")
       .order("full_name");
     return (data ?? []).map((r) => {
-      const bk = r.bookings as { count?: number }[] | null;
+      const bk = (r.bookings as CustomerBookingRow[] | null) ?? [];
+      const s = summarizeBookings(bk);
       return {
         id: r.id,
         full_name: r.full_name,
         phone: r.phone,
         email: r.email,
         category: r.category,
-        visits: bk?.[0]?.count ?? 0,
+        ...s,
       } as AdminCustomer;
     });
   } catch {
     return [];
+  }
+}
+
+export type CustomerBooking = {
+  id: string;
+  start_at: string;
+  status: string;
+  price_nok: number;
+  service: string;
+  barber: string;
+};
+
+export type AdminCustomerDetail = {
+  id: string;
+  full_name: string;
+  phone: string | null;
+  email: string | null;
+  category: string | null;
+  notes: string | null;
+  created_at: string;
+  visits: number;
+  totalSpent: number;
+  noShows: number;
+  lastVisit: string | null;
+  bookings: CustomerBooking[];
+};
+
+export async function getCustomer(
+  id: string,
+): Promise<AdminCustomerDetail | null> {
+  try {
+    const sb = await createClient();
+    const { data: c } = await sb
+      .from("customers")
+      .select("id, full_name, phone, email, category, notes, created_at")
+      .eq("id", id)
+      .single();
+    if (!c) return null;
+    const { data: bkRaw } = await sb
+      .from("bookings")
+      .select("id, start_at, status, price_nok, services(name), staff(full_name)")
+      .eq("customer_id", id)
+      .order("start_at", { ascending: false });
+    const bookings: CustomerBooking[] = (bkRaw ?? []).map((r) => {
+      const s = r.services as { name?: string } | null;
+      const b = r.staff as { full_name?: string } | null;
+      return {
+        id: r.id,
+        start_at: r.start_at,
+        status: r.status,
+        price_nok: Number(r.price_nok) || 0,
+        service: s?.name ?? "—",
+        barber: b?.full_name ?? "—",
+      };
+    });
+    const s = summarizeBookings(bookings);
+    return {
+      id: c.id,
+      full_name: c.full_name,
+      phone: c.phone,
+      email: c.email,
+      category: c.category,
+      notes: c.notes,
+      created_at: c.created_at,
+      bookings,
+      ...s,
+    };
+  } catch {
+    return null;
   }
 }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { sendBookingReminderEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
+import { runFollowups } from "@/lib/followups";
 
 /**
  * Sender timepåminnelser (e-post + SMS) for bookinger som starter innen 24t
@@ -95,11 +96,15 @@ export async function GET(req: NextRequest) {
       await sb.rpc("mark_reminder_sent", { p_booking: b.id });
     }
 
+    // Kjør AI-oppfølging i samme daglige jobb (unngår ekstra cron på Hobby).
+    const followups = await runFollowups({ weeks: 6 });
+
     return NextResponse.json({
       ok: true,
       due: rows.length,
       emailed,
       texted,
+      followups,
     });
   } catch (e) {
     return NextResponse.json(

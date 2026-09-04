@@ -5,6 +5,8 @@ export type TodayBooking = {
   id: string;
   time: string;
   customer: string;
+  customerId: string | null;
+  customerEmail: string | null;
   service: string;
   barber: string;
   price: number;
@@ -22,13 +24,17 @@ export async function getTodayBookings(): Promise<TodayBooking[]> {
     const { data } = await sb
       .from("bookings")
       .select(
-        "id, start_at, status, price_nok, customers(full_name), services(name), staff(full_name)",
+        "id, start_at, status, price_nok, customers(id, full_name, email), services(name), staff(full_name)",
       )
       .gte("start_at", start.toISOString())
       .lt("start_at", end.toISOString())
       .order("start_at", { ascending: true });
     return (data ?? []).map((b) => {
-      const c = b.customers as { full_name?: string } | null;
+      const c = b.customers as {
+        id?: string;
+        full_name?: string;
+        email?: string;
+      } | null;
       const s = b.services as { name?: string } | null;
       const st = b.staff as { full_name?: string } | null;
       let time = "";
@@ -42,6 +48,8 @@ export async function getTodayBookings(): Promise<TodayBooking[]> {
         id: b.id,
         time,
         customer: c?.full_name ?? "—",
+        customerId: c?.id ?? null,
+        customerEmail: c?.email ?? null,
         service: s?.name ?? "—",
         barber: st?.full_name ?? "—",
         price: b.price_nok,

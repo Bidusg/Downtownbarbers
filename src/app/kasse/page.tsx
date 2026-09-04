@@ -3,7 +3,9 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { requireRole } from "@/lib/auth";
 import { getShopToday, getTodayBookings } from "@/lib/dashboard-queries";
 import { getUpcomingBookings } from "@/lib/admin-queries";
+import { getBarbers, getServices } from "@/lib/shop-queries";
 import { ShopBookingList } from "@/components/kasse/ShopBookingList";
+import { DeskBooking } from "@/components/kasse/DeskBooking";
 
 function dayLabel(iso: string) {
   try {
@@ -29,10 +31,12 @@ function timeLabel(iso: string) {
 
 export default async function KasseDashboard() {
   await requireRole(["shop", "admin"]);
-  const [today, todayBookings, upcoming] = await Promise.all([
+  const [today, todayBookings, upcoming, barbers, services] = await Promise.all([
     getShopToday(),
     getTodayBookings(),
     getUpcomingBookings(),
+    getBarbers(),
+    getServices(),
   ]);
   // Kommende (etter i dag), gruppert per dag – uten kroner (shop ser aldri omsetning)
   const startTomorrow = new Date();
@@ -72,6 +76,26 @@ export default async function KasseDashboard() {
       </header>
 
       <main className="mx-auto max-w-3xl space-y-8 p-6">
+        <div className="flex flex-wrap items-center gap-3">
+          <DeskBooking
+            services={services}
+            barbers={barbers}
+            label="+ Ny booking"
+          />
+          <Link
+            href="/kasse/kalender"
+            className="border border-line px-4 py-2 text-sm font-semibold text-fg hover:border-accent-soft"
+          >
+            Dagskalender →
+          </Link>
+          <Link
+            href="/kasse/kunder"
+            className="border border-line px-4 py-2 text-sm font-semibold text-fg hover:border-accent-soft"
+          >
+            Kunder →
+          </Link>
+        </div>
+
         <Link
           href="/kasse/stempling"
           className="flex items-center justify-between border border-line bg-accent px-6 py-4 text-accent-fg transition-opacity hover:opacity-90"
@@ -101,7 +125,11 @@ export default async function KasseDashboard() {
         <section className="border border-line bg-surface p-6">
           <h2 className="mb-4 font-display text-lg font-bold">Dagens timer</h2>
           {today.live ? (
-            <ShopBookingList bookings={todayBookings} />
+            <ShopBookingList
+              bookings={todayBookings}
+              services={services}
+              barbers={barbers}
+            />
           ) : (
             // Demo-modus: vis planlagte tider uten handlingsknapper
             <ul className="divide-y divide-line">

@@ -81,6 +81,31 @@ export async function sendBookingConfirmation(opts: {
   );
 }
 
+/** Kvittering etter fullført/betalt time. */
+export async function sendReceiptEmail(opts: {
+  to: string;
+  name: string;
+  service: string;
+  barber: string;
+  date: string;
+  price: string;
+  paymentMethod?: string;
+}): Promise<void> {
+  const rows: [string, string][] = [
+    ["Tjeneste", opts.service],
+    ["Barber", opts.barber],
+    ["Dato", opts.date],
+    ["Betalt", opts.price],
+  ];
+  if (opts.paymentMethod) rows.push(["Betalingsmåte", opts.paymentMethod]);
+  const html = shell(
+    "Kvittering 🧾",
+    `Hei ${opts.name.split(" ")[0] || "der"}, takk for besøket! Her er kvitteringen din:`,
+    rows,
+  );
+  await sendEmail(opts.to, "Kvittering – Downtown Barbers", html);
+}
+
 export async function sendBookingReminderEmail(opts: {
   to: string;
   name: string;
@@ -104,4 +129,42 @@ export async function sendBookingReminderEmail(opts: {
     "Påminnelse: timen din hos Downtown Barbers",
     html,
   );
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** AI-oppfølging: vennlig «book ny time»-e-post med CTA-knapp. */
+export async function sendFollowupEmail(opts: {
+  to: string;
+  name: string;
+  subject: string;
+  intro: string;
+}): Promise<boolean> {
+  const site =
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
+    "https://downtownbarbers.no";
+  const html = `
+    <div style="font-family:Georgia,serif;background:#211E1A;color:#F8F5EF;padding:40px 24px">
+      <div style="max-width:520px;margin:0 auto">
+        <p style="letter-spacing:.3em;text-transform:uppercase;color:#F47721;font-size:11px;margin:0 0 8px">
+          Downtown Barbers
+        </p>
+        <h1 style="font-size:24px;margin:0 0 18px">${escapeHtml(opts.subject)}</h1>
+        <p style="color:#cfc7bf;line-height:1.7">${escapeHtml(opts.intro)}</p>
+        <div style="margin:28px 0">
+          <a href="${site}/booking"
+             style="display:inline-block;background:#F47721;color:#211E1A;text-decoration:none;font-weight:bold;padding:12px 22px">
+            Bestill ny time
+          </a>
+        </div>
+        <p style="color:#8a817a;font-size:13px">Osterhaus' gate 10, 0183 Oslo · +47 463 58 764</p>
+      </div>
+    </div>`;
+  return sendEmail(opts.to, opts.subject, html);
 }
