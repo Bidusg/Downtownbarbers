@@ -106,6 +106,54 @@ export async function sendReceiptEmail(opts: {
   await sendEmail(opts.to, "Kvittering – Downtown Barbers", html);
 }
 
+/** Varsel når kunden ikke møtte – vennlig, med gebyr-notis og rebooking. */
+export async function sendNoShowEmail(opts: {
+  to: string;
+  name: string;
+  service: string;
+  barber: string;
+  date: string;
+  fee?: string; // f.eks. "150 kr" – utelates hvis ikke satt
+}): Promise<boolean> {
+  const site =
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
+    "https://downtownbarbers.no";
+  const rows: [string, string][] = [
+    ["Tjeneste", opts.service],
+    ["Barber", opts.barber],
+    ["Dato", opts.date],
+  ];
+  if (opts.fee) rows.push(["Gebyr", opts.fee]);
+  const feeLine = opts.fee
+    ? ` For uteblitte timer belastes et gebyr på ${opts.fee}, som gjøres opp ved neste besøk.`
+    : "";
+  const tr = rows
+    .map(
+      ([k, v]) =>
+        `<tr><td style="padding:8px 0;color:#8a817a">${k}</td><td style="padding:8px 0;text-align:right">${v}</td></tr>`,
+    )
+    .join("");
+  const html = `
+    <div style="font-family:Georgia,serif;background:#211E1A;color:#F8F5EF;padding:40px 24px">
+      <div style="max-width:520px;margin:0 auto">
+        <p style="letter-spacing:.3em;text-transform:uppercase;color:#F47721;font-size:11px;margin:0 0 8px">
+          Downtown Barbers
+        </p>
+        <h1 style="font-size:24px;margin:0 0 18px">Vi savnet deg i dag</h1>
+        <p style="color:#cfc7bf;line-height:1.7">Hei ${opts.name.split(" ")[0] || "der"}, det ser ut til at du ikke rakk timen din hos oss.${feeLine} Ingen fare – book gjerne en ny tid når det passer.</p>
+        <table style="width:100%;border-collapse:collapse;margin:20px 0">${tr}</table>
+        <div style="margin:28px 0">
+          <a href="${site}/booking"
+             style="display:inline-block;background:#F47721;color:#211E1A;text-decoration:none;font-weight:bold;padding:12px 22px">
+            Book ny time
+          </a>
+        </div>
+        <p style="color:#8a817a;font-size:13px">Osterhaus' gate 10, 0183 Oslo · +47 463 58 764</p>
+      </div>
+    </div>`;
+  return sendEmail(opts.to, "Du gikk glipp av timen din – Downtown Barbers", html);
+}
+
 export async function sendBookingReminderEmail(opts: {
   to: string;
   name: string;

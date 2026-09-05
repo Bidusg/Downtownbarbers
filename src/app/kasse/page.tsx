@@ -84,13 +84,13 @@ export default async function KasseDashboard() {
           />
           <Link
             href="/kasse/kalender"
-            className="border border-line px-4 py-2 text-sm font-semibold text-fg hover:border-accent-soft"
+            className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
           >
             Dagskalender →
           </Link>
           <Link
             href="/kasse/kunder"
-            className="border border-line px-4 py-2 text-sm font-semibold text-fg hover:border-accent-soft"
+            className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
           >
             Kunder →
           </Link>
@@ -98,13 +98,13 @@ export default async function KasseDashboard() {
 
         <Link
           href="/kasse/stempling"
-          className="flex items-center justify-between border border-line bg-accent px-6 py-4 text-accent-fg transition-opacity hover:opacity-90"
+          className="flex items-center justify-between rounded-lg border border-line bg-accent px-6 py-4 text-accent-fg transition-opacity hover:opacity-90"
         >
           <span className="font-display text-lg font-bold">Stemplingsur — vakt / pause</span>
           <span className="text-sm opacity-80">Åpne →</span>
         </Link>
 
-        <section className="border border-line bg-surface p-8">
+        <section className="rounded-xl border border-line bg-surface p-8">
           <p className="text-[10px] font-semibold tracking-[0.2em] text-muted uppercase">
             Dagens fremdrift
           </p>
@@ -122,7 +122,7 @@ export default async function KasseDashboard() {
           </p>
         </section>
 
-        <section className="border border-line bg-surface p-6">
+        <section className="rounded-xl border border-line bg-surface p-6">
           <h2 className="mb-4 font-display text-lg font-bold">Dagens timer</h2>
           {today.live ? (
             <ShopBookingList
@@ -147,7 +147,7 @@ export default async function KasseDashboard() {
           )}
         </section>
 
-        <section className="border border-line bg-surface p-6">
+        <section className="rounded-xl border border-line bg-surface p-6">
           <h2 className="mb-4 font-display text-lg font-bold">Kommende bookinger</h2>
           {future.length === 0 ? (
             <p className="text-sm text-muted">Ingen kommende bookinger enda.</p>

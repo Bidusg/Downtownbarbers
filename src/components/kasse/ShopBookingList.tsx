@@ -3,104 +3,10 @@
 import { useState, useTransition } from "react";
 import type { TodayBooking } from "@/lib/dashboard-queries";
 import type { ShopBarber, ShopService } from "@/lib/shop-queries";
-import {
-  completeBooking,
-  markNoShow,
-  cancelBooking,
-  sendReceiptForBooking,
-} from "@/app/kasse/actions";
+import { markNoShow, cancelBooking, sendReceiptForBooking } from "@/app/kasse/actions";
 import { DeskBooking } from "@/components/kasse/DeskBooking";
-
-const PAYMENTS = ["Kontant", "Kort", "Vipps"];
-
-const inputCls =
-  "w-full border border-line bg-surface px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none";
-
-function PayPanel({ b, onClose }: { b: TodayBooking; onClose: () => void }) {
-  const [pending, start] = useTransition();
-  const hasEmail = !!b.customerEmail;
-  const [showInfo, setShowInfo] = useState(!hasEmail);
-  const [name, setName] = useState(
-    b.customer && b.customer !== "—" ? b.customer : "",
-  );
-  const [email, setEmail] = useState(b.customerEmail ?? "");
-  const [phone, setPhone] = useState("");
-  const [receipt, setReceipt] = useState(hasEmail);
-
-  function pay(method: string) {
-    start(async () => {
-      await completeBooking(b.id, {
-        paymentMethod: method,
-        customer: showInfo ? { name, email, phone } : undefined,
-        sendReceipt: receipt && !!(email.trim() || b.customerEmail),
-      });
-      onClose();
-    });
-  }
-
-  return (
-    <div className="mt-2 border border-line bg-canvas p-3">
-      {showInfo ? (
-        <div className="mb-3 grid gap-2 sm:grid-cols-3">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Navn"
-            className={inputCls}
-          />
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="E-post (for kvittering)"
-            className={inputCls}
-          />
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="Telefon"
-            className={inputCls}
-          />
-        </div>
-      ) : (
-        <button
-          onClick={() => setShowInfo(true)}
-          className="mb-2 block text-xs font-semibold text-accent-soft hover:underline"
-        >
-          + Rediger kundeinfo
-        </button>
-      )}
-
-      <label className="mb-3 flex items-center gap-2 text-xs text-muted">
-        <input
-          type="checkbox"
-          checked={receipt}
-          onChange={(e) => setReceipt(e.target.checked)}
-        />
-        Send kvittering på e-post
-      </label>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-muted">Betalt med:</span>
-        {PAYMENTS.map((p) => (
-          <button
-            key={p}
-            disabled={pending}
-            onClick={() => pay(p)}
-            className="bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:opacity-90 disabled:opacity-50"
-          >
-            {p}
-          </button>
-        ))}
-        <button
-          onClick={onClose}
-          className="px-2 py-1.5 text-xs text-muted hover:text-fg"
-        >
-          Avbryt
-        </button>
-      </div>
-    </div>
-  );
-}
+import { PaymentControls } from "@/components/kasse/PaymentControls";
+import { Avatar } from "@/components/ui/Avatar";
 
 function ReceiptButton({ b }: { b: TodayBooking }) {
   const [pending, start] = useTransition();
@@ -109,11 +15,13 @@ function ReceiptButton({ b }: { b: TodayBooking }) {
   return (
     <button
       disabled={pending || sent}
-      onClick={() => start(async () => {
-        await sendReceiptForBooking(b.id);
-        setSent(true);
-      })}
-      className="border border-line-2 px-2.5 py-1.5 text-xs text-muted hover:border-accent-soft hover:text-fg disabled:opacity-50"
+      onClick={() =>
+        start(async () => {
+          await sendReceiptForBooking(b.id);
+          setSent(true);
+        })
+      }
+      className="rounded-md border border-line-2 px-2.5 py-1.5 text-xs text-muted transition-colors hover:border-accent-soft hover:text-fg disabled:opacity-50"
     >
       {sent ? "Sendt ✓" : pending ? "…" : "Kvittering"}
     </button>
@@ -130,7 +38,8 @@ function Row({
   barbers: ShopBarber[];
 }) {
   const [pending, start] = useTransition();
-  const [menu, setMenu] = useState<null | "pay" | "cancel">(null);
+  const [menu, setMenu] = useState<null | "pay" | "cancel" | "noshow">(null);
+  const [notify, setNotify] = useState(true);
 
   const done = b.status === "completed";
   const noshow = b.status === "no_show";
@@ -155,9 +64,10 @@ function Row({
   return (
     <li className="py-3">
       <div className="flex items-center gap-3">
-        <span className="w-12 font-display text-sm font-bold text-accent-soft">
+        <span className="w-11 font-display text-sm font-bold text-accent-soft">
           {b.time}
         </span>
+        <Avatar name={b.customer} colorKey={b.customerId ?? undefined} size={30} />
         <span className="flex-1">
           <span className="block text-sm text-fg">{b.customer}</span>
           <span className="block text-xs text-muted">
@@ -187,13 +97,47 @@ function Row({
               {done && <ReceiptButton b={b} />}
               {rebook}
             </>
+          ) : menu === "noshow" ? (
+            <>
+              <span className="mr-1 text-xs text-muted">Ikke møtt?</span>
+              {b.customerEmail && (
+                <label className="mr-1 flex items-center gap-1 text-xs text-muted">
+                  <input
+                    type="checkbox"
+                    checked={notify}
+                    onChange={(e) => setNotify(e.target.checked)}
+                    className="h-3.5 w-3.5 accent-[#F47721]"
+                  />
+                  Varsle
+                </label>
+              )}
+              <button
+                onClick={() =>
+                  start(async () => {
+                    await markNoShow(b.id, {
+                      notify: !!b.customerEmail && notify,
+                    });
+                  })
+                }
+                disabled={pending}
+                className="rounded-md border border-line-2 px-2.5 py-1.5 text-xs font-semibold text-danger hover:border-danger disabled:opacity-50"
+              >
+                Ja
+              </button>
+              <button
+                onClick={() => setMenu(null)}
+                className="px-2 py-1.5 text-xs text-muted hover:text-fg"
+              >
+                ✕
+              </button>
+            </>
           ) : menu === "cancel" ? (
             <>
               <span className="mr-1 text-xs text-muted">Avlyse?</span>
               <button
                 onClick={() => start(() => cancelBooking(b.id))}
                 disabled={pending}
-                className="border border-line-2 px-2.5 py-1.5 text-xs font-semibold text-danger hover:border-danger disabled:opacity-50"
+                className="rounded-md border border-line-2 px-2.5 py-1.5 text-xs font-semibold text-danger hover:border-danger disabled:opacity-50"
               >
                 Ja, avlys
               </button>
@@ -209,7 +153,7 @@ function Row({
               <button
                 onClick={() => setMenu(menu === "pay" ? null : "pay")}
                 disabled={pending}
-                className="bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:opacity-90 disabled:opacity-50"
+                className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
               >
                 Fullfør
               </button>
@@ -227,9 +171,9 @@ function Row({
                 }}
               />
               <button
-                onClick={() => start(() => markNoShow(b.id))}
+                onClick={() => setMenu("noshow")}
                 disabled={pending}
-                className="border border-line-2 px-2.5 py-1.5 text-xs text-muted hover:text-fg disabled:opacity-50"
+                className="rounded-md border border-line-2 px-2.5 py-1.5 text-xs text-muted hover:text-fg disabled:opacity-50"
               >
                 Ikke møtt
               </button>
@@ -245,7 +189,16 @@ function Row({
         </span>
       </div>
 
-      {menu === "pay" && <PayPanel b={b} onClose={() => setMenu(null)} />}
+      {menu === "pay" && (
+        <div className="mt-2 rounded-lg border border-line bg-canvas p-3">
+          <PaymentControls
+            bookingId={b.id}
+            customerName={b.customer}
+            customerEmail={b.customerEmail}
+            onDone={() => setMenu(null)}
+          />
+        </div>
+      )}
     </li>
   );
 }

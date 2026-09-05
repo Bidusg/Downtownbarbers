@@ -1,23 +1,56 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { salon } from "@/lib/data/salon";
 
 const nav = [
   { label: "Tjenester", href: "/#tjenester" },
+  { label: "Håndverket", href: "/#handverket" },
+  { label: "Galleri", href: "/#galleri" },
   { label: "Team", href: "/#team" },
   { label: "Butikk", href: "/butikk" },
   { label: "Kontakt", href: "/#kontakt" },
 ];
 
-export function Header() {
+export function Header({ overlay = false }: { overlay?: boolean }) {
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    if (!overlay) return;
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [overlay]);
+
+  // overlay=false (vanlige sider): alltid solid, i flyt (sticky).
+  // overlay=true (forsiden): gjennomsiktig over hero, solid ved scroll (fixed).
+  const solid = !overlay || scrolled || open;
+  const brand = solid ? "text-fg" : "text-white";
+  const navText = solid
+    ? "text-muted hover:text-fg"
+    : "text-white/75 hover:text-white";
+  const bar = solid ? "bg-fg" : "bg-white";
 
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur">
+    <header
+      className={
+        (overlay ? "fixed" : "sticky") +
+        " inset-x-0 top-0 z-40 transition-colors duration-500 " +
+        (solid
+          ? "border-b border-line bg-canvas/85 backdrop-blur"
+          : "border-b border-transparent bg-transparent")
+      }
+    >
       <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
         <a href="/#top" className="flex flex-col leading-none">
-          <span className="font-display text-xl font-bold tracking-tight text-fg">
+          <span
+            className={
+              "font-display text-xl font-bold tracking-tight transition-colors " +
+              brand
+            }
+          >
             {salon.name}
           </span>
           <span className="mt-1 text-[9px] font-semibold tracking-[0.35em] text-accent-soft uppercase">
@@ -30,7 +63,7 @@ export function Header() {
             <a
               key={n.href}
               href={n.href}
-              className="text-[13px] font-medium text-muted transition-colors hover:text-fg"
+              className={"text-[13px] font-medium transition-colors " + navText}
             >
               {n.label}
             </a>
@@ -40,7 +73,7 @@ export function Header() {
         <div className="flex items-center gap-3">
           <a
             href="/booking"
-            className="hidden bg-accent px-5 py-2.5 text-[13px] font-semibold text-accent-fg transition-colors hover:bg-accent-hover sm:inline-block"
+            className="shine-btn hidden bg-accent-soft px-5 py-2.5 text-[13px] font-semibold text-[#211E1A] transition-transform hover:-translate-y-0.5 sm:inline-block"
           >
             Bestill time
           </a>
@@ -55,20 +88,23 @@ export function Header() {
           >
             <span
               className={
-                "block h-0.5 w-6 bg-fg transition-transform " +
-                (open ? "translate-y-2 rotate-45" : "")
+                "block h-0.5 w-6 transition-transform " +
+                bar +
+                (open ? " translate-y-2 rotate-45" : "")
               }
             />
             <span
               className={
-                "block h-0.5 w-6 bg-fg transition-opacity " +
-                (open ? "opacity-0" : "")
+                "block h-0.5 w-6 transition-opacity " +
+                bar +
+                (open ? " opacity-0" : "")
               }
             />
             <span
               className={
-                "block h-0.5 w-6 bg-fg transition-transform " +
-                (open ? "-translate-y-2 -rotate-45" : "")
+                "block h-0.5 w-6 transition-transform " +
+                bar +
+                (open ? " -translate-y-2 -rotate-45" : "")
               }
             />
           </button>
@@ -92,7 +128,7 @@ export function Header() {
             <a
               href="/booking"
               onClick={() => setOpen(false)}
-              className="mt-3 bg-accent px-5 py-3 text-center text-sm font-semibold text-accent-fg"
+              className="mt-3 bg-accent-soft px-5 py-3 text-center text-sm font-semibold text-[#211E1A]"
             >
               Bestill time
             </a>

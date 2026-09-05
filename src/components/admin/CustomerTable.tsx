@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { AdminCustomer } from "@/lib/admin-queries";
+import { Avatar } from "@/components/ui/Avatar";
 
 function fmtDate(iso: string | null) {
   if (!iso) return "—";
@@ -71,12 +72,15 @@ export function CustomerTable({
                 className="border-t border-line hover:bg-surface-2/50"
               >
                 <td className="px-4 py-3">
-                  <a
-                    href={`${basePath}/${c.id}`}
-                    className="font-medium text-fg hover:text-accent-soft hover:underline"
-                  >
-                    {c.full_name}
-                  </a>
+                  <span className="flex items-center gap-2.5">
+                    <Avatar name={c.full_name} colorKey={c.id} size={28} />
+                    <a
+                      href={`${basePath}/${c.id}`}
+                      className="font-medium text-fg hover:text-accent-soft hover:underline"
+                    >
+                      {c.full_name}
+                    </a>
+                  </span>
                   {c.noShows > 0 && (
                     <span className="ml-2 rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold text-danger">
                       {c.noShows} ikke møtt

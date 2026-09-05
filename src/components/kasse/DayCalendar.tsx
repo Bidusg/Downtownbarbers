@@ -1,8 +1,33 @@
 "use client";
 
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AgendaBooking, ShopBarber, ShopService } from "@/lib/shop-queries";
+import { colorAt } from "@/lib/colors";
+import { Avatar } from "@/components/ui/Avatar";
 import { DeskBooking } from "@/components/kasse/DeskBooking";
+import { BookingDetailModal } from "@/components/kasse/BookingDetailModal";
+
+const OPEN = 9 * 60; // 09:00
+const CLOSE = 21 * 60; // 21:00
+const SPAN = CLOSE - OPEN;
+const PX = 1.3; // piksler per minutt
+const HEADER_H = 44;
+
+function osloMinutes(iso: string): number {
+  try {
+    const s = new Date(iso).toLocaleTimeString("en-GB", {
+      timeZone: "Europe/Oslo",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    const [h, m] = s.split(":").map(Number);
+    return h * 60 + m;
+  } catch {
+    return OPEN;
+  }
+}
 
 function hhmm(iso: string) {
   try {
@@ -15,13 +40,11 @@ function hhmm(iso: string) {
   }
 }
 
-const statusStyle: Record<string, string> = {
-  confirmed: "border-l-accent-soft",
-  pending: "border-l-accent-soft",
-  completed: "border-l-accent-soft opacity-70",
-  no_show: "border-l-danger opacity-60",
-  cancelled: "border-l-danger opacity-50 line-through",
-};
+function addDays(date: string, days: number): string {
+  const d = new Date(date + "T00:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
 export function DayCalendar({
   date,
@@ -35,21 +58,41 @@ export function DayCalendar({
   services: ShopService[];
 }) {
   const router = useRouter();
+  const [selected, setSelected] = useState<AgendaBooking | null>(null);
 
-  function go(days: number) {
-    const d = new Date(date + "T00:00:00");
-    d.setDate(d.getDate() + days);
-    router.push(`/kasse/kalender?date=${d.toISOString().slice(0, 10)}`);
-  }
+  const down = useRef<{ x: number; y: number } | null>(null);
+  const moved = useRef(false);
 
-  const active = agenda.filter((b) => b.status !== "cancelled");
-  const byBarber = new Map<string, AgendaBooking[]>();
-  for (const b of barbers) byBarber.set(b.full_name, []);
-  for (const b of active) {
-    const key = b.barber ?? "Uten barber";
-    if (!byBarber.has(key)) byBarber.set(key, []);
-    byBarber.get(key)!.push(b);
-  }
+  const today = new Date().toLocaleDateString("en-CA", {
+    timeZone: "Europe/Oslo",
+  });
+  const isToday = date === today;
+  const nowMin = osloMinutes(new Date().toISOString());
+
+  // Kolonner: én per barber (rekkefølge = farge-indeks).
+  const columns = useMemo(() => {
+    const map = new Map<string, { barber: ShopBarber; items: AgendaBooking[] }>();
+    barbers.forEach((b) => map.set(b.full_name, { barber: b, items: [] }));
+    for (const a of agenda) {
+      if (a.status === "cancelled") continue;
+      const key = a.barber ?? "Uten barber";
+      if (!map.has(key))
+        map.set(key, {
+          barber: { id: key, full_name: key },
+          items: [],
+        });
+      map.get(key)!.items.push(a);
+    }
+    return Array.from(map.values());
+  }, [agenda, barbers]);
+
+  const colorFor = (name: string) => {
+    const i = barbers.findIndex((b) => b.full_name === name);
+    return colorAt(i >= 0 ? i : columns.findIndex((c) => c.barber.full_name === name));
+  };
+
+  const hours: number[] = [];
+  for (let h = 9; h <= 21; h++) hours.push(h);
 
   const prettyDate = (() => {
     try {
@@ -63,91 +106,178 @@ export function DayCalendar({
     }
   })();
 
+  function onDown(e: React.PointerEvent) {
+    down.current = { x: e.clientX, y: e.clientY };
+    moved.current = false;
+  }
+  function onMove(e: React.PointerEvent) {
+    if (!down.current) return;
+    if (
+      Math.abs(e.clientX - down.current.x) > 10 ||
+      Math.abs(e.clientY - down.current.y) > 10
+    )
+      moved.current = true;
+  }
+  function onUp(e: React.PointerEvent) {
+    if (!down.current) return;
+    const dx = e.clientX - down.current.x;
+    const dy = e.clientY - down.current.y;
+    down.current = null;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+      router.push(`/kasse/kalender?date=${addDays(date, dx > 0 ? -1 : 1)}`);
+    }
+  }
+
   return (
     <div>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => go(-1)}
-            className="border border-line px-3 py-2 text-sm text-muted hover:text-fg"
-          >
-            ←
-          </button>
+      {/* Topplinje */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="font-display text-lg font-bold capitalize">
+            {prettyDate}
+          </span>
           <input
             type="date"
             value={date}
             onChange={(e) =>
               router.push(`/kasse/kalender?date=${e.target.value}`)
             }
-            className="border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent-soft focus:outline-none"
+            className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-muted focus:border-accent-soft focus:outline-none"
           />
-          <button
-            onClick={() => go(1)}
-            className="border border-line px-3 py-2 text-sm text-muted hover:text-fg"
-          >
-            →
-          </button>
-          <span className="ml-2 text-sm text-muted capitalize">
-            {prettyDate}
-          </span>
         </div>
-        <DeskBooking services={services} barbers={barbers} label="+ Ny booking" />
+        <div className="flex items-center gap-3">
+          <span className="hidden text-xs text-muted sm:inline">
+            ← sveip for å bytte dag →
+          </span>
+          <DeskBooking services={services} barbers={barbers} label="+ Ny booking" />
+        </div>
       </div>
 
-      <div className="flex gap-4 overflow-x-auto pb-2">
-        {Array.from(byBarber.entries()).map(([name, list]) => (
-          <div key={name} className="w-60 shrink-0">
-            <div className="mb-2 border-b border-line pb-2">
-              <p className="font-display text-sm font-bold text-fg">{name}</p>
-              <p className="text-xs text-muted">{list.length} timer</p>
-            </div>
-            <div className="space-y-2">
-              {list.length === 0 && (
-                <p className="py-4 text-center text-xs text-muted">
-                  Ingen timer
-                </p>
-              )}
-              {list.map((b) => (
+      {/* Rutenett */}
+      <div
+        className="relative overflow-auto rounded-xl border border-line bg-surface"
+        style={{ maxHeight: "72vh", touchAction: "pan-y" }}
+        onPointerDown={onDown}
+        onPointerMove={onMove}
+        onPointerUp={onUp}
+      >
+        <div className="flex min-w-max">
+          {/* Tidsakse */}
+          <div className="sticky left-0 z-20 w-12 shrink-0 bg-surface">
+            <div style={{ height: HEADER_H }} className="border-b border-line" />
+            <div className="relative" style={{ height: SPAN * PX }}>
+              {hours.map((h) => (
                 <div
-                  key={b.id}
-                  className={
-                    "border border-line border-l-4 bg-surface p-2.5 " +
-                    (statusStyle[b.status] ?? "border-l-line")
-                  }
+                  key={h}
+                  className="absolute -translate-y-1/2 pr-2 text-right text-[10px] text-muted"
+                  style={{ top: (h * 60 - OPEN) * PX, right: 0 }}
                 >
-                  <div className="flex items-baseline justify-between">
-                    <span className="font-display text-sm font-bold text-fg">
-                      {hhmm(b.start_at)}
-                    </span>
-                    <span className="text-[10px] text-muted">
-                      {hhmm(b.end_at)}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 text-sm text-fg">{b.customer ?? "—"}</p>
-                  <p className="text-xs text-muted">{b.service ?? "—"}</p>
-                  {b.status !== "completed" && (
-                    <div className="mt-2">
-                      <DeskBooking
-                        services={services}
-                        barbers={barbers}
-                        label="Flytt"
-                        variant="small"
-                        mode="reschedule"
-                        bookingId={b.id}
-                        prefill={{
-                          customerName: b.customer ?? "",
-                          service: b.service ?? undefined,
-                          barber: b.barber ?? undefined,
-                        }}
-                      />
-                    </div>
-                  )}
+                  {String(h).padStart(2, "0")}
                 </div>
               ))}
             </div>
           </div>
-        ))}
+
+          {/* Barber-kolonner */}
+          {columns.map((col) => {
+            const color = colorFor(col.barber.full_name);
+            return (
+              <div
+                key={col.barber.id}
+                className="w-44 shrink-0 border-l border-line"
+              >
+                <div
+                  className="sticky top-0 z-10 flex items-center gap-2 border-b border-line px-3"
+                  style={{ height: HEADER_H, background: color + "26" }}
+                >
+                  <span
+                    className="inline-block h-2.5 w-2.5 rounded-full"
+                    style={{ background: color }}
+                  />
+                  <span className="truncate text-sm font-semibold text-fg">
+                    {col.barber.full_name}
+                  </span>
+                </div>
+
+                <div className="relative" style={{ height: SPAN * PX }}>
+                  {/* timelinjer */}
+                  {hours.map((h) => (
+                    <div
+                      key={h}
+                      className="absolute right-0 left-0 border-t border-line/40"
+                      style={{ top: (h * 60 - OPEN) * PX }}
+                    />
+                  ))}
+
+                  {/* nå-linje */}
+                  {isToday && nowMin >= OPEN && nowMin <= CLOSE && (
+                    <div
+                      className="absolute right-0 left-0 z-[5] border-t-2 border-accent"
+                      style={{ top: (nowMin - OPEN) * PX }}
+                    >
+                      <span className="absolute -top-1 left-0 h-2 w-2 rounded-full bg-accent" />
+                    </div>
+                  )}
+
+                  {/* bookinger */}
+                  {col.items.map((b) => {
+                    const s = Math.max(osloMinutes(b.start_at), OPEN);
+                    const e = Math.min(osloMinutes(b.end_at), CLOSE);
+                    const top = (s - OPEN) * PX;
+                    const height = Math.max((e - s) * PX, 26);
+                    const completed = b.status === "completed";
+                    const noshow = b.status === "no_show";
+                    return (
+                      <button
+                        key={b.id}
+                        onClick={() => {
+                          if (moved.current) return;
+                          setSelected(b);
+                        }}
+                        className="absolute right-1 left-1 overflow-hidden rounded-md border-l-[3px] px-2 py-1 text-left transition-transform hover:z-10 hover:scale-[1.02]"
+                        style={{
+                          top,
+                          height,
+                          background: color + "26",
+                          borderLeftColor: color,
+                          opacity: completed || noshow ? 0.6 : 1,
+                        }}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <Avatar
+                            name={b.customer ?? "?"}
+                            colorKey={b.customer_id ?? undefined}
+                            size={16}
+                          />
+                          <span className="truncate text-xs font-semibold text-fg">
+                            {hhmm(b.start_at)} {b.customer ?? "—"}
+                          </span>
+                        </div>
+                        {height > 38 && (
+                          <p className="truncate text-[10px] text-muted">
+                            {completed ? "✓ " : noshow ? "✗ " : ""}
+                            {b.service ?? ""}
+                          </p>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
+
+      {selected && (
+        <BookingDetailModal
+          booking={selected}
+          services={services}
+          barbers={barbers}
+          barberColor={colorFor(selected.barber ?? "")}
+          onClose={() => setSelected(null)}
+        />
+      )}
     </div>
   );
 }

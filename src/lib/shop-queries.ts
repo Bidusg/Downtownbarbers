@@ -41,6 +41,8 @@ export type AgendaBooking = {
   customer: string | null;
   service: string | null;
   phone: string | null;
+  customer_id: string | null;
+  email: string | null;
 };
 
 export async function getDayAgenda(date: string): Promise<AgendaBooking[]> {

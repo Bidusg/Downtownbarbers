@@ -21,11 +21,13 @@ export default async function KalenderPage({
   const sp = await searchParams;
   const date = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : osloToday();
 
-  const [agenda, barbers, services] = await Promise.all([
+  const [rawAgenda, barbers, services] = await Promise.all([
     getDayAgenda(date),
     getBarbers(),
     getServices(),
   ]);
+  // Shop ser ikke telefonnummer – fjernes server-side (kun admin ser alt).
+  const agenda = rawAgenda.map((b) => ({ ...b, phone: null }));
 
   return (
     <div className="min-h-screen bg-canvas text-fg">

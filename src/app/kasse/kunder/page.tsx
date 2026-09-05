@@ -7,7 +7,9 @@ export const dynamic = "force-dynamic";
 
 export default async function KasseKunder() {
   await requireRole(["shop", "admin"]);
-  const customers = await getCustomers();
+  // Shop skal ikke se telefonnummer – kun admin ser all kundeinfo.
+  // Vi fjerner telefon server-side, så den aldri når shop-nettleseren.
+  const customers = (await getCustomers()).map((c) => ({ ...c, phone: null }));
 
   return (
     <div className="min-h-screen bg-canvas text-fg">

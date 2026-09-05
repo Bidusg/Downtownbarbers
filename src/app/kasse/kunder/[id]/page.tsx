@@ -72,17 +72,6 @@ export default async function KasseKunde({
           <div>
             <h1 className="font-display text-2xl font-bold">{c.full_name}</h1>
             <p className="mt-1 text-sm text-muted">
-              {c.phone ? (
-                <a
-                  href={`tel:${c.phone}`}
-                  className="text-accent-soft hover:underline"
-                >
-                  {c.phone}
-                </a>
-              ) : (
-                "Ingen telefon"
-              )}
-              {" · "}
               {c.email ? (
                 <a
                   href={`mailto:${c.email}`}

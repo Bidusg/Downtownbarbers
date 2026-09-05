@@ -2,7 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { sendBookingConfirmation, sendReceiptEmail } from "@/lib/email";
+import {
+  sendBookingConfirmation,
+  sendReceiptEmail,
+  sendNoShowEmail,
+} from "@/lib/email";
 
 function refresh() {
   revalidatePath("/kasse");
@@ -132,11 +136,46 @@ export async function completeBooking(
   refresh();
 }
 
-/** Marker som ikke møtt. */
-export async function markNoShow(bookingId: string) {
+/**
+ * Marker som ikke møtt. Kan valgfritt sende et vennlig gebyr-/påminnelsesvarsel
+ * på e-post til kunden (hvis de har e-post). Gebyrbeløpet styres server-side
+ * via NO_SHOW_FEE_NOK, slik at shop aldri ser kroner.
+ */
+export async function markNoShow(
+  bookingId: string,
+  opts?: { notify?: boolean },
+): Promise<{ ok?: true; emailed?: boolean; error?: string }> {
   const sb = await createClient();
+
   await sb.from("bookings").update({ status: "no_show" }).eq("id", bookingId);
+
+  let emailed = false;
+  if (opts?.notify) {
+    const { data: b } = await sb
+      .from("bookings")
+      .select(
+        "start_at, customers(full_name, email), services(name), staff(full_name)",
+      )
+      .eq("id", bookingId)
+      .maybeSingle();
+    const c = b?.customers as { full_name?: string; email?: string } | null;
+    if (b && c?.email) {
+      const s = b.services as { name?: string } | null;
+      const st = b.staff as { full_name?: string } | null;
+      const feeNok = Number(process.env.NO_SHOW_FEE_NOK ?? "");
+      emailed = await sendNoShowEmail({
+        to: c.email,
+        name: c.full_name ?? "",
+        service: s?.name ?? "",
+        barber: st?.full_name ?? "",
+        date: fmtDay(b.start_at),
+        fee: feeNok > 0 ? `${feeNok} kr` : undefined,
+      });
+    }
+  }
+
   refresh();
+  return { ok: true, emailed };
 }
 
 /** Avlys en booking. */
@@ -290,7 +329,8 @@ export async function searchCustomers(q: string): Promise<CustomerHit[]> {
   try {
     const sb = await createClient();
     const { data } = await sb.rpc("shop_customer_search", { p_q: q.trim() });
-    return (data as CustomerHit[]) ?? [];
+    // Shop ser ikke telefonnummer – fjernes før det når nettleseren.
+    return ((data as CustomerHit[]) ?? []).map((h) => ({ ...h, phone: null }));
   } catch {
     return [];
   }

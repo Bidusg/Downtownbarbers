@@ -38,8 +38,8 @@ export function DeskBooking({
   const [open, setOpen] = useState(false);
   const btn =
     variant === "small"
-      ? "border border-line-2 px-3 py-1.5 text-xs font-semibold text-muted hover:border-accent-soft hover:text-fg"
-      : "bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:opacity-90";
+      ? "rounded-md border border-line-2 px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
+      : "rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90";
 
   return (
     <>
@@ -184,7 +184,7 @@ function Dialog({
       onClick={onClose}
     >
       <div
-        className="mt-10 w-full max-w-md border border-line bg-surface p-6"
+        className="mt-10 w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -200,7 +200,7 @@ function Dialog({
 
         {/* Kunde */}
         {locked ? (
-          <div className="mb-4 border border-line bg-canvas px-3 py-2 text-sm">
+          <div className="mb-4 rounded-md border border-line bg-canvas px-3 py-2 text-sm">
             <span className="text-muted">Kunde: </span>
             <span className="text-fg">{customerName || "—"}</span>
           </div>
@@ -226,23 +226,23 @@ function Dialog({
                   value={nyNavn}
                   onChange={(e) => setNyNavn(e.target.value)}
                   placeholder="Fullt navn"
-                  className="w-full border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
+                  className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
                 />
                 <input
                   value={nyTlf}
                   onChange={(e) => setNyTlf(e.target.value)}
                   placeholder="Telefon (valgfri)"
-                  className="w-full border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
+                  className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
                 />
                 <input
                   value={nyEpost}
                   onChange={(e) => setNyEpost(e.target.value)}
                   placeholder="E-post (valgfri – for bekreftelse)"
-                  className="w-full border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
+                  className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
                 />
               </div>
             ) : customerId ? (
-              <div className="flex items-center justify-between border border-line bg-canvas px-3 py-2 text-sm">
+              <div className="flex items-center justify-between rounded-md border border-line bg-canvas px-3 py-2 text-sm">
                 <span className="text-fg">{customerName}</span>
                 <button
                   onClick={() => {
@@ -261,7 +261,7 @@ function Dialog({
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   placeholder="Søk navn / telefon / e-post…"
-                  className="w-full border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
+                  className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
                 />
                 {hits.length > 0 && (
                   <ul className="mt-1 max-h-40 overflow-y-auto border border-line">
@@ -301,7 +301,7 @@ function Dialog({
             <select
               value={service}
               onChange={(e) => setService(e.target.value)}
-              className="w-full border border-line bg-canvas px-3 py-2 text-sm text-fg focus:border-accent-soft focus:outline-none"
+              className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg focus:border-accent-soft focus:outline-none"
             >
               {services.map((s) => (
                 <option key={s.name} value={s.name}>
@@ -318,7 +318,7 @@ function Dialog({
           <select
             value={barber}
             onChange={(e) => setBarber(e.target.value)}
-            className="w-full border border-line bg-canvas px-3 py-2 text-sm text-fg focus:border-accent-soft focus:outline-none"
+            className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg focus:border-accent-soft focus:outline-none"
           >
             {barbers.map((b) => (
               <option key={b.id} value={b.full_name}>
@@ -336,7 +336,7 @@ function Dialog({
             min={today}
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full border border-line bg-canvas px-3 py-2 text-sm text-fg focus:border-accent-soft focus:outline-none"
+            className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg focus:border-accent-soft focus:outline-none"
           />
         </div>
 
@@ -355,7 +355,7 @@ function Dialog({
                     key={s}
                     onClick={() => setTime(s)}
                     className={
-                      "border px-2 py-1.5 text-sm " +
+                      "rounded-md border px-2 py-1.5 text-sm " +
                       (time === s
                         ? "border-accent-soft bg-accent-soft/15 text-accent-soft"
                         : "border-line text-muted hover:border-accent-soft hover:text-fg")
@@ -381,7 +381,7 @@ function Dialog({
           <button
             onClick={submit}
             disabled={!canSubmit || pending}
-            className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:opacity-90 disabled:opacity-40"
+            className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             {pending
               ? "…"

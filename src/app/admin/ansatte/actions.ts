@@ -61,7 +61,10 @@ export async function setStaffPin(
   if (!/^\d{4}$/.test(pin)) return { error: "PIN må være 4 siffer." };
   const sb = await createClient();
   const { error } = await sb.rpc("set_staff_pin", { p_staff: id, p_pin: pin });
-  if (error) return { error: "Kunne ikke lagre PIN." };
+  if (error) {
+    console.error("set_staff_pin failed:", error);
+    return { error: `Kunne ikke lagre PIN: ${error.message}` };
+  }
   revalidatePath("/admin/ansatte");
   return { ok: true };
 }
