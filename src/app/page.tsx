@@ -3,6 +3,7 @@ import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { Reveal } from "@/components/site/Reveal";
 import { ScrollProgress } from "@/components/site/ScrollProgress";
+import { HeroCarousel, type Slide } from "@/components/site/HeroCarousel";
 import {
   getPublicServices,
   getPublicBarbers,
@@ -28,6 +29,30 @@ const marqueeWords = [
   "Stil",
   "Oslo",
   "Håndverk",
+];
+
+// Hero-karusell: veksler mellom klipp og bilder (video først for effekt).
+const heroSlides: Slide[] = [
+  { type: "video", src: "/media/hero/clip1.mp4" },
+  { type: "image", src: "/img/hero/h1.jpg" },
+  { type: "image", src: "/img/hero/h2.jpg" },
+  { type: "video", src: "/media/hero/clip2.mp4" },
+  { type: "image", src: "/img/hero/h3.jpg" },
+  { type: "image", src: "/img/hero/h4.jpg" },
+  { type: "video", src: "/media/hero/clip3.mp4" },
+  { type: "image", src: "/img/hero/h5.jpg" },
+  { type: "image", src: "/img/hero/h6.jpg" },
+  { type: "video", src: "/media/hero/clip4.mp4" },
+  { type: "image", src: "/img/hero/h7.jpg" },
+  { type: "image", src: "/img/hero/h8.jpg" },
+  { type: "video", src: "/media/hero/clip5.mp4" },
+  { type: "image", src: "/img/hero/h9.jpg" },
+  { type: "image", src: "/img/hero/h10.jpg" },
+  { type: "video", src: "/media/hero/clip6.mp4" },
+  { type: "image", src: "/img/hero/h11.jpg" },
+  { type: "image", src: "/img/hero/h12.jpg" },
+  { type: "image", src: "/img/hero/h13.jpg" },
+  { type: "image", src: "/img/hero/h14.jpg" },
 ];
 
 const gallery = [
@@ -73,17 +98,7 @@ export default async function Home() {
 
       {/* ===================== HERO ===================== */}
       <section className="relative flex min-h-[92vh] items-end overflow-hidden">
-        <video
-          className="kenburns absolute inset-0 h-full w-full object-cover"
-          autoPlay
-          muted
-          loop
-          playsInline
-          poster="/media/hero-poster.jpg"
-        >
-          <source src="/media/hero.webm" type="video/webm" />
-          <source src="/media/hero.mp4" type="video/mp4" />
-        </video>
+        <HeroCarousel slides={heroSlides} poster="/media/hero/poster.jpg" />
         {/* Overlays for lesbarhet */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/60" />
         <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-transparent to-transparent" />
