@@ -117,7 +117,7 @@ body {
 }
 
 /* =====================================================================
- * Bevegelse — scroll-reveal, marquee, ken-burns, shimmer.
+ * Bevegelse — scroll-reveal, ken-burns, shimmer.
  * Alt respekterer prefers-reduced-motion (slås helt av under).
  * ===================================================================== */
 
@@ -180,24 +180,6 @@ body {
 }
 .kenburns {
   animation: kenburns 20s ease-out forwards;
-}
-
-/* Uendelig marquee-stripe (dupliser innholdet for sømløs loop). */
-@keyframes marquee {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-.marquee-track {
-  display: inline-flex;
-  white-space: nowrap;
-  animation: marquee 32s linear infinite;
-}
-.marquee:hover .marquee-track {
-  animation-play-state: paused;
 }
 
 /* Skinnende sveip over accent-knapper. */
@@ -270,7 +252,6 @@ body {
     transition: none !important;
   }
   .kenburns,
-  .marquee-track,
   .bob {
     animation: none !important;
   }

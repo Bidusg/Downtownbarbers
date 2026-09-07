@@ -4,6 +4,7 @@ import { Footer } from "@/components/site/Footer";
 import { Reveal } from "@/components/site/Reveal";
 import { ScrollProgress } from "@/components/site/ScrollProgress";
 import { HeroCarousel, type Slide } from "@/components/site/HeroCarousel";
+import { GoogleReviews } from "@/components/site/GoogleReviews";
 import {
   getPublicServices,
   getPublicBarbers,
@@ -20,16 +21,6 @@ function Label({ children }: { children: React.ReactNode }) {
 }
 
 const rise = (ms: number) => ({ ["--rise-delay"]: `${ms}ms` }) as CSSProperties;
-
-const marqueeWords = [
-  "Presisjon",
-  "Fade",
-  "Skjegg",
-  "Hot towel",
-  "Stil",
-  "Oslo",
-  "Håndverk",
-];
 
 // Hero-karusell: veksler mellom klipp og bilder (video først for effekt).
 const heroSlides: Slide[] = [
@@ -163,24 +154,6 @@ export default async function Home() {
           </div>
         </div>
       </section>
-
-      {/* ===================== MARQUEE ===================== */}
-      <div className="marquee overflow-hidden border-y border-line bg-accent py-4 text-accent-fg">
-        <div className="marquee-track">
-          {[0, 1].map((dup) => (
-            <div key={dup} className="flex items-center" aria-hidden={dup === 1}>
-              {marqueeWords.map((w) => (
-                <span key={w} className="flex items-center">
-                  <span className="px-6 font-display text-lg tracking-wide">
-                    {w}
-                  </span>
-                  <span className="text-accent-soft">✦</span>
-                </span>
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
 
       {/* ===================== OM OSS ===================== */}
       <section className="border-b border-line bg-surface-2">
@@ -339,6 +312,10 @@ export default async function Home() {
           </div>
         </div>
       </section>
+
+      {/* ===================== ANMELDELSER ===================== */}
+      {/* Skjuler seg selv til GOOGLE_PLACES_API_KEY + GOOGLE_PLACES_ID er satt. */}
+      <GoogleReviews />
 
       {/* ===================== CTA ===================== */}
       <section className="border-b border-line bg-accent text-accent-fg">
