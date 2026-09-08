@@ -172,6 +172,65 @@ export async function getCustomers(): Promise<AdminCustomer[]> {
   }
 }
 
+export type CustomerPage = {
+  rows: AdminCustomer[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+/**
+ * Paginert + søkbart kundekartotek. Skalerer til tusenvis av kunder
+ * (unngår PostgREST sin 1000-rads-grense ved å hente én side om gangen).
+ */
+export async function getCustomersPage(opts: {
+  q?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<CustomerPage> {
+  const pageSize = opts.pageSize ?? 50;
+  const page = Math.max(1, opts.page ?? 1);
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+  try {
+    const sb = await createClient();
+    let query = sb
+      .from("customers")
+      .select(
+        "id, full_name, phone, email, category, bookings(status, price_nok, start_at)",
+        { count: "exact" },
+      )
+      .order("full_name")
+      .range(from, to);
+
+    const q = (opts.q ?? "").trim();
+    if (q) {
+      // Fjern tegn som ville brutt or/ilike-filteret.
+      const esc = q.replace(/[%,()]/g, " ");
+      query = query.or(
+        `full_name.ilike.%${esc}%,phone.ilike.%${esc}%,email.ilike.%${esc}%`,
+      );
+    }
+
+    const { data, count } = await query;
+    const rows = (data ?? []).map((r) => {
+      const bk = (r.bookings as CustomerBookingRow[] | null) ?? [];
+      const s = summarizeBookings(bk);
+      return {
+        id: r.id,
+        full_name: r.full_name,
+        phone: r.phone,
+        email: r.email,
+        category: r.category,
+        ...s,
+      } as AdminCustomer;
+    });
+    return { rows, total: count ?? rows.length, page, pageSize };
+  } catch {
+    return { rows: [], total: 0, page, pageSize };
+  }
+}
+
 export type CustomerBooking = {
   id: string;
   start_at: string;

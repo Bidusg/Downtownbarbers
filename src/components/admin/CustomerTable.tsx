@@ -1,6 +1,3 @@
-"use client";
-
-import { useState } from "react";
 import type { AdminCustomer } from "@/lib/admin-queries";
 import { Avatar } from "@/components/ui/Avatar";
 
@@ -17,33 +14,62 @@ function fmtDate(iso: string | null) {
   }
 }
 
+function pageHref(basePath: string, q: string, page: number) {
+  const p = new URLSearchParams();
+  if (q) p.set("q", q);
+  if (page > 1) p.set("page", String(page));
+  const qs = p.toString();
+  return qs ? `${basePath}?${qs}` : basePath;
+}
+
+/**
+ * Kundekartotek-tabell. Server-drevet søk (GET-skjema) og paginering,
+ * slik at den skalerer til tusenvis av kunder.
+ */
 export function CustomerTable({
   customers,
+  total,
+  page,
+  pageSize,
+  q = "",
   basePath = "/admin/kunder",
 }: {
   customers: AdminCustomer[];
+  total: number;
+  page: number;
+  pageSize: number;
+  q?: string;
   basePath?: string;
 }) {
-  const [q, setQ] = useState("");
-  const norm = q.trim().toLowerCase();
-  const filtered = norm
-    ? customers.filter((c) =>
-        [c.full_name, c.email, c.phone, c.category].some((v) =>
-          (v ?? "").toLowerCase().includes(norm),
-        ),
-      )
-    : customers;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
 
   return (
     <div>
-      <div className="mb-4">
+      <form method="get" action={basePath} className="mb-4 flex gap-2">
         <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
+          name="q"
+          defaultValue={q}
           placeholder="Søk på navn, e-post eller telefon…"
           className="w-full max-w-sm border border-line bg-surface px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
         />
-      </div>
+        <button
+          type="submit"
+          className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
+        >
+          Søk
+        </button>
+        {q && (
+          <a
+            href={basePath}
+            className="flex items-center px-3 text-sm text-muted hover:text-fg"
+          >
+            Nullstill
+          </a>
+        )}
+      </form>
+
       <div className="overflow-x-auto border border-line">
         <table className="w-full text-sm">
           <thead className="bg-surface-2 text-left text-xs tracking-wide text-muted uppercase">
@@ -57,16 +83,16 @@ export function CustomerTable({
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 && (
+            {customers.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-muted">
-                  {customers.length === 0
-                    ? "Ingen kunder enda. De registreres automatisk ved booking."
+                  {total === 0 && !q
+                    ? "Ingen kunder enda. De registreres ved booking, eller importer kundekartoteket."
                     : "Ingen treff."}
                 </td>
               </tr>
             )}
-            {filtered.map((c) => (
+            {customers.map((c) => (
               <tr
                 key={c.id}
                 className="border-t border-line hover:bg-surface-2/50"
@@ -127,6 +153,42 @@ export function CustomerTable({
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Paginering */}
+      <div className="mt-4 flex items-center justify-between text-sm text-muted">
+        <span>
+          {total === 0 ? "0 kunder" : `Viser ${from}–${to} av ${total}`}
+        </span>
+        <div className="flex items-center gap-2">
+          {page > 1 ? (
+            <a
+              href={pageHref(basePath, q, page - 1)}
+              className="border border-line px-3 py-1.5 text-fg hover:border-accent-soft"
+            >
+              ← Forrige
+            </a>
+          ) : (
+            <span className="border border-line px-3 py-1.5 opacity-40">
+              ← Forrige
+            </span>
+          )}
+          <span className="px-1">
+            Side {page} av {totalPages}
+          </span>
+          {page < totalPages ? (
+            <a
+              href={pageHref(basePath, q, page + 1)}
+              className="border border-line px-3 py-1.5 text-fg hover:border-accent-soft"
+            >
+              Neste →
+            </a>
+          ) : (
+            <span className="border border-line px-3 py-1.5 opacity-40">
+              Neste →
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
