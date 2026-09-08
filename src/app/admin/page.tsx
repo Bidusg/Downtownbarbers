@@ -1,86 +1,94 @@
 import { StatTile } from "@/components/ui/StatTile";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { RevenueChart } from "@/components/admin/RevenueChart";
-import { adminKpis, revenue7d, barberGoals, todayShop } from "@/lib/data/mock";
+import {
+  getRevenueSeries,
+  getRevenueSummary,
+  getShopToday,
+} from "@/lib/dashboard-queries";
+
+export const dynamic = "force-dynamic";
 
 const nok = (n: number) => n.toLocaleString("nb-NO") + " kr";
 
-export default function AdminDashboard() {
-  const shopPct = Math.round(
-    (todayShop.customersServed / todayShop.customersTarget) * 100,
-  );
+export default async function AdminDashboard() {
+  const [sum, series, shop] = await Promise.all([
+    getRevenueSummary(),
+    getRevenueSeries("days"),
+    getShopToday(),
+  ]);
+  const shopPct = shop.customersTarget
+    ? Math.round((shop.customersServed / shop.customersTarget) * 100)
+    : 0;
+  const maxBarber = Math.max(1, ...sum.perBarber.map((b) => b.nok));
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      {/* Demodata-varsel – tallene her er eksempeldata inntil ekte salg/regnskap er koblet på */}
-      <div className="flex items-start gap-3 border border-accent-soft/30 bg-accent-soft/5 px-4 py-3 text-sm">
-        <span className="mt-0.5 text-accent-soft">●</span>
-        <p className="text-muted">
-          <strong className="text-fg">Demodata.</strong> Tallene i dashboardet
-          (omsetning, graf, månedsmål) er eksempeldata for å vise oppsettet. De
-          byttes til ekte tall når salg og regnskap registreres i systemet.
-        </p>
-      </div>
+      {!sum.hasData && (
+        <div className="flex items-start gap-3 border border-accent-soft/30 bg-accent-soft/5 px-4 py-3 text-sm">
+          <span className="mt-0.5 text-accent-soft">●</span>
+          <p className="text-muted">
+            <strong className="text-fg">Venter på salg.</strong> Omsetningstallene
+            fylles automatisk når timer fullføres og betales i kassen.
+          </p>
+        </div>
+      )}
 
-      {/* KPI-er (admin ser kroner) */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile label="Omsetning i dag" value={nok(adminKpis.revenueToday)} sub="14 salg" />
-        <StatTile label="Bookinger i dag" value={String(adminKpis.bookingsToday)} sub="3 gjenstår" />
-        <StatTile
-          label="Fullføringsgrad"
-          value={Math.round(adminKpis.completionRate * 100) + " %"}
-          sub="siste 30 dager"
-        />
-        <StatTile label="Snittrating" value={adminKpis.avgRating.toFixed(1).replace(".", ",")} sub="alle barbere" />
+        <StatTile label="Omsetning i dag" value={nok(sum.today)} />
+        <StatTile label="Omsetning måned" value={nok(sum.month)} sub="denne måneden" />
+        <StatTile label="Antall salg" value={String(sum.saleCount)} sub="denne måneden" />
+        <StatTile label="Snitt per salg" value={nok(sum.avgPerSale)} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Omsetningsgraf */}
         <div className="border border-line bg-surface p-6 lg:col-span-2">
           <div className="mb-4 flex items-baseline justify-between">
-            <h2 className="font-display text-lg font-bold">Omsetning siste 7 dager</h2>
-            <span className="text-xs text-muted">NOK</span>
+            <h2 className="font-display text-lg font-bold">Omsetning siste 14 dager</h2>
+            <a href="/admin/regnskap" className="text-xs font-semibold text-accent-soft hover:text-fg">
+              Se regnskap →
+            </a>
           </div>
-          <RevenueChart data={revenue7d} />
+          <RevenueChart data={series} />
         </div>
 
-        {/* Shop-dagsmål */}
         <div className="border border-line bg-surface p-6">
           <h2 className="mb-1 font-display text-lg font-bold">Shop – dagsmål</h2>
           <p className="mb-5 text-xs text-muted">Kunder gjennom dagen</p>
           <div className="mb-2 flex items-end justify-between">
             <span className="font-display text-4xl font-bold text-fg">{shopPct} %</span>
             <span className="text-sm text-muted">
-              {todayShop.customersServed} / {todayShop.customersTarget}
+              {shop.customersServed} / {shop.customersTarget}
             </span>
           </div>
           <ProgressBar value={shopPct} />
-          <p className="mt-4 text-xs text-muted">
-            Fase 1: basert på kundeantall. Byttes til fast kronemål senere.
-          </p>
+          {!shop.live && (
+            <p className="mt-4 text-xs text-muted">
+              Testtall til ekte bookinger registreres.
+            </p>
+          )}
         </div>
       </div>
 
-      {/* Månedsmål per barber (admin ser kr + %) */}
       <div className="border border-line bg-surface p-6">
         <div className="mb-6 flex items-baseline justify-between">
-          <h2 className="font-display text-lg font-bold">Månedsmål per barber</h2>
-          <span className="text-xs text-muted">Oktober</span>
+          <h2 className="font-display text-lg font-bold">Omsetning per barber</h2>
+          <span className="text-xs text-muted">denne måneden</span>
         </div>
-        <div className="space-y-5">
-          {barberGoals.map((b) => {
-            const pct = Math.round((b.achieved / b.target) * 100);
-            return (
-              <div key={b.name}>
-                <ProgressBar
-                  value={pct}
-                  label={`${b.name} · ${b.title}`}
-                  caption={`${nok(b.achieved)} / ${nok(b.target)} · ${pct} %`}
-                />
-              </div>
-            );
-          })}
-        </div>
+        {sum.perBarber.length === 0 ? (
+          <p className="text-sm text-muted">Ingen salg registrert enda.</p>
+        ) : (
+          <div className="space-y-5">
+            {sum.perBarber.map((b) => (
+              <ProgressBar
+                key={b.name}
+                value={Math.round((b.nok / maxBarber) * 100)}
+                label={b.name}
+                caption={nok(b.nok)}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
