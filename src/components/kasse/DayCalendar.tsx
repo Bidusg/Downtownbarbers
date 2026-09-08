@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { AgendaBooking, ShopBarber, ShopService } from "@/lib/shop-queries";
 import { colorAt } from "@/lib/colors";
 import { Avatar } from "@/components/ui/Avatar";
 import { DeskBooking } from "@/components/kasse/DeskBooking";
 import { BookingDetailModal } from "@/components/kasse/BookingDetailModal";
+import { blockTime, cancelBooking } from "@/app/kasse/actions";
 
 const OPEN = 9 * 60; // 09:00
 const CLOSE = 21 * 60; // 21:00
@@ -46,19 +47,28 @@ function addDays(date: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// En blokk/pause er en booking uten kunde og uten tjeneste.
+const isBlock = (b: AgendaBooking) => !b.customer && !b.service;
+
 export function DayCalendar({
   date,
   agenda,
   barbers,
   services,
+  basePath = "/kasse/kalender",
+  canBlock = false,
 }: {
   date: string;
   agenda: AgendaBooking[];
   barbers: ShopBarber[];
   services: ShopService[];
+  basePath?: string;
+  canBlock?: boolean;
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<AgendaBooking | null>(null);
+  const [blockOpen, setBlockOpen] = useState(false);
+  const [, startCancel] = useTransition();
 
   const down = useRef<{ x: number; y: number } | null>(null);
   const moved = useRef(false);
@@ -69,7 +79,6 @@ export function DayCalendar({
   const isToday = date === today;
   const nowMin = osloMinutes(new Date().toISOString());
 
-  // Kolonner: én per barber (rekkefølge = farge-indeks).
   const columns = useMemo(() => {
     const map = new Map<string, { barber: ShopBarber; items: AgendaBooking[] }>();
     barbers.forEach((b) => map.set(b.full_name, { barber: b, items: [] }));
@@ -77,10 +86,7 @@ export function DayCalendar({
       if (a.status === "cancelled") continue;
       const key = a.barber ?? "Uten barber";
       if (!map.has(key))
-        map.set(key, {
-          barber: { id: key, full_name: key },
-          items: [],
-        });
+        map.set(key, { barber: { id: key, full_name: key }, items: [] });
       map.get(key)!.items.push(a);
     }
     return Array.from(map.values());
@@ -124,8 +130,15 @@ export function DayCalendar({
     const dy = e.clientY - down.current.y;
     down.current = null;
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.4) {
-      router.push(`/kasse/kalender?date=${addDays(date, dx > 0 ? -1 : 1)}`);
+      router.push(`${basePath}?date=${addDays(date, dx > 0 ? -1 : 1)}`);
     }
+  }
+
+  function removeBlock(id: string) {
+    startCancel(async () => {
+      await cancelBooking(id);
+      router.refresh();
+    });
   }
 
   return (
@@ -139,16 +152,22 @@ export function DayCalendar({
           <input
             type="date"
             value={date}
-            onChange={(e) =>
-              router.push(`/kasse/kalender?date=${e.target.value}`)
-            }
+            onChange={(e) => router.push(`${basePath}?date=${e.target.value}`)}
             className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-muted focus:border-accent-soft focus:outline-none"
           />
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <span className="hidden text-xs text-muted sm:inline">
             ← sveip for å bytte dag →
           </span>
+          {canBlock && (
+            <button
+              onClick={() => setBlockOpen(true)}
+              className="rounded-md border border-line-2 px-3 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
+            >
+              Blokker / pause
+            </button>
+          )}
           <DeskBooking services={services} barbers={barbers} label="+ Ny booking" />
         </div>
       </div>
@@ -162,7 +181,6 @@ export function DayCalendar({
         onPointerUp={onUp}
       >
         <div className="flex min-w-max">
-          {/* Tidsakse */}
           <div className="sticky left-0 z-20 w-12 shrink-0 bg-surface">
             <div style={{ height: HEADER_H }} className="border-b border-line" />
             <div className="relative" style={{ height: SPAN * PX }}>
@@ -178,14 +196,10 @@ export function DayCalendar({
             </div>
           </div>
 
-          {/* Barber-kolonner */}
           {columns.map((col) => {
             const color = colorFor(col.barber.full_name);
             return (
-              <div
-                key={col.barber.id}
-                className="w-44 shrink-0 border-l border-line"
-              >
+              <div key={col.barber.id} className="w-44 shrink-0 border-l border-line">
                 <div
                   className="sticky top-0 z-10 flex items-center gap-2 border-b border-line px-3"
                   style={{ height: HEADER_H, background: color + "26" }}
@@ -200,7 +214,6 @@ export function DayCalendar({
                 </div>
 
                 <div className="relative" style={{ height: SPAN * PX }}>
-                  {/* timelinjer */}
                   {hours.map((h) => (
                     <div
                       key={h}
@@ -209,7 +222,6 @@ export function DayCalendar({
                     />
                   ))}
 
-                  {/* nå-linje */}
                   {isToday && nowMin >= OPEN && nowMin <= CLOSE && (
                     <div
                       className="absolute right-0 left-0 z-[5] border-t-2 border-accent"
@@ -219,12 +231,41 @@ export function DayCalendar({
                     </div>
                   )}
 
-                  {/* bookinger */}
                   {col.items.map((b) => {
                     const s = Math.max(osloMinutes(b.start_at), OPEN);
                     const e = Math.min(osloMinutes(b.end_at), CLOSE);
                     const top = (s - OPEN) * PX;
                     const height = Math.max((e - s) * PX, 26);
+
+                    // Blokk / pause – egen visning
+                    if (isBlock(b)) {
+                      return (
+                        <div
+                          key={b.id}
+                          className="group absolute right-1 left-1 overflow-hidden rounded-md border border-dashed border-line-2 px-2 py-1 text-left"
+                          style={{
+                            top,
+                            height,
+                            background:
+                              "repeating-linear-gradient(45deg, oklch(var(--surface-2)), oklch(var(--surface-2)) 6px, transparent 6px, transparent 12px)",
+                          }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="truncate text-[11px] font-semibold text-muted">
+                              ⛔ {hhmm(b.start_at)} Blokkert
+                            </span>
+                            <button
+                              onClick={() => removeBlock(b.id)}
+                              className="ml-1 shrink-0 text-xs text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger"
+                              aria-label="Fjern blokk"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
+
                     const completed = b.status === "completed";
                     const noshow = b.status === "no_show";
                     return (
@@ -278,6 +319,117 @@ export function DayCalendar({
           onClose={() => setSelected(null)}
         />
       )}
+
+      {blockOpen && (
+        <BlockDialog
+          date={date}
+          barbers={barbers}
+          onClose={() => setBlockOpen(false)}
+          onDone={() => {
+            setBlockOpen(false);
+            router.refresh();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function BlockDialog({
+  date,
+  barbers,
+  onClose,
+  onDone,
+}: {
+  date: string;
+  barbers: ShopBarber[];
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [barber, setBarber] = useState(barbers[0]?.full_name ?? "");
+  const [d, setD] = useState(date);
+  const [from, setFrom] = useState("12:00");
+  const [to, setTo] = useState("12:30");
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  function submit() {
+    setError(null);
+    const startIso = new Date(`${d}T${from}:00`).toISOString();
+    const endIso = new Date(`${d}T${to}:00`).toISOString();
+    start(async () => {
+      const res = await blockTime(barber, startIso, endIso, reason);
+      if (res.error) setError(res.error);
+      else onDone();
+    });
+  }
+
+  const field =
+    "w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg focus:border-accent-soft focus:outline-none";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="mt-10 w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-display text-lg font-bold">Blokker tid / pause</h2>
+          <button onClick={onClose} className="text-muted hover:text-fg" aria-label="Lukk">
+            ✕
+          </button>
+        </div>
+
+        <label className="mb-1 block text-xs text-muted">Barber</label>
+        <select value={barber} onChange={(e) => setBarber(e.target.value)} className={`${field} mb-3`}>
+          {barbers.map((b) => (
+            <option key={b.id} value={b.full_name}>
+              {b.full_name}
+            </option>
+          ))}
+        </select>
+
+        <label className="mb-1 block text-xs text-muted">Dato</label>
+        <input type="date" value={d} onChange={(e) => setD(e.target.value)} className={`${field} mb-3`} />
+
+        <div className="mb-3 grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-xs text-muted">Fra</label>
+            <input type="time" value={from} onChange={(e) => setFrom(e.target.value)} className={field} />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted">Til</label>
+            <input type="time" value={to} onChange={(e) => setTo(e.target.value)} className={field} />
+          </div>
+        </div>
+
+        <label className="mb-1 block text-xs text-muted">Årsak (valgfritt)</label>
+        <input
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Lunsj, møte, privat …"
+          className={`${field} mb-4`}
+        />
+
+        {error && <p className="mb-3 text-sm text-danger">{error}</p>}
+
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-muted hover:text-fg">
+            Avbryt
+          </button>
+          <button
+            onClick={submit}
+            disabled={pending || !barber}
+            className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
+          >
+            {pending ? "…" : "Blokker"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

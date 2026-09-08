@@ -22,6 +22,7 @@ export type AdminStaff = {
   photo_url: string | null;
   contract_url: string | null;
   active: boolean;
+  has_pin: boolean;
 };
 
 export type AdminBooking = {
@@ -108,10 +109,13 @@ export async function getStaffAdmin(): Promise<AdminStaff[]> {
     const { data } = await sb
       .from("staff")
       .select(
-        "id, employee_number, full_name, title, bio, photo_url, contract_url, active",
+        "id, employee_number, full_name, title, bio, photo_url, contract_url, active, pin_hash",
       )
       .order("employee_number");
-    return (data as AdminStaff[]) ?? [];
+    return (data ?? []).map((r) => {
+      const { pin_hash, ...rest } = r as Record<string, unknown>;
+      return { ...rest, has_pin: pin_hash != null } as AdminStaff;
+    });
   } catch {
     return [];
   }

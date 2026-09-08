@@ -185,6 +185,45 @@ export async function cancelBooking(bookingId: string) {
   refresh();
 }
 
+/**
+ * Blokker tid / legg inn pause for en barber. Lagres som en booking uten kunde
+ * eller tjeneste, så `available_slots` automatisk sperrer tiden for nettbooking
+ * og blokken vises i kalenderen.
+ */
+export async function blockTime(
+  barber: string,
+  startIso: string,
+  endIso: string,
+  reason: string,
+): Promise<{ ok?: true; error?: string }> {
+  if (!barber || !startIso || !endIso) return { error: "Mangler felt." };
+  if (new Date(endIso) <= new Date(startIso))
+    return { error: "Sluttid må være etter starttid." };
+  try {
+    const sb = await createClient();
+    const { data: s } = await sb
+      .from("staff")
+      .select("id")
+      .eq("full_name", barber)
+      .eq("active", true)
+      .maybeSingle();
+    if (!s) return { error: "Fant ikke barberen." };
+    const { error } = await sb.from("bookings").insert({
+      staff_id: s.id,
+      start_at: startIso,
+      end_at: endIso,
+      status: "confirmed",
+      price_nok: 0,
+      notes: reason.trim() || "Blokkert",
+    });
+    if (error) return { error: error.message };
+    refresh();
+    return { ok: true };
+  } catch {
+    return { error: "Kunne ikke blokkere tiden." };
+  }
+}
+
 /** Flytt en booking til ny tid (og evt. ny barber). */
 export async function rescheduleBooking(
   bookingId: string,

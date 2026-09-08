@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { LogoutButton } from "@/components/admin/LogoutButton";
 
 type NavItem = { label: string; href: string };
 type NavGroup = { label: string; items: NavItem[] };
 
+const dashboard: NavItem = { label: "Dashboard", href: "/admin" };
+
 const groups: NavGroup[] = [
-  { label: "Dashboard", items: [{ label: "Oversikt", href: "/admin" }] },
   {
     label: "Drift",
     items: [
@@ -64,22 +65,44 @@ export function AdminNav({
   initial: string;
 }) {
   const path = usePathname();
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const navRef = useRef<HTMLElement | null>(null);
 
-  const activeGroup =
-    groups.find((g) => g.items.some((it) => isActive(it.href, path))) ??
-    groups[0];
-  const showSub = activeGroup.items.length > 1;
-
-  // Lukk mobilmenyen ved navigasjon.
+  // Lukk ved navigasjon.
   useEffect(() => {
+    setOpenMenu(null);
     setMobileOpen(false);
   }, [path]);
 
+  // Lukk dropdown ved klikk utenfor / Escape.
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) {
+        setOpenMenu(null);
+      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpenMenu(null);
+    }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, []);
+
+  const linkCls = (active: boolean) =>
+    "px-3 py-2 text-sm transition-colors " +
+    (active ? "font-semibold text-fg" : "text-muted hover:text-fg");
+
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-surface">
-      {/* Rad 1: merke + seksjoner + brukerkontroller */}
-      <div className="flex h-14 items-center gap-4 px-4 sm:px-6">
+    <header
+      ref={navRef}
+      className="sticky top-0 z-30 border-b border-line bg-surface"
+    >
+      <div className="flex h-14 items-center gap-2 px-4 sm:px-6">
         <a href="/admin" className="flex shrink-0 items-baseline gap-2">
           <span className="font-display text-lg font-bold text-fg">Downtown</span>
           <span className="text-[9px] font-semibold tracking-[0.3em] text-accent-soft uppercase">
@@ -87,23 +110,48 @@ export function AdminNav({
           </span>
         </a>
 
-        {/* Seksjoner (desktop) */}
-        <nav className="hidden flex-1 items-center gap-1 md:flex">
+        {/* Dropdown-meny (desktop) */}
+        <nav className="hidden flex-1 items-center gap-0.5 md:flex">
+          <a href={dashboard.href} className={linkCls(isActive(dashboard.href, path))}>
+            {dashboard.label}
+          </a>
           {groups.map((g) => {
-            const active = g === activeGroup;
+            const groupActive = g.items.some((it) => isActive(it.href, path));
+            const isOpen = openMenu === g.label;
             return (
-              <a
-                key={g.label}
-                href={g.items[0].href}
-                className={
-                  "px-3 py-2 text-sm transition-colors " +
-                  (active
-                    ? "font-semibold text-fg"
-                    : "text-muted hover:text-fg")
-                }
-              >
-                {g.label}
-              </a>
+              <div key={g.label} className="relative">
+                <button
+                  onClick={() => setOpenMenu(isOpen ? null : g.label)}
+                  aria-expanded={isOpen}
+                  className={
+                    "flex items-center gap-1 whitespace-nowrap " +
+                    linkCls(groupActive || isOpen)
+                  }
+                >
+                  {g.label}
+                  <svg viewBox="0 0 24 24" className={"h-3 w-3 transition-transform " + (isOpen ? "rotate-180" : "")} fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                {isOpen && (
+                  <div className="absolute left-0 top-full z-40 mt-1 min-w-48 border border-line bg-surface py-1 shadow-lg">
+                    {g.items.map((it) => (
+                      <a
+                        key={it.href}
+                        href={it.href}
+                        className={
+                          "block px-4 py-2 text-sm transition-colors " +
+                          (isActive(it.href, path)
+                            ? "bg-surface-2 font-semibold text-fg"
+                            : "text-muted hover:bg-surface-2 hover:text-fg")
+                        }
+                      >
+                        {it.label}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
             );
           })}
         </nav>
@@ -121,7 +169,6 @@ export function AdminNav({
           <div className="hidden sm:block">
             <LogoutButton />
           </div>
-          {/* Hamburger (mobil) */}
           <button
             onClick={() => setMobileOpen((o) => !o)}
             aria-label="Meny"
@@ -139,57 +186,40 @@ export function AdminNav({
         </div>
       </div>
 
-      {/* Rad 2: underpunkter for aktiv seksjon (desktop) */}
-      {showSub && (
-        <div className="hidden border-t border-line bg-surface-2 md:block">
-          <nav className="flex items-center gap-1 overflow-x-auto px-4 sm:px-6">
-            {activeGroup.items.map((it) => {
-              const active = isActive(it.href, path);
-              return (
-                <a
-                  key={it.href}
-                  href={it.href}
-                  className={
-                    "border-b-2 px-3 py-2.5 text-sm whitespace-nowrap transition-colors " +
-                    (active
-                      ? "border-accent-soft font-semibold text-fg"
-                      : "border-transparent text-muted hover:text-fg")
-                  }
-                >
-                  {it.label}
-                </a>
-              );
-            })}
-          </nav>
-        </div>
-      )}
-
       {/* Mobilmeny */}
       {mobileOpen && (
         <div className="border-t border-line bg-surface md:hidden">
           <nav className="flex flex-col gap-4 p-4">
+            <a
+              href={dashboard.href}
+              className={
+                "px-2 py-2 text-sm " +
+                (isActive(dashboard.href, path)
+                  ? "bg-surface-2 font-semibold text-fg"
+                  : "text-muted hover:text-fg")
+              }
+            >
+              {dashboard.label}
+            </a>
             {groups.map((g) => (
               <div key={g.label} className="flex flex-col">
                 <p className="px-1 pb-1 text-[9px] font-semibold tracking-[0.25em] text-muted uppercase">
                   {g.label}
                 </p>
-                {g.items.map((it) => {
-                  const active = isActive(it.href, path);
-                  return (
-                    <a
-                      key={it.href}
-                      href={it.href}
-                      className={
-                        "px-2 py-2 text-sm transition-colors " +
-                        (active
-                          ? "bg-surface-2 font-semibold text-fg"
-                          : "text-muted hover:text-fg")
-                      }
-                    >
-                      {it.label}
-                    </a>
-                  );
-                })}
+                {g.items.map((it) => (
+                  <a
+                    key={it.href}
+                    href={it.href}
+                    className={
+                      "px-2 py-2 text-sm transition-colors " +
+                      (isActive(it.href, path)
+                        ? "bg-surface-2 font-semibold text-fg"
+                        : "text-muted hover:text-fg")
+                    }
+                  >
+                    {it.label}
+                  </a>
+                ))}
               </div>
             ))}
             <div className="border-t border-line pt-3">

@@ -4,19 +4,29 @@ import { useState, useTransition } from "react";
 import type { AdminStaff } from "@/lib/admin-queries";
 import { createStaff, toggleStaff, setStaffPin } from "@/app/admin/ansatte/actions";
 
-function PinCell({ id }: { id: string }) {
+function PinCell({ id, hasPin }: { id: string; hasPin: boolean }) {
   const [open, setOpen] = useState(false);
   const [pin, setPin] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [pending, start] = useTransition();
   if (!open) {
     return (
-      <button
-        onClick={() => { setOpen(true); setMsg(null); }}
-        className="text-xs text-accent-soft hover:underline"
-      >
-        Sett PIN
-      </button>
+      <div className="flex items-center gap-2">
+        <span
+          className={
+            "rounded-full px-2 py-0.5 text-[10px] font-semibold " +
+            (hasPin ? "bg-accent-soft/15 text-accent-soft" : "bg-surface-2 text-muted")
+          }
+        >
+          {hasPin ? "PIN satt ✓" : "Ikke satt"}
+        </span>
+        <button
+          onClick={() => { setOpen(true); setMsg(null); }}
+          className="text-xs text-accent-soft hover:underline"
+        >
+          {hasPin ? "Nullstill" : "Sett PIN"}
+        </button>
+      </div>
     );
   }
   return (
@@ -130,7 +140,7 @@ export function StaffManager({ staff }: { staff: AdminStaff[] }) {
                   )}
                 </td>
                 <td className="px-4 py-3">
-                  <PinCell id={s.id} />
+                  <PinCell id={s.id} hasPin={s.has_pin} />
                 </td>
                 <td className="px-4 py-3">
                   <button

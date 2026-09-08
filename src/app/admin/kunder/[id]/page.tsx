@@ -71,30 +71,26 @@ function Stat({
   );
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex justify-between gap-3">
-      <dt className="text-muted">{label}</dt>
-      <dd className="text-right text-fg">{children}</dd>
-    </div>
-  );
-}
-
 export default async function KundeKort({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ lagret?: string }>;
 }) {
   const { id } = await params;
+  const { lagret } = await searchParams;
   const c = await getCustomer(id);
   if (!c) notFound();
   const save = updateCustomer.bind(null, id);
+  const banner =
+    lagret === "ok"
+      ? { text: "Lagret ✓", ok: true }
+      : lagret === "e-post-finnes"
+        ? { text: "E-posten er allerede i bruk på en annen kunde.", ok: false }
+        : lagret === "feil"
+          ? { text: "Kunne ikke lagre – prøv igjen.", ok: false }
+          : null;
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -123,66 +119,71 @@ export default async function KundeKort({
       </div>
 
       <div className="grid gap-6 md:grid-cols-[1fr_1.4fr]">
-        <div className="space-y-4">
-          <div className="border border-line bg-surface p-4">
-            <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted uppercase">
-              Kontakt
-            </h2>
-            <dl className="space-y-2 text-sm">
-              <Field label="Telefon">
-                {c.phone ? (
-                  <a
-                    href={`tel:${c.phone}`}
-                    className="text-accent-soft hover:underline"
-                  >
-                    {c.phone}
-                  </a>
-                ) : (
-                  "—"
-                )}
-              </Field>
-              <Field label="E-post">
-                {c.email ? (
-                  <a
-                    href={`mailto:${c.email}`}
-                    className="text-accent-soft hover:underline"
-                  >
-                    {c.email}
-                  </a>
-                ) : (
-                  "—"
-                )}
-              </Field>
-            </dl>
-          </div>
-
-          <form action={save} className="border border-line bg-surface p-4">
-            <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted uppercase">
-              Notater & kategori
-            </h2>
-            <label className="mb-1 block text-xs text-muted">Kategori</label>
-            <input
-              name="category"
-              defaultValue={c.category ?? ""}
-              placeholder="f.eks. Stamkunde, VIP"
-              className="mb-3 w-full border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
-            />
+        <form action={save} className="space-y-3 border border-line bg-surface p-4">
+          <h2 className="text-xs font-semibold tracking-wide text-muted uppercase">
+            Rediger kunde
+          </h2>
+          {banner && (
+            <p
+              className={
+                "px-3 py-2 text-xs font-semibold " +
+                (banner.ok
+                  ? "bg-accent-soft/15 text-accent-soft"
+                  : "bg-danger/10 text-danger")
+              }
+            >
+              {banner.text}
+            </p>
+          )}
+          {(["full_name", "phone", "email", "category"] as const).map((f) => {
+            const meta = {
+              full_name: { label: "Navn", val: c.full_name, ph: "Fullt navn", type: "text" },
+              phone: { label: "Telefon", val: c.phone ?? "", ph: "8 siffer", type: "tel" },
+              email: { label: "E-post", val: c.email ?? "", ph: "navn@epost.no", type: "email" },
+              category: { label: "Kategori", val: c.category ?? "", ph: "f.eks. Stamkunde, VIP", type: "text" },
+            }[f];
+            return (
+              <div key={f}>
+                <label className="mb-1 block text-xs text-muted">{meta.label}</label>
+                <input
+                  name={f}
+                  type={meta.type}
+                  defaultValue={meta.val}
+                  placeholder={meta.ph}
+                  className="w-full border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
+                />
+              </div>
+            );
+          })}
+          <div>
             <label className="mb-1 block text-xs text-muted">Notater</label>
             <textarea
               name="notes"
               defaultValue={c.notes ?? ""}
               rows={5}
               placeholder="Preferanser, allergier, ønsket barber …"
-              className="mb-3 w-full resize-y border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
+              className="w-full resize-y border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
             />
+          </div>
+          <div className="flex items-center gap-3">
             <button
               type="submit"
               className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90"
             >
               Lagre
             </button>
-          </form>
-        </div>
+            {c.phone && (
+              <a href={`tel:${c.phone}`} className="text-xs text-muted hover:text-fg">
+                Ring
+              </a>
+            )}
+            {c.email && (
+              <a href={`mailto:${c.email}`} className="text-xs text-muted hover:text-fg">
+                Send e-post
+              </a>
+            )}
+          </div>
+        </form>
 
         <div className="border border-line">
           <h2 className="border-b border-line bg-surface-2 px-4 py-3 text-xs font-semibold tracking-wide text-muted uppercase">
