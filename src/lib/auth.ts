@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-export type Role = "admin" | "shop" | "staff" | "customer";
+export type Role = "admin" | "shop" | "staff" | "customer" | "revisor";
 
 /** Henter innlogget bruker + rolle (fra profiles). Null hvis ikke innlogget. */
 export async function getUserRole(): Promise<{
@@ -49,6 +49,8 @@ export function homeForRole(role: Role): string {
       return "/kasse";
     case "staff":
       return "/ansatt";
+    case "revisor":
+      return "/revisor";
     default:
       return "/";
   }
