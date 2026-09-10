@@ -202,6 +202,7 @@ export type StaffHour = {
   weekday: number; // 0 = søndag
   start_time: string;
   end_time: string;
+  week_parity: number; // 0 = hver uke, 1 = uke A, 2 = uke B
 };
 
 export const WEEKDAYS = [
@@ -219,7 +220,7 @@ export async function getStaffHours(): Promise<StaffHour[]> {
     const sb = await createClient();
     const { data } = await sb
       .from("staff_hours")
-      .select("id, staff_id, weekday, start_time, end_time, staff(full_name)")
+      .select("id, staff_id, weekday, start_time, end_time, week_parity, staff(full_name)")
       .order("weekday");
     return (data ?? []).map((r) => {
       const st = r.staff as { full_name?: string } | null;
@@ -230,6 +231,7 @@ export async function getStaffHours(): Promise<StaffHour[]> {
         weekday: Number(r.weekday),
         start_time: (r.start_time as string).slice(0, 5),
         end_time: (r.end_time as string).slice(0, 5),
+        week_parity: Number(r.week_parity ?? 0),
       };
     });
   } catch {

@@ -17,6 +17,12 @@ const WEEKDAYS = [
 // Mandag først i visningen (DB bruker 0 = søndag).
 const ORDER = [1, 2, 3, 4, 5, 6, 0];
 
+const PARITY_LABEL: Record<number, string> = {
+  0: "Hver uke",
+  1: "Uke A",
+  2: "Uke B",
+};
+
 export function StaffHoursManager({
   hours,
   staff,
@@ -74,6 +80,11 @@ export function StaffHoursManager({
               </option>
             ))}
           </select>
+          <select name="week_parity" className={inputCls} defaultValue="0">
+            <option value="0">Hver uke</option>
+            <option value="1">Uke A</option>
+            <option value="2">Uke B</option>
+          </select>
           <label className="text-xs text-muted">
             Fra
             <input name="start_time" type="time" required className={`mt-1 block w-full ${inputCls}`} defaultValue="09:00" />
@@ -118,6 +129,16 @@ export function StaffHoursManager({
                     <span className="w-28 text-fg">{WEEKDAYS[h.weekday]}</span>
                     <span className="font-display text-muted">
                       {h.start_time}–{h.end_time}
+                    </span>
+                    <span
+                      className={
+                        "rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide " +
+                        (h.week_parity === 0
+                          ? "bg-surface-2 text-muted"
+                          : "bg-accent-soft/15 text-accent-soft")
+                      }
+                    >
+                      {PARITY_LABEL[h.week_parity]}
                     </span>
                     <button
                       onClick={() => start(() => deleteStaffHour(h.id))}

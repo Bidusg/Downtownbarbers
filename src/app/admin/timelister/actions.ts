@@ -9,11 +9,13 @@ export async function createStaffHour(formData: FormData) {
   const weekday = Number(formData.get("weekday"));
   const start_time = String(formData.get("start_time") ?? "");
   const end_time = String(formData.get("end_time") ?? "");
+  let week_parity = Number(formData.get("week_parity"));
+  if (![0, 1, 2].includes(week_parity)) week_parity = 0;
   if (!staff_id || Number.isNaN(weekday) || !start_time || !end_time) return;
   if (end_time <= start_time) return;
   await sb
     .from("staff_hours")
-    .insert({ staff_id, weekday, start_time, end_time });
+    .insert({ staff_id, weekday, start_time, end_time, week_parity });
   revalidatePath("/admin/timelister");
 }
 
