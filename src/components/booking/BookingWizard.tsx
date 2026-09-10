@@ -36,7 +36,6 @@ export function BookingWizard({
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [done, setDone] = useState(false);
-  const [bookingId, setBookingId] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -92,7 +91,6 @@ export function BookingWizard({
     setPending(false);
     if (res?.error) setError(res.error);
     else {
-      setBookingId(res.bookingId ?? null);
       setDone(true);
     }
   }
@@ -108,14 +106,6 @@ export function BookingWizard({
           {date} kl. {time}
         </p>
         <p className="mt-6 text-sm text-muted">Vi sender en bekreftelse på e-post.</p>
-        {bookingId && (
-          <a
-            href={`/api/vipps/create?booking=${bookingId}`}
-            className="mt-6 inline-block bg-accent-soft px-6 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-          >
-            Betal depositum med Vipps
-          </a>
-        )}
       </div>
     );
   }
