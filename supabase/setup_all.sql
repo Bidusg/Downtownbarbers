@@ -351,7 +351,11 @@ begin
 end $$;
 grant execute on function mark_booking_paid(text) to anon, authenticated;
 
--- Robust booking-oppretting (uavhengig av insert-policyer)
+-- Robust booking-oppretting (uavhengig av insert-policyer).
+-- MERK: gjenbruker eksisterende kunde (match på e-post, ev. telefon) i stedet
+-- for å alltid insert-e ny – ellers krasjer den mot uq_customers_email_ci når
+-- e-posten allerede finnes (f.eks. etter kundeimport). Må holdes i synk med
+-- 0014_crm.sql.
 create or replace function create_booking(
   p_service text, p_barber text, p_start timestamptz,
   p_name text, p_email text, p_phone text
@@ -361,7 +365,26 @@ declare v_service uuid; v_price numeric; v_dur int; v_staff uuid; v_customer uui
 begin
   select id, price_nok, duration_min into v_service, v_price, v_dur from services where name = p_service limit 1;
   select id into v_staff from staff where full_name = p_barber limit 1;
-  insert into customers (full_name, email, phone) values (p_name, p_email, p_phone) returning id into v_customer;
+
+  if p_email is not null and trim(p_email) <> '' then
+    select id into v_customer from customers
+      where lower(trim(email)) = lower(trim(p_email)) limit 1;
+  end if;
+  if v_customer is null and p_phone is not null and trim(p_phone) <> '' then
+    select id into v_customer from customers
+      where regexp_replace(coalesce(phone,''),'\s','','g') = regexp_replace(p_phone,'\s','','g') limit 1;
+  end if;
+
+  if v_customer is null then
+    insert into customers (full_name, email, phone) values (p_name, p_email, p_phone) returning id into v_customer;
+  else
+    update customers set
+      full_name = coalesce(nullif(trim(p_name),''),  full_name),
+      phone     = coalesce(nullif(trim(p_phone),''), phone),
+      email     = coalesce(nullif(trim(p_email),''), email)
+    where id = v_customer;
+  end if;
+
   insert into bookings (customer_id, staff_id, service_id, start_at, end_at, status, price_nok)
   values (v_customer, v_staff, v_service, p_start, p_start + make_interval(mins => coalesce(v_dur,30)), 'confirmed', coalesce(v_price,0))
   returning id into v_booking;

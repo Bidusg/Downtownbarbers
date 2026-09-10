@@ -41,10 +41,11 @@ export async function createBooking(
     });
 
     if (error) {
-      // Vanligste årsak: funksjonen create_booking finnes ikke enda i databasen.
+      // Logg den ekte databasefeilen server-side for feilsøking (vises ikke til kunden).
+      console.error("create_booking feilet:", error.message, error.details ?? "");
       return {
         error:
-          "Kunne ikke lagre bookingen. Kjør supabase/setup_all.sql på nytt i Supabase (den legger til create_booking-funksjonen).",
+          "Kunne ikke lagre bookingen akkurat nå. Prøv igjen om litt, eller ring oss så hjelper vi deg.",
       };
     }
 
