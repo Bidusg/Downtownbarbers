@@ -63,7 +63,7 @@ export async function getTodayBookings(): Promise<TodayBooking[]> {
 
 /* ===================== EKTE OMSETNING (fra sales) ===================== */
 
-export type RevPoint = { day: string; nok: number };
+export type RevPoint = { key: string; day: string; nok: number };
 
 const osloDayKey = (iso: string) =>
   new Date(iso).toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" }); // yyyy-mm-dd
@@ -113,9 +113,111 @@ export async function getRevenueSeries(
       if (sums.has(key))
         sums.set(key, (sums.get(key) ?? 0) + (Number(s.total_nok) || 0));
     }
-    return buckets.map((b) => ({ day: b.day, nok: Math.round(sums.get(b.key) ?? 0) }));
+    return buckets.map((b) => ({
+      key: b.key,
+      day: b.day,
+      nok: Math.round(sums.get(b.key) ?? 0),
+    }));
   } catch {
-    return buckets.map((b) => ({ day: b.day, nok: 0 }));
+    return buckets.map((b) => ({ key: b.key, day: b.day, nok: 0 }));
+  }
+}
+
+/* ============ DRILL-DOWN: enkeltsalg + dagsfordeling for en periode ============ */
+
+export type SaleRow = {
+  id: string;
+  time: string; // HH:MM (Oslo)
+  barber: string;
+  customer: string;
+  method: string;
+  nok: number;
+};
+
+/** Alle enkeltsalg i et tidsrom [startIso, endIso), nyeste først. */
+export async function getSalesForPeriod(
+  startIso: string,
+  endIso: string,
+): Promise<{ rows: SaleRow[]; total: number; byBarber: { name: string; nok: number }[]; byMethod: { method: string; nok: number }[] }> {
+  const empty = { rows: [], total: 0, byBarber: [], byMethod: [] };
+  try {
+    const sb = await createClient();
+    const { data } = await sb
+      .from("sales")
+      .select("id, sold_at, total_nok, payment_method, staff(full_name), customers(full_name)")
+      .gte("sold_at", startIso)
+      .lt("sold_at", endIso)
+      .order("sold_at", { ascending: false })
+      .limit(5000);
+    const rows: SaleRow[] = [];
+    const barber = new Map<string, number>();
+    const method = new Map<string, number>();
+    let total = 0;
+    for (const s of data ?? []) {
+      const st = s.staff as { full_name?: string } | null;
+      const c = s.customers as { full_name?: string } | null;
+      const amt = Number(s.total_nok) || 0;
+      total += amt;
+      let time = "";
+      try {
+        time = new Date(s.sold_at as string).toLocaleTimeString("nb-NO", {
+          timeZone: "Europe/Oslo",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      } catch {}
+      const bname = st?.full_name ?? "Ukjent";
+      const mname = (s.payment_method as string) || "Ukjent";
+      barber.set(bname, (barber.get(bname) ?? 0) + amt);
+      method.set(mname, (method.get(mname) ?? 0) + amt);
+      rows.push({
+        id: s.id as string,
+        time,
+        barber: bname,
+        customer: c?.full_name ?? "—",
+        method: mname,
+        nok: Math.round(amt),
+      });
+    }
+    return {
+      rows,
+      total: Math.round(total),
+      byBarber: Array.from(barber, ([name, nok]) => ({ name, nok: Math.round(nok) })).sort((a, b) => b.nok - a.nok),
+      byMethod: Array.from(method, ([m, nok]) => ({ method: m, nok: Math.round(nok) })).sort((a, b) => b.nok - a.nok),
+    };
+  } catch {
+    return empty;
+  }
+}
+
+/** Omsetning per dag i en måned (yyyy-mm), for drill-down fra måned → dag. */
+export async function getDaysInMonth(
+  monthKey: string,
+): Promise<{ key: string; label: string; nok: number }[]> {
+  try {
+    const [y, m] = monthKey.split("-").map(Number);
+    if (!y || !m) return [];
+    const startIso = new Date(Date.UTC(y, m - 1, 1)).toISOString();
+    const endIso = new Date(Date.UTC(y, m, 1)).toISOString();
+    const sb = await createClient();
+    const { data } = await sb
+      .from("sales")
+      .select("total_nok, sold_at")
+      .gte("sold_at", startIso)
+      .lt("sold_at", endIso)
+      .limit(10000);
+    const sums = new Map<string, number>();
+    for (const s of data ?? []) {
+      const key = osloDayKey(s.sold_at as string);
+      sums.set(key, (sums.get(key) ?? 0) + (Number(s.total_nok) || 0));
+    }
+    return Array.from(sums, ([key, nok]) => ({
+      key,
+      label: new Date(key + "T12:00:00Z").toLocaleDateString("nb-NO", { day: "2-digit", month: "2-digit" }),
+      nok: Math.round(nok),
+    })).sort((a, b) => a.key.localeCompare(b.key));
+  } catch {
+    return [];
   }
 }
 

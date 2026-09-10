@@ -1,5 +1,6 @@
 import type { SVGProps } from "react";
 import { salon } from "@/lib/data/salon";
+import { LogoMark } from "@/components/site/LogoMark";
 
 /* Merkevare-ikoner (fylte glyffer, arver farge via currentColor). */
 function InstagramIcon(props: SVGProps<SVGSVGElement>) {
@@ -45,7 +46,7 @@ export function Footer() {
       <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 md:grid-cols-2 md:gap-14">
         {/* Kontakt + sosiale medier */}
         <div className="flex flex-col">
-          <p className="font-display text-xl font-bold text-fg">{salon.name}</p>
+          <LogoMark className="h-11 text-fg" />
           <a
             href={mapLink}
             target="_blank"

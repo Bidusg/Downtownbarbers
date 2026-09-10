@@ -49,7 +49,7 @@ export default async function AdminDashboard() {
               Se regnskap →
             </a>
           </div>
-          <RevenueChart data={series} />
+          <RevenueChart data={series} drillBase="/admin/omsetning" period="days" />
         </div>
 
         <div className="border border-line bg-surface p-6">

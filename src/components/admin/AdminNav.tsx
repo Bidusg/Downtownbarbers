@@ -41,6 +41,7 @@ const groups: NavGroup[] = [
     label: "Økonomi",
     items: [
       { label: "Regnskap", href: "/admin/regnskap" },
+      { label: "Omsetning", href: "/admin/omsetning" },
       { label: "Budsjett", href: "/admin/budsjett" },
     ],
   },

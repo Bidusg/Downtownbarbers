@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import {
   Area,
   AreaChart,
@@ -11,15 +12,38 @@ import {
 
 const BRAND = "#F47721";
 
+type Point = { key?: string; day: string; nok: number };
+
 export function RevenueChart({
   data,
+  drillBase,
+  period = "days",
 }: {
-  data: { day: string; nok: number }[];
+  data: Point[];
+  /** Sett for å gjøre grafen klikkbar: naviger til `${drillBase}?dag=|mnd=<key>`. */
+  drillBase?: string;
+  period?: "days" | "months";
 }) {
+  const router = useRouter();
+
+  const onClick = (state: unknown) => {
+    if (!drillBase) return;
+    const p = (state as { activePayload?: { payload?: Point }[] } | null)
+      ?.activePayload?.[0]?.payload;
+    if (!p?.key || p.nok <= 0) return;
+    const param = period === "months" ? "mnd" : "dag";
+    router.push(`${drillBase}?${param}=${p.key}`);
+  };
+
   return (
     <div className="h-56 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+        <AreaChart
+          data={data}
+          onClick={onClick}
+          margin={{ top: 8, right: 8, left: -12, bottom: 0 }}
+          style={drillBase ? { cursor: "pointer" } : undefined}
+        >
           <defs>
             <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={BRAND} stopOpacity={0.35} />
@@ -56,6 +80,7 @@ export function RevenueChart({
             stroke={BRAND}
             strokeWidth={2}
             fill="url(#rev)"
+            activeDot={drillBase ? { r: 5, fill: BRAND, cursor: "pointer" } : { r: 4, fill: BRAND }}
           />
         </AreaChart>
       </ResponsiveContainer>

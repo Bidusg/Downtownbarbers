@@ -62,7 +62,7 @@ export default async function AdminRegnskap({
           {tab("months", "Siste 12 måneder")}
         </div>
         <div className="p-6">
-          <RevenueChart data={series} />
+          <RevenueChart data={series} drillBase="/admin/omsetning" period={period} />
         </div>
       </div>
 

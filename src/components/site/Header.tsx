@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { salon } from "@/lib/data/salon";
+import { LogoMark } from "@/components/site/LogoMark";
 
 const nav = [
   { label: "Tjenester", href: "/#tjenester" },
@@ -27,6 +27,7 @@ export function Header({ overlay = false }: { overlay?: boolean }) {
   // overlay=false (vanlige sider): alltid solid, i flyt (sticky).
   // overlay=true (forsiden): gjennomsiktig over hero, solid ved scroll (fixed).
   const solid = !overlay || scrolled || open;
+  // Logofarge: hvit over hero, text-fg (temaavhengig) på solid bar.
   const brand = solid ? "text-fg" : "text-white";
   const navText = solid
     ? "text-muted hover:text-fg"
@@ -44,18 +45,8 @@ export function Header({ overlay = false }: { overlay?: boolean }) {
       }
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
-        <a href="/#top" className="flex flex-col leading-none">
-          <span
-            className={
-              "font-display text-xl font-bold tracking-tight transition-colors " +
-              brand
-            }
-          >
-            {salon.name}
-          </span>
-          <span className="mt-1 text-[9px] font-semibold tracking-[0.35em] text-accent-soft uppercase">
-            {salon.slogan}
-          </span>
+        <a href="/#top" aria-label="Downtown Barbers – til toppen">
+          <LogoMark className={"h-11 transition-colors " + brand} />
         </a>
 
         <nav className="hidden items-center gap-9 md:flex">
