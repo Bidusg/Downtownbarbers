@@ -5,6 +5,8 @@ import { getCustomer } from "@/lib/admin-queries";
 import { getBarbers, getServices } from "@/lib/shop-queries";
 import { DeskBooking } from "@/components/kasse/DeskBooking";
 import { SendReceiptButton } from "@/components/kasse/SendReceiptButton";
+import { LoyaltyCard } from "@/components/kasse/LoyaltyCard";
+import { getLoyaltyStatus } from "@/lib/loyalty-queries";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +53,7 @@ export default async function KasseKunde({
   ]);
   if (!c) notFound();
 
+  const loyalty = await getLoyaltyStatus(id);
   const last = c.bookings[0];
 
   return (
@@ -96,6 +99,13 @@ export default async function KasseKunde({
             }}
           />
         </div>
+
+        <LoyaltyCard
+          customerId={c.id}
+          progress={loyalty.progress}
+          required={loyalty.required}
+          rewardDue={loyalty.rewardDue}
+        />
 
         <div className="mb-6 grid grid-cols-3 gap-3">
           <div className="border border-line bg-surface p-4">

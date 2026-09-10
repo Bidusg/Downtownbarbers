@@ -49,6 +49,20 @@ export async function createBooking(
       };
     }
 
+    // Bygg avbestillingslenke (token hentes via SECURITY DEFINER-funksjon).
+    let cancelUrl: string | undefined;
+    if (bookingId) {
+      const { data: token } = await sb.rpc("booking_cancel_token", {
+        p_booking: bookingId,
+      });
+      if (token) {
+        const base =
+          process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
+          "https://downtownbarbers.no";
+        cancelUrl = `${base}/avbestill/${token}`;
+      }
+    }
+
     // E-postbekreftelse (hopper stille over hvis RESEND_API_KEY mangler)
     await sendBookingConfirmation({
       to: input.email.trim(),
@@ -58,6 +72,7 @@ export async function createBooking(
       date: input.date,
       time: input.time,
       price: input.price ?? "",
+      cancelUrl,
     });
 
     return { ok: true, bookingId: (bookingId as string) ?? undefined };

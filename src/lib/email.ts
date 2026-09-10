@@ -33,7 +33,12 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
   }
 }
 
-function shell(heading: string, intro: string, rows: [string, string][]): string {
+function shell(
+  heading: string,
+  intro: string,
+  rows: [string, string][],
+  ctaHtml = "",
+): string {
   const tr = rows
     .map(
       ([k, v]) =>
@@ -49,6 +54,7 @@ function shell(heading: string, intro: string, rows: [string, string][]): string
         <h1 style="font-size:26px;margin:0 0 20px">${heading}</h1>
         <p style="color:#cfc7bf;line-height:1.6">${intro}</p>
         <table style="width:100%;border-collapse:collapse;margin:20px 0">${tr}</table>
+        ${ctaHtml}
         <p style="color:#8a817a;font-size:13px">Osterhaus' gate 10, 0183 Oslo · +47 463 58 764</p>
       </div>
     </div>`;
@@ -62,7 +68,16 @@ export async function sendBookingConfirmation(opts: {
   date: string;
   time: string;
   price: string;
+  cancelUrl?: string;
 }): Promise<void> {
+  const cta = opts.cancelUrl
+    ? `<p style="margin:0 0 24px">
+         <a href="${opts.cancelUrl}"
+            style="color:#8a817a;font-size:13px;text-decoration:underline">
+           Kan du ikke likevel? Avbestill timen her
+         </a>
+       </p>`
+    : "";
   const html = shell(
     "Timen din er bekreftet 💈",
     `Hei ${opts.name.split(" ")[0]}, vi gleder oss til å se deg. Her er detaljene:`,
@@ -73,6 +88,7 @@ export async function sendBookingConfirmation(opts: {
       ["Tid", opts.time],
       ["Pris", opts.price],
     ],
+    cta,
   );
   await sendEmail(
     opts.to,
