@@ -1,7 +1,11 @@
 import { StatTile } from "@/components/ui/StatTile";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { RevenueChart } from "@/components/admin/RevenueChart";
-import { getRevenueSeries, getRevenueSummary } from "@/lib/dashboard-queries";
+import {
+  getRevenueSeries,
+  getRevenueSummary,
+  getSalesForPeriod,
+} from "@/lib/dashboard-queries";
 
 export const dynamic = "force-dynamic";
 
@@ -14,9 +18,13 @@ export default async function RevisorHome({
 }) {
   const sp = await searchParams;
   const period = sp.periode === "months" ? "months" : "days";
-  const [series, sum] = await Promise.all([
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+  const [series, sum, monthDetail] = await Promise.all([
     getRevenueSeries(period),
     getRevenueSummary(),
+    getSalesForPeriod(monthStart, monthEnd),
   ]);
   const maxBarber = Math.max(1, ...sum.perBarber.map((b) => b.nok));
 
@@ -62,26 +70,51 @@ export default async function RevisorHome({
           {tab("months", "Siste 12 måneder")}
         </div>
         <div className="p-6">
-          <RevenueChart data={series} />
+          <RevenueChart data={series} drillBase="/revisor/omsetning" period={period} />
+          <p className="mt-3 text-xs text-muted">
+            Klikk et punkt i grafen for å bore ned i en {period === "months" ? "måned" : "dag"}.
+          </p>
         </div>
       </div>
 
-      <div className="border border-line bg-surface p-6">
-        <h2 className="mb-5 font-display text-lg font-bold">Omsetning per barber</h2>
-        {sum.perBarber.length === 0 ? (
-          <p className="text-sm text-muted">Ingen salg registrert denne måneden.</p>
-        ) : (
-          <div className="space-y-5">
-            {sum.perBarber.map((b) => (
-              <ProgressBar
-                key={b.name}
-                value={Math.round((b.nok / maxBarber) * 100)}
-                label={b.name}
-                caption={nok(b.nok)}
-              />
-            ))}
-          </div>
-        )}
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="border border-line bg-surface p-6">
+          <h2 className="mb-5 font-display text-lg font-bold">Omsetning per barber</h2>
+          {sum.perBarber.length === 0 ? (
+            <p className="text-sm text-muted">Ingen salg registrert denne måneden.</p>
+          ) : (
+            <div className="space-y-5">
+              {sum.perBarber.map((b) => (
+                <ProgressBar
+                  key={b.name}
+                  value={Math.round((b.nok / maxBarber) * 100)}
+                  label={b.name}
+                  caption={nok(b.nok)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="border border-line bg-surface p-6">
+          <h2 className="mb-5 font-display text-lg font-bold">Per betalingsmåte</h2>
+          <p className="mb-4 text-xs text-muted">Denne måneden</p>
+          {monthDetail.byMethod.length === 0 ? (
+            <p className="text-sm text-muted">Ingen salg registrert denne måneden.</p>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {monthDetail.byMethod.map((m) => (
+                <li
+                  key={m.method}
+                  className="flex justify-between border-b border-line pb-2 last:border-0"
+                >
+                  <span className="text-fg-soft">{m.method}</span>
+                  <span className="font-medium">{nok(m.nok)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
 
       <p className="text-xs text-muted">
