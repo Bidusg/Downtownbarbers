@@ -74,6 +74,28 @@ export async function GET(req: Request) {
     return csvResponse(`downtown_gullkunder_${suffix}`, lines);
   }
 
+  if (type === "regnskap") {
+    const [b, v] = await Promise.all([getRevenueBreakdown(r), getVatReport(r)]);
+    const lines: string[] = [];
+    lines.push(["Regnskapssammendrag", `${r.from} – ${r.to}`].map(cell).join(";"));
+    lines.push("");
+    lines.push(["Post", "Beløp (kr)"].map(cell).join(";"));
+    lines.push([cell("Omsetning totalt (inkl. mva)"), cell(kr(b.total))].join(";"));
+    lines.push([cell("  herav kasse"), cell(kr(b.internal))].join(";"));
+    lines.push([cell("  herav Zettle"), cell(kr(b.external))].join(";"));
+    lines.push([cell(`Netto eks. mva (${v.rate}%)`), cell(v.total.net)].join(";"));
+    lines.push([cell(`MVA ${v.rate}%`), cell(v.total.vat)].join(";"));
+    lines.push([cell("Antall salg"), cell(b.saleCount)].join(";"));
+    lines.push([cell("Snitt per salg"), cell(kr(b.avg))].join(";"));
+    lines.push("");
+    lines.push(["Per barber", "Omsetning (kr)"].map(cell).join(";"));
+    for (const row of b.byBarber) lines.push([cell(row.name), cell(kr(row.nok))].join(";"));
+    lines.push("");
+    lines.push(["Per betalingsmåte", "Omsetning (kr)"].map(cell).join(";"));
+    for (const row of b.byMethod) lines.push([cell(row.method), cell(kr(row.nok))].join(";"));
+    return csvResponse(`downtown_regnskap_${suffix}`, lines);
+  }
+
   // Standard: omsetning over tid
   const g = (url.searchParams.get("g") ?? "day") as Granularity;
   const buckets = await getRevenueByGranularity(r, g);

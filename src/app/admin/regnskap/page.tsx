@@ -36,7 +36,18 @@ export default async function AdminRegnskap({
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <h1 className="font-display text-2xl font-bold">Regnskap & rapporter</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-2xl font-bold">Regnskap & rapporter</h1>
+        <a
+          href="/admin/rapporter/eksport?type=regnskap"
+          className="inline-flex items-center gap-1.5 border border-line-2 px-3 py-1.5 text-xs font-semibold text-fg transition-colors hover:bg-surface-2"
+        >
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Regnskap (CSV) · denne måneden
+        </a>
+      </div>
 
       {!sum.hasData && (
         <div className="flex items-start gap-3 border border-accent-soft/30 bg-accent-soft/5 px-4 py-3 text-sm">
