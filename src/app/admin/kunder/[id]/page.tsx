@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getCustomer } from "@/lib/admin-queries";
-import { updateCustomer } from "../actions";
+import { updateCustomer, anonymizeCustomer } from "../actions";
 
 const statusLabel: Record<string, string> = {
   pending: "Venter",
@@ -90,7 +90,11 @@ export default async function KundeKort({
         ? { text: "E-posten er allerede i bruk på en annen kunde.", ok: false }
         : lagret === "feil"
           ? { text: "Kunne ikke lagre – prøv igjen.", ok: false }
-          : null;
+          : lagret === "anonymisert"
+            ? { text: "Kunden er anonymisert ✓", ok: true }
+            : null;
+  const anonymize = anonymizeCustomer.bind(null, id);
+  const isAnonymized = c.category === "anonymisert";
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -239,6 +243,51 @@ export default async function KundeKort({
           </div>
         </div>
       </div>
+
+      {/* Personvern / GDPR */}
+      <details className="mt-6 border border-line bg-surface">
+        <summary className="cursor-pointer px-6 py-4 text-sm font-semibold text-muted">
+          Personvern / GDPR
+        </summary>
+        <div className="space-y-4 border-t border-line p-6">
+          <div>
+            <a
+              href={`/admin/kunder/${id}/gdpr`}
+              className="inline-flex items-center gap-1.5 border border-line-2 px-3 py-1.5 text-xs font-semibold text-fg transition-colors hover:bg-surface-2"
+            >
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Last ned persondata (JSON)
+            </a>
+            <p className="mt-1 text-xs text-muted">
+              Alle registrerte opplysninger om kunden – for innsyn/portabilitet (GDPR art. 15/20).
+            </p>
+          </div>
+          <div className="border-t border-line pt-4">
+            {isAnonymized ? (
+              <p className="text-xs text-muted">
+                Kunden er anonymisert. Salgshistorikken beholdes anonymt av hensyn til bokføringsplikten.
+              </p>
+            ) : (
+              <>
+                <p className="text-xs text-muted">
+                  Anonymisering fjerner navn og kontaktinfo permanent. Salgs- og bookingrader beholdes
+                  anonymt (bokføringsplikt krever oppbevaring). <strong className="text-fg">Kan ikke angres.</strong>
+                </p>
+                <form action={anonymize} className="mt-3">
+                  <button
+                    type="submit"
+                    className="border border-danger/40 px-3 py-1.5 text-xs font-semibold text-danger transition-colors hover:bg-danger/10"
+                  >
+                    Anonymiser kunde
+                  </button>
+                </form>
+              </>
+            )}
+          </div>
+        </div>
+      </details>
     </div>
   );
 }

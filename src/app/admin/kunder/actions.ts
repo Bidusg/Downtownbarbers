@@ -30,6 +30,29 @@ export async function updateCustomer(id: string, formData: FormData) {
   redirect(`/admin/kunder/${id}?lagret=ok`);
 }
 
+/**
+ * GDPR – anonymiser kunde (rett til sletting). Fjerner personopplysninger,
+ * men beholder de anonymiserte salgs-/bookingradene av hensyn til
+ * bokføringsplikten (salgshistorikk må oppbevares). Irreversibelt.
+ */
+export async function anonymizeCustomer(id: string) {
+  const sb = await createClient();
+  await sb
+    .from("customers")
+    .update({
+      full_name: "Anonymisert kunde",
+      email: null,
+      phone: null,
+      notes: null,
+      source: null,
+      category: "anonymisert",
+    })
+    .eq("id", id);
+  revalidatePath(`/admin/kunder/${id}`);
+  revalidatePath("/admin/kunder");
+  redirect(`/admin/kunder/${id}?lagret=anonymisert`);
+}
+
 /** Oppretter en ny kunde manuelt fra kartoteket. */
 export async function createCustomer(formData: FormData) {
   const sb = await createClient();
