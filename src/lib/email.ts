@@ -69,8 +69,17 @@ export async function sendBookingConfirmation(opts: {
   time: string;
   price: string;
   cancelUrl?: string;
+  portalUrl?: string;
 }): Promise<void> {
-  const cta = opts.cancelUrl
+  const portalLink = opts.portalUrl
+    ? `<p style="margin:0 0 8px">
+         <a href="${opts.portalUrl}"
+            style="color:#F47721;font-size:14px;font-weight:600;text-decoration:none">
+           Se din side og klippekort →
+         </a>
+       </p>`
+    : "";
+  const cancelLink = opts.cancelUrl
     ? `<p style="margin:0 0 24px">
          <a href="${opts.cancelUrl}"
             style="color:#8a817a;font-size:13px;text-decoration:underline">
@@ -78,6 +87,7 @@ export async function sendBookingConfirmation(opts: {
          </a>
        </p>`
     : "";
+  const cta = portalLink + cancelLink;
   const html = shell(
     "Timen din er bekreftet 💈",
     `Hei ${opts.name.split(" ")[0]}, vi gleder oss til å se deg. Her er detaljene:`,

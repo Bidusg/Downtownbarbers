@@ -51,18 +51,21 @@ export async function createBooking(
       };
     }
 
-    // Bygg avbestillingslenke (token hentes via SECURITY DEFINER-funksjon).
+    // Bygg avbestillings- og min-side-lenke (tokens via SECURITY DEFINER-funksjoner).
     let cancelUrl: string | undefined;
+    let portalUrl: string | undefined;
     if (bookingId) {
+      const base =
+        process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
+        "https://downtownbarbers.no";
       const { data: token } = await sb.rpc("booking_cancel_token", {
         p_booking: bookingId,
       });
-      if (token) {
-        const base =
-          process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-          "https://downtownbarbers.no";
-        cancelUrl = `${base}/avbestill/${token}`;
-      }
+      if (token) cancelUrl = `${base}/avbestill/${token}`;
+      const { data: pToken } = await sb.rpc("portal_token_for_booking", {
+        p_booking: bookingId,
+      });
+      if (pToken) portalUrl = `${base}/min-side/${pToken}`;
     }
 
     // E-postbekreftelse (hopper stille over hvis RESEND_API_KEY mangler)
@@ -75,6 +78,7 @@ export async function createBooking(
       time: input.time,
       price: input.price ?? "",
       cancelUrl,
+      portalUrl,
     });
 
     return { ok: true, bookingId: (bookingId as string) ?? undefined };
