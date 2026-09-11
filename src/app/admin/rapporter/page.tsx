@@ -11,6 +11,7 @@ import {
   GRANULARITIES,
   type Granularity,
 } from "@/lib/report-queries";
+import { getRevisitStats, getTopCustomers } from "@/lib/analytics-queries";
 
 export const dynamic = "force-dynamic";
 
@@ -46,13 +47,16 @@ export default async function AdminRapporter({
   const g: Granularity =
     (GRANULARITIES.find((x) => x.key === sp.g)?.key as Granularity) ?? "day";
 
-  const [buckets, brk, cat, vat, slow] = await Promise.all([
+  const [buckets, brk, cat, vat, slow, revisit, top] = await Promise.all([
     getRevenueByGranularity(r, g),
     getRevenueBreakdown(r),
     getCategoryBreakdown(r),
     getVatReport(r),
     getSlowMovers(r),
+    getRevisitStats(r),
+    getTopCustomers(r, 20),
   ]);
+  const maxVisitDist = Math.max(1, ...revisit.distribution.map((d) => d.count));
 
   const base = `/admin/rapporter?from=${r.from}&to=${r.to}`;
   const eksport = (type: string, extra = "") =>
@@ -289,6 +293,66 @@ export default async function AdminRapporter({
                       {p.sold}
                     </td>
                     <td className="px-6 py-3 text-right tabular-nums">{nok(p.price)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Gjenbesøk */}
+      <div className="border border-line bg-surface">
+        <div className="border-b border-line px-6 py-4">
+          <h2 className="font-display text-lg font-bold">Gjenbesøk</h2>
+        </div>
+        <div className="grid gap-4 border-b border-line p-6 sm:grid-cols-4">
+          <StatTile label="Retur-andel" value={`${revisit.returnRatePct} %`} sub="av kunder i perioden" />
+          <StatTile label="Nye kunder" value={String(revisit.newCustomers)} sub="første besøk" />
+          <StatTile label="Gjengangere" value={String(revisit.returning)} sub="besøkt før" />
+          <StatTile label="Snitt mellom besøk" value={`${revisit.avgDaysBetween} dg`} />
+        </div>
+        <div className="p-6">
+          <p className="mb-4 text-sm text-muted">
+            Besøksfrekvens (livstid) · snitt {revisit.avgVisitsLifetime} besøk per kunde
+          </p>
+          <div className="space-y-4">
+            {revisit.distribution.map((d) => (
+              <div key={d.label} className="flex items-center gap-4">
+                <span className="w-20 text-sm text-fg-soft">{d.label}</span>
+                <span className="h-2.5 flex-1 overflow-hidden bg-surface-2">
+                  <span className="block h-full bg-accent-soft" style={{ width: `${Math.round((d.count / maxVisitDist) * 100)}%` }} />
+                </span>
+                <span className="w-12 text-right text-sm font-medium tabular-nums">{d.count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Gullkunder */}
+      <div className="border border-line bg-surface">
+        {sectionHead("Gullkunder (topp 20)", eksport("gullkunder"))}
+        {top.length === 0 ? (
+          <p className="px-6 py-8 text-sm text-muted">Ingen kunderegistrerte salg i perioden.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-line text-left text-xs text-muted">
+                  <th className="px-6 py-3 font-medium">#</th>
+                  <th className="px-6 py-3 font-medium">Kunde</th>
+                  <th className="px-6 py-3 text-right font-medium">Besøk</th>
+                  <th className="px-6 py-3 text-right font-medium">Omsetning</th>
+                </tr>
+              </thead>
+              <tbody>
+                {top.map((c, i) => (
+                  <tr key={`${c.name}-${i}`} className="border-b border-line last:border-0">
+                    <td className="px-6 py-3 tabular-nums text-muted">{i + 1}</td>
+                    <td className="px-6 py-3">{c.name}</td>
+                    <td className="px-6 py-3 text-right tabular-nums">{c.visits}</td>
+                    <td className="px-6 py-3 text-right font-medium tabular-nums">{nok(c.spend)}</td>
                   </tr>
                 ))}
               </tbody>

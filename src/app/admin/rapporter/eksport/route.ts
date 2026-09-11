@@ -8,6 +8,7 @@ import {
   getSlowMovers,
   type Granularity,
 } from "@/lib/report-queries";
+import { getTopCustomers } from "@/lib/analytics-queries";
 
 function cell(v: string | number | null): string {
   return `"${String(v ?? "").replace(/"/g, '""')}"`;
@@ -64,6 +65,13 @@ export async function GET(req: Request) {
     const lines = [["Produkt", "På lager", "Solgt i perioden", "Pris (kr)"].map(cell).join(";")];
     for (const row of rows) lines.push([cell(row.name), cell(row.stock), cell(row.sold), cell(kr(row.price))].join(";"));
     return csvResponse(`downtown_hyllevarmere_${suffix}`, lines);
+  }
+
+  if (type === "gullkunder") {
+    const rows = await getTopCustomers(r, 100);
+    const lines = [["#", "Kunde", "Besøk", "Omsetning (kr)"].map(cell).join(";")];
+    rows.forEach((row, i) => lines.push([cell(i + 1), cell(row.name), cell(row.visits), cell(kr(row.spend))].join(";")));
+    return csvResponse(`downtown_gullkunder_${suffix}`, lines);
   }
 
   // Standard: omsetning over tid

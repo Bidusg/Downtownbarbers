@@ -35,6 +35,7 @@ export function BookingWizard({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [source, setSource] = useState("");
   const [done, setDone] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +87,7 @@ export function BookingWizard({
       name,
       email,
       phone,
+      source,
       price: service!.price,
     });
     setPending(false);
@@ -272,6 +274,23 @@ export function BookingWizard({
               {phone && !phoneOk && (
                 <p className="mt-1 text-xs text-danger">Ugyldig norsk telefonnummer.</p>
               )}
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-muted">
+                Hvordan hørte du om oss? <span className="text-muted">(valgfritt)</span>
+              </label>
+              <select
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+                className="w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
+              >
+                <option value="">Velg …</option>
+                <option value="Anbefalt av venn/kunde">Anbefalt av venn/kunde</option>
+                <option value="Google">Google-søk</option>
+                <option value="Instagram / sosiale medier">Instagram / sosiale medier</option>
+                <option value="Gikk forbi / skilt">Gikk forbi / skilt</option>
+                <option value="Annet">Annet</option>
+              </select>
             </div>
             {error && <p className="text-sm text-danger">{error}</p>}
           </div>

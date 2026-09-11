@@ -12,6 +12,7 @@ export type BookingInput = {
   name: string;
   email: string;
   phone: string;
+  source?: string; // "Hvordan hørte du om oss?" (valgfritt)
   price?: string; // vises i e-post
 };
 
@@ -38,6 +39,7 @@ export async function createBooking(
       p_name: name,
       p_email: input.email.trim(),
       p_phone: input.phone.trim(),
+      p_source: input.source?.trim() || null,
     });
 
     if (error) {
