@@ -11,6 +11,7 @@ import {
   groupByCategory,
 } from "@/lib/queries";
 import { getSiteSettings } from "@/lib/site-settings";
+import { getPublicReviewsSummary } from "@/lib/reviews";
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
@@ -72,10 +73,11 @@ const craft = [
 ];
 
 export default async function Home() {
-  const [services, team, s] = await Promise.all([
+  const [services, team, s, omdomme] = await Promise.all([
     getPublicServices(),
     getPublicBarbers(),
     getSiteSettings(),
+    getPublicReviewsSummary(),
   ]);
   const serviceCategories = groupByCategory(services);
   const accentStyle = {
@@ -137,11 +139,43 @@ export default async function Home() {
             >
               Se håndverket
             </a>
-            {s.show_rating && (
-              <span className="text-sm text-white/70">
-                ★ {s.rating_value.toString().replace(".", ",")} ({s.rating_count}{" "}
-                vurderinger)
-              </span>
+            {omdomme.blendedCount > 0 ? (
+              <div className="flex flex-col gap-0.5">
+                <span className="text-sm text-white/80">
+                  ★ {omdomme.blendedRating.toFixed(1).replace(".", ",")} (
+                  {omdomme.blendedCount} vurderinger)
+                </span>
+                <span className="text-[11px] text-white/50">
+                  {omdomme.sources
+                    .filter((src) => src.count > 0)
+                    .map((src, i) => (
+                      <span key={src.key}>
+                        {i > 0 && " · "}
+                        {src.url ? (
+                          <a
+                            href={src.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:text-white/80"
+                          >
+                            {src.label} {src.rating.toFixed(1).replace(".", ",")}
+                          </a>
+                        ) : (
+                          <>
+                            {src.label} {src.rating.toFixed(1).replace(".", ",")}
+                          </>
+                        )}
+                      </span>
+                    ))}
+                </span>
+              </div>
+            ) : (
+              s.show_rating && (
+                <span className="text-sm text-white/70">
+                  ★ {s.rating_value.toString().replace(".", ",")} ({s.rating_count}{" "}
+                  vurderinger)
+                </span>
+              )
             )}
           </div>
         </div>
