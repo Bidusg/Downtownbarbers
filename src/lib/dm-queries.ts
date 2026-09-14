@@ -15,20 +15,18 @@ export type ConsentStats = {
 export async function getConsentStats(): Promise<ConsentStats> {
   try {
     const sb = await createClient();
-    const { data } = await sb
-      .from("customers")
-      .select("marketing_consent, email")
-      .limit(100000);
-    const rows = data ?? [];
-    let consenting = 0;
-    let reachable = 0;
-    for (const c of rows) {
-      if (c.marketing_consent) {
-        consenting++;
-        if ((c.email as string)?.trim()) reachable++;
-      }
-    }
-    return { total: rows.length, consenting, reachable };
+    const [totalRes, consentRes, reachRes] = await Promise.all([
+      sb.from("customers").select("*", { count: "exact", head: true }),
+      sb.from("customers").select("*", { count: "exact", head: true })
+        .eq("marketing_consent", true),
+      sb.from("customers").select("*", { count: "exact", head: true })
+        .eq("marketing_consent", true).not("email", "is", null),
+    ]);
+    return {
+      total: totalRes.count ?? 0,
+      consenting: consentRes.count ?? 0,
+      reachable: reachRes.count ?? 0,
+    };
   } catch {
     return { total: 0, consenting: 0, reachable: 0 };
   }

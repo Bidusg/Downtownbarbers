@@ -1,5 +1,6 @@
 import type { SVGProps } from "react";
 import { salon } from "@/lib/data/salon";
+import { getSiteSettings } from "@/lib/site-settings";
 import { LogoMark } from "@/components/site/LogoMark";
 
 /* Merkevare-ikoner (fylte glyffer, arver farge via currentColor). */
@@ -33,14 +34,17 @@ const socials = [
   { name: "Facebook", href: salon.social.facebook, Icon: FacebookIcon },
 ];
 
-const mapSrc = `https://www.google.com/maps?q=${encodeURIComponent(
-  salon.address,
-)}&output=embed`;
-const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-  salon.address,
-)}`;
+export async function Footer() {
+  // Samme kilde som forsiden (DB → fallback), slik at åpningstider,
+  // adresse og telefon aldri spriker mellom hero og footer.
+  const s = await getSiteSettings();
+  const mapSrc = `https://www.google.com/maps?q=${encodeURIComponent(
+    s.address,
+  )}&output=embed`;
+  const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    s.address,
+  )}`;
 
-export function Footer() {
   return (
     <footer className="border-t border-line bg-surface-2 text-muted">
       <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 md:grid-cols-2 md:gap-14">
@@ -53,13 +57,13 @@ export function Footer() {
             rel="noopener noreferrer"
             className="mt-3 text-sm transition-colors hover:text-fg"
           >
-            {salon.address}
+            {s.address}
           </a>
           <a
-            href={`tel:${salon.phone.replace(/\s/g, "")}`}
+            href={`tel:${s.phone.replace(/\s/g, "")}`}
             className="text-sm transition-colors hover:text-fg"
           >
-            {salon.phone}
+            {s.phone}
           </a>
 
           <div className="mt-6 flex gap-3">
@@ -69,7 +73,7 @@ export function Footer() {
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label={`${salon.name} på ${name}`}
+                aria-label={`${s.name} på ${name}`}
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-line text-muted transition-all hover:-translate-y-0.5 hover:border-accent-soft hover:text-accent-soft"
               >
                 <Icon className="h-[18px] w-[18px]" />
@@ -78,7 +82,7 @@ export function Footer() {
           </div>
 
           <ul className="mt-8 space-y-1.5 text-sm">
-            {salon.openingHours.map((o) => (
+            {s.opening_hours.map((o) => (
               <li key={o.day} className="flex justify-between gap-6 sm:max-w-xs">
                 <span className="text-fg-soft">{o.day}</span>
                 <span>{o.hours}</span>
@@ -90,7 +94,7 @@ export function Footer() {
         {/* Kart */}
         <div className="overflow-hidden rounded-lg border border-line">
           <iframe
-            title={`Kart til ${salon.name}`}
+            title={`Kart til ${s.name}`}
             src={mapSrc}
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
@@ -100,7 +104,7 @@ export function Footer() {
       </div>
 
       <div className="border-t border-line py-5 text-center text-xs text-muted">
-        © {salon.established}–2026 {salon.name}. Alle rettigheter forbeholdt.
+        © {s.established}–2026 {s.name}. Alle rettigheter forbeholdt.
       </div>
     </footer>
   );

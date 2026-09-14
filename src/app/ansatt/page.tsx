@@ -1,7 +1,7 @@
 import { ProgressBar } from "@/components/ui/ProgressBar";
-import { myStaff } from "@/lib/data/mock";
 import { requireRole, getUserRole } from "@/lib/auth";
 import { getMyAgenda } from "@/lib/ansatt-queries";
+import { getGoalProgress } from "@/lib/analytics-queries";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +30,16 @@ function fmtTime(iso: string) {
 export default async function AnsattDashboard() {
   await requireRole(["staff", "admin"]);
   const [me, agenda] = await Promise.all([getUserRole(), getMyAgenda()]);
-  const name = agenda.staffName ?? myStaff.name;
+  const name = agenda.staffName ?? "Min side";
+
+  // Ekte månedsmål for innlogget barber (kun når kontoen er koblet til en profil).
+  const now = new Date();
+  const goal = agenda.linked
+    ? await getGoalProgress(now.getFullYear(), now.getMonth() + 1)
+    : null;
+  const myGoal = goal?.rows.find((r) => r.staffId === agenda.staffId) ?? null;
+  const hasTarget = (myGoal?.target ?? 0) > 0;
+  const goalPct = myGoal?.pct ?? 0;
 
   // Grupper timer per dag
   const byDay = new Map<string, typeof agenda.bookings>();
@@ -62,7 +71,7 @@ export default async function AnsattDashboard() {
             <p className="text-sm text-muted">
               Kontoen din ({me?.email}) er ikke koblet til en ansattprofil enda.
               Be admin sette e-posten din på din ansatt-rad, så dukker timene
-              dine opp her.
+              dine og tallene dine opp her.
             </p>
           ) : agenda.bookings.length === 0 ? (
             <p className="text-sm text-muted">Ingen kommende timer akkurat nå.</p>
@@ -90,48 +99,48 @@ export default async function AnsattDashboard() {
           )}
         </section>
 
-        {/* Månedsmål – 0–100 % UTEN kroner */}
-        <section className="border border-line bg-surface p-8">
-          <p className="text-[10px] font-semibold tracking-[0.2em] text-muted uppercase">
-            Ditt månedsmål
-          </p>
-          <div className="mt-4 mb-3 flex items-end justify-between">
-            <span className="font-display text-6xl font-bold text-fg">
-              {myStaff.monthProgressPct} %
-            </span>
-            <span className="pb-2 text-lg text-muted">av målet ditt</span>
-          </div>
-          <ProgressBar value={myStaff.monthProgressPct} />
-          <p className="mt-4 text-sm text-muted">
-            Du er godt i rute denne måneden. Fortsett det gode arbeidet! 💈
-          </p>
-        </section>
+        {/* Personlige tall – kun når kontoen er koblet til en barber-profil */}
+        {agenda.linked && (
+          <>
+            {/* Månedsmål – ekte tall fra budsjett vs. omsetning, 0–100 % UTEN kroner */}
+            <section className="border border-line bg-surface p-8">
+              <p className="text-[10px] font-semibold tracking-[0.2em] text-muted uppercase">
+                Ditt månedsmål
+              </p>
+              {hasTarget ? (
+                <>
+                  <div className="mt-4 mb-3 flex items-end justify-between">
+                    <span className="font-display text-6xl font-bold text-fg">
+                      {goalPct} %
+                    </span>
+                    <span className="pb-2 text-lg text-muted">av målet ditt</span>
+                  </div>
+                  <ProgressBar value={goalPct} />
+                </>
+              ) : (
+                <p className="mt-4 text-sm text-muted">
+                  Ingen mål satt for denne måneden enda. Be admin sette et
+                  omsetningsmål for deg under Budsjett, så vises fremdriften din
+                  her.
+                </p>
+              )}
+            </section>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="border border-line bg-surface p-6">
-            <p className="text-[10px] font-semibold tracking-[0.2em] text-muted uppercase">
-              Din rating
-            </p>
-            <p className="mt-3 font-display text-4xl font-bold">
-              {myStaff.rating.toFixed(1).replace(".", ",")}{" "}
-              <span className="text-accent-soft">★</span>
-            </p>
-            <p className="mt-1 text-xs text-muted">{myStaff.ratingCount} vurderinger</p>
-          </div>
-          <div className="border border-line bg-surface p-6">
-            <p className="text-[10px] font-semibold tracking-[0.2em] text-muted uppercase">
-              Kommende timer
-            </p>
-            <p className="mt-3 font-display text-4xl font-bold">
-              {agenda.bookings.length}
-            </p>
-            <p className="mt-1 text-xs text-muted">registrerte bookinger</p>
-          </div>
-        </div>
+            <div className="border border-line bg-surface p-6">
+              <p className="text-[10px] font-semibold tracking-[0.2em] text-muted uppercase">
+                Kommende timer
+              </p>
+              <p className="mt-3 font-display text-4xl font-bold">
+                {agenda.bookings.length}
+              </p>
+              <p className="mt-1 text-xs text-muted">registrerte bookinger</p>
+            </div>
 
-        <p className="text-center text-xs text-muted">
-          Du ser kun ditt eget – aldri kolleger, omsetning eller budsjett.
-        </p>
+            <p className="text-center text-xs text-muted">
+              Du ser kun ditt eget – aldri kolleger, omsetning eller budsjett.
+            </p>
+          </>
+        )}
       </main>
     </div>
   );

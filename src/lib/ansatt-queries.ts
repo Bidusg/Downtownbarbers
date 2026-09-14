@@ -10,6 +10,7 @@ export type MyBooking = {
 };
 
 export type MyAgenda = {
+  staffId: string | null;
   staffName: string | null;
   linked: boolean;
   bookings: MyBooking[];
@@ -19,7 +20,7 @@ export type MyAgenda = {
 export async function getMyAgenda(): Promise<MyAgenda> {
   try {
     const me = await getUserRole();
-    if (!me?.email) return { staffName: null, linked: false, bookings: [] };
+    if (!me?.email) return { staffId: null, staffName: null, linked: false, bookings: [] };
     const sb = await createClient();
 
     const { data: staff } = await sb
@@ -28,7 +29,7 @@ export async function getMyAgenda(): Promise<MyAgenda> {
       .ilike("email", me.email)
       .maybeSingle();
 
-    if (!staff) return { staffName: null, linked: false, bookings: [] };
+    if (!staff) return { staffId: null, staffName: null, linked: false, bookings: [] };
 
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
@@ -53,8 +54,8 @@ export async function getMyAgenda(): Promise<MyAgenda> {
       };
     });
 
-    return { staffName: staff.full_name, linked: true, bookings };
+    return { staffId: staff.id, staffName: staff.full_name, linked: true, bookings };
   } catch {
-    return { staffName: null, linked: false, bookings: [] };
+    return { staffId: null, staffName: null, linked: false, bookings: [] };
   }
 }

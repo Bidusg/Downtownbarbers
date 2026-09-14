@@ -65,7 +65,7 @@ export async function getKpiOverview(r: Range): Promise<KpiOverview> {
   };
   try {
     const sb = await createClient();
-    const [breakdown, staff, bookingsFwd, bookingsRange, newCustomers] = await Promise.all([
+    const [breakdown, staff, bookingsFwd, bookingsRange, newCustomerCount, newCustomerSources] = await Promise.all([
       getRevenueBreakdown(r),
       getStaffOptions(),
       // Alle ikke-avlyste bookinger fra periodestart og framover (til rebooking).
@@ -81,11 +81,17 @@ export async function getKpiOverview(r: Range): Promise<KpiOverview> {
         .gte("start_at", r.startIso)
         .lt("start_at", r.endIso)
         .limit(100000),
-      // Nye kunder i perioden (created_at ≈ første berøring) + kilde.
+      // Antall nye kunder i perioden – ekte count (unngår PostgREST 1000-rad-tak).
       sb.from("customers")
-        .select("source, created_at")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", r.startIso)
+        .lt("created_at", r.endIso),
+      // Kilde-fordeling for anbefaling % (kun de som oppga kilde).
+      sb.from("customers")
+        .select("source")
         .gte("created_at", r.startIso)
         .lt("created_at", r.endIso)
+        .not("source", "is", null)
         .limit(100000),
     ]);
 
@@ -135,7 +141,7 @@ export async function getKpiOverview(r: Range): Promise<KpiOverview> {
       .sort((a, b) => b.pct - a.pct);
 
     /* ----- Anbefaling (kundekilde) ----- */
-    const rows = newCustomers.data ?? [];
+    const rows = newCustomerSources.data ?? [];
     const srcCount = new Map<string, number>();
     let withSource = 0, wom = 0;
     for (const c of rows) {
@@ -159,7 +165,7 @@ export async function getKpiOverview(r: Range): Promise<KpiOverview> {
         pct: withSource > 0 ? Math.round((wom / withSource) * 100) : 0,
         wom,
         withSource,
-        newCustomers: rows.length,
+        newCustomers: newCustomerCount.count ?? 0,
         breakdown: Array.from(srcCount, ([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count),
       },
       utilization: {
