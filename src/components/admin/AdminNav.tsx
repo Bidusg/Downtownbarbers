@@ -24,6 +24,7 @@ const groups: NavGroup[] = [
       { label: "Timelister", href: "/admin/timelister" },
       { label: "Fravær", href: "/admin/fravaer" },
       { label: "Lønn", href: "/admin/lonn" },
+      { label: "Brukere", href: "/admin/brukere" },
     ],
   },
   {
