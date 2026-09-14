@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getCustomer } from "@/lib/admin-queries";
-import { updateCustomer, anonymizeCustomer } from "../actions";
+import { getCustomerConsent } from "@/lib/dm-queries";
+import { updateCustomer, anonymizeCustomer, setMarketingConsent } from "../actions";
 
 const statusLabel: Record<string, string> = {
   pending: "Venter",
@@ -82,6 +83,7 @@ export default async function KundeKort({
   const { lagret } = await searchParams;
   const c = await getCustomer(id);
   if (!c) notFound();
+  const consent = await getCustomerConsent(id);
   const save = updateCustomer.bind(null, id);
   const banner =
     lagret === "ok"
@@ -92,8 +94,13 @@ export default async function KundeKort({
           ? { text: "Kunne ikke lagre – prøv igjen.", ok: false }
           : lagret === "anonymisert"
             ? { text: "Kunden er anonymisert ✓", ok: true }
-            : null;
+            : lagret === "samtykke-ja"
+              ? { text: "Markedsføring: samtykke registrert ✓", ok: true }
+              : lagret === "samtykke-nei"
+                ? { text: "Markedsføring: samtykke fjernet", ok: true }
+                : null;
   const anonymize = anonymizeCustomer.bind(null, id);
+  const toggleConsent = setMarketingConsent.bind(null, id, !consent);
   const isAnonymized = c.category === "anonymisert";
 
   return (
@@ -131,6 +138,30 @@ export default async function KundeKort({
           value={String(c.noShows)}
           danger={c.noShows > 0}
         />
+      </div>
+
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border border-line bg-surface px-5 py-4">
+        <div>
+          <p className="text-sm font-semibold text-fg">Markedsføring</p>
+          <p className="text-xs text-muted">
+            {consent
+              ? "Kunden har sagt ja til tilbud og nyheter på e-post."
+              : "Ingen samtykke — kunden får ikke markedsføring."}
+          </p>
+        </div>
+        <form action={toggleConsent}>
+          <button
+            type="submit"
+            className={
+              "px-3 py-1.5 text-xs font-semibold transition-colors " +
+              (consent
+                ? "border border-line-2 text-muted hover:bg-surface-2 hover:text-fg"
+                : "bg-accent text-accent-fg hover:opacity-90")
+            }
+          >
+            {consent ? "Fjern samtykke" : "Registrer samtykke"}
+          </button>
+        </form>
       </div>
 
       <div className="grid gap-6 md:grid-cols-[1fr_1.4fr]">

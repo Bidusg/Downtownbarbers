@@ -53,6 +53,17 @@ export async function anonymizeCustomer(id: string) {
   redirect(`/admin/kunder/${id}?lagret=anonymisert`);
 }
 
+/** Setter markedsførings-samtykke for en kunde (markedsføringsloven §15). */
+export async function setMarketingConsent(id: string, consent: boolean) {
+  const sb = await createClient();
+  await sb
+    .from("customers")
+    .update({ marketing_consent: consent, marketing_consent_at: new Date().toISOString() })
+    .eq("id", id);
+  revalidatePath(`/admin/kunder/${id}`);
+  redirect(`/admin/kunder/${id}?lagret=${consent ? "samtykke-ja" : "samtykke-nei"}`);
+}
+
 /** Oppretter en ny kunde manuelt fra kartoteket. */
 export async function createCustomer(formData: FormData) {
   const sb = await createClient();

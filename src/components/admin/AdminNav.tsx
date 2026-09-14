@@ -37,6 +37,7 @@ const groups: NavGroup[] = [
       { label: "Kampanjer", href: "/admin/kampanjer" },
       { label: "Kunder", href: "/admin/kunder" },
       { label: "Oppfølging", href: "/admin/oppfolging" },
+      { label: "Markedsføring", href: "/admin/markedsforing" },
     ],
   },
   {

@@ -1,0 +1,143 @@
+import { createClient } from "@/lib/supabase/server";
+
+/* =====================================================================
+ * MARKEDSFØRING – query-lag (samtykke-først)
+ *   Henter samtykke-statistikk og mottakerlister per segment. Kun kunder
+ *   med marketing_consent = true OG e-post er med.
+ * ===================================================================== */
+
+export type ConsentStats = {
+  total: number;
+  consenting: number;
+  reachable: number; // samtykke + e-post
+};
+
+export async function getConsentStats(): Promise<ConsentStats> {
+  try {
+    const sb = await createClient();
+    const { data } = await sb
+      .from("customers")
+      .select("marketing_consent, email")
+      .limit(100000);
+    const rows = data ?? [];
+    let consenting = 0;
+    let reachable = 0;
+    for (const c of rows) {
+      if (c.marketing_consent) {
+        consenting++;
+        if ((c.email as string)?.trim()) reachable++;
+      }
+    }
+    return { total: rows.length, consenting, reachable };
+  } catch {
+    return { total: 0, consenting: 0, reachable: 0 };
+  }
+}
+
+export type Segment = "all" | "gullkunder" | "inaktiv";
+
+export const SEGMENTS: { key: Segment; label: string; hint: string }[] = [
+  { key: "all", label: "Alle med samtykke", hint: "Alle som har sagt ja" },
+  { key: "gullkunder", label: "Gullkunder", hint: "Topp 20 etter forbruk" },
+  { key: "inaktiv", label: "Inaktive", hint: "Ikke besøkt på 90+ dager" },
+];
+
+export type Recipient = { id: string; name: string; email: string; token: string | null };
+
+export async function getMarketingRecipients(segment: Segment): Promise<Recipient[]> {
+  try {
+    const sb = await createClient();
+    const { data: custs } = await sb
+      .from("customers")
+      .select("id, full_name, email, portal_token")
+      .eq("marketing_consent", true)
+      .not("email", "is", null)
+      .limit(100000);
+    const base: Recipient[] = (custs ?? [])
+      .filter((c) => (c.email as string)?.trim())
+      .map((c) => ({
+        id: c.id as string,
+        name: (c.full_name as string) ?? "",
+        email: (c.email as string).trim(),
+        token: (c.portal_token as string) ?? null,
+      }));
+
+    if (segment === "all" || base.length === 0) return base;
+
+    const ids = new Set(base.map((r) => r.id));
+
+    if (segment === "gullkunder") {
+      const { data: sales } = await sb
+        .from("sales")
+        .select("customer_id, total_nok")
+        .not("customer_id", "is", null)
+        .limit(100000);
+      const spend = new Map<string, number>();
+      for (const s of sales ?? []) {
+        const cid = s.customer_id as string;
+        if (ids.has(cid)) spend.set(cid, (spend.get(cid) ?? 0) + (Number(s.total_nok) || 0));
+      }
+      return base
+        .map((r) => ({ r, s: spend.get(r.id) ?? 0 }))
+        .sort((a, b) => b.s - a.s)
+        .slice(0, 20)
+        .map((x) => x.r);
+    }
+
+    // inaktiv: siste fullførte besøk eldre enn 90 dager (eller aldri)
+    const { data: bookings } = await sb
+      .from("bookings")
+      .select("customer_id, start_at, status")
+      .eq("status", "completed")
+      .not("customer_id", "is", null)
+      .limit(100000);
+    const lastVisit = new Map<string, number>();
+    for (const b of bookings ?? []) {
+      const cid = b.customer_id as string;
+      if (!ids.has(cid)) continue;
+      const t = new Date(b.start_at as string).getTime();
+      if (!lastVisit.has(cid) || t > (lastVisit.get(cid) as number)) lastVisit.set(cid, t);
+    }
+    const cutoff = Date.now() - 90 * 86400000;
+    return base.filter((r) => (lastVisit.get(r.id) ?? 0) < cutoff);
+  } catch {
+    return [];
+  }
+}
+
+export type MarketingSend = {
+  id: string;
+  subject: string;
+  segment: string | null;
+  recipient_count: number;
+  created_at: string;
+};
+
+export async function getMarketingSends(limit = 20): Promise<MarketingSend[]> {
+  try {
+    const sb = await createClient();
+    const { data } = await sb
+      .from("marketing_sends")
+      .select("id, subject, segment, recipient_count, created_at")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    return (data as MarketingSend[]) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** Feiltolerant enkeltoppslag av samtykke (så kundekortet ikke brytes før migrasjon). */
+export async function getCustomerConsent(id: string): Promise<boolean> {
+  try {
+    const sb = await createClient();
+    const { data } = await sb
+      .from("customers")
+      .select("marketing_consent")
+      .eq("id", id)
+      .maybeSingle();
+    return Boolean((data as { marketing_consent?: boolean } | null)?.marketing_consent);
+  } catch {
+    return false;
+  }
+}

@@ -242,3 +242,46 @@ export async function sendFollowupEmail(opts: {
     </div>`;
   return sendEmail(opts.to, opts.subject, html);
 }
+
+/**
+ * Markedsførings-e-post (DM). Samtykke-først: kalles kun for kunder som
+ * har marketing_consent. Hver e-post har en obligatorisk avmeldingslenke.
+ */
+export async function sendMarketingEmail(opts: {
+  to: string;
+  subject: string;
+  body: string;
+  unsubscribeUrl: string;
+}): Promise<boolean> {
+  const esc = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const paragraphs = opts.body
+    .split(/\n{2,}/)
+    .map(
+      (p) =>
+        `<p style="color:#cfc7bf;line-height:1.7;margin:0 0 16px">${esc(p).replace(/\n/g, "<br>")}</p>`,
+    )
+    .join("");
+  const html = `
+    <div style="font-family:Georgia,serif;background:#211E1A;color:#F8F5EF;padding:40px 24px">
+      <div style="max-width:520px;margin:0 auto">
+        <p style="letter-spacing:.3em;text-transform:uppercase;color:#F47721;font-size:11px;margin:0 0 12px">
+          Downtown Barbers
+        </p>
+        <h1 style="font-size:24px;margin:0 0 20px">${esc(opts.subject)}</h1>
+        ${paragraphs}
+        <p style="margin:28px 0 0">
+          <a href="https://downtownbarbers.no/booking"
+             style="display:inline-block;background:#F47721;color:#211E1A;font-weight:bold;
+                    text-decoration:none;padding:12px 22px;font-size:14px">Bestill time</a>
+        </p>
+        <hr style="border:none;border-top:1px solid #3a352f;margin:28px 0 14px">
+        <p style="color:#8a817a;font-size:12px;margin:0 0 6px">Osterhaus' gate 10, 0183 Oslo · +47 463 58 764</p>
+        <p style="color:#8a817a;font-size:12px;margin:0">
+          Du får denne e-posten fordi du har sagt ja til tilbud fra oss.
+          <a href="${opts.unsubscribeUrl}" style="color:#8a817a;text-decoration:underline">Meld deg av</a>.
+        </p>
+      </div>
+    </div>`;
+  return sendEmail(opts.to, opts.subject, html);
+}
