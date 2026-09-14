@@ -245,6 +245,61 @@ export async function rescheduleBooking(
   }
 }
 
+/**
+ * Flytt en booking til en ANNEN barber – krever at den OPPRINNELIGE barberen
+ * godkjenner med sin PIN (samme PIN som stemplingsuret). Tidspunktet beholdes;
+ * krediteringen følger bookingen, så den nye barberen krediteres salget.
+ */
+export async function reassignBookingBarber(
+  bookingId: string,
+  newBarber: string,
+  pin: string,
+): Promise<{ ok?: true; error?: string }> {
+  try {
+    const sb = await createClient();
+
+    const { data: b } = await sb
+      .from("bookings")
+      .select("staff_id, start_at, staff(full_name)")
+      .eq("id", bookingId)
+      .maybeSingle();
+    if (!b) return { error: "Fant ikke timen." };
+    if (!b.staff_id)
+      return { error: "Timen har ingen barber å godkjenne overføringen fra." };
+
+    const current = (b.staff as { full_name?: string } | null)?.full_name ?? null;
+    if (current && current === newBarber)
+      return { error: "Kunden står allerede hos denne barberen." };
+    if (!/^\d{4}$/.test(pin.trim()))
+      return { error: "PIN må være 4 siffer." };
+
+    // Godkjenning: opprinnelig barber taster sin PIN.
+    const { data: v, error: verr } = await sb.rpc("verify_pin_status", {
+      p_staff: b.staff_id,
+      p_pin: pin.trim(),
+    });
+    if (verr) return { error: "Kunne ikke verifisere PIN." };
+    const res = String(v ?? "");
+    if (res === "ERR:no_pin")
+      return {
+        error: `${current ?? "Barberen"} har ingen PIN satt. Be admin registrere en under Ansatte.`,
+      };
+    if (res.startsWith("ERR:")) return { error: "Feil PIN. Overføring avbrutt." };
+
+    // Godkjent → flytt til ny barber, behold tidspunktet.
+    const { error } = await sb.rpc("reschedule_booking", {
+      p_booking: bookingId,
+      p_start: b.start_at,
+      p_barber: newBarber,
+    });
+    if (error) return { error: error.message };
+    refresh();
+    return { ok: true };
+  } catch {
+    return { error: "Kunne ikke flytte timen." };
+  }
+}
+
 export type DeskBookingInput = {
   customerId?: string;
   name?: string;

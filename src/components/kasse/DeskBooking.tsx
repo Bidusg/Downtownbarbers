@@ -313,20 +313,31 @@ function Dialog({
         )}
 
         {/* Barber */}
-        <div className="mb-3">
-          <label className="mb-1 block text-xs text-muted">Barber</label>
-          <select
-            value={barber}
-            onChange={(e) => setBarber(e.target.value)}
-            className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg focus:border-accent-soft focus:outline-none"
-          >
-            {barbers.map((b) => (
-              <option key={b.id} value={b.full_name}>
-                {b.full_name}
-              </option>
-            ))}
-          </select>
-        </div>
+        {mode === "reschedule" ? (
+          <div className="mb-3 text-sm">
+            <span className="text-muted">Barber: </span>
+            <span className="text-fg">{prefill?.barber ?? "—"}</span>
+            <p className="mt-1 text-[11px] text-muted">
+              «Flytt» endrer kun tid. For å bytte barber: dra kunden til en annen
+              barber i kalenderen – den opprinnelige barberen godkjenner med PIN.
+            </p>
+          </div>
+        ) : (
+          <div className="mb-3">
+            <label className="mb-1 block text-xs text-muted">Barber</label>
+            <select
+              value={barber}
+              onChange={(e) => setBarber(e.target.value)}
+              className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg focus:border-accent-soft focus:outline-none"
+            >
+              {barbers.map((b) => (
+                <option key={b.id} value={b.full_name}>
+                  {b.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Dato */}
         <div className="mb-3">

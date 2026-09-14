@@ -7,7 +7,7 @@ import { colorAt } from "@/lib/colors";
 import { Avatar } from "@/components/ui/Avatar";
 import { DeskBooking } from "@/components/kasse/DeskBooking";
 import { BookingDetailModal } from "@/components/kasse/BookingDetailModal";
-import { blockTime, cancelBooking } from "@/app/kasse/actions";
+import { blockTime, cancelBooking, reassignBookingBarber } from "@/app/kasse/actions";
 
 const OPEN = 9 * 60; // 09:00
 const CLOSE = 21 * 60; // 21:00
@@ -69,6 +69,11 @@ export function DayCalendar({
   const [selected, setSelected] = useState<AgendaBooking | null>(null);
   const [blockOpen, setBlockOpen] = useState(false);
   const [, startCancel] = useTransition();
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [transfer, setTransfer] = useState<{
+    booking: AgendaBooking;
+    toBarber: string;
+  } | null>(null);
 
   const down = useRef<{ x: number; y: number } | null>(null);
   const moved = useRef(false);
@@ -125,6 +130,10 @@ export function DayCalendar({
       moved.current = true;
   }
   function onUp(e: React.PointerEvent) {
+    if (dragId) {
+      down.current = null;
+      return;
+    }
     if (!down.current) return;
     const dx = e.clientX - down.current.x;
     const dy = e.clientY - down.current.y;
@@ -199,9 +208,25 @@ export function DayCalendar({
           {columns.map((col) => {
             const color = colorFor(col.barber.full_name);
             return (
-              <div key={col.barber.id} className="w-44 shrink-0 border-l border-line">
+              <div
+                key={col.barber.id}
+                className="w-44 shrink-0 border-l border-line"
+                onDragOver={(e) => {
+                  if (dragId) e.preventDefault();
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const dropped = agenda.find((x) => x.id === dragId);
+                  setDragId(null);
+                  if (dropped && (dropped.barber ?? "") !== col.barber.full_name) {
+                    setTransfer({ booking: dropped, toBarber: col.barber.full_name });
+                  }
+                }}
+              >
                 <div
-                  className="sticky top-0 z-10 flex items-center gap-2 border-b border-line px-3"
+                  className={`sticky top-0 z-10 flex items-center gap-2 border-b border-line px-3 ${
+                    dragId ? "outline-dashed outline-1 outline-accent-soft/40" : ""
+                  }`}
                   style={{ height: HEADER_H, background: color + "26" }}
                 >
                   <span
@@ -275,13 +300,27 @@ export function DayCalendar({
                           if (moved.current) return;
                           setSelected(b);
                         }}
-                        className="absolute right-1 left-1 overflow-hidden rounded-md border-l-[3px] px-2 py-1 text-left transition-transform hover:z-10 hover:scale-[1.02]"
+                        draggable={!completed && !noshow}
+                        onDragStart={(e) => {
+                          e.stopPropagation();
+                          setDragId(b.id);
+                          e.dataTransfer.effectAllowed = "move";
+                          try {
+                            e.dataTransfer.setData("text/plain", b.id);
+                          } catch {
+                            /* noop */
+                          }
+                        }}
+                        onDragEnd={() => setDragId(null)}
+                        title="Dra til en annen barber for å flytte kunden"
+                        className="absolute right-1 left-1 cursor-grab overflow-hidden rounded-md border-l-[3px] px-2 py-1 text-left transition-transform hover:z-10 hover:scale-[1.02] active:cursor-grabbing"
                         style={{
                           top,
                           height,
                           background: color + "26",
                           borderLeftColor: color,
-                          opacity: completed || noshow ? 0.6 : 1,
+                          opacity:
+                            dragId === b.id ? 0.35 : completed || noshow ? 0.6 : 1,
                         }}
                       >
                         <div className="flex items-center gap-1.5">
@@ -327,6 +366,18 @@ export function DayCalendar({
           onClose={() => setBlockOpen(false)}
           onDone={() => {
             setBlockOpen(false);
+            router.refresh();
+          }}
+        />
+      )}
+
+      {transfer && (
+        <TransferDialog
+          booking={transfer.booking}
+          toBarber={transfer.toBarber}
+          onClose={() => setTransfer(null)}
+          onDone={() => {
+            setTransfer(null);
             router.refresh();
           }}
         />
@@ -427,6 +478,83 @@ function BlockDialog({
             className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             {pending ? "…" : "Blokker"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TransferDialog({
+  booking,
+  toBarber,
+  onClose,
+  onDone,
+}: {
+  booking: AgendaBooking;
+  toBarber: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const fromBarber = booking.barber ?? "Opprinnelig barber";
+
+  function submit() {
+    setError(null);
+    start(async () => {
+      const res = await reassignBookingBarber(booking.id, toBarber, pin.trim());
+      if (res.error) setError(res.error);
+      else onDone();
+    });
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl border border-line bg-surface p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-display text-lg font-bold">Flytt til {toBarber}?</h2>
+          <button onClick={onClose} className="text-muted hover:text-fg" aria-label="Lukk">
+            ✕
+          </button>
+        </div>
+        <p className="mb-4 text-sm text-muted">
+          {booking.customer ?? "Kunden"} er booket hos{" "}
+          <b className="text-fg">{fromBarber}</b>. For å flytte til{" "}
+          <b className="text-fg">{toBarber}</b> må {fromBarber} godkjenne med sin PIN.
+        </p>
+        <label className="mb-1 block text-xs text-muted">PIN til {fromBarber}</label>
+        <input
+          autoFocus
+          type="password"
+          inputMode="numeric"
+          maxLength={4}
+          value={pin}
+          onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && pin.length === 4) submit();
+          }}
+          placeholder="••••"
+          className="mb-4 w-full rounded-md border border-line bg-canvas px-3 py-2 text-center text-lg tracking-[0.5em] text-fg focus:border-accent-soft focus:outline-none"
+        />
+        {error && <p className="mb-3 text-sm text-danger">{error}</p>}
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-muted hover:text-fg">
+            Avbryt
+          </button>
+          <button
+            onClick={submit}
+            disabled={pending || pin.length !== 4}
+            className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
+          >
+            {pending ? "…" : "Godkjenn og flytt"}
           </button>
         </div>
       </div>
