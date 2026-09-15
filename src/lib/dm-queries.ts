@@ -10,25 +10,29 @@ export type ConsentStats = {
   total: number;
   consenting: number;
   reachable: number; // samtykke + e-post
+  smsReachable: number; // samtykke + telefon
 };
 
 export async function getConsentStats(): Promise<ConsentStats> {
   try {
     const sb = await createClient();
-    const [totalRes, consentRes, reachRes] = await Promise.all([
+    const [totalRes, consentRes, reachRes, smsRes] = await Promise.all([
       sb.from("customers").select("*", { count: "exact", head: true }),
       sb.from("customers").select("*", { count: "exact", head: true })
         .eq("marketing_consent", true),
       sb.from("customers").select("*", { count: "exact", head: true })
         .eq("marketing_consent", true).not("email", "is", null),
+      sb.from("customers").select("*", { count: "exact", head: true })
+        .eq("marketing_consent", true).not("phone", "is", null),
     ]);
     return {
       total: totalRes.count ?? 0,
       consenting: consentRes.count ?? 0,
       reachable: reachRes.count ?? 0,
+      smsReachable: smsRes.count ?? 0,
     };
   } catch {
-    return { total: 0, consenting: 0, reachable: 0 };
+    return { total: 0, consenting: 0, reachable: 0, smsReachable: 0 };
   }
 }
 
@@ -40,23 +44,40 @@ export const SEGMENTS: { key: Segment; label: string; hint: string }[] = [
   { key: "inaktiv", label: "Inaktive", hint: "Ikke besøkt på 90+ dager" },
 ];
 
-export type Recipient = { id: string; name: string; email: string; token: string | null };
+export type Recipient = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  token: string | null;
+};
 
-export async function getMarketingRecipients(segment: Segment): Promise<Recipient[]> {
+export type Channel = "email" | "sms";
+
+export async function getMarketingRecipients(
+  segment: Segment,
+  channel: Channel = "email",
+): Promise<Recipient[]> {
   try {
     const sb = await createClient();
-    const { data: custs } = await sb
+    const q = sb
       .from("customers")
-      .select("id, full_name, email, portal_token")
+      .select("id, full_name, email, phone, portal_token")
       .eq("marketing_consent", true)
-      .not("email", "is", null)
+      .not(channel === "sms" ? "phone" : "email", "is", null)
       .limit(100000);
+    const { data: custs } = await q;
     const base: Recipient[] = (custs ?? [])
-      .filter((c) => (c.email as string)?.trim())
+      .filter((c) =>
+        channel === "sms"
+          ? (c.phone as string)?.trim()
+          : (c.email as string)?.trim(),
+      )
       .map((c) => ({
         id: c.id as string,
         name: (c.full_name as string) ?? "",
-        email: (c.email as string).trim(),
+        email: ((c.email as string) ?? "").trim(),
+        phone: (c.phone as string) ?? null,
         token: (c.portal_token as string) ?? null,
       }));
 

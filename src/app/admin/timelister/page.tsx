@@ -1,6 +1,7 @@
 import { StaffHoursManager } from "@/components/admin/StaffHoursManager";
 import { WeekSchedule } from "@/components/admin/WeekSchedule";
-import { getStaffHours, getStaffOptions } from "@/lib/ops-queries";
+import { getStaffHours, getStaffOptions, getTurnusAnchor } from "@/lib/ops-queries";
+import { setTurnusAnchor } from "@/app/admin/timelister/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -20,10 +21,15 @@ export default async function AdminTimelister({
 }) {
   const sp = await searchParams;
   const parity: 1 | 2 = sp.uke === "b" ? 2 : 1;
-  const [hours, staff] = await Promise.all([getStaffHours(), getStaffOptions()]);
+  const [hours, staff, anchor] = await Promise.all([
+    getStaffHours(),
+    getStaffOptions(),
+    getTurnusAnchor(),
+  ]);
 
   const wk = isoWeek(new Date());
-  const currentParity = wk % 2 === 0 ? 1 : 2; // partall = A, oddetall = B
+  const evenIsA = anchor.aIsEven;
+  const currentParity: 1 | 2 = (wk % 2 === 0) === evenIsA ? 1 : 2;
   const currentLabel = currentParity === 1 ? "Uke A" : "Uke B";
 
   const tab = (p: "a" | "b", label: string) => {
@@ -61,6 +67,30 @@ export default async function AdminTimelister({
           Denne uken (uke {wk}) er <strong className="text-accent-soft">{currentLabel}</strong>
         </p>
       </div>
+
+      <form
+        action={setTurnusAnchor}
+        className="mb-6 flex flex-wrap items-center gap-2 text-xs text-muted"
+      >
+        <span>A/B-anker:</span>
+        <select
+          name="a_is_even"
+          defaultValue={evenIsA ? "even" : "odd"}
+          className="rounded-md border border-line bg-surface px-2 py-1 text-fg focus:border-accent-soft focus:outline-none"
+        >
+          <option value="even">Partallsuker (uke 2, 4, 6 …) er Uke A</option>
+          <option value="odd">Oddetallsuker (uke 1, 3, 5 …) er Uke A</option>
+        </select>
+        <button
+          type="submit"
+          className="rounded-md border border-line-2 px-3 py-1 font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
+        >
+          Lagre anker
+        </button>
+        <span className="text-[11px]">
+          Bestemmer hvilken kalenderuke som er A vs B — brukes av både booking og timelister.
+        </span>
+      </form>
 
       <WeekSchedule hours={hours} staff={staff} parity={parity} />
 

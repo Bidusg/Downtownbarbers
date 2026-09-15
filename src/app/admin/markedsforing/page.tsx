@@ -23,7 +23,7 @@ function fmt(iso: string) {
 export default async function AdminMarkedsforing({
   searchParams,
 }: {
-  searchParams: Promise<{ sendt?: string; feil?: string }>;
+  searchParams: Promise<{ sendt?: string; feil?: string; kanal?: string }>;
 }) {
   const sp = await searchParams;
   const [stats, sends] = await Promise.all([getConsentStats(), getMarketingSends(20)]);
@@ -33,8 +33,8 @@ export default async function AdminMarkedsforing({
       <div>
         <h1 className="font-display text-2xl font-bold">Markedsføring</h1>
         <p className="mt-1 text-sm text-muted">
-          Send tilbud og nyheter på e-post — kun til kunder som har sagt ja (markedsføringsloven §15).
-          Hver e-post har en avmeldingslenke.
+          Send tilbud og nyheter på e-post eller SMS — kun til kunder som har sagt ja (markedsføringsloven §15).
+          Hver utsending har en avmeldingslenke.
         </p>
       </div>
 
@@ -42,8 +42,11 @@ export default async function AdminMarkedsforing({
         <div className="flex items-start gap-3 border border-accent-soft/30 bg-accent-soft/5 px-4 py-3 text-sm">
           <span className="mt-0.5 text-accent-soft">●</span>
           <p className="text-muted">
-            <strong className="text-fg">Sendt til {sp.sendt} mottaker(e).</strong>{" "}
-            {sp.sendt === "0" && "Ingen kunder i valgt segment har samtykke + e-post, eller RESEND_API_KEY mangler."}
+            <strong className="text-fg">
+              Sendt {sp.kanal === "sms" ? "på SMS" : "på e-post"} til {sp.sendt} mottaker(e).
+            </strong>{" "}
+            {sp.sendt === "0" &&
+              "Ingen i valgt segment har samtykke + riktig kontaktinfo, eller leverandør-nøklene mangler."}
           </p>
         </div>
       )}
@@ -53,15 +56,29 @@ export default async function AdminMarkedsforing({
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile label="Kunder totalt" value={String(stats.total)} />
         <StatTile label="Med samtykke" value={String(stats.consenting)} />
-        <StatTile label="Kan nås" value={String(stats.reachable)} sub="samtykke + e-post" />
+        <StatTile label="Kan nås på e-post" value={String(stats.reachable)} sub="samtykke + e-post" />
+        <StatTile label="Kan nås på SMS" value={String(stats.smsReachable)} sub="samtykke + telefon" />
       </div>
 
       {/* Komponér */}
       <form action={sendMarketing} className="space-y-4 border border-line bg-surface p-6">
         <h2 className="font-display text-lg font-bold">Ny utsending</h2>
+        <div>
+          <label className="mb-1 block text-xs text-muted">Kanal</label>
+          <div className="flex gap-4 text-sm text-fg">
+            <label className="flex items-center gap-2">
+              <input type="radio" name="channel" value="email" defaultChecked className="accent-[#F47721]" />
+              E-post
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="radio" name="channel" value="sms" className="accent-[#F47721]" />
+              SMS
+            </label>
+          </div>
+        </div>
         <div>
           <label className="mb-1 block text-xs text-muted">Segment</label>
           <select name="segment" className="w-full border border-line-2 bg-canvas px-3 py-2 text-sm text-fg sm:w-auto">
@@ -71,7 +88,9 @@ export default async function AdminMarkedsforing({
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs text-muted">Emne</label>
+          <label className="mb-1 block text-xs text-muted">
+            Emne <span className="text-muted/70">(kun e-post)</span>
+          </label>
           <input
             name="subject"
             placeholder="F.eks. 20 % på skjeggpleie i mars"
@@ -87,7 +106,8 @@ export default async function AdminMarkedsforing({
             className="w-full resize-y border border-line-2 bg-canvas px-3 py-2 text-sm text-fg"
           />
           <p className="mt-1 text-xs text-muted">
-            Avsluttes automatisk med «Bestill time»-knapp, kontaktinfo og avmeldingslenke.
+            E-post avsluttes med «Bestill time»-knapp, kontaktinfo og avmeldingslenke.
+            SMS får automatisk en kort «Avmeld»-lenke lagt til.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -135,7 +155,9 @@ export default async function AdminMarkedsforing({
       </div>
 
       <p className="text-xs text-muted">
-        E-post sendes via Resend (krever <span className="font-mono">RESEND_API_KEY</span>). SMS aktiveres når Twilio er satt opp.
+        E-post sendes via Resend (<span className="font-mono">RESEND_API_KEY</span>). SMS sendes via valgt
+        A2P-leverandør (<span className="font-mono">SMS_PROVIDER</span> + nøkler, f.eks. GatewayAPI eller Sveve)
+        med avsendernavn <span className="font-mono">SMS_SENDER</span>. Mangler nøklene, hoppes utsendingen stille over.
       </p>
     </div>
   );

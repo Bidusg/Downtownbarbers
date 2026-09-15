@@ -239,6 +239,22 @@ export async function getStaffHours(): Promise<StaffHour[]> {
   }
 }
 
+/** A/B-anker: er en PARTALLS ISO-uke «Uke A»? (default ja) */
+export async function getTurnusAnchor(): Promise<{ aIsEven: boolean }> {
+  try {
+    const sb = await createClient();
+    const { data } = await sb
+      .from("settings")
+      .select("value")
+      .eq("key", "turnus_anchor")
+      .maybeSingle();
+    const v = (data?.value ?? {}) as { a_is_even?: boolean };
+    return { aIsEven: v.a_is_even !== false };
+  } catch {
+    return { aIsEven: true };
+  }
+}
+
 /* ---------------------------- KAMPANJER ----------------------------- */
 export type Campaign = {
   id: string;

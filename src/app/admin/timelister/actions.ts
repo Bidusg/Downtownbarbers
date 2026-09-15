@@ -24,3 +24,13 @@ export async function deleteStaffHour(id: string) {
   await sb.from("staff_hours").delete().eq("id", id);
   revalidatePath("/admin/timelister");
 }
+
+/** Sett A/B-ankeret: hvilken paritet en partalls ISO-uke er. */
+export async function setTurnusAnchor(formData: FormData) {
+  const sb = await createClient();
+  const aIsEven = String(formData.get("a_is_even")) === "even";
+  await sb
+    .from("settings")
+    .upsert({ key: "turnus_anchor", value: { a_is_even: aIsEven } });
+  revalidatePath("/admin/timelister");
+}
