@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { SiteSettings, OpeningHour } from "@/lib/site-settings";
+import type { SiteSettings, DayHours } from "@/lib/site-settings";
 import { updateSite } from "@/app/admin/nettside/actions";
 
 function Field({
@@ -24,6 +24,17 @@ function Field({
 const input =
   "w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft";
 
+const DAY_NAMES = [
+  "Søndag",
+  "Mandag",
+  "Tirsdag",
+  "Onsdag",
+  "Torsdag",
+  "Fredag",
+  "Lørdag",
+];
+const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
 export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {
   const [s, setS] = useState<SiteSettings>(initial);
   const [msg, setMsg] = useState<string | null>(null);
@@ -32,25 +43,8 @@ export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {
   function set<K extends keyof SiteSettings>(k: K, v: SiteSettings[K]) {
     setS((prev) => ({ ...prev, [k]: v }));
   }
-  function setHour(i: number, key: keyof OpeningHour, v: string) {
-    setS((prev) => {
-      const oh = prev.opening_hours.map((h, idx) =>
-        idx === i ? { ...h, [key]: v } : h,
-      );
-      return { ...prev, opening_hours: oh };
-    });
-  }
-  function addHour() {
-    setS((prev) => ({
-      ...prev,
-      opening_hours: [...prev.opening_hours, { day: "", hours: "" }],
-    }));
-  }
-  function removeHour(i: number) {
-    setS((prev) => ({
-      ...prev,
-      opening_hours: prev.opening_hours.filter((_, idx) => idx !== i),
-    }));
+  function updateDay(dow: number, next: DayHours) {
+    setS((prev) => ({ ...prev, hours: { ...prev.hours, [String(dow)]: next } }));
   }
 
   function save() {
@@ -107,20 +101,54 @@ export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {
       </section>
 
       <section className="border border-line bg-surface p-5">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4">
           <h2 className="font-display text-lg font-bold">Åpningstider</h2>
-          <button onClick={addHour} className="text-xs text-accent-soft hover:underline">
-            + Legg til rad
-          </button>
+          <p className="mt-1 text-xs text-muted">
+            Styrer både forsiden og hva kunder kan booke. «Stengt» = ingen
+            ledige timer den dagen. Barbernes turnus klippes automatisk til
+            disse tidene.
+          </p>
         </div>
         <div className="space-y-2">
-          {s.opening_hours.map((h, i) => (
-            <div key={i} className="flex gap-2">
-              <input className={input + " flex-1"} placeholder="Dag" value={h.day} onChange={(e) => setHour(i, "day", e.target.value)} />
-              <input className={input + " flex-1"} placeholder="Tid" value={h.hours} onChange={(e) => setHour(i, "hours", e.target.value)} />
-              <button onClick={() => removeHour(i)} className="px-2 text-danger hover:underline">×</button>
-            </div>
-          ))}
+          {DAY_ORDER.map((dow) => {
+            const h = s.hours?.[String(dow)] ?? null;
+            const closed = !h;
+            return (
+              <div key={dow} className="flex flex-wrap items-center gap-2">
+                <span className="w-24 text-sm text-fg">{DAY_NAMES[dow]}</span>
+                <input
+                  type="time"
+                  disabled={closed}
+                  value={h?.open ?? "09:00"}
+                  onChange={(e) =>
+                    updateDay(dow, { open: e.target.value, close: h?.close ?? "21:00" })
+                  }
+                  className={input + " w-32 disabled:opacity-40"}
+                />
+                <span className="text-muted">–</span>
+                <input
+                  type="time"
+                  disabled={closed}
+                  value={h?.close ?? "21:00"}
+                  onChange={(e) =>
+                    updateDay(dow, { open: h?.open ?? "09:00", close: e.target.value })
+                  }
+                  className={input + " w-32 disabled:opacity-40"}
+                />
+                <label className="ml-2 flex items-center gap-1.5 text-sm text-muted">
+                  <input
+                    type="checkbox"
+                    checked={closed}
+                    onChange={(e) =>
+                      updateDay(dow, e.target.checked ? null : { open: "09:00", close: "21:00" })
+                    }
+                    className="accent-[#F47721]"
+                  />
+                  Stengt
+                </label>
+              </div>
+            );
+          })}
         </div>
       </section>
 
