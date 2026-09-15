@@ -40,7 +40,7 @@ export async function sendMarketing(formData: FormData): Promise<void> {
         if (!r.token) return;
         if (channel === "sms") {
           if (!r.phone) return;
-          const msg = `${body}\n\nAvmeld: ${base}/avmeld/${r.token}`;
+          const msg = `${body}\n\nAvmeld: ${base}/avmeld/${r.token} · eller svar STOPP`;
           if (await sendSms(r.phone, msg)) sent++;
         } else {
           const ok = await sendMarketingEmail({

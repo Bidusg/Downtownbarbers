@@ -39,6 +39,32 @@ export function isSmsConfigured(): boolean {
   return provider() !== "";
 }
 
+/* ---------------- Innkommende (STOPP/START) ---------------- */
+
+export type InboundAction = "stop" | "start" | "other";
+
+// Reservasjon (av) og påmelding (på). Norsk + engelsk, tåler småskriving.
+const STOP_WORDS = new Set([
+  "STOPP", "STOP", "SLUTT", "STANS", "AVMELD", "AVMELDING", "AVBESTILL",
+  "AVSLUTT", "UNSUBSCRIBE", "STOPPE", "FJERN", "NEI",
+]);
+const START_WORDS = new Set([
+  "START", "JA", "JATAKK", "PÅMELD", "PAMELD", "SUBSCRIBE", "MELD", "STARTE",
+]);
+
+/**
+ * Klassifiser en innkommende SMS ut fra første ord. Robust mot tegnsetting
+ * og store/små bokstaver, f.eks. «Stopp!», «STOPP takk», «ja» → stop/start.
+ */
+export function classifyInbound(body: string): InboundAction {
+  const first = (body ?? "").trim().split(/\s+/)[0] ?? "";
+  const kw = first.toUpperCase().replace(/[^A-ZÆØÅ]/g, "");
+  if (!kw) return "other";
+  if (STOP_WORDS.has(kw)) return "stop";
+  if (START_WORDS.has(kw)) return "start";
+  return "other";
+}
+
 /** Gjør et norsk nummer om til E.164 (+47…). Tomt hvis ugyldig. */
 export function toE164(phone: string): string {
   const cleaned = (phone ?? "").replace(/[\s-]/g, "");

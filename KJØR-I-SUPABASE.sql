@@ -261,3 +261,94 @@ begin
   return res;
 end $$;
 grant execute on function available_slots(text, text, date) to anon, authenticated;
+
+
+-- ---------------------------------------------------------------------
+-- 0027 — Innkommende SMS: STOPP/START (A2P-samtykke)
+-- Lar kunder reservere seg ved å svare STOPP (og melde seg på med START/
+-- JA) på SMS, slik A2P-leverandører krever. Gjenbruker samtykke-flagget
+-- (customers.marketing_consent) — markedsføring sender kun til de med
+-- samtykke, så en STOPP fjerner kunden fra alle framtidige markedsførings-
+-- SMS med én gang. Booking-påminnelser (transaksjonelle) påvirkes ikke.
+-- Webhook: POST/GET /api/sms/inbound  (valgfri sikring: SMS_INBOUND_SECRET)
+-- ---------------------------------------------------------------------
+create table if not exists sms_inbound (
+  id          uuid primary key default gen_random_uuid(),
+  from_phone  text not null,
+  body        text,
+  action      text not null default 'other',
+  matched     int  not null default 0,
+  created_at  timestamptz not null default now()
+);
+create index if not exists sms_inbound_created_idx on sms_inbound (created_at desc);
+
+alter table sms_inbound enable row level security;
+drop policy if exists sms_inbound_admin_all on sms_inbound;
+create policy sms_inbound_admin_all on sms_inbound
+  for all using (is_admin()) with check (is_admin());
+
+create or replace function sms_set_consent_by_phone(
+  p_phone text, p_consent boolean
+) returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_key text;
+  v_count int;
+begin
+  v_key := right(regexp_replace(coalesce(p_phone, ''), '\D', '', 'g'), 8);
+  if length(v_key) < 8 then
+    return 0;
+  end if;
+
+  update customers
+     set marketing_consent = p_consent,
+         marketing_consent_at = now()
+   where right(regexp_replace(coalesce(phone, ''), '\D', '', 'g'), 8) = v_key;
+
+  get diagnostics v_count = row_count;
+  return v_count;
+end $$;
+grant execute on function sms_set_consent_by_phone(text, boolean) to anon, authenticated;
+
+create or replace function sms_inbound_handle(
+  p_from text, p_body text, p_action text
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_action text := lower(coalesce(p_action, 'other'));
+  v_matched int := 0;
+begin
+  if v_action = 'stop' then
+    v_matched := sms_set_consent_by_phone(p_from, false);
+  elsif v_action = 'start' then
+    v_matched := sms_set_consent_by_phone(p_from, true);
+  else
+    v_action := 'other';
+  end if;
+
+  insert into sms_inbound (from_phone, body, action, matched)
+  values (coalesce(p_from, ''), p_body, v_action, v_matched);
+
+  return jsonb_build_object('action', v_action, 'matched', v_matched);
+end $$;
+grant execute on function sms_inbound_handle(text, text, text) to anon, authenticated;
+
+create or replace function sms_inbound_recent(p_limit int default 20)
+returns setof sms_inbound
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select * from sms_inbound
+  where is_admin()
+  order by created_at desc
+  limit greatest(1, least(coalesce(p_limit, 20), 200));
+$$;
+grant execute on function sms_inbound_recent(int) to authenticated;
