@@ -25,6 +25,32 @@ export async function deleteStaffHour(id: string) {
   revalidatePath("/admin/timelister");
 }
 
+/** Endre en eksisterende vakt (tid + paritet) uten å slette og lage ny. */
+export async function updateStaffHour(formData: FormData) {
+  const sb = await createClient();
+  const id = String(formData.get("id") ?? "");
+  const start_time = String(formData.get("start_time") ?? "");
+  const end_time = String(formData.get("end_time") ?? "");
+  let week_parity = Number(formData.get("week_parity"));
+  if (![0, 1, 2].includes(week_parity)) week_parity = 0;
+  if (!id || !start_time || !end_time || end_time <= start_time) return;
+  await sb
+    .from("staff_hours")
+    .update({ start_time, end_time, week_parity })
+    .eq("id", id);
+  revalidatePath("/admin/timelister");
+}
+
+/** Kopier hele turnusen fra én uke (A/B) til den andre. */
+export async function copyTurnusWeek(formData: FormData) {
+  const from = Number(formData.get("from"));
+  const to = Number(formData.get("to"));
+  if (![1, 2].includes(from) || ![1, 2].includes(to) || from === to) return;
+  const sb = await createClient();
+  await sb.rpc("copy_turnus_week", { p_from: from, p_to: to });
+  revalidatePath("/admin/timelister");
+}
+
 /** Legg til et avvik/fravær for en barber på en dato (0028). */
 export async function createStaffException(formData: FormData) {
   const sb = await createClient();

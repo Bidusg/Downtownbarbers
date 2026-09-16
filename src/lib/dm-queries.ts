@@ -160,3 +160,32 @@ export async function getCustomerConsent(id: string): Promise<boolean> {
     return false;
   }
 }
+
+/* ---------------- Innkommende SMS (STOPP/START) — 0027 ---------------- */
+
+export type InboundMsg = {
+  id: string;
+  from_phone: string;
+  body: string | null;
+  action: "stop" | "start" | "other";
+  matched: number;
+  created_at: string;
+};
+
+/** Nylige innkommende SMS-svar (STOPP/START). Admin, via RPC (security definer). */
+export async function getRecentInbound(limit = 15): Promise<InboundMsg[]> {
+  try {
+    const sb = await createClient();
+    const { data } = await sb.rpc("sms_inbound_recent", { p_limit: limit });
+    return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+      id: String(r.id),
+      from_phone: String(r.from_phone ?? ""),
+      body: (r.body as string) ?? null,
+      action: (r.action as "stop" | "start" | "other") ?? "other",
+      matched: Number(r.matched ?? 0),
+      created_at: String(r.created_at),
+    }));
+  } catch {
+    return [];
+  }
+}

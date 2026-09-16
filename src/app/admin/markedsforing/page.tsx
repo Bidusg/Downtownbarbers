@@ -1,6 +1,17 @@
 import { StatTile } from "@/components/ui/StatTile";
-import { getConsentStats, getMarketingSends, SEGMENTS } from "@/lib/dm-queries";
+import {
+  getConsentStats,
+  getMarketingSends,
+  getRecentInbound,
+  SEGMENTS,
+} from "@/lib/dm-queries";
 import { sendMarketing } from "./actions";
+
+const INBOUND_LABEL: Record<string, string> = {
+  stop: "STOPP – avmeldt",
+  start: "START – påmeldt",
+  other: "Annet svar",
+};
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +37,11 @@ export default async function AdminMarkedsforing({
   searchParams: Promise<{ sendt?: string; feil?: string; kanal?: string }>;
 }) {
   const sp = await searchParams;
-  const [stats, sends] = await Promise.all([getConsentStats(), getMarketingSends(20)]);
+  const [stats, sends, inbound] = await Promise.all([
+    getConsentStats(),
+    getMarketingSends(20),
+    getRecentInbound(15),
+  ]);
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
@@ -146,6 +161,56 @@ export default async function AdminMarkedsforing({
                     <td className="px-4 py-3">{s.subject}</td>
                     <td className="px-4 py-3 text-muted">{SEG_LABEL[s.segment ?? ""] ?? s.segment ?? "—"}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{s.recipient_count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Innkommende svar (STOPP/START) */}
+      <div className="border border-line bg-surface">
+        <div className="border-b border-line px-6 py-4">
+          <h2 className="font-display text-lg font-bold">Innkommende svar (STOPP/START)</h2>
+          <p className="mt-1 text-xs text-muted">
+            Kunder som svarer STOPP meldes automatisk av markedsføring; START/JA
+            melder på igjen. Booking-påminnelser påvirkes ikke.
+          </p>
+        </div>
+        {inbound.length === 0 ? (
+          <p className="px-6 py-8 text-sm text-muted">Ingen innkommende svar enda.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-line text-left text-xs text-muted">
+                  <th className="px-6 py-3 font-medium">Tid</th>
+                  <th className="px-4 py-3 font-medium">Fra</th>
+                  <th className="px-4 py-3 font-medium">Handling</th>
+                  <th className="px-4 py-3 text-right font-medium">Kunder endret</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inbound.map((m) => (
+                  <tr key={m.id} className="border-b border-line last:border-0">
+                    <td className="px-6 py-3 whitespace-nowrap text-muted">{fmt(m.created_at)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{m.from_phone}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={
+                          "rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide " +
+                          (m.action === "stop"
+                            ? "bg-danger/10 text-danger"
+                            : m.action === "start"
+                              ? "bg-accent-soft/15 text-accent-soft"
+                              : "bg-surface-2 text-muted")
+                        }
+                      >
+                        {INBOUND_LABEL[m.action] ?? m.action}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums">{m.matched}</td>
                   </tr>
                 ))}
               </tbody>
