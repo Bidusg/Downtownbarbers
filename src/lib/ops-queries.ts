@@ -315,3 +315,47 @@ export async function getBudgets(
     return [];
   }
 }
+
+/* ---------------- Avvik/fravær per dato (0028) ---------------- */
+
+export type StaffException = {
+  id: string;
+  staff_id: string;
+  staffName: string;
+  date: string; // YYYY-MM-DD
+  kind: "off" | "extra";
+  start_time: string | null; // HH:MM, null = hele dagen (for 'off')
+  end_time: string | null;
+  note: string | null;
+};
+
+/** Kommende avvik (fra og med i dag), sortert på dato. */
+export async function getStaffExceptions(): Promise<StaffException[]> {
+  try {
+    const sb = await createClient();
+    const today = new Date().toLocaleDateString("en-CA", {
+      timeZone: "Europe/Oslo",
+    }); // YYYY-MM-DD i Oslo-tid
+    const { data } = await sb
+      .from("staff_exceptions")
+      .select("id, staff_id, date, kind, start_time, end_time, note, staff(full_name)")
+      .gte("date", today)
+      .order("date");
+    return (data ?? []).map((r) => {
+      const st = r.staff as { full_name?: string } | null;
+      const t = (v: unknown) => (v ? String(v).slice(0, 5) : null);
+      return {
+        id: r.id as string,
+        staff_id: r.staff_id as string,
+        staffName: st?.full_name ?? "—",
+        date: r.date as string,
+        kind: (r.kind as "off" | "extra") ?? "off",
+        start_time: t(r.start_time),
+        end_time: t(r.end_time),
+        note: (r.note as string) ?? null,
+      };
+    });
+  } catch {
+    return [];
+  }
+}

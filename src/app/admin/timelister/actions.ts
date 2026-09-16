@@ -25,6 +25,44 @@ export async function deleteStaffHour(id: string) {
   revalidatePath("/admin/timelister");
 }
 
+/** Legg til et avvik/fravær for en barber på en dato (0028). */
+export async function createStaffException(formData: FormData) {
+  const sb = await createClient();
+  const staff_id = String(formData.get("staff_id") ?? "");
+  const date = String(formData.get("date") ?? "");
+  const kind = String(formData.get("kind") ?? "off") === "extra" ? "extra" : "off";
+  const rawStart = String(formData.get("start_time") ?? "").trim();
+  const rawEnd = String(formData.get("end_time") ?? "").trim();
+  const note = String(formData.get("note") ?? "").trim() || null;
+
+  if (!staff_id || !date) return;
+
+  // 'extra' krever tidsrom. 'off' uten tider = hele dagen fri.
+  let start_time: string | null = rawStart || null;
+  let end_time: string | null = rawEnd || null;
+  if (kind === "extra") {
+    if (!start_time || !end_time || end_time <= start_time) return;
+  } else if (start_time && end_time && end_time <= start_time) {
+    return; // ugyldig delvis fravær
+  }
+  // Delvis fravær krever begge tider; ellers regnes det som hele dagen.
+  if (kind === "off" && (!start_time || !end_time)) {
+    start_time = null;
+    end_time = null;
+  }
+
+  await sb
+    .from("staff_exceptions")
+    .insert({ staff_id, date, kind, start_time, end_time, note });
+  revalidatePath("/admin/timelister");
+}
+
+export async function deleteStaffException(id: string) {
+  const sb = await createClient();
+  await sb.from("staff_exceptions").delete().eq("id", id);
+  revalidatePath("/admin/timelister");
+}
+
 /** Sett A/B-ankeret: hvilken paritet en partalls ISO-uke er. */
 export async function setTurnusAnchor(formData: FormData) {
   const sb = await createClient();

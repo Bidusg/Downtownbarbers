@@ -1,6 +1,12 @@
 import { StaffHoursManager } from "@/components/admin/StaffHoursManager";
+import { StaffExceptionsManager } from "@/components/admin/StaffExceptionsManager";
 import { WeekSchedule } from "@/components/admin/WeekSchedule";
-import { getStaffHours, getStaffOptions, getTurnusAnchor } from "@/lib/ops-queries";
+import {
+  getStaffHours,
+  getStaffOptions,
+  getTurnusAnchor,
+  getStaffExceptions,
+} from "@/lib/ops-queries";
 import { setTurnusAnchor } from "@/app/admin/timelister/actions";
 
 export const dynamic = "force-dynamic";
@@ -21,10 +27,11 @@ export default async function AdminTimelister({
 }) {
   const sp = await searchParams;
   const parity: 1 | 2 = sp.uke === "b" ? 2 : 1;
-  const [hours, staff, anchor] = await Promise.all([
+  const [hours, staff, anchor, exceptions] = await Promise.all([
     getStaffHours(),
     getStaffOptions(),
     getTurnusAnchor(),
+    getStaffExceptions(),
   ]);
 
   const wk = isoWeek(new Date());
@@ -98,6 +105,22 @@ export default async function AdminTimelister({
         Rediger turnus
       </h2>
       <StaffHoursManager hours={hours} staff={staff} />
+
+      <div className="mt-10 mb-3">
+        <h2 className="text-xs font-semibold tracking-wide text-muted uppercase">
+          Avvik &amp; fravær
+        </h2>
+        <p className="mt-1 text-sm text-muted">
+          Overstyr turnusen for enkeltdatoer: fri hele eller deler av dagen, eller
+          en ekstravakt. Booking og ledige tider oppdateres automatisk. Ferie og
+          annet fravær over flere dager registreres under{" "}
+          <a href="/admin/fravaer" className="text-accent-soft hover:underline">
+            Fravær
+          </a>{" "}
+          – det blokkerer nå også booking.
+        </p>
+      </div>
+      <StaffExceptionsManager exceptions={exceptions} staff={staff} />
     </div>
   );
 }
