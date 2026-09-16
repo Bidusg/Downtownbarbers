@@ -2,13 +2,15 @@ import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { BookingWizard } from "@/components/booking/BookingWizard";
 import { getPublicServices, getPublicBarbers } from "@/lib/queries";
+import { getPublicServiceExclusions } from "@/lib/service-catalog-queries";
 
 export const metadata = { title: "Bestill time | Downtown Barbers" };
 
 export default async function BookingPage() {
-  const [services, barbers] = await Promise.all([
+  const [services, barbers, exclusions] = await Promise.all([
     getPublicServices(),
     getPublicBarbers(),
+    getPublicServiceExclusions(),
   ]);
 
   return (
@@ -21,7 +23,11 @@ export default async function BookingPage() {
         <h1 className="mt-4 mb-10 font-display text-4xl font-bold sm:text-5xl">
           Book din neste klipp
         </h1>
-        <BookingWizard services={services} barbers={barbers} />
+        <BookingWizard
+          services={services}
+          barbers={barbers}
+          exclusions={exclusions}
+        />
       </section>
       <Footer />
     </div>

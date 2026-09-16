@@ -3,6 +3,7 @@ import {
   serviceCategories as staticCats,
   team as staticTeam,
 } from "@/lib/data/salon";
+import { getServicePopularity } from "@/lib/service-catalog-queries";
 
 export type PublicService = {
   name: string;
@@ -15,26 +16,61 @@ export type PublicBarber = { name: string; title: string };
 
 const kr = (n: number) => `${n} kr`;
 
-/** Tjenester fra Supabase (aktive), fallback til statiske data ved feil/tom. */
+/**
+ * Tjenester for den offentlige booking-veiviseren, fallback til statiske data.
+ * Viser kun tjenester som er `active = true` OG `online_bookable = true`.
+ *
+ * Sorteringsregel: kategori-gruppering bevares (kategoriens sort_order først),
+ * og innen hver kategori sorteres tjenestene på POPULARITET (flest fullførte
+ * bookinger siste 90 dager) synkende, med tjenestens sort_order som manuell
+ * overstyring/tiebreak (stigende), deretter navn. Resultatet er en flat liste
+ * der kategoriene er sammenhengende og i riktig rekkefølge.
+ */
 export async function getPublicServices(): Promise<PublicService[]> {
   try {
     const sb = await createClient();
-    const { data } = await sb
-      .from("services")
-      .select("name, description, price_nok, duration_min, service_categories(name)")
-      .eq("active", true)
-      .order("sort_order");
+    const [{ data }, popularity] = await Promise.all([
+      sb
+        .from("services")
+        .select(
+          "id, name, description, price_nok, duration_min, sort_order, service_categories(name, sort_order)",
+        )
+        .eq("active", true)
+        .eq("online_bookable", true),
+      getServicePopularity(90),
+    ]);
     if (data && data.length) {
-      return data.map((r) => {
-        const cat = r.service_categories as { name?: string } | null;
+      const rows = data.map((r) => {
+        const cat = r.service_categories as
+          | { name?: string; sort_order?: number }
+          | null;
         return {
+          id: r.id as string,
           name: r.name as string,
           description: (r.description as string) ?? "",
           price: kr(r.price_nok as number),
           duration: `${r.duration_min} min`,
           category: cat?.name ?? "Annet",
+          catSort: cat?.sort_order ?? 0,
+          serviceSort: (r.sort_order as number) ?? 0,
+          popularity: popularity.get(r.id as string) ?? 0,
         };
       });
+      rows.sort(
+        (a, b) =>
+          a.catSort - b.catSort ||
+          a.category.localeCompare(b.category) ||
+          b.popularity - a.popularity ||
+          a.serviceSort - b.serviceSort ||
+          a.name.localeCompare(b.name),
+      );
+      return rows.map(({ name, description, price, duration, category }) => ({
+        name,
+        description,
+        price,
+        duration,
+        category,
+      }));
     }
   } catch {
     // faller tilbake under

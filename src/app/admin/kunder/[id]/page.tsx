@@ -1,7 +1,11 @@
 import { notFound } from "next/navigation";
 import { getCustomer } from "@/lib/admin-queries";
 import { getCustomerConsent } from "@/lib/dm-queries";
+import { getCustomerMembership, remainingToNext } from "@/lib/membership-queries";
+import { TierBadge } from "@/components/membership/TierBadge";
 import { updateCustomer, anonymizeCustomer, setMarketingConsent } from "../actions";
+
+const nokFmt = (n: number) => Math.round(n).toLocaleString("nb-NO") + " kr";
 
 const statusLabel: Record<string, string> = {
   pending: "Venter",
@@ -84,6 +88,8 @@ export default async function KundeKort({
   const c = await getCustomer(id);
   if (!c) notFound();
   const consent = await getCustomerConsent(id);
+  const membership = await getCustomerMembership(id);
+  const membershipLeft = membership ? remainingToNext(membership) : null;
   const save = updateCustomer.bind(null, id);
   const banner =
     lagret === "ok"
@@ -139,6 +145,35 @@ export default async function KundeKort({
           danger={c.noShows > 0}
         />
       </div>
+
+      {membership && (
+        <div className="mb-6 border border-line bg-surface px-5 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <TierBadge name={membership.tierName} color={membership.color} />
+              <div>
+                <p className="text-sm font-semibold text-fg">Kundeklubb</p>
+                <p className="text-xs text-muted">
+                  {nokFmt(membership.spend)} livstidsforbruk · {membership.visits} fullførte besøk
+                </p>
+              </div>
+            </div>
+            {membership.nextTierName && membershipLeft ? (
+              <p className="text-right text-xs text-muted">
+                Til <span className="font-semibold text-fg">{membership.nextTierName}</span>:{" "}
+                {membershipLeft.spendLeft > 0 ? nokFmt(membershipLeft.spendLeft) : "0 kr"}
+                {" eller "}
+                {membershipLeft.visitsLeft > 0 ? membershipLeft.visitsLeft : 0} besøk igjen
+              </p>
+            ) : (
+              <p className="text-xs font-semibold text-accent-soft">Høyeste nivå oppnådd 🏆</p>
+            )}
+          </div>
+          {membership.benefit && (
+            <p className="mt-2 text-xs text-muted">Medlemsgode: {membership.benefit}</p>
+          )}
+        </div>
+      )}
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border border-line bg-surface px-5 py-4">
         <div>

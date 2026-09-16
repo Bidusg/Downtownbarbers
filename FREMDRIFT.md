@@ -45,12 +45,12 @@
 - Kundekilde-sporing.
 
 ### Migrasjoner
-0001–0033. Nyeste: 0029 kopier turnus A↔B · 0030 omdømme-config · 0032 driftsmeldinger · 0033 dokumentsenter.
+0001–0034. Nyeste: 0031 tjeneste-katalog · 0032 driftsmeldinger · 0033 dokumentsenter · 0034 kundeklubb (medlemsnivåer).
 
 ---
 
 ## 🔜 Backlog (mulige neste bygg)
-1. Fixit-gap som gjenstår (bølge 2): kundeklubb-nivå (WP-E), tjeneste-styring/online+popularitet+behandlingsunntak (WP-A). **Ferdig (bølge 1):** driftsmeldinger (WP-B, `/admin/meldinger`), dokumentsenter (WP-C, `/admin/dokumenter`), grunndata-eksport (WP-D, `/admin/rapporter/grunndata`).
+1. Fixit-gap: **alle arbeidspakkene ferdig** — driftsmeldinger (WP-B), dokumentsenter (WP-C), grunndata-eksport (WP-D), tjeneste-styring/online+popularitet+behandlingsunntak (WP-A), kundeklubb-nivåer (WP-E, `/admin/kundeklubb` + kundekort + min side). Gjenstår ellers: native mobilapp (Spor B), og betalingsleverandør (Dawit velger).
 2. Native mobilapp (Spor B) — plattformen er bygget app-klar (tynne komponenter, logikk i `src/lib` + API-ruter).
 
 ---

@@ -23,9 +23,12 @@ function todayStr() {
 export function BookingWizard({
   services,
   barbers,
+  exclusions = {},
 }: {
   services: WizService[];
   barbers: WizBarber[];
+  /** Tjeneste-navn → barber-navn som IKKE utfører tjenesten. */
+  exclusions?: Record<string, string[]>;
 }) {
   const [step, setStep] = useState(0);
   const [service, setService] = useState<WizService | null>(null);
@@ -48,6 +51,20 @@ export function BookingWizard({
     () => Array.from(new Set(services.map((s) => s.category))),
     [services],
   );
+
+  // Barbere som IKKE er ekskludert for valgt tjeneste (alle uten unntak vises).
+  const availableBarbers = useMemo(() => {
+    if (!service) return barbers;
+    const excluded = new Set(exclusions[service.name] ?? []);
+    return barbers.filter((b) => !excluded.has(b.name));
+  }, [barbers, exclusions, service]);
+
+  // Nullstill valgt barber hvis den blir ekskludert av (ny) valgt tjeneste.
+  useEffect(() => {
+    if (barber && !availableBarbers.some((b) => b.name === barber.name)) {
+      setBarber(null);
+    }
+  }, [availableBarbers, barber]);
 
   // Hent ledige tider når dato/barber/tjeneste er valgt
   useEffect(() => {
@@ -167,9 +184,16 @@ export function BookingWizard({
           </div>
         )}
 
-        {step === 1 && (
+        {step === 1 && availableBarbers.length === 0 && (
+          <p className="text-sm text-muted">
+            Ingen barbere tilgjengelig for denne tjenesten. Velg en annen
+            tjeneste.
+          </p>
+        )}
+
+        {step === 1 && availableBarbers.length > 0 && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {barbers.map((b) => (
+            {availableBarbers.map((b) => (
               <button
                 key={b.name}
                 onClick={() => setBarber(b)}

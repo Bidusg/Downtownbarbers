@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCustomerMembershipByToken, remainingToNext } from "@/lib/membership-queries";
+import { TierBadge } from "@/components/membership/TierBadge";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +65,9 @@ export default async function MinSide({ params }: { params: Promise<{ token: str
   const p = (Array.isArray(data) ? data[0] : data) as Portal | null;
   if (!p || !p.full_name) return <NotFound />;
 
+  const membership = await getCustomerMembershipByToken(token);
+  const membershipLeft = membership ? remainingToNext(membership) : null;
+
   const now = Date.now();
   const upcoming = p.bookings.filter(
     (b) => new Date(b.start_at).getTime() >= now && b.status !== "cancelled" && b.status !== "no_show",
@@ -119,6 +124,37 @@ export default async function MinSide({ params }: { params: Promise<{ token: str
             : `Kom ${required - progress} gang(er) til, så er neste klipp gratis.`}
         </p>
       </div>
+
+      {/* Kundeklubb – nivå */}
+      {membership && (
+        <div className="mb-6 border border-line bg-surface p-6">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-display text-lg font-bold">Din medlemsstatus</h2>
+            <TierBadge name={membership.tierName} color={membership.color} />
+          </div>
+          {membership.benefit && (
+            <p className="text-sm text-fg">
+              <span className="text-muted">Ditt medlemsgode: </span>
+              {membership.benefit}
+            </p>
+          )}
+          <p className="mt-3 text-xs text-muted">
+            {nok(membership.spend)} brukt · {membership.visits} fullførte besøk
+          </p>
+          {membership.nextTierName && membershipLeft ? (
+            <p className="mt-3 border-t border-line pt-3 text-sm text-fg">
+              {membershipLeft.spendLeft > 0 ? nok(membershipLeft.spendLeft) : "0 kr"}
+              {" eller "}
+              {membershipLeft.visitsLeft > 0 ? membershipLeft.visitsLeft : 0} besøk igjen til{" "}
+              <span className="font-semibold text-accent-soft">{membership.nextTierName}</span>.
+            </p>
+          ) : (
+            <p className="mt-3 border-t border-line pt-3 text-sm font-semibold text-accent-soft">
+              Du er på vårt høyeste nivå 🏆
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Nøkkeltall */}
       <div className="mb-6 grid grid-cols-2 gap-4">

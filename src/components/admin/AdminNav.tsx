@@ -37,6 +37,7 @@ const groups: NavGroup[] = [
       { label: "Gavekort", href: "/admin/gavekort" },
       { label: "Kampanjer", href: "/admin/kampanjer" },
       { label: "Kunder", href: "/admin/kunder" },
+      { label: "Kundeklubb", href: "/admin/kundeklubb" },
       { label: "Oppfølging", href: "/admin/oppfolging" },
       { label: "Markedsføring", href: "/admin/markedsforing" },
     ],

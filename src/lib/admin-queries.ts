@@ -7,6 +7,7 @@ export type AdminService = {
   price_nok: number;
   duration_min: number;
   active: boolean;
+  online_bookable: boolean;
   category_id: string | null;
   categoryName: string;
 };
@@ -80,7 +81,7 @@ export async function getServicesAdmin(): Promise<AdminService[]> {
     const { data } = await sb
       .from("services")
       .select(
-        "id, name, description, price_nok, duration_min, active, category_id, service_categories(name)",
+        "id, name, description, price_nok, duration_min, active, online_bookable, category_id, service_categories(name)",
       )
       .order("sort_order");
     return (
@@ -93,6 +94,7 @@ export async function getServicesAdmin(): Promise<AdminService[]> {
           price_nok: r.price_nok,
           duration_min: r.duration_min,
           active: r.active,
+          online_bookable: r.online_bookable ?? true,
           category_id: r.category_id,
           categoryName: cat?.name ?? "—",
         } as AdminService;
