@@ -15,6 +15,7 @@ const groups: NavGroup[] = [
     items: [
       { label: "Bookinger", href: "/admin/bookinger" },
       { label: "Kasseoppgjør", href: "/admin/kasseoppgjor" },
+      { label: "Meldinger", href: "/admin/meldinger" },
     ],
   },
   {
@@ -56,6 +57,7 @@ const groups: NavGroup[] = [
     items: [
       { label: "Rating", href: "/admin/rating" },
       { label: "Nettside", href: "/admin/nettside" },
+      { label: "Dokumenter", href: "/admin/dokumenter" },
     ],
   },
 ];

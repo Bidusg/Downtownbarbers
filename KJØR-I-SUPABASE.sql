@@ -532,3 +532,76 @@ alter table review_config enable row level security;
 drop policy if exists review_config_admin_all on review_config;
 create policy review_config_admin_all on review_config
   for all using (is_admin()) with check (is_admin());
+
+
+-- ---------------------------------------------------------------------
+-- 0032 — Driftsmeldinger / interne varsler
+-- Banner i admin/kasse/ansatt-panelene. Admin oppretter; lesing per rolle
+-- (admin ser alt, shop ser 'all'+'shop', staff ser 'all'+'ansatt'). Side:
+-- /admin/meldinger.
+-- ---------------------------------------------------------------------
+create table if not exists notices (
+  id          uuid primary key default gen_random_uuid(),
+  title       text not null,
+  body        text,
+  level       text not null default 'info',
+  audience    text not null default 'all',
+  active      boolean not null default true,
+  starts_at   timestamptz,
+  ends_at     timestamptz,
+  created_by  uuid references profiles(id) on delete set null,
+  created_at  timestamptz not null default now()
+);
+create index if not exists notices_active_audience_idx on notices (active, audience);
+alter table notices enable row level security;
+drop policy if exists notices_admin_all on notices;
+create policy notices_admin_all on notices
+  for all using (is_admin()) with check (is_admin());
+drop policy if exists notices_shop_read on notices;
+drop policy if exists notices_role_read on notices;
+create policy notices_role_read on notices
+  for select using (
+    is_admin()
+    or (current_role_name() = 'shop'  and audience in ('all', 'shop'))
+    or (current_role_name() = 'staff' and audience in ('all', 'ansatt'))
+  );
+
+
+-- ---------------------------------------------------------------------
+-- 0033 — Dokumentsenter (DocCenter)
+-- Privat Storage-bøtte 'documents' + metadata-tabell. Kun admin. Nedlasting
+-- via signerte URL-er. Side: /admin/dokumenter.
+-- ---------------------------------------------------------------------
+insert into storage.buckets (id, name, public)
+values ('documents', 'documents', false)
+on conflict (id) do nothing;
+
+drop policy if exists "documents_admin_insert" on storage.objects;
+create policy "documents_admin_insert" on storage.objects
+  for insert with check (bucket_id = 'documents' and public.is_admin());
+drop policy if exists "documents_admin_select" on storage.objects;
+create policy "documents_admin_select" on storage.objects
+  for select using (bucket_id = 'documents' and public.is_admin());
+drop policy if exists "documents_admin_update" on storage.objects;
+create policy "documents_admin_update" on storage.objects
+  for update using (bucket_id = 'documents' and public.is_admin());
+drop policy if exists "documents_admin_delete" on storage.objects;
+create policy "documents_admin_delete" on storage.objects
+  for delete using (bucket_id = 'documents' and public.is_admin());
+
+create table if not exists documents (
+  id           uuid primary key default gen_random_uuid(),
+  name         text not null,
+  path         text not null,
+  category     text,
+  size_bytes   bigint,
+  mime         text,
+  uploaded_by  uuid references profiles(id) on delete set null,
+  created_at   timestamptz not null default now()
+);
+create index if not exists documents_category_created_idx
+  on documents (category, created_at desc);
+alter table documents enable row level security;
+drop policy if exists documents_admin_all on documents;
+create policy documents_admin_all on documents
+  for all using (is_admin()) with check (is_admin());

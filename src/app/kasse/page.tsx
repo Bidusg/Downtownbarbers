@@ -6,6 +6,8 @@ import { getUpcomingBookings } from "@/lib/admin-queries";
 import { getBarbers, getServices } from "@/lib/shop-queries";
 import { ShopBookingList } from "@/components/kasse/ShopBookingList";
 import { DeskBooking } from "@/components/kasse/DeskBooking";
+import { NoticeBanner } from "@/components/admin/NoticeBanner";
+import { getActiveNotices } from "@/lib/notices-queries";
 
 function dayLabel(iso: string) {
   try {
@@ -31,6 +33,7 @@ function timeLabel(iso: string) {
 
 export default async function KasseDashboard() {
   await requireRole(["shop", "admin"]);
+  const notices = await getActiveNotices("shop");
   const [today, todayBookings, upcoming, barbers, services] = await Promise.all([
     getShopToday(),
     getTodayBookings(),
@@ -76,6 +79,7 @@ export default async function KasseDashboard() {
       </header>
 
       <main className="mx-auto max-w-3xl space-y-8 p-6">
+        <NoticeBanner notices={notices} />
         <div className="flex flex-wrap items-center gap-3">
           <DeskBooking
             services={services}

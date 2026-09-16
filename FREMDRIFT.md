@@ -45,12 +45,12 @@
 - Kundekilde-sporing.
 
 ### Migrasjoner
-0001–0030. Nyeste: 0027 innkommende SMS · 0028 avvik/fravær · 0029 kopier turnus A↔B · 0030 omdømme-config (admin).
+0001–0033. Nyeste: 0029 kopier turnus A↔B · 0030 omdømme-config · 0032 driftsmeldinger · 0033 dokumentsenter.
 
 ---
 
 ## 🔜 Backlog (mulige neste bygg)
-1. Verifisering innlogget: QA-gjennomgang av kasse/admin (kundetall, drag-med-PIN, turnus-anker, SMS-kanal).
+1. Fixit-gap som gjenstår (bølge 2): kundeklubb-nivå (WP-E), tjeneste-styring/online+popularitet+behandlingsunntak (WP-A). **Ferdig (bølge 1):** driftsmeldinger (WP-B, `/admin/meldinger`), dokumentsenter (WP-C, `/admin/dokumenter`), grunndata-eksport (WP-D, `/admin/rapporter/grunndata`).
 2. Native mobilapp (Spor B) — plattformen er bygget app-klar (tynne komponenter, logikk i `src/lib` + API-ruter).
 
 ---

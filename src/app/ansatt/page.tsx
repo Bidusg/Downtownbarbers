@@ -2,6 +2,8 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { requireRole, getUserRole } from "@/lib/auth";
 import { getMyAgenda } from "@/lib/ansatt-queries";
 import { getGoalProgress } from "@/lib/analytics-queries";
+import { NoticeBanner } from "@/components/admin/NoticeBanner";
+import { getActiveNotices } from "@/lib/notices-queries";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +31,11 @@ function fmtTime(iso: string) {
 
 export default async function AnsattDashboard() {
   await requireRole(["staff", "admin"]);
-  const [me, agenda] = await Promise.all([getUserRole(), getMyAgenda()]);
+  const [me, agenda, notices] = await Promise.all([
+    getUserRole(),
+    getMyAgenda(),
+    getActiveNotices("ansatt"),
+  ]);
   const name = agenda.staffName ?? "Min side";
 
   // Ekte månedsmål for innlogget barber (kun når kontoen er koblet til en profil).
@@ -64,6 +70,7 @@ export default async function AnsattDashboard() {
       </header>
 
       <main className="mx-auto max-w-3xl space-y-8 p-6">
+        <NoticeBanner notices={notices} />
         {/* MIN TIMEPLAN */}
         <section className="border border-line bg-surface p-6">
           <h2 className="mb-4 font-display text-lg font-bold">Min timeplan</h2>
