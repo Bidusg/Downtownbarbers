@@ -28,7 +28,7 @@
 - **Nettside**: rediger forsideinnhold + strukturerte åpningstider (styrer både visning og booking).
 - **Timelister / turnus**: uke A/B med konfigurerbart anker, visuell ukeplan, redigering per barber (inkl. inline «Endre» + «Kopier uke A ↔ B»). **Avvik & fravær** per dato (fri hel/del av dag, ekstravakt).
 - **Fravær** (`/admin/fravaer`): flerdagers ferie/sykdom — blokkerer nå også booking.
-- **Rating/omdømme**: aggregert snitt fra Google + TripAdvisor + egne kunder (leverandør-uavhengig, env-drevet).
+- **Rating/omdømme**: aggregert snitt fra Google + TripAdvisor + egne kunder. Nøkler/ID-er kobles til direkte i `/admin/rating` (lagres admin-only, env-fallback).
 - **Markedsføring**: e-post + SMS, samtykke-først, segmenter (alle / gullkunder / inaktive), avmeldingslenke + «svar STOPP». Liste over innkommende STOPP/START-svar.
 
 ### Kasse (shop)
@@ -45,7 +45,7 @@
 - Kundekilde-sporing.
 
 ### Migrasjoner
-0001–0029. Nyeste: 0026 åpningstider styrer booking · 0027 innkommende SMS · 0028 avvik/fravær · 0029 kopier turnus A↔B.
+0001–0030. Nyeste: 0027 innkommende SMS · 0028 avvik/fravær · 0029 kopier turnus A↔B · 0030 omdømme-config (admin).
 
 ---
 
@@ -58,7 +58,7 @@
 ## ⏳ Venter på Kidus / klient (konfig, ikke kode)
 - **Push + kjør SQL** for hver leveranse (GitHub Desktop + `KJØR-I-SUPABASE.sql` i Supabase).
 - **A2P SMS-leverandør**: velg leverandør, sett callback-URL til `/api/sms/inbound`, og `SMS_INBOUND_SECRET` i Vercel. (Se prosjektnotat — «senere»-oppgave.)
-- **Omdømme live**: Google/TripAdvisor place-ID + API-nøkler som env i Vercel.
+- **Omdømme live**: legg inn Google/TripAdvisor place-ID + API-nøkler i `/admin/rating`. For at nøklene skal drive den OFFENTLIGE forsiden må `SUPABASE_SERVICE_ROLE_KEY` være satt i Vercel (ellers faller forsiden tilbake til env-variablene).
 - **Vipps** business-legitimasjon.
 - **Supabase Pro** før go-live (unngå auto-pause på ekte kundebookinger).
 - **Rydd Vercel**: to prosjekter i dag (`downtownbarbers` + `downtownbarbers-2kfc`). Kjør alt på `-2kfc`, gjerne eget domene (f.eks. `booking.downtownbarbers.no`).

@@ -15,8 +15,58 @@
  * ===================================================================== */
 
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 const REVALIDATE = 21600; // 6t
+
+/* ---------------- Konfig (DB med env-fallback) ----------------
+ * Nøkler kan settes i /admin/rating (lagres i review_config, kun admin).
+ * Server-koden leser dem via service-role (bypasser RLS, aldri klienten).
+ * Mangler service-nøkkel eller rad → faller tilbake til env-variablene,
+ * så eksisterende oppsett virker uendret. */
+export type ReviewConfig = {
+  googleKey: string | null;
+  googlePlaceId: string | null;
+  googleEnabled: boolean;
+  taKey: string | null;
+  taLoc: string | null;
+  taEnabled: boolean;
+};
+
+function envConfig(): ReviewConfig {
+  return {
+    googleKey: process.env.GOOGLE_PLACES_API_KEY || null,
+    googlePlaceId: process.env.GOOGLE_PLACES_ID || null,
+    googleEnabled: true,
+    taKey: process.env.TRIPADVISOR_API_KEY || null,
+    taLoc: process.env.TRIPADVISOR_LOCATION_ID || null,
+    taEnabled: true,
+  };
+}
+
+async function getReviewConfig(): Promise<ReviewConfig> {
+  const env = envConfig();
+  try {
+    const sb = createServiceClient();
+    const { data } = await sb
+      .from("review_config")
+      .select("*")
+      .eq("id", 1)
+      .maybeSingle();
+    if (!data) return env;
+    const d = data as Record<string, unknown>;
+    return {
+      googleKey: (d.google_api_key as string) || env.googleKey,
+      googlePlaceId: (d.google_place_id as string) || env.googlePlaceId,
+      googleEnabled: d.google_enabled !== false,
+      taKey: (d.tripadvisor_api_key as string) || env.taKey,
+      taLoc: (d.tripadvisor_location_id as string) || env.taLoc,
+      taEnabled: d.tripadvisor_enabled !== false,
+    };
+  } catch {
+    return env; // ingen service-nøkkel → env-styrt som før
+  }
+}
 
 export type SourceKey = "internal" | "google" | "tripadvisor";
 
@@ -81,13 +131,13 @@ type GooglePlaces = {
   }>;
 };
 
-async function googleSource(): Promise<{
+async function googleSource(cfg: ReviewConfig): Promise<{
   source: ReviewSource;
   recent: AggregatedReview[];
 } | null> {
-  const key = process.env.GOOGLE_PLACES_API_KEY;
-  const placeId = process.env.GOOGLE_PLACES_ID;
-  if (!key || !placeId) return null;
+  const key = cfg.googleKey;
+  const placeId = cfg.googlePlaceId;
+  if (!cfg.googleEnabled || !key || !placeId) return null;
   try {
     const res = await fetch(
       `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}?languageCode=no`,
@@ -142,13 +192,13 @@ type TaReviews = {
   }>;
 };
 
-async function tripadvisorSource(): Promise<{
+async function tripadvisorSource(cfg: ReviewConfig): Promise<{
   source: ReviewSource;
   recent: AggregatedReview[];
 } | null> {
-  const key = process.env.TRIPADVISOR_API_KEY;
-  const loc = process.env.TRIPADVISOR_LOCATION_ID;
-  if (!key || !loc) return null;
+  const key = cfg.taKey;
+  const loc = cfg.taLoc;
+  if (!cfg.taEnabled || !key || !loc) return null;
   const base = `https://api.content.tripadvisor.com/api/v1/location/${encodeURIComponent(loc)}`;
   const auth = `key=${encodeURIComponent(key)}&language=no`;
   try {
@@ -203,9 +253,10 @@ async function tripadvisorSource(): Promise<{
 export async function getReviewsSummary(
   internal: InternalOverview,
 ): Promise<ReviewsSummary> {
+  const cfg = await getReviewConfig();
   const [google, tripadvisor] = await Promise.all([
-    googleSource(),
-    tripadvisorSource(),
+    googleSource(cfg),
+    tripadvisorSource(cfg),
   ]);
 
   const internalSource: ReviewSource = {
@@ -290,10 +341,11 @@ async function internalPublicSource(): Promise<ReviewSource | null> {
  *  Google og TripAdvisor. Viser IKKE enkeltkunders kommentartekst offentlig –
  *  kun eksterne (Google/TripAdvisor) anmeldelser tas med i `recent`. */
 export async function getPublicReviewsSummary(): Promise<ReviewsSummary> {
+  const cfg = await getReviewConfig();
   const [internal, google, tripadvisor] = await Promise.all([
     internalPublicSource(),
-    googleSource(),
-    tripadvisorSource(),
+    googleSource(cfg),
+    tripadvisorSource(cfg),
   ]);
 
   const sources: ReviewSource[] = [];
@@ -325,12 +377,48 @@ export async function getPublicReviewsSummary(): Promise<ReviewsSummary> {
   };
 }
 
-/** Kilder som IKKE er satt opp (til «koble til»-hint i UI). */
-export function unconfiguredSources(): { key: SourceKey; label: string }[] {
-  const missing: { key: SourceKey; label: string }[] = [];
-  if (!process.env.GOOGLE_PLACES_API_KEY || !process.env.GOOGLE_PLACES_ID)
-    missing.push({ key: "google", label: "Google" });
-  if (!process.env.TRIPADVISOR_API_KEY || !process.env.TRIPADVISOR_LOCATION_ID)
-    missing.push({ key: "tripadvisor", label: "TripAdvisor" });
-  return missing;
+/** Konfig-status til admin-skjemaet. Leser review_config med admin-økta
+ *  (RLS: kun admin). Returnerer IKKE selve nøklene – bare om de er satt,
+ *  pluss ikke-hemmelige felt (place-ID / location-ID) og av/på. Faller
+ *  tilbake til env-verdiene for «er satt»-indikatoren. */
+export type ReviewConfigStatus = {
+  googlePlaceId: string;
+  googleEnabled: boolean;
+  googleKeySet: boolean;
+  taLocationId: string;
+  taEnabled: boolean;
+  taKeySet: boolean;
+};
+
+export async function getReviewConfigAdmin(): Promise<ReviewConfigStatus> {
+  const envG = Boolean(process.env.GOOGLE_PLACES_API_KEY);
+  const envT = Boolean(process.env.TRIPADVISOR_API_KEY);
+  const fallback: ReviewConfigStatus = {
+    googlePlaceId: process.env.GOOGLE_PLACES_ID || "",
+    googleEnabled: true,
+    googleKeySet: envG,
+    taLocationId: process.env.TRIPADVISOR_LOCATION_ID || "",
+    taEnabled: true,
+    taKeySet: envT,
+  };
+  try {
+    const sb = await createClient();
+    const { data } = await sb
+      .from("review_config")
+      .select("*")
+      .eq("id", 1)
+      .maybeSingle();
+    if (!data) return fallback;
+    const d = data as Record<string, unknown>;
+    return {
+      googlePlaceId: (d.google_place_id as string) || fallback.googlePlaceId,
+      googleEnabled: d.google_enabled !== false,
+      googleKeySet: Boolean(d.google_api_key) || envG,
+      taLocationId: (d.tripadvisor_location_id as string) || fallback.taLocationId,
+      taEnabled: d.tripadvisor_enabled !== false,
+      taKeySet: Boolean(d.tripadvisor_api_key) || envT,
+    };
+  } catch {
+    return fallback;
+  }
 }

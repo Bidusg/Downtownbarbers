@@ -1,5 +1,6 @@
 import { getRatingOverview } from "@/lib/rating-queries";
-import { getReviewsSummary, unconfiguredSources } from "@/lib/reviews";
+import { getReviewsSummary, getReviewConfigAdmin } from "@/lib/reviews";
+import { ReviewConfigForm } from "@/components/admin/ReviewConfigForm";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,7 @@ export default async function AdminRating() {
       createdAt: c.createdAt,
     })),
   });
-  const missing = unconfiguredSources();
+  const reviewConfig = await getReviewConfigAdmin();
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -99,12 +100,11 @@ export default async function AdminRating() {
           ))}
         </div>
 
-        {missing.length > 0 && (
-          <p className="mt-4 text-xs text-muted">
-            Ikke koblet til enda: {missing.map((m) => m.label).join(", ")}. Legg
-            inn API-nøklene i Vercel ({missing.map((m) => (m.key === "google" ? "GOOGLE_PLACES_API_KEY + GOOGLE_PLACES_ID" : "TRIPADVISOR_API_KEY + TRIPADVISOR_LOCATION_ID")).join(", ")}), så telles kilden automatisk med her.
-          </p>
-        )}
+      </div>
+
+      {/* ---------- Koble til kilder ---------- */}
+      <div className="border border-line bg-surface p-6">
+        <ReviewConfigForm status={reviewConfig} />
       </div>
 
       {/* ---------- Snittrating per barber (egne kunder) ---------- */}
