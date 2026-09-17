@@ -15,8 +15,7 @@ export type WizBarber = { name: string; title: string };
 
 const STEPS = ["Tjeneste", "Barber", "Tid", "Kontakt"];
 
-function todayStr() {
-  const d = new Date();
+function isoDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
@@ -24,11 +23,14 @@ export function BookingWizard({
   services,
   barbers,
   exclusions = {},
+  closedWeekdays = [],
 }: {
   services: WizService[];
   barbers: WizBarber[];
   /** Tjeneste-navn → barber-navn som IKKE utfører tjenesten. */
   exclusions?: Record<string, string[]>;
+  /** Ukedager (0=søndag … 6=lørdag) salongen er stengt – filtreres bort fra dagvalget. */
+  closedWeekdays?: number[];
 }) {
   const [step, setStep] = useState(0);
   const [service, setService] = useState<WizService | null>(null);
@@ -46,7 +48,26 @@ export function BookingWizard({
   const [slots, setSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
 
-  const min = useMemo(() => todayStr(), []);
+  // Neste åpne dager som klikkbare chips (hopper over stengte ukedager).
+  const openDays = useMemo(() => {
+    const closed = new Set(closedWeekdays);
+    const out: { iso: string; weekday: string; dayNum: string; month: string }[] =
+      [];
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    for (let i = 0; out.length < 14 && i < 90; i++) {
+      const day = new Date(start);
+      day.setDate(start.getDate() + i);
+      if (closed.has(day.getDay())) continue;
+      out.push({
+        iso: isoDate(day),
+        weekday: day.toLocaleDateString("nb-NO", { weekday: "short" }),
+        dayNum: String(day.getDate()),
+        month: day.toLocaleDateString("nb-NO", { month: "short" }),
+      });
+    }
+    return out;
+  }, [closedWeekdays]);
   const cats = useMemo(
     () => Array.from(new Set(services.map((s) => s.category))),
     [services],
@@ -223,23 +244,47 @@ export function BookingWizard({
         {step === 2 && (
           <div className="space-y-5">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold tracking-wide text-muted uppercase">
-                Dato
+              <label className="mb-2 block text-xs font-semibold tracking-wide text-muted uppercase">
+                Velg dag
               </label>
-              <input
-                type="date"
-                value={date}
-                min={min}
-                onChange={(e) => setDate(e.target.value)}
-                className="border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
-              />
+              {openDays.length === 0 ? (
+                <p className="text-sm text-muted">
+                  Ingen åpne dager tilgjengelig akkurat nå.
+                </p>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {openDays.map((d) => {
+                    const selected = date === d.iso;
+                    return (
+                      <button
+                        key={d.iso}
+                        onClick={() => setDate(d.iso)}
+                        className={
+                          "flex flex-col items-center border py-2.5 transition-colors " +
+                          (selected
+                            ? "border-accent-soft bg-accent-soft/10 text-fg"
+                            : "border-line text-muted hover:border-line-2 hover:text-fg")
+                        }
+                      >
+                        <span className="text-[11px] font-semibold tracking-wide uppercase">
+                          {d.weekday}
+                        </span>
+                        <span className="font-display text-lg font-bold text-fg">
+                          {d.dayNum}
+                        </span>
+                        <span className="text-[11px]">{d.month}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             <div>
               <label className="mb-2 block text-xs font-semibold tracking-wide text-muted uppercase">
                 Ledige tider {service ? `· ${service.duration}` : ""}
               </label>
               {!date ? (
-                <p className="text-sm text-muted">Velg en dato først.</p>
+                <p className="text-sm text-muted">Velg en dag først.</p>
               ) : loadingSlots ? (
                 <p className="text-sm text-muted">Henter ledige tider …</p>
               ) : slots.length === 0 ? (
