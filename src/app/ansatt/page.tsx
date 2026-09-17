@@ -4,7 +4,6 @@ import { getMyAgenda } from "@/lib/ansatt-queries";
 import { getGoalProgress } from "@/lib/analytics-queries";
 import { NoticeBanner } from "@/components/admin/NoticeBanner";
 import { getActiveNotices } from "@/lib/notices-queries";
-import { LogoutButton } from "@/components/admin/LogoutButton";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +36,6 @@ export default async function AnsattDashboard() {
     getMyAgenda(),
     getActiveNotices("ansatt"),
   ]);
-  const name = agenda.staffName ?? "Min side";
 
   // Ekte månedsmål for innlogget barber (kun når kontoen er koblet til en profil).
   const now = new Date();
@@ -57,23 +55,7 @@ export default async function AnsattDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-canvas text-fg">
-      <header className="flex items-center justify-between border-b border-line bg-surface px-6 py-4">
-        <div>
-          <p className="text-[10px] font-semibold tracking-[0.2em] text-muted uppercase">
-            Downtown Barbers
-          </p>
-          <p className="font-display text-lg font-bold">Min side</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="rounded-full bg-accent-soft/15 px-3 py-1 text-xs font-semibold text-accent-soft">
-            {name}
-          </span>
-          <LogoutButton />
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-3xl space-y-8 p-6">
+    <main className="mx-auto max-w-3xl space-y-8 p-6">
         <NoticeBanner notices={notices} />
         {/* MIN TIMEPLAN */}
         <section className="border border-line bg-surface p-6">
@@ -152,7 +134,6 @@ export default async function AnsattDashboard() {
             </p>
           </>
         )}
-      </main>
-    </div>
+    </main>
   );
 }
