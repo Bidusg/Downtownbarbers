@@ -48,3 +48,20 @@ export async function submitLeaveRequest(fd: FormData): Promise<LeaveResult> {
     return { ok: false, error: "Noe gikk galt." };
   }
 }
+
+/** Ansatt trekker tilbake sin egen ventende søknad. Eierskap + status
+ *  tvinges server-side i withdraw_leave_request (SECURITY DEFINER). */
+export async function withdrawLeaveRequest(id: string): Promise<LeaveResult> {
+  try {
+    await requireRole(["staff", "admin"]);
+    const sb = await createClient();
+    const { error } = await sb.rpc("withdraw_leave_request", { p_id: id });
+    if (error) {
+      return { ok: false, error: error.message || "Kunne ikke trekke tilbake søknaden." };
+    }
+    revalidatePath("/ansatt/fravaer");
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Noe gikk galt." };
+  }
+}

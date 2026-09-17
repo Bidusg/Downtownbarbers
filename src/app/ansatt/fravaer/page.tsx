@@ -6,6 +6,7 @@ import {
   type LeaveStatus,
 } from "@/lib/ansatt-queries";
 import { LeaveRequestForm } from "@/components/ansatt/LeaveRequestForm";
+import { WithdrawLeaveButton } from "@/components/ansatt/WithdrawLeaveButton";
 
 export const dynamic = "force-dynamic";
 
@@ -107,6 +108,9 @@ export default async function AnsattFravaer() {
                       >
                         {st.label}
                       </span>
+                      {r.status === "pending" && (
+                        <WithdrawLeaveButton id={r.id} />
+                      )}
                       {r.note && (
                         <span className="w-full text-xs text-muted">
                           {r.note}

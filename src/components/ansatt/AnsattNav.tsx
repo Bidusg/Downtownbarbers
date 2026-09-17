@@ -8,6 +8,7 @@ const links = [
   { href: "/ansatt/turnus", label: "Min turnus" },
   { href: "/ansatt/fravaer", label: "Mine fravær" },
   { href: "/ansatt/timer", label: "Mine timer" },
+  { href: "/ansatt/dokumenter", label: "Mine dokumenter" },
 ];
 
 export function AnsattNav() {

@@ -32,6 +32,11 @@ export const adminGroups: AdminNavGroup[] = [
     label: "Ansatte",
     items: [
       { label: "Ansatte", href: "/admin/ansatte" },
+      {
+        label: "Ansattdokumenter",
+        href: "/admin/ansattdokumenter",
+        description: "Kontrakter og vedlegg per ansatt",
+      },
       { label: "Timelister", href: "/admin/timelister" },
       { label: "Fravær", href: "/admin/fravaer" },
       { label: "Lønn", href: "/admin/lonn" },
