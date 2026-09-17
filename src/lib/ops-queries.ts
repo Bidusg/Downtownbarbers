@@ -359,3 +359,45 @@ export async function getStaffExceptions(): Promise<StaffException[]> {
     return [];
   }
 }
+
+export type LeaveRequestAdmin = {
+  id: string;
+  staff_id: string;
+  staffName: string;
+  from_date: string;
+  to_date: string;
+  kind: string;
+  note: string | null;
+  status: "pending" | "approved" | "declined";
+  created_at: string;
+};
+
+/** Fravaerssøknader fra ansatte (0035). Admin ser alle via RLS (is_admin). */
+export async function getLeaveRequests(): Promise<LeaveRequestAdmin[]> {
+  try {
+    const sb = await createClient();
+    const { data } = await sb
+      .from("leave_requests")
+      .select(
+        "id, staff_id, from_date, to_date, kind, note, status, created_at, staff(full_name)",
+      )
+      .order("status") // pending < approved < declined? nei – sorter i UI
+      .order("created_at", { ascending: false });
+    return (data ?? []).map((r) => {
+      const st = r.staff as { full_name?: string } | null;
+      return {
+        id: r.id as string,
+        staff_id: r.staff_id as string,
+        staffName: st?.full_name ?? "—",
+        from_date: r.from_date as string,
+        to_date: r.to_date as string,
+        kind: r.kind as string,
+        note: (r.note as string) ?? null,
+        status: r.status as "pending" | "approved" | "declined",
+        created_at: r.created_at as string,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
