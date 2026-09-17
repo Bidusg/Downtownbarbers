@@ -5,7 +5,13 @@ import { signIn, type LoginState } from "./actions";
 
 const initial: LoginState = {};
 
-export function LoginForm({ accessDenied = false }: { accessDenied?: boolean }) {
+export function LoginForm({
+  accessDenied = false,
+  passwordReset = false,
+}: {
+  accessDenied?: boolean;
+  passwordReset?: boolean;
+}) {
   const [state, formAction, pending] = useActionState(signIn, initial);
 
   return (
@@ -22,6 +28,12 @@ export function LoginForm({ accessDenied = false }: { accessDenied?: boolean }) 
           <div className="mb-4 border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
             Du har ikke tilgang til den siden. Logg inn med en konto som har
             tilgang.
+          </div>
+        )}
+
+        {passwordReset && (
+          <div className="mb-4 border border-accent-soft/40 bg-accent-soft/10 px-4 py-3 text-sm text-accent-soft">
+            Passordet er oppdatert. Logg inn med det nye passordet ditt.
           </div>
         )}
 
@@ -62,6 +74,12 @@ export function LoginForm({ accessDenied = false }: { accessDenied?: boolean }) 
           >
             {pending ? "Logger inn …" : "Logg inn"}
           </button>
+
+          <p className="text-center text-xs">
+            <a href="/glemt-passord" className="text-muted hover:text-accent-soft hover:underline">
+              Glemt passord?
+            </a>
+          </p>
         </form>
 
         <p className="mt-5 text-center text-xs text-muted">

@@ -2,7 +2,86 @@
 
 import { useState, useTransition } from "react";
 import type { AdminStaff } from "@/lib/admin-queries";
-import { createStaff, toggleStaff, setStaffPin } from "@/app/admin/ansatte/actions";
+import {
+  createStaff,
+  toggleStaff,
+  setStaffPin,
+  setStaffPostnummer,
+  createStaffLogin,
+  resendStaffPassword,
+} from "@/app/admin/ansatte/actions";
+
+function LoginCell({
+  id,
+  hasLogin,
+  email,
+}: {
+  id: string;
+  hasLogin: boolean;
+  email: string | null;
+}) {
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState(false);
+  const [pending, start] = useTransition();
+
+  const run = (fn: () => Promise<{ ok: true } | { ok: false; error: string }>) =>
+    start(async () => {
+      setMsg(null);
+      setErr(false);
+      const r = await fn();
+      if (r.ok) {
+        setMsg("Passord sendt på e-post ✓");
+      } else {
+        setErr(true);
+        setMsg(r.error);
+      }
+    });
+
+  if (hasLogin) {
+    return (
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-accent-soft/15 px-2 py-0.5 text-[10px] font-semibold text-accent-soft">
+            Har innlogging ✓
+          </span>
+          <button
+            onClick={() => run(() => resendStaffPassword(id))}
+            disabled={pending}
+            className="text-xs text-accent-soft hover:underline disabled:opacity-40"
+          >
+            {pending ? "Sender …" : "Send nytt passord"}
+          </button>
+        </div>
+        {msg && (
+          <span className={"text-xs " + (err ? "text-danger" : "text-muted")}>
+            {msg}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <button
+        onClick={() => run(() => createStaffLogin(id))}
+        disabled={pending || !email}
+        title={email ? undefined : "Ansatt mangler e-post"}
+        className="w-fit bg-accent px-2.5 py-1 text-xs font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-40"
+      >
+        {pending ? "Oppretter …" : "Opprett innlogging"}
+      </button>
+      {!email && (
+        <span className="text-xs text-muted">Mangler e-post</span>
+      )}
+      {msg && (
+        <span className={"text-xs " + (err ? "text-danger" : "text-muted")}>
+          {msg}
+        </span>
+      )}
+    </div>
+  );
+}
 
 function PinCell({ id, hasPin }: { id: string; hasPin: boolean }) {
   const [open, setOpen] = useState(false);
@@ -56,6 +135,83 @@ function PinCell({ id, hasPin }: { id: string; hasPin: boolean }) {
   );
 }
 
+function PostnummerCell({
+  id,
+  postnummer,
+}: {
+  id: string;
+  postnummer: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState(postnummer ?? "");
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState(false);
+  const [pending, start] = useTransition();
+
+  if (!open) {
+    return (
+      <div className="flex items-center gap-2">
+        <span
+          className={
+            "rounded-full px-2 py-0.5 text-[10px] font-semibold " +
+            (postnummer
+              ? "bg-accent-soft/15 text-accent-soft"
+              : "bg-surface-2 text-muted")
+          }
+        >
+          {postnummer ? postnummer : "Mangler"}
+        </span>
+        <button
+          onClick={() => {
+            setOpen(true);
+            setMsg(null);
+            setErr(false);
+          }}
+          className="text-xs text-accent-soft hover:underline"
+        >
+          {postnummer ? "Endre" : "Sett"}
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        value={value}
+        onChange={(e) => setValue(e.target.value.replace(/\D/g, "").slice(0, 4))}
+        inputMode="numeric"
+        placeholder="4 siffer"
+        className="w-20 border border-line-2 bg-canvas px-2 py-1 text-xs outline-none focus:border-accent-soft"
+      />
+      <button
+        onClick={() =>
+          start(async () => {
+            setMsg(null);
+            setErr(false);
+            const r = await setStaffPostnummer(id, value);
+            if (r.error) {
+              setErr(true);
+              setMsg(r.error);
+            } else {
+              setMsg("Lagret ✓");
+              setTimeout(() => setOpen(false), 900);
+            }
+          })
+        }
+        disabled={pending || (value.length > 0 && value.length !== 4)}
+        className="bg-accent px-2 py-1 text-xs font-semibold text-accent-fg disabled:opacity-40"
+      >
+        Lagre
+      </button>
+      {msg && (
+        <span className={"text-xs " + (err ? "text-danger" : "text-muted")}>
+          {msg}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function StaffManager({ staff }: { staff: AdminStaff[] }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
@@ -84,6 +240,7 @@ export function StaffManager({ staff }: { staff: AdminStaff[] }) {
           <input name="full_name" placeholder="Fullt navn" required className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft" />
           <input name="title" placeholder="Tittel (Barber / Master / Lærling)" className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft" />
           <input name="bio" placeholder="Kort bio" className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft" />
+          <input name="postnummer" placeholder="Postnummer (passord til lønnslipp-ZIP)" inputMode="numeric" maxLength={4} pattern="\d{4}" className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft" />
           <label className="text-xs text-muted">
             Bilde
             <input name="photo" type="file" accept="image/*" className="mt-1 block w-full text-xs" />
@@ -106,14 +263,16 @@ export function StaffManager({ staff }: { staff: AdminStaff[] }) {
               <th className="px-4 py-3">Ansattnr</th>
               <th className="px-4 py-3">Tittel</th>
               <th className="px-4 py-3">Kontrakt</th>
+              <th className="px-4 py-3">Innlogging</th>
               <th className="px-4 py-3">Stemplings-PIN</th>
+              <th className="px-4 py-3">Postnummer</th>
               <th className="px-4 py-3">Status</th>
             </tr>
           </thead>
           <tbody>
             {staff.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted">
+                <td colSpan={8} className="px-4 py-8 text-center text-muted">
                   Ingen ansatte enda – koble til Supabase eller legg til den første.
                 </td>
               </tr>
@@ -140,7 +299,17 @@ export function StaffManager({ staff }: { staff: AdminStaff[] }) {
                   )}
                 </td>
                 <td className="px-4 py-3">
+                  <LoginCell
+                    id={s.id}
+                    hasLogin={s.profile_id != null}
+                    email={s.email}
+                  />
+                </td>
+                <td className="px-4 py-3">
                   <PinCell id={s.id} hasPin={s.has_pin} />
+                </td>
+                <td className="px-4 py-3">
+                  <PostnummerCell id={s.id} postnummer={s.postnummer} />
                 </td>
                 <td className="px-4 py-3">
                   <button

@@ -6,15 +6,31 @@ import { requireRole, getUserRole } from "@/lib/auth";
 import { STAFF_DOCS_BUCKET } from "@/lib/staff-documents";
 import { getPayrollForMonth } from "@/lib/payroll-slips";
 import { renderPayslipPdf } from "@/components/revisor/PayslipDocument";
+import { zipWithPassword } from "@/lib/zip";
+import { sendPayslipEmail } from "@/lib/email";
 
 const MONTHS = [
   "januar", "februar", "mars", "april", "mai", "juni",
   "juli", "august", "september", "oktober", "november", "desember",
 ];
 
+const MONTHS_CAP = [
+  "Januar", "Februar", "Mars", "April", "Mai", "Juni",
+  "Juli", "August", "September", "Oktober", "November", "Desember",
+];
+
+function portalUrl(): string {
+  const site =
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
+    "https://downtownbarbers.no";
+  return `${site}/logg-inn`;
+}
+
 export type GeneratePayslipsResult = {
   ok?: true;
   generated?: number;
+  emailed?: number;
+  missingPostnummer?: string[];
   error?: string;
   errors?: string[];
 };
@@ -54,8 +70,32 @@ export async function generatePayslips(
   const mm = String(month).padStart(2, "0");
   const period = `${year}-${mm}`;
   const monthName = MONTHS[month - 1] ?? String(month);
+  const monthLabel = `${MONTHS_CAP[month - 1] ?? String(month)} ${year}`;
+
+  // Kontaktinfo (e-post + postnummer) for aktive ansatte – slås opp per ansatt
+  // i løkka. `staff_public_read` gjør aktive ansattes rader lesbare server-side.
+  const contactByStaff = new Map<
+    string,
+    { email: string | null; postnummer: string | null }
+  >();
+  {
+    const { data: staffRows } = await sb
+      .from("staff")
+      .select("id, email, postnummer, active")
+      .eq("active", true);
+    for (const s of (staffRows as
+      | { id: string; email: string | null; postnummer: string | null }[]
+      | null) ?? []) {
+      contactByStaff.set(s.id, {
+        email: (s.email ?? "").trim() || null,
+        postnummer: (s.postnummer ?? "").trim() || null,
+      });
+    }
+  }
 
   let generated = 0;
+  let emailed = 0;
+  const missingPostnummer: string[] = [];
   const errors: string[] = [];
 
   for (const row of rows) {
@@ -101,6 +141,48 @@ export async function generatePayslips(
       }
 
       generated += 1;
+
+      // Utsending på e-post – best effort, velter ALDRI genereringen.
+      try {
+        const contact = contactByStaff.get(row.staffId);
+        const email = contact?.email ?? null;
+        const postnummer = contact?.postnummer ?? null;
+
+        if (!postnummer) missingPostnummer.push(row.name);
+
+        if (email) {
+          if (postnummer) {
+            // Passordbeskyttet ZIP – passord = postnummer.
+            const zip = await zipWithPassword(
+              buf,
+              `Lonnslipp-${year}-${mm}.pdf`,
+              postnummer,
+            );
+            const sent = await sendPayslipEmail({
+              to: email,
+              name: row.name,
+              monthLabel,
+              attachment: {
+                filename: `Lonnslipp-${year}-${mm}.zip`,
+                base64: zip.toString("base64"),
+              },
+              portalUrl: portalUrl(),
+            });
+            if (sent) emailed += 1;
+          } else {
+            // Mangler postnummer: send kun varsel + portal-lenke (uten vedlegg).
+            const sent = await sendPayslipEmail({
+              to: email,
+              name: row.name,
+              monthLabel,
+              portalUrl: portalUrl(),
+            });
+            if (sent) emailed += 1;
+          }
+        }
+      } catch (e) {
+        console.error(`payslip email ${row.staffId}:`, e);
+      }
     } catch (e) {
       console.error(`payslip render ${row.staffId}:`, e);
       errors.push(`${row.name}: generering feilet`);
@@ -112,5 +194,11 @@ export async function generatePayslips(
   if (generated === 0) {
     return { error: "Ingen lønnsoversikter ble generert.", errors };
   }
-  return { ok: true, generated, errors: errors.length ? errors : undefined };
+  return {
+    ok: true,
+    generated,
+    emailed,
+    missingPostnummer: missingPostnummer.length ? missingPostnummer : undefined,
+    errors: errors.length ? errors : undefined,
+  };
 }

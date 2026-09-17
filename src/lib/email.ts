@@ -244,6 +244,159 @@ export async function sendFollowupEmail(opts: {
 }
 
 /**
+ * Innlogging til ansatt: velkommen + midlertidig passord.
+ * Brukernavn = e-post. Oppfordrer til å bytte passord via «Glemt passord».
+ */
+export async function sendStaffCredentialsEmail(opts: {
+  to: string;
+  name: string;
+  email: string;
+  tempPassword: string;
+  loginUrl: string;
+}): Promise<boolean> {
+  const cta = `
+    <div style="margin:28px 0">
+      <a href="${opts.loginUrl}"
+         style="display:inline-block;background:#F47721;color:#211E1A;text-decoration:none;font-weight:bold;padding:12px 22px">
+        Logg inn på ansattportalen
+      </a>
+    </div>
+    <p style="color:#8a817a;font-size:13px;line-height:1.6;margin:0 0 4px">
+      Av sikkerhetshensyn bør du bytte passord ved første innlogging: velg
+      «Glemt passord?» på innloggingssiden for å sette ditt eget.
+    </p>`;
+  const html = shell(
+    "Velkommen til ansattportalen 💈",
+    `Hei ${opts.name.split(" ")[0] || "der"}, du har fått tilgang til ansattportalen hos Downtown Barbers. Logg inn med brukernavnet og det midlertidige passordet nedenfor.`,
+    [
+      ["Brukernavn (e-post)", escapeHtml(opts.email)],
+      ["Midlertidig passord", escapeHtml(opts.tempPassword)],
+    ],
+    cta,
+  );
+  return sendEmail(
+    opts.to,
+    "Din innlogging til Downtown Barbers ansattportal",
+    html,
+  );
+}
+
+/**
+ * Tilbakestilling av passord. Sender KUN en lenke (ingen sensitive data).
+ * Kalles fra glemt-passord-flyten – svaret til brukeren er alltid nøytralt.
+ */
+export async function sendPasswordResetEmail(opts: {
+  to: string;
+  resetUrl: string;
+}): Promise<boolean> {
+  const cta = `
+    <div style="margin:28px 0">
+      <a href="${opts.resetUrl}"
+         style="display:inline-block;background:#F47721;color:#211E1A;text-decoration:none;font-weight:bold;padding:12px 22px">
+        Sett nytt passord
+      </a>
+    </div>
+    <p style="color:#8a817a;font-size:13px;line-height:1.6;margin:0">
+      Lenken er gyldig en begrenset periode. Har du ikke bedt om å tilbakestille
+      passordet ditt, kan du trygt se bort fra denne e-posten.
+    </p>`;
+  const html = shell(
+    "Tilbakestill passordet ditt",
+    "Vi mottok en forespørsel om å tilbakestille passordet for kontoen din. Klikk på knappen nedenfor for å velge et nytt passord.",
+    [],
+    cta,
+  );
+  return sendEmail(opts.to, "Tilbakestill passordet – Downtown Barbers", html);
+}
+
+/**
+ * Lønnslipp til ansatt. Sender en pen varsel-e-post og – når `attachment`
+ * finnes – legger lønnslippen ved som en passordbeskyttet ZIP der
+ * **passordet er postnummeret** til den ansatte.
+ *
+ * Uten vedlegg sendes kun et varsel med lenke til portalen (f.eks. når
+ * postnummer mangler). Vedlegg sendes via et eget `fetch` mot Resend med
+ * `attachments: [{ filename, content: <base64> }]`. Gjenbruker
+ * RESEND_API_KEY / fromAddress; hopper stille over hvis nøkkel mangler.
+ */
+export async function sendPayslipEmail(opts: {
+  to: string;
+  name: string;
+  monthLabel: string;
+  attachment?: { filename: string; base64: string };
+  portalUrl: string;
+}): Promise<boolean> {
+  const hasAttachment = !!opts.attachment;
+  const intro = hasAttachment
+    ? `Hei ${opts.name.split(" ")[0] || "der"}, lønnslippen din for ${escapeHtml(
+        opts.monthLabel,
+      )} er klar. Den ligger vedlagt som en passordbeskyttet ZIP-fil.`
+    : `Hei ${opts.name.split(" ")[0] || "der"}, lønnslippen din for ${escapeHtml(
+        opts.monthLabel,
+      )} er klar. Du finner den i ansattportalen.`;
+
+  const passwordNote = hasAttachment
+    ? `<p style="color:#cfc7bf;line-height:1.7;margin:0 0 8px">
+         For å åpne ZIP-filen bruker du <strong>postnummeret ditt</strong> som passord.
+       </p>`
+    : "";
+
+  const cta = `
+    ${passwordNote}
+    <div style="margin:28px 0">
+      <a href="${opts.portalUrl}"
+         style="display:inline-block;background:#F47721;color:#211E1A;text-decoration:none;font-weight:bold;padding:12px 22px">
+        Se lønnslippen i portalen
+      </a>
+    </div>
+    <p style="color:#8a817a;font-size:13px;line-height:1.6;margin:0">
+      Har du spørsmål om lønnen, ta kontakt med salongen.
+    </p>`;
+
+  const html = shell(
+    `Lønnslipp for ${escapeHtml(opts.monthLabel)}`,
+    intro,
+    [],
+    cta,
+  );
+
+  const subject = `Lønnslipp for ${opts.monthLabel} – Downtown Barbers`;
+
+  // Uten vedlegg: gjenbruk den vanlige lav-nivå senderen.
+  if (!opts.attachment) {
+    return sendEmail(opts.to, subject, html);
+  }
+
+  // Med vedlegg: eget fetch mot Resend med attachments.
+  const key = process.env.RESEND_API_KEY;
+  if (!key || !opts.to) return false;
+  try {
+    await fetch(RESEND_ENDPOINT, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: fromAddress(),
+        to: opts.to,
+        subject,
+        html,
+        attachments: [
+          {
+            filename: opts.attachment.filename,
+            content: opts.attachment.base64,
+          },
+        ],
+      }),
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Markedsførings-e-post (DM). Samtykke-først: kalles kun for kunder som
  * har marketing_consent. Hver e-post har en obligatorisk avmeldingslenke.
  */

@@ -1343,3 +1343,14 @@ begin
     group by s.staff_id;
 end $$;
 grant execute on function monthly_gross_by_staff(int, int) to authenticated;
+
+
+-- =====================================================================
+-- 0039 – Postnummer på ansatt.
+--   Brukes som passord til den passordbeskyttede ZIP-en som lønnslippen
+--   sendes i på e-post. Redigeres av admin i ansatt-panelet.
+--   Leses server-side via `staff_public_read` (aktive ansatte).
+-- Idempotent.
+-- =====================================================================
+
+alter table staff add column if not exists postnummer text;

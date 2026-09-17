@@ -22,7 +22,12 @@ export function GeneratePayslipsButton({
   staffCount: number;
 }) {
   const [pending, start] = useTransition();
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [msg, setMsg] = useState<{
+    ok: boolean;
+    text: string;
+    emailed?: number;
+    missing?: string[];
+  } | null>(null);
 
   const run = () => {
     const confirmed = window.confirm(
@@ -49,6 +54,8 @@ export function GeneratePayslipsButton({
       setMsg({
         ok: true,
         text: `${r.generated} lønnsoversikt${r.generated === 1 ? "" : "er"} generert for ${monthLabel} ${year}${extra}.`,
+        emailed: r.emailed,
+        missing: r.missingPostnummer,
       });
     });
   };
@@ -66,9 +73,25 @@ export function GeneratePayslipsButton({
           : `Generer og send lønnsslipper for ${monthLabel}`}
       </button>
       {msg && (
-        <p className={"text-sm " + (msg.ok ? "text-accent-soft" : "text-danger")}>
-          {msg.text}
-        </p>
+        <div className="space-y-1">
+          <p className={"text-sm " + (msg.ok ? "text-accent-soft" : "text-danger")}>
+            {msg.text}
+          </p>
+          {msg.ok && typeof msg.emailed === "number" && (
+            <p className="text-sm text-muted">
+              {msg.emailed} fikk lønnslippen på e-post
+              {msg.missing?.length
+                ? ` – ${msg.missing.length} mangler postnummer og fikk kun varsel.`
+                : "."}
+            </p>
+          )}
+          {msg.ok && msg.missing?.length ? (
+            <p className="text-xs text-muted">
+              Mangler postnummer: {msg.missing.join(", ")}. Legg det inn under
+              Ansatte for å sende vedlagt lønnslipp neste gang.
+            </p>
+          ) : null}
+        </div>
       )}
     </div>
   );
