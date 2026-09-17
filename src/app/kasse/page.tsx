@@ -8,7 +8,6 @@ import { ShopBookingList } from "@/components/kasse/ShopBookingList";
 import { DeskBooking } from "@/components/kasse/DeskBooking";
 import { NoticeBanner } from "@/components/admin/NoticeBanner";
 import { getActiveNotices } from "@/lib/notices-queries";
-import { LogoutButton } from "@/components/admin/LogoutButton";
 
 function dayLabel(iso: string) {
   try {
@@ -59,28 +58,12 @@ export default async function KasseDashboard() {
   const remaining = Math.max(0, today.customersTarget - today.customersServed);
 
   return (
-    <div className="min-h-screen bg-canvas text-fg">
-      <header className="flex items-center justify-between border-b border-line bg-surface px-6 py-4">
-        <div>
-          <p className="text-[10px] font-semibold tracking-[0.2em] text-muted uppercase">
-            Downtown Barbers
-          </p>
-          <p className="font-display text-lg font-bold">Kasse</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {!today.live && (
-            <span className="rounded-full bg-surface-2 px-2.5 py-1 text-[10px] font-semibold tracking-wide text-muted uppercase">
-              Demo
-            </span>
-          )}
-          <span className="rounded-full bg-accent-soft/15 px-3 py-1 text-xs font-semibold text-accent-soft">
-            Shop
+    <main className="mx-auto max-w-3xl space-y-8 p-6">
+        {!today.live && (
+          <span className="inline-block rounded-full bg-surface-2 px-2.5 py-1 text-[10px] font-semibold tracking-wide text-muted uppercase">
+            Demo-modus
           </span>
-          <LogoutButton />
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-3xl space-y-8 p-6">
+        )}
         <NoticeBanner notices={notices} />
         <div className="flex flex-wrap items-center gap-3">
           <DeskBooking
@@ -186,6 +169,5 @@ export default async function KasseDashboard() {
           Shop-kontoen ser aldri omsetning, budsjett eller lønnsomhet.
         </p>
       </main>
-    </div>
   );
 }

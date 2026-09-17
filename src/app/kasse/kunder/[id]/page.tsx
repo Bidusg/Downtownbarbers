@@ -57,21 +57,14 @@ export default async function KasseKunde({
   const last = c.bookings[0];
 
   return (
-    <div className="min-h-screen bg-canvas text-fg">
-      <header className="flex items-center justify-between border-b border-line bg-surface px-6 py-4">
-        <div>
-          <p className="text-[10px] font-semibold tracking-[0.2em] text-muted uppercase">
-            Downtown Barbers
-          </p>
-          <p className="font-display text-lg font-bold">Kunde</p>
-        </div>
-        <Link href="/kasse/kunder" className="text-sm text-muted hover:text-fg">
-          ← Kunder
-        </Link>
-      </header>
-
-      <main className="mx-auto max-w-3xl p-6">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+    <main className="mx-auto max-w-3xl p-6">
+      <Link
+        href="/kasse/kunder"
+        className="mb-4 inline-block text-sm text-muted transition-colors hover:text-fg"
+      >
+        ← Kunder
+      </Link>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="font-display text-2xl font-bold">{c.full_name}</h1>
             <p className="mt-1 text-sm text-muted">
@@ -182,6 +175,5 @@ export default async function KasseKunde({
           </div>
         </div>
       </main>
-    </div>
   );
 }

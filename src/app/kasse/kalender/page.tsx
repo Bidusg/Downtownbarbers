@@ -1,8 +1,6 @@
-import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { getDayAgenda, getBarbers, getServices } from "@/lib/shop-queries";
 import { DayCalendar } from "@/components/kasse/DayCalendar";
-import { LogoutButton } from "@/components/admin/LogoutButton";
 
 export const dynamic = "force-dynamic";
 
@@ -31,33 +29,14 @@ export default async function KalenderPage({
   const agenda = rawAgenda.map((b) => ({ ...b, phone: null }));
 
   return (
-    <div className="min-h-screen bg-canvas text-fg">
-      <header className="flex items-center justify-between border-b border-line bg-surface px-6 py-4">
-        <div>
-          <p className="text-[10px] font-semibold tracking-[0.2em] text-muted uppercase">
-            Downtown Barbers
-          </p>
-          <p className="font-display text-lg font-bold">Dagskalender</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/kasse"
-            className="text-sm text-muted transition-colors hover:text-fg"
-          >
-            ← Kasse
-          </Link>
-          <LogoutButton />
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-6xl p-6">
-        <DayCalendar
-          date={date}
-          agenda={agenda}
-          barbers={barbers}
-          services={services}
-        />
-      </main>
-    </div>
+    <main className="mx-auto max-w-6xl p-6">
+      <h1 className="mb-4 font-display text-xl font-bold">Dagskalender</h1>
+      <DayCalendar
+        date={date}
+        agenda={agenda}
+        barbers={barbers}
+        services={services}
+      />
+    </main>
   );
 }
