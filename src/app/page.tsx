@@ -87,7 +87,7 @@ export default async function Home() {
   return (
     <div id="top" className="bg-canvas text-fg" style={accentStyle}>
       <ScrollProgress />
-      <Header overlay />
+      <Header overlay phone={s.phone} address={s.address} />
 
       {/* ===================== HERO ===================== */}
       <section className="relative flex min-h-[92vh] items-end overflow-hidden">

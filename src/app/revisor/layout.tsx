@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/auth";
 import { LogoutButton } from "@/components/admin/LogoutButton";
+import { RevisorNav } from "@/components/revisor/RevisorNav";
 
 export default async function RevisorLayout({
   children,
@@ -18,17 +19,7 @@ export default async function RevisorLayout({
               Revisor
             </span>
           </div>
-          <nav className="flex items-center gap-4 text-sm">
-            <a href="/revisor" className="text-muted transition-colors hover:text-fg">
-              Oversikt
-            </a>
-            <a href="/revisor/omsetning" className="text-muted transition-colors hover:text-fg">
-              Omsetning
-            </a>
-            <a href="/revisor/eksport" className="text-muted transition-colors hover:text-fg">
-              Eksport (CSV)
-            </a>
-          </nav>
+          <RevisorNav />
         </div>
         <LogoutButton />
       </header>

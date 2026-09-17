@@ -163,7 +163,10 @@ export function BookingWizard({
                     .map((s) => (
                       <button
                         key={s.name}
-                        onClick={() => setService(s)}
+                        onClick={() => {
+                          setService(s);
+                          setStep(1);
+                        }}
                         className={
                           "flex items-center justify-between border p-4 text-left transition-colors " +
                           (service?.name === s.name
@@ -196,7 +199,10 @@ export function BookingWizard({
             {availableBarbers.map((b) => (
               <button
                 key={b.name}
-                onClick={() => setBarber(b)}
+                onClick={() => {
+                  setBarber(b);
+                  setStep(2);
+                }}
                 className={
                   "border p-4 text-center transition-colors " +
                   (barber?.name === b.name

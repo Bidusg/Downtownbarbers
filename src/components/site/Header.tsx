@@ -1,7 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { SVGProps } from "react";
 import { LogoMark } from "@/components/site/LogoMark";
+import { salon } from "@/lib/data/salon";
+
+function PhoneIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
+      <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
+    </svg>
+  );
+}
+
+function PinIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
+      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z" />
+    </svg>
+  );
+}
 
 const nav = [
   { label: "Tjenester", href: "/#tjenester" },
@@ -12,9 +30,23 @@ const nav = [
   { label: "Kontakt", href: "/#kontakt" },
 ];
 
-export function Header({ overlay = false }: { overlay?: boolean }) {
+export function Header({
+  overlay = false,
+  phone = salon.phone,
+  address = salon.address,
+}: {
+  overlay?: boolean;
+  phone?: string;
+  address?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+
+  const telHref = `tel:${phone.replace(/\s/g, "")}`;
+  const shortAddress = address.split(",")[0];
+  const mapHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    address,
+  )}`;
 
   useEffect(() => {
     if (!overlay) return;
@@ -62,6 +94,29 @@ export function Header({ overlay = false }: { overlay?: boolean }) {
         </nav>
 
         <div className="flex items-center gap-3">
+          <a
+            href={mapHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={
+              "hidden items-center gap-1.5 text-[13px] font-medium transition-colors lg:inline-flex " +
+              navText
+            }
+          >
+            <PinIcon className="h-4 w-4" />
+            {shortAddress}
+          </a>
+          <a
+            href={telHref}
+            aria-label={`Ring Downtown Barbers på ${phone}`}
+            className={
+              "inline-flex items-center gap-1.5 text-[13px] font-medium transition-colors " +
+              navText
+            }
+          >
+            <PhoneIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">{phone}</span>
+          </a>
           <a
             href="/booking"
             className="shine-btn hidden bg-accent-soft px-5 py-2.5 text-[13px] font-semibold text-[#211E1A] transition-transform hover:-translate-y-0.5 sm:inline-block"
@@ -122,6 +177,24 @@ export function Header({ overlay = false }: { overlay?: boolean }) {
               className="mt-3 bg-accent-soft px-5 py-3 text-center text-sm font-semibold text-[#211E1A]"
             >
               Bestill time
+            </a>
+            <a
+              href={telHref}
+              onClick={() => setOpen(false)}
+              className="mt-3 flex items-center gap-2 text-sm font-medium text-fg"
+            >
+              <PhoneIcon className="h-4 w-4 text-accent-soft" />
+              {phone}
+            </a>
+            <a
+              href={mapHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setOpen(false)}
+              className="mt-2 flex items-center gap-2 text-sm font-medium text-fg"
+            >
+              <PinIcon className="h-4 w-4 text-accent-soft" />
+              {address}
             </a>
           </div>
         </nav>

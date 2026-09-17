@@ -4,6 +4,7 @@ import { getMyAgenda } from "@/lib/ansatt-queries";
 import { getGoalProgress } from "@/lib/analytics-queries";
 import { NoticeBanner } from "@/components/admin/NoticeBanner";
 import { getActiveNotices } from "@/lib/notices-queries";
+import { LogoutButton } from "@/components/admin/LogoutButton";
 
 export const dynamic = "force-dynamic";
 
@@ -64,9 +65,12 @@ export default async function AnsattDashboard() {
           </p>
           <p className="font-display text-lg font-bold">Min side</p>
         </div>
-        <span className="rounded-full bg-accent-soft/15 px-3 py-1 text-xs font-semibold text-accent-soft">
-          {name}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="rounded-full bg-accent-soft/15 px-3 py-1 text-xs font-semibold text-accent-soft">
+            {name}
+          </span>
+          <LogoutButton />
+        </div>
       </header>
 
       <main className="mx-auto max-w-3xl space-y-8 p-6">

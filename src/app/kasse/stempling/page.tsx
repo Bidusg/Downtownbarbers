@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { getClockBoard } from "@/app/kasse/stempling/actions";
 import { StemplingKiosk } from "@/components/kasse/StemplingKiosk";
+import { LogoutButton } from "@/components/admin/LogoutButton";
 
 export const dynamic = "force-dynamic";
 
@@ -18,12 +19,15 @@ export default async function StemplingPage() {
           </p>
           <p className="font-display text-lg font-bold">Stempling</p>
         </div>
-        <Link
-          href="/kasse"
-          className="text-sm text-muted transition-colors hover:text-fg"
-        >
-          Til kassen →
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/kasse"
+            className="text-sm text-muted transition-colors hover:text-fg"
+          >
+            ← Kasse
+          </Link>
+          <LogoutButton />
+        </div>
       </header>
 
       <main className="mx-auto max-w-4xl p-6">

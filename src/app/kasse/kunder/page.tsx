@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { getCustomersPage } from "@/lib/admin-queries";
 import { CustomerTable } from "@/components/admin/CustomerTable";
+import { LogoutButton } from "@/components/admin/LogoutButton";
 
 export const dynamic = "force-dynamic";
 
@@ -27,9 +28,15 @@ export default async function KasseKunder({
           </p>
           <p className="font-display text-lg font-bold">Kunder</p>
         </div>
-        <Link href="/kasse" className="text-sm text-muted hover:text-fg">
-          ← Kasse
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/kasse"
+            className="text-sm text-muted transition-colors hover:text-fg"
+          >
+            ← Kasse
+          </Link>
+          <LogoutButton />
+        </div>
       </header>
 
       <main className="mx-auto max-w-5xl p-6">

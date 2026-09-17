@@ -8,6 +8,7 @@ import { ShopBookingList } from "@/components/kasse/ShopBookingList";
 import { DeskBooking } from "@/components/kasse/DeskBooking";
 import { NoticeBanner } from "@/components/admin/NoticeBanner";
 import { getActiveNotices } from "@/lib/notices-queries";
+import { LogoutButton } from "@/components/admin/LogoutButton";
 
 function dayLabel(iso: string) {
   try {
@@ -75,6 +76,7 @@ export default async function KasseDashboard() {
           <span className="rounded-full bg-accent-soft/15 px-3 py-1 text-xs font-semibold text-accent-soft">
             Shop
           </span>
+          <LogoutButton />
         </div>
       </header>
 
