@@ -3,9 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { requireRole } from "@/lib/auth";
+import { requireRole, getUserRole } from "@/lib/auth";
 import { sendStaffCredentialsEmail } from "@/lib/email";
+import { STAFF_DOCS_BUCKET } from "@/lib/staff-documents";
 
+// Offentlig bøtte – KUN for bilder (ansattfoto/produktbilder). Kontrakter
+// lagres privat i staff-docs (se createStaff), aldri her.
 const BUCKET = "staff-files";
 
 /** Genererer et sterkt midlertidig passord (min. 14 tegn, blandet). */
@@ -197,29 +200,56 @@ async function uploadFile(
 }
 
 export async function createStaff(formData: FormData) {
+  await requireRole(["admin"]);
   const sb = await createClient();
+  const me = await getUserRole();
 
+  // Foto er offentlig (vises på nettsiden) → staff-files.
   const photo_url = await uploadFile(
     sb,
     formData.get("photo") as File | null,
     "photos",
   );
-  const contract_url = await uploadFile(
-    sb,
-    formData.get("contract") as File | null,
-    "contracts",
-  );
 
-  await sb.from("staff").insert({
-    employee_number: String(formData.get("employee_number") ?? "") || null,
-    full_name: String(formData.get("full_name") ?? ""),
-    title: String(formData.get("title") ?? "") || null,
-    bio: String(formData.get("bio") ?? "") || null,
-    postnummer: String(formData.get("postnummer") ?? "").trim() || null,
-    photo_url,
-    contract_url,
-    active: true,
-  });
+  const { data: inserted, error } = await sb
+    .from("staff")
+    .insert({
+      employee_number: String(formData.get("employee_number") ?? "") || null,
+      full_name: String(formData.get("full_name") ?? ""),
+      title: String(formData.get("title") ?? "") || null,
+      bio: String(formData.get("bio") ?? "") || null,
+      postnummer: String(formData.get("postnummer") ?? "").trim() || null,
+      photo_url,
+      contract_url: null, // kontrakt lagres privat, ikke som offentlig URL
+      active: true,
+    })
+    .select("id")
+    .single();
+
+  // Kontrakt → PRIVAT staff-docs + staff_documents-rad (aldri offentlig bøtte).
+  const contract = formData.get("contract") as File | null;
+  if (!error && inserted && contract && contract.size > 0 && me) {
+    const ext = (contract.name.split(".").pop() || "pdf").toLowerCase();
+    const path = `${inserted.id}/${crypto.randomUUID()}-kontrakt.${ext}`;
+    const { error: upErr } = await sb.storage
+      .from(STAFF_DOCS_BUCKET)
+      .upload(path, contract, {
+        upsert: false,
+        contentType: contract.type || undefined,
+      });
+    if (!upErr) {
+      await sb.from("staff_documents").insert({
+        staff_id: inserted.id,
+        category: "kontrakt",
+        name: contract.name,
+        path,
+        size_bytes: contract.size,
+        mime: contract.type || null,
+        uploaded_by: me.userId,
+        by_staff: false,
+      });
+    }
+  }
   revalidatePath("/admin/ansatte");
 }
 

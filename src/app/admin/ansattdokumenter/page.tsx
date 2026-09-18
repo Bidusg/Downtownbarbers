@@ -6,6 +6,7 @@ import {
   type DocCategory,
 } from "@/lib/staff-documents";
 import { StaffDocUploader } from "@/components/admin/StaffDocUploader";
+import { ContractMigrationButton } from "@/components/admin/ContractMigrationButton";
 import { deleteStaffDocument } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -90,6 +91,8 @@ export default async function AdminAnsattdokumenter({
           genereres av revisor og vises her, men lastes ikke opp av admin.
         </p>
       </div>
+
+      <ContractMigrationButton />
 
       {/* Velg ansatt */}
       <form

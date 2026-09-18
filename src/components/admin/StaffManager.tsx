@@ -290,13 +290,16 @@ export function StaffManager({ staff }: { staff: AdminStaff[] }) {
                 <td className="px-4 py-3 text-muted">{s.employee_number ?? "—"}</td>
                 <td className="px-4 py-3 text-muted">{s.title ?? "—"}</td>
                 <td className="px-4 py-3">
-                  {s.contract_url ? (
-                    <a href={s.contract_url} target="_blank" className="text-xs text-accent-soft hover:underline">
-                      Åpne
+                  <div className="flex flex-col gap-0.5">
+                    {s.contract_url && (
+                      <a href={s.contract_url} target="_blank" className="text-xs text-danger hover:underline">
+                        Åpne (offentlig)
+                      </a>
+                    )}
+                    <a href={`/admin/ansattdokumenter?staff=${s.id}`} className="text-xs text-accent-soft hover:underline">
+                      Dokumenter
                     </a>
-                  ) : (
-                    <span className="text-xs text-muted">Mangler</span>
-                  )}
+                  </div>
                 </td>
                 <td className="px-4 py-3">
                   <LoginCell
