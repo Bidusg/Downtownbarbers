@@ -21,6 +21,11 @@ export default async function RevisorHome({
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+  // Standardperiode for SAF-T: inneværende måned (yyyy-mm-dd).
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const saftFrom = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
+  const saftLast = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const saftTo = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(saftLast)}`;
   const [series, sum, monthDetail] = await Promise.all([
     getRevenueSeries(period),
     getRevenueSummary(),
@@ -117,10 +122,37 @@ export default async function RevisorHome({
         </div>
       </div>
 
-      <p className="text-xs text-muted">
-        Full SAF-T-eksport kommer senere. CSV-en over inneholder alle salg med
-        dato, barber, beløp og betalingsmåte.
-      </p>
+      {/* SAF-T / regnskapseksport */}
+      <div className="border border-line bg-surface p-6">
+        <h2 className="font-display text-lg font-bold">SAF-T & regnskapseksport</h2>
+        <p className="mt-1 text-sm text-muted">
+          SAF-T Financial (Regnskap) v1.30 for valgt periode — standard kontoplan,
+          MVA-kode og balanserte dagsbilag fra kassesalg + Zettle.
+        </p>
+        <form method="get" action="/revisor/eksport/saft" className="mt-4 flex flex-wrap items-end gap-3">
+          <label className="flex flex-col gap-1 text-xs text-muted">
+            Fra
+            <input type="date" name="from" defaultValue={saftFrom} className="border border-line bg-canvas px-3 py-2 text-sm text-fg" />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-muted">
+            Til
+            <input type="date" name="to" defaultValue={saftTo} className="border border-line bg-canvas px-3 py-2 text-sm text-fg" />
+          </label>
+          <button type="submit" className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover">
+            Last ned SAF-T (XML)
+          </button>
+          <a href="/revisor/eksport" className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg">
+            Alle salg (CSV)
+          </a>
+        </form>
+        <p className="mt-4 border-t border-line pt-3 text-xs text-muted">
+          Merk: eksporten dekker inntektssiden (salg + utgående mva). Fullt lovpålagt
+          SAF-T med kjøp/kostnader og balanse kommer fra det komplette regnskapet.
+          Kjør filen gjennom Skatteetatens SAF-T-validator før offisiell innsending.
+          Firmafelt (org.nr, adresse) settes via settings-nøkkelen{" "}
+          <code className="text-fg">saft_company</code>.
+        </p>
+      </div>
     </div>
   );
 }
