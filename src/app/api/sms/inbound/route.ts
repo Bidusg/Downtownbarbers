@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { classifyInbound } from "@/lib/sms";
 
 /**
@@ -113,7 +113,8 @@ async function handle(req: NextRequest): Promise<NextResponse> {
   const action = classifyInbound(body);
 
   try {
-    const sb = await createClient();
+    // sms_inbound_handle er låst til service-role (0041) – webhook er server-til-server.
+    const sb = createServiceClient();
     const { data } = await sb.rpc("sms_inbound_handle", {
       p_from: from,
       p_body: body,

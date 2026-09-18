@@ -31,28 +31,28 @@ export async function getMyAgenda(): Promise<MyAgenda> {
 
     if (!staff) return { staffId: null, staffName: null, linked: false, bookings: [] };
 
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    // Bookinger leses via SECURITY DEFINER-RPC (0040) filtrert på
+    // current_staff_id() – 'staff' har ingen direkte RLS-tilgang på
+    // bookings/customers/services.
+    const { data } = await sb.rpc("my_bookings");
 
-    const { data } = await sb
-      .from("bookings")
-      .select("id, start_at, status, customers(full_name), services(name)")
-      .eq("staff_id", staff.id)
-      .gte("start_at", startOfToday.toISOString())
-      .order("start_at", { ascending: true })
-      .limit(50);
-
-    const bookings: MyBooking[] = (data ?? []).map((b) => {
-      const c = b.customers as { full_name?: string } | null;
-      const s = b.services as { name?: string } | null;
-      return {
-        id: b.id,
-        start_at: b.start_at,
-        customer: c?.full_name ?? "—",
-        service: s?.name ?? "—",
-        status: b.status,
-      };
-    });
+    const bookings: MyBooking[] = (
+      (data as
+        | {
+            id: string;
+            start_at: string;
+            status: string;
+            customer: string | null;
+            service: string | null;
+          }[]
+        | null) ?? []
+    ).map((b) => ({
+      id: b.id,
+      start_at: String(b.start_at),
+      customer: b.customer ?? "—",
+      service: b.service ?? "—",
+      status: b.status,
+    }));
 
     return { staffId: staff.id, staffName: staff.full_name, linked: true, bookings };
   } catch {

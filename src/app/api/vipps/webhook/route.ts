@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { capturePayment } from "@/lib/vipps";
 
+// Server-til-server: mark_booking_paid er låst til service-role (0041),
+// så webhooken kaller den med den privilegerte klienten – aldri anon.
 async function markPaid(reference: string) {
-  const sb = await createClient();
+  const sb = createServiceClient();
   await sb.rpc("mark_booking_paid", { p_reference: reference });
 }
 

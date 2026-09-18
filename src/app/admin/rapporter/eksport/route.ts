@@ -9,6 +9,7 @@ import {
   type Granularity,
 } from "@/lib/report-queries";
 import { getTopCustomers } from "@/lib/analytics-queries";
+import { getBarberScores } from "@/lib/productivity-queries";
 
 function cell(v: string | number | null): string {
   return `"${String(v ?? "").replace(/"/g, '""')}"`;
@@ -94,6 +95,24 @@ export async function GET(req: Request) {
     lines.push(["Per betalingsmåte", "Omsetning (kr)"].map(cell).join(";"));
     for (const row of b.byMethod) lines.push([cell(row.method), cell(kr(row.nok))].join(";"));
     return csvResponse(`downtown_regnskap_${suffix}`, lines);
+  }
+
+  if (type === "produktivitet") {
+    const s = await getBarberScores(r);
+    const lines = [
+      ["Barber", "Tittel", "Omsetning (kr)", "Antall salg", "Snitt (kr)",
+       "Fullført", "Rebooking (%)", "Ikke møtt", "Ikke møtt (%)",
+       "Booket (t)", "Kapasitet (t)", "Utnyttelse (%)"].map(cell).join(";"),
+    ];
+    for (const row of s.rows) {
+      lines.push([
+        cell(row.name), cell(row.title), cell(kr(row.revenue)), cell(row.saleCount),
+        cell(kr(row.avgSale)), cell(row.completed), cell(row.rebookedPct),
+        cell(row.noShow), cell(row.noShowPct), cell(row.bookedHours),
+        cell(row.capacityHours), cell(row.utilizationPct),
+      ].join(";"));
+    }
+    return csvResponse(`downtown_produktivitet_per_barber_${suffix}`, lines);
   }
 
   // Standard: omsetning over tid

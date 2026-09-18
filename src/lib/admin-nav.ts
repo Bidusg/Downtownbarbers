@@ -76,6 +76,11 @@ export const adminGroups: AdminNavGroup[] = [
         description: "Eksport og grunndata",
       },
       {
+        label: "Produktivitet",
+        href: "/admin/rapporter/produktivitet",
+        description: "Per barber, no-show, turnus",
+      },
+      {
         label: "Omsetning",
         href: "/admin/omsetning",
         description: "Salg per periode",
@@ -102,6 +107,7 @@ export const adminGroups: AdminNavGroup[] = [
     items: [
       { label: "Rating", href: "/admin/rating" },
       { label: "Nettside", href: "/admin/nettside" },
+      { label: "Integrasjoner", href: "/admin/integrasjoner" },
       { label: "Dokumenter", href: "/admin/dokumenter" },
     ],
   },

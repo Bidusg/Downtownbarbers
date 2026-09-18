@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { sendBookingReminderEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { runFollowups } from "@/lib/followups";
@@ -47,7 +47,9 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const sb = await createClient();
+    // Cron/server-til-server: due_reminders + mark_reminder_sent er låst til
+    // service-role (0041). Samme klient sendes til runFollowups.
+    const sb = createServiceClient();
     const { data, error } = await sb.rpc("due_reminders");
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -97,7 +99,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Kjør AI-oppfølging i samme daglige jobb (unngår ekstra cron på Hobby).
-    const followups = await runFollowups({ weeks: 6 });
+    const followups = await runFollowups({ weeks: 6 }, sb);
 
     return NextResponse.json({
       ok: true,

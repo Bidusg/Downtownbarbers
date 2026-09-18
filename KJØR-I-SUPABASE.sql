@@ -1354,3 +1354,269 @@ grant execute on function monthly_gross_by_staff(int, int) to authenticated;
 -- =====================================================================
 
 alter table staff add column if not exists postnummer text;
+
+
+-- =====================================================================
+-- 0040 – Egne bookinger på «Min side» (/ansatt)
+--   «Min timeplan» leste tidligere bookings/customers/services DIREKTE.
+--   Rollen 'staff' har ingen RLS-lesetilgang på disse tabellene (kun
+--   admin/shop, jf. 0001), så lista ble tom for en ren staff-bruker.
+--
+--   Løsning (samme mønster som 0035): en tynn SECURITY DEFINER-RPC som
+--   KUN returnerer den innloggede ansattes egne bookinger, strengt
+--   filtrert på staff_id = current_staff_id(). Ingen RLS-policy på de
+--   delte tabellene endres eller løsnes.
+-- Kun lesing. Idempotent.
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- Innlogget ansatts egne bookinger, framover i tid.
+--   Felt: id, start_at, status, customer (full_name), service (name).
+--   Filtrert på staff_id = current_staff_id() (fra 0035) og – når
+--   p_future_only er true (standard) – start_at >= dagens start (Oslo).
+--   Sortert stigende på start_at. status castes til text (enum -> text).
+-- ---------------------------------------------------------------------
+create or replace function my_bookings(p_future_only boolean default true)
+returns table (
+  id       uuid,
+  start_at timestamptz,
+  status   text,
+  customer text,
+  service  text
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with sid as (select current_staff_id() as id)
+  select
+    b.id,
+    b.start_at,
+    b.status::text,
+    c.full_name,
+    s.name
+  from bookings b
+  cross join sid
+  left join customers c on c.id = b.customer_id
+  left join services  s on s.id = b.service_id
+  where sid.id is not null
+    and b.staff_id = sid.id
+    and (
+      not coalesce(p_future_only, true)
+      or b.start_at >= ((now() at time zone 'Europe/Oslo')::date)::timestamp at time zone 'Europe/Oslo'
+    )
+  order by b.start_at asc;
+$$;
+grant execute on function my_bookings(boolean) to authenticated;
+
+
+-- =====================================================================
+-- 0041 – Lås ned SECURITY DEFINER-funksjoner (fjern PUBLIC/anon-tilgang)
+--
+--   BAKGRUNN: I Postgres får hver funksjon EXECUTE til PUBLIC som standard
+--   ved opprettelse. Ingen tidligere migrasjon har gjort `revoke ... from
+--   public`, så ALLE SECURITY DEFINER-funksjonene har vært kjørbare av hvem
+--   som helst med den offentlige anon-nøkkelen (som ligger i nettleser-
+--   bundelen, NEXT_PUBLIC_SUPABASE_ANON_KEY). requireRole() i app-laget
+--   beskytter IKKE mot direkte RPC-kall mot Supabase-URL-en.
+--
+--   Effekt: en utenforstående kunne dumpe kundelister (navn/telefon/e-post)
+--   via shop_customer_search / day_agenda / due_reminders / due_followups,
+--   og markere bookinger betalt via mark_booking_paid.
+--
+--   Denne migrasjonen fjerner PUBLIC + anon fra de funksjonene som KUN skal
+--   nås av innloggede ansatte (authenticated) eller av server-ruter med
+--   service-role (som uansett bypasser grants). Rene offentlige funksjoner
+--   for booking/vurdering/portal (available_slots, rate_booking,
+--   customer_portal, cancel_booking_by_token osv.) røres IKKE.
+--
+--   Idempotent: revoke/grant kan kjøres flere ganger.
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- GRUPPE A – kun innloggede ansatte (authenticated).
+--   Kalles fra /kasse og /admin (alle bak requireRole). Ingen anonym
+--   flyt bruker disse. Klokke-terminalen (/kasse/stempling) er også
+--   innlogget (requireRole), så PIN er andre-faktor, ikke erstatning.
+-- ---------------------------------------------------------------------
+revoke execute on function shop_customer_search(text)         from public, anon;
+grant  execute on function shop_customer_search(text)          to authenticated;
+
+revoke execute on function day_agenda(date)                   from public, anon;
+grant  execute on function day_agenda(date)                    to authenticated;
+
+revoke execute on function active_staff_for_clock()           from public, anon;
+grant  execute on function active_staff_for_clock()            to authenticated;
+
+revoke execute on function shift_summary_today()              from public, anon;
+grant  execute on function shift_summary_today()               to authenticated;
+
+revoke execute on function verify_pin_status(uuid, text)      from public, anon;
+grant  execute on function verify_pin_status(uuid, text)       to authenticated;
+
+revoke execute on function record_shift_event(uuid, text, text) from public, anon;
+grant  execute on function record_shift_event(uuid, text, text)  to authenticated;
+
+revoke execute on function current_shift_status(uuid)         from public, anon;
+grant  execute on function current_shift_status(uuid)          to authenticated;
+
+revoke execute on function due_followups(int)                 from public, anon;
+grant  execute on function due_followups(int)                  to authenticated;
+
+revoke execute on function mark_followup_sent(uuid, text)     from public, anon;
+grant  execute on function mark_followup_sent(uuid, text)      to authenticated;
+
+-- ---------------------------------------------------------------------
+-- GRUPPE B – kun server-til-server (service-role).
+--   Kalles utelukkende fra Next-ruter som nå bruker createServiceClient()
+--   (webhooks + cron). service_role bypasser grants, så vi fjerner ALLE
+--   roller. Ingen innlogget bruker eller anon skal treffe disse direkte.
+-- ---------------------------------------------------------------------
+revoke execute on function due_reminders()                          from public, anon, authenticated;
+revoke execute on function mark_reminder_sent(uuid)                 from public, anon, authenticated;
+revoke execute on function mark_booking_paid(text)                  from public, anon, authenticated;
+revoke execute on function sms_inbound_handle(text, text, text)     from public, anon, authenticated;
+revoke execute on function sms_set_consent_by_phone(text, boolean)  from public, anon, authenticated;
+
+
+-- =====================================================================
+-- 0042 – Turnus-presis kapasitet (minutter per ansatt over en periode)
+--
+--   Timeutnyttelse v1 (kpi-queries) brukte flat åpningstid (09–21, man–lør)
+--   × antall aktive barberere. Denne RPC-en gir PRESIS planlagt kapasitet
+--   ut fra faktisk turnus (staff_hours uke A/B via turnus_week_parity),
+--   med fulle fridager (absences + heldags-fravær) trukket fra, delvis
+--   fravær subtrahert og ekstravakter lagt til – samme logikk som
+--   available_slots (0025/0026/0028), så tallene er konsistente med
+--   selve booking-motoren.
+--
+--   Returnerer minutter per staff_id i [p_from, p_to] (begge inklusive).
+--   Kun lesing, authenticated (admin/revisor bruker den server-side).
+--   Idempotent.
+-- =====================================================================
+create or replace function turnus_capacity_minutes(p_from date, p_to date)
+returns table (staff_id uuid, minutes numeric)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with days as (
+    select
+      d::date                            as work_date,
+      turnus_week_parity(d::date)        as parity,
+      extract(dow from d::date)::int     as dow
+    from generate_series(p_from, p_to, interval '1 day') as d
+  ),
+  active as (
+    select id from staff where active = true
+  ),
+  -- Turnus-minutter per aktiv ansatt per dag (parity 0 = hver uke).
+  base as (
+    select
+      a.id       as staff_id,
+      dd.work_date,
+      coalesce(
+        sum(extract(epoch from (h.end_time - h.start_time)) / 60.0),
+        0
+      )          as base_min
+    from active a
+    cross join days dd
+    left join staff_hours h
+      on h.staff_id   = a.id
+     and h.weekday    = dd.dow
+     and h.week_parity in (0, dd.parity)
+    group by a.id, dd.work_date
+  ),
+  adj as (
+    select
+      b.staff_id,
+      b.base_min,
+      -- Heldags fri: ferie (absences) eller heldags-avvik (off uten tid).
+      (
+        exists (
+          select 1 from absences ab
+          where ab.staff_id = b.staff_id
+            and b.work_date between ab.from_date and ab.to_date
+        )
+        or exists (
+          select 1 from staff_exceptions e
+          where e.staff_id = b.staff_id
+            and e.date = b.work_date
+            and e.kind = 'off'
+            and e.start_time is null
+        )
+      ) as full_off,
+      -- Delvis fravær (off med tider) trekkes fra.
+      coalesce((
+        select sum(extract(epoch from (e.end_time - e.start_time)) / 60.0)
+        from staff_exceptions e
+        where e.staff_id = b.staff_id
+          and e.date = b.work_date
+          and e.kind = 'off'
+          and e.start_time is not null
+          and e.end_time is not null
+      ), 0) as partial_off_min,
+      -- Ekstravakter (extra med tider) legges til.
+      coalesce((
+        select sum(extract(epoch from (e.end_time - e.start_time)) / 60.0)
+        from staff_exceptions e
+        where e.staff_id = b.staff_id
+          and e.date = b.work_date
+          and e.kind = 'extra'
+          and e.start_time is not null
+          and e.end_time is not null
+      ), 0) as extra_min
+    from base b
+  )
+  select
+    staff_id,
+    sum(
+      case
+        when full_off then 0
+        else greatest(0, base_min - partial_off_min) + extra_min
+      end
+    )::numeric as minutes
+  from adj
+  group by staff_id;
+$$;
+grant execute on function turnus_capacity_minutes(date, date) to authenticated;
+
+
+-- =====================================================================
+-- 0043 – SMS-leverandørkonfig (admin-redigerbar, som review_config)
+--
+--   SMS-laget (src/lib/sms.ts) var kun env-styrt (SMS_PROVIDER, tokens …).
+--   Denne tabellen lar admin koble til / bytte SMS-leverandør fra
+--   /admin/integrasjoner uten å redigere env i Vercel – samme mønster som
+--   review_config (0030): singleton, KUN admin (RLS), nøkler leses
+--   server-side med service-role, aldri av besøkende. sms.ts faller
+--   tilbake til env når rad/nøkkel mangler, så eksisterende oppsett virker.
+--
+--   Idempotent.
+-- =====================================================================
+create table if not exists sms_config (
+  id                  int primary key default 1,
+  provider            text,            -- gatewayapi | sveve | twilio | generic | '' (auto)
+  sender              text,            -- avsendernavn, f.eks. "Downtown"
+  gatewayapi_token    text,
+  sveve_user          text,
+  sveve_password      text,
+  twilio_account_sid  text,
+  twilio_auth_token   text,
+  twilio_from         text,
+  generic_api_url     text,
+  generic_api_key     text,
+  enabled             boolean not null default true,
+  updated_at          timestamptz not null default now(),
+  constraint sms_config_singleton check (id = 1)
+);
+insert into sms_config (id) values (1) on conflict (id) do nothing;
+
+alter table sms_config enable row level security;
+-- Kun admin. Ingen public/anon read – nøklene skal aldri kunne leses av
+-- besøkende. Server-koden bruker service-role for utsending.
+drop policy if exists sms_config_admin_all on sms_config;
+create policy sms_config_admin_all on sms_config
+  for all using (is_admin()) with check (is_admin());

@@ -93,12 +93,20 @@ export default async function AdminRapporter({
             Periode: <span className="text-fg">{r.label}</span>
           </p>
         </div>
-        <a
-          href="/admin/rapporter/grunndata"
-          className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
-        >
-          Eksporter alt (grunndata) ↓
-        </a>
+        <div className="flex flex-wrap gap-2">
+          <a
+            href={`/admin/rapporter/produktivitet?from=${r.from}&to=${r.to}`}
+            className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
+          >
+            Produktivitet per barber →
+          </a>
+          <a
+            href="/admin/rapporter/grunndata"
+            className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
+          >
+            Eksporter alt (grunndata) ↓
+          </a>
+        </div>
       </div>
 
       {/* Periodevelger */}

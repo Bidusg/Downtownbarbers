@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { runFollowups } from "@/lib/followups";
 
 /**
@@ -18,6 +19,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
   }
-  const result = await runFollowups({ weeks: 6 });
+  // Cron/server-til-server: due_followups + mark_followup_sent er låst til
+  // service-role (0041).
+  const result = await runFollowups({ weeks: 6 }, createServiceClient());
   return NextResponse.json(result, { status: result.ok ? 200 : 500 });
 }
