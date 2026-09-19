@@ -192,28 +192,47 @@ export default async function MinSide({ params }: { params: Promise<{ token: str
           <p className="px-6 py-8 text-center text-sm text-muted">Ingen tidligere timer enda.</p>
         ) : (
           <ul className="divide-y divide-line">
-            {history.slice(0, 30).map((b) => (
-              <li key={b.id} className="flex items-center justify-between px-6 py-3 text-sm">
-                <div>
-                  <span className="text-fg">{b.service ?? "Time"}</span>
-                  <span className="block text-xs text-muted">{fmtDate(b.start_at)}{b.barber ? ` · ${b.barber}` : ""}</span>
-                </div>
-                <span className={"text-xs " + (b.status === "completed" ? "text-muted" : "text-muted")}>
-                  {STATUS[b.status] ?? b.status}
-                </span>
-              </li>
-            ))}
+            {history.slice(0, 30).map((b) => {
+              const rebook = b.service
+                ? `/booking?service=${encodeURIComponent(b.service)}${b.barber ? `&barber=${encodeURIComponent(b.barber)}` : ""}`
+                : "/booking";
+              return (
+                <li key={b.id} className="flex items-center justify-between gap-3 px-6 py-3 text-sm">
+                  <div className="min-w-0">
+                    <span className="text-fg">{b.service ?? "Time"}</span>
+                    <span className="block text-xs text-muted">{fmtDate(b.start_at)}{b.barber ? ` · ${b.barber}` : ""}</span>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <span className="text-xs text-muted">{STATUS[b.status] ?? b.status}</span>
+                    <a href={rebook} className="text-xs font-semibold text-accent-soft hover:underline">
+                      Book på nytt
+                    </a>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
 
-      <div className="text-center">
+      <div className="flex flex-wrap items-center justify-center gap-3">
         <a
           href="/booking"
           className="inline-block bg-accent px-6 py-3 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90"
         >
           Bestill ny time
         </a>
+        {p.visits > 0 && (
+          <a
+            href={`/min-side/${token}/kjopshistorikk`}
+            className="inline-flex items-center gap-1.5 border border-line-2 px-6 py-3 text-sm font-semibold text-fg transition-colors hover:bg-surface-2"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Last ned kjøpshistorikk (PDF)
+          </a>
+        )}
       </div>
     </main>
   );

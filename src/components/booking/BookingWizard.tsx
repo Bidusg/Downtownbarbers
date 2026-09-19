@@ -24,6 +24,8 @@ export function BookingWizard({
   barbers,
   exclusions = {},
   closedWeekdays = [],
+  initialServiceName,
+  initialBarberName,
 }: {
   services: WizService[];
   barbers: WizBarber[];
@@ -31,10 +33,26 @@ export function BookingWizard({
   exclusions?: Record<string, string[]>;
   /** Ukedager (0=søndag … 6=lørdag) salongen er stengt – filtreres bort fra dagvalget. */
   closedWeekdays?: number[];
+  /** Forhåndsvalgt tjeneste/barber (f.eks. «Book på nytt» fra min-side). */
+  initialServiceName?: string;
+  initialBarberName?: string;
 }) {
-  const [step, setStep] = useState(0);
-  const [service, setService] = useState<WizService | null>(null);
-  const [barber, setBarber] = useState<WizBarber | null>(null);
+  // «Book på nytt»: forhåndsvelg tjeneste + barber og hopp til riktig steg.
+  const preService = initialServiceName
+    ? services.find((s) => s.name === initialServiceName) ?? null
+    : null;
+  const preBarber =
+    preService && initialBarberName
+      ? barbers.find(
+          (b) =>
+            b.name === initialBarberName &&
+            !(exclusions[preService.name] ?? []).includes(b.name),
+        ) ?? null
+      : null;
+
+  const [step, setStep] = useState(preService ? (preBarber ? 2 : 1) : 0);
+  const [service, setService] = useState<WizService | null>(preService);
+  const [barber, setBarber] = useState<WizBarber | null>(preBarber);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [name, setName] = useState("");

@@ -108,6 +108,7 @@ export const adminGroups: AdminNavGroup[] = [
       { label: "Rating", href: "/admin/rating" },
       { label: "Nettside", href: "/admin/nettside" },
       { label: "Integrasjoner", href: "/admin/integrasjoner" },
+      { label: "Go-live", href: "/admin/go-live" },
       { label: "Dokumenter", href: "/admin/dokumenter" },
     ],
   },

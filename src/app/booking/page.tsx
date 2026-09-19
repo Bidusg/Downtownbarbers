@@ -7,7 +7,12 @@ import { getSiteSettings } from "@/lib/site-settings";
 
 export const metadata = { title: "Bestill time | Downtown Barbers" };
 
-export default async function BookingPage() {
+export default async function BookingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ service?: string; barber?: string }>;
+}) {
+  const sp = await searchParams;
   const [services, barbers, exclusions, settings] = await Promise.all([
     getPublicServices(),
     getPublicBarbers(),
@@ -35,6 +40,8 @@ export default async function BookingPage() {
           barbers={barbers}
           exclusions={exclusions}
           closedWeekdays={closedWeekdays}
+          initialServiceName={sp.service}
+          initialBarberName={sp.barber}
         />
       </section>
       <Footer />
