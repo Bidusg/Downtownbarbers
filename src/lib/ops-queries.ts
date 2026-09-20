@@ -121,12 +121,21 @@ export async function getGiftCards(): Promise<GiftCard[]> {
 }
 
 /* --------------------------- KASSEOPPGJØR --------------------------- */
+export type MethodBreakdown = { cash: number; card: number; vipps: number };
+
 export type CashSettlement = {
   id: string;
   settle_date: string;
   total_nok: number;
   note: string | null;
   created_at: string;
+  // Avstemming (0046) – null på gamle rader uten avstemming.
+  counted_cash: number | null;
+  counted_card: number | null;
+  counted_vipps: number | null;
+  expected_cash: number | null;
+  expected_card: number | null;
+  expected_vipps: number | null;
 };
 
 export async function getCashSettlements(): Promise<CashSettlement[]> {
@@ -134,12 +143,55 @@ export async function getCashSettlements(): Promise<CashSettlement[]> {
     const sb = await createClient();
     const { data } = await sb
       .from("cash_settlements")
-      .select("id, settle_date, total_nok, note, created_at")
+      .select(
+        "id, settle_date, total_nok, note, created_at, counted_cash, counted_card, counted_vipps, expected_cash, expected_card, expected_vipps",
+      )
       .order("settle_date", { ascending: false })
       .limit(180);
     return (data as CashSettlement[]) ?? [];
   } catch {
     return [];
+  }
+}
+
+/** Betalingsmåte → bøtte (kontant/kort/vipps). Ukjente havner utenfor. */
+function methodBucket(m: string): keyof MethodBreakdown | null {
+  const s = (m ?? "").trim().toLowerCase();
+  if (s === "kontant" || s === "cash") return "cash";
+  if (s === "kort" || s === "card") return "card";
+  if (s === "vipps") return "vipps";
+  return null;
+}
+
+/**
+ * Forventet salg per betalingsmåte for en dato – grunnlaget kassen skal
+ * avstemmes mot. Samme dagsvindu som getSalesTotalForDate.
+ */
+export async function getExpectedByMethodForDate(
+  isoDate: string,
+): Promise<MethodBreakdown> {
+  const empty: MethodBreakdown = { cash: 0, card: 0, vipps: 0 };
+  try {
+    const sb = await createClient();
+    const start = new Date(`${isoDate}T00:00:00.000Z`).toISOString();
+    const end = new Date(`${isoDate}T00:00:00.000Z`);
+    end.setUTCDate(end.getUTCDate() + 1);
+    const { data } = await sb
+      .from("sales")
+      .select("total_nok, payment_method")
+      .gte("sold_at", start)
+      .lt("sold_at", end.toISOString());
+    const res = { ...empty };
+    for (const s of data ?? []) {
+      const b = methodBucket(s.payment_method as string);
+      if (b) res[b] += Number(s.total_nok) || 0;
+    }
+    res.cash = Math.round(res.cash);
+    res.card = Math.round(res.card);
+    res.vipps = Math.round(res.vipps);
+    return res;
+  } catch {
+    return empty;
   }
 }
 

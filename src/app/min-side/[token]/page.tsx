@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCustomerMembershipByToken, remainingToNext } from "@/lib/membership-queries";
 import { TierBadge } from "@/components/membership/TierBadge";
+import { UpcomingBookings } from "@/components/portal/UpcomingBookings";
 
 export const dynamic = "force-dynamic";
 
@@ -26,15 +27,6 @@ const STATUS: Record<string, string> = {
   cancelled: "Avbestilt", no_show: "Ikke møtt",
 };
 
-function fmt(iso: string) {
-  try {
-    return new Date(iso).toLocaleString("nb-NO", {
-      weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
-}
 function fmtDate(iso: string) {
   try {
     return new Date(iso).toLocaleDateString("nb-NO", { day: "2-digit", month: "short", year: "numeric" });
@@ -168,22 +160,16 @@ export default async function MinSide({ params }: { params: Promise<{ token: str
         </div>
       </div>
 
-      {/* Kommende timer */}
-      {upcoming.length > 0 && (
-        <div className="mb-6 border border-line bg-surface">
-          <h2 className="border-b border-line px-6 py-4 font-display text-lg font-bold">Kommende timer</h2>
-          <ul className="divide-y divide-line">
-            {upcoming.map((b) => (
-              <li key={b.id} className="px-6 py-4">
-                <p className="font-medium text-fg">{b.service ?? "Time"}</p>
-                <p className="text-sm text-muted capitalize">
-                  {fmt(b.start_at)}{b.barber ? ` · hos ${b.barber}` : ""}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* Kommende timer – med selvbetjening (avbestill / endre tid) */}
+      <UpcomingBookings
+        token={token}
+        bookings={upcoming.map((b) => ({
+          id: b.id,
+          start_at: b.start_at,
+          service: b.service,
+          barber: b.barber,
+        }))}
+      />
 
       {/* Historikk */}
       <div className="mb-8 border border-line bg-surface">
