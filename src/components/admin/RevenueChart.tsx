@@ -14,6 +14,13 @@ const BRAND = "#F47721";
 
 type Point = { key?: string; day: string; nok: number };
 
+type DotProps = {
+  cx?: number;
+  cy?: number;
+  index?: number;
+  payload?: Point;
+};
+
 export function RevenueChart({
   data,
   drillBase,
@@ -26,13 +33,43 @@ export function RevenueChart({
 }) {
   const router = useRouter();
 
-  const onClick = (state: unknown) => {
-    if (!drillBase) return;
-    const p = (state as { activePayload?: { payload?: Point }[] } | null)
-      ?.activePayload?.[0]?.payload;
-    if (!p?.key || p.nok <= 0) return;
+  // Naviger til dags-/måneds-detaljen for et punkt.
+  const nav = (p?: Point) => {
+    if (!drillBase || !p?.key) return;
     const param = period === "months" ? "mnd" : "dag";
     router.push(`${drillBase}?${param}=${p.key}`);
+  };
+
+  // Chart-nivå klikk (fallback: recharts gir aktivt punkt når man treffer et).
+  const onChartClick = (state: unknown) => {
+    const p = (state as { activePayload?: { payload?: Point }[] } | null)
+      ?.activePayload?.[0]?.payload;
+    nav(p);
+  };
+
+  // Alltid-synlige, klikkbare punkter med romslig (usynlig) trykkflate – gjør
+  // nedboringen pålitelig også på touch, i stedet for å stole på at klikket
+  // treffer nøyaktig på arealet slik recharts' eget onClick krever.
+  const renderDot = (props: DotProps) => {
+    const { cx, cy, index, payload } = props;
+    if (typeof cx !== "number" || typeof cy !== "number") {
+      return <g key={index} />;
+    }
+    if (!drillBase) {
+      return <circle key={index} cx={cx} cy={cy} r={3} fill={BRAND} />;
+    }
+    return (
+      <g
+        key={index}
+        style={{ cursor: "pointer" }}
+        onClick={() => nav(payload)}
+        role="button"
+        aria-label={`Bore ned i ${payload?.day ?? "periode"}`}
+      >
+        <circle cx={cx} cy={cy} r={13} fill="transparent" />
+        <circle cx={cx} cy={cy} r={3.5} fill={BRAND} />
+      </g>
+    );
   };
 
   return (
@@ -40,7 +77,7 @@ export function RevenueChart({
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={data}
-          onClick={onClick}
+          onClick={drillBase ? onChartClick : undefined}
           margin={{ top: 8, right: 8, left: -12, bottom: 0 }}
           style={drillBase ? { cursor: "pointer" } : undefined}
         >
@@ -80,7 +117,12 @@ export function RevenueChart({
             stroke={BRAND}
             strokeWidth={2}
             fill="url(#rev)"
-            activeDot={drillBase ? { r: 5, fill: BRAND, cursor: "pointer" } : { r: 4, fill: BRAND }}
+            dot={renderDot}
+            activeDot={
+              drillBase
+                ? { r: 5, fill: BRAND, cursor: "pointer" }
+                : { r: 4, fill: BRAND }
+            }
           />
         </AreaChart>
       </ResponsiveContainer>
