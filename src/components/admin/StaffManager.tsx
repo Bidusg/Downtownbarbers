@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import type { AdminStaff } from "@/lib/admin-queries";
+import { FileInput } from "@/components/ui/FileInput";
 import {
   createStaff,
   toggleStaff,
@@ -241,14 +242,14 @@ export function StaffManager({ staff }: { staff: AdminStaff[] }) {
           <input name="title" placeholder="Tittel (Barber / Master / Lærling)" className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft" />
           <input name="bio" placeholder="Kort bio" className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft" />
           <input name="postnummer" placeholder="Postnummer (passord til lønnslipp-ZIP)" inputMode="numeric" maxLength={4} pattern="\d{4}" className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft" />
-          <label className="text-xs text-muted">
+          <div className="text-xs text-muted">
             Bilde
-            <input name="photo" type="file" accept="image/*" className="mt-1 block w-full text-xs" />
-          </label>
-          <label className="text-xs text-muted">
+            <FileInput name="photo" accept="image/*" buttonLabel="Velg bilde" />
+          </div>
+          <div className="text-xs text-muted">
             Kontrakt (PDF)
-            <input name="contract" type="file" accept="application/pdf" className="mt-1 block w-full text-xs" />
-          </label>
+            <FileInput name="contract" accept="application/pdf" buttonLabel="Velg PDF" />
+          </div>
           <button type="submit" className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover sm:col-span-2">
             Lagre ansatt
           </button>

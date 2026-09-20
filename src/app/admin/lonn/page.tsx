@@ -125,11 +125,10 @@ export default async function AdminLonn({
           lønn = {kr(PAYROLL.BASE_NOK)} + {PAYROLL.RATE.toString().replace(".", ",")} × maks(0, omsetning eks. mva − {kr(PAYROLL.THRESHOLD_NOK)})
         </p>
         <p className="mt-3">
-          Omsetningen hentes fra registrert salg i kassen (<code>sales.total_nok</code>)
-          per barber for valgt måned. Beløpet antas å være <strong>inkl. mva</strong>,
-          og eks. mva regnes som beløp ÷ {(1 + PAYROLL.MVA).toString().replace(".", ",")}{" "}
-          ({Math.round(PAYROLL.MVA * 100)} % mva). Stemmer ikke det for din kasse, si
-          fra, så justerer jeg satsen ett sted i <code>src/lib/ops-queries.ts</code>.
+          Omsetningen hentes fra registrert salg i kassen per barber for valgt
+          måned. Beløpet antas å være <strong>inkl. mva</strong>, og eks. mva
+          regnes som beløp ÷ {(1 + PAYROLL.MVA).toString().replace(".", ",")}{" "}
+          ({Math.round(PAYROLL.MVA * 100)} % mva).
         </p>
       </div>
     </div>
