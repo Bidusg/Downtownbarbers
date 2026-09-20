@@ -6,14 +6,43 @@ function cell(v: string | number | null): string {
   return `"${s.replace(/"/g, '""')}"`;
 }
 
-export async function GET() {
+/* Oslo lokal midnatt (UTC-instant) for korrekt dags-avgrensning. */
+function tzOffsetMs(instant: number, tz: string): number {
+  const d = new Date(instant);
+  const utc = new Date(d.toLocaleString("en-US", { timeZone: "UTC" }));
+  const loc = new Date(d.toLocaleString("en-US", { timeZone: tz }));
+  return loc.getTime() - utc.getTime();
+}
+function osloMidnight(y: number, m: number, d: number): string {
+  const base = Date.UTC(y, m - 1, d);
+  return new Date(base - tzOffsetMs(base, "Europe/Oslo")).toISOString();
+}
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export async function GET(req: Request) {
   await requireRole(["revisor", "admin"]);
+  const url = new URL(req.url);
+  const from = url.searchParams.get("from");
+  const to = url.searchParams.get("to");
   const sb = await createClient();
-  const { data } = await sb
+
+  let q = sb
     .from("sales")
     .select("sold_at, total_nok, payment_method, staff(full_name), customers(full_name)")
     .order("sold_at", { ascending: false })
     .limit(50000);
+
+  // Valgfri periode-avgrensning (yyyy-mm-dd, begge inklusive) for perioderapport.
+  if (from && DATE_RE.test(from)) {
+    const [y, m, d] = from.split("-").map(Number);
+    q = q.gte("sold_at", osloMidnight(y, m, d));
+  }
+  if (to && DATE_RE.test(to)) {
+    const [y, m, d] = to.split("-").map(Number);
+    q = q.lt("sold_at", osloMidnight(y, m, d + 1)); // t.o.m. hele slutt-dagen
+  }
+
+  const { data } = await q;
 
   const header = ["Dato", "Barber", "Kunde", "Beløp (kr)", "Betalingsmåte"];
   const lines = [header.map(cell).join(";")];
@@ -47,11 +76,14 @@ export async function GET() {
 
   // BOM for korrekt æøå i Excel
   const csv = "﻿" + lines.join("\r\n");
-  const today = new Date().toISOString().slice(0, 10);
+  const suffix =
+    from && DATE_RE.test(from) && to && DATE_RE.test(to)
+      ? `${from}_${to}`
+      : new Date().toISOString().slice(0, 10);
   return new Response(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="downtown_salg_${today}.csv"`,
+      "Content-Disposition": `attachment; filename="downtown_salg_${suffix}.csv"`,
     },
   });
 }

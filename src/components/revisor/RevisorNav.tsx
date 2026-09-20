@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 const links = [
   { href: "/revisor", label: "Oversikt" },
   { href: "/revisor/omsetning", label: "Omsetning" },
+  { href: "/revisor/rapport", label: "Perioderapport" },
   { href: "/revisor/lonnslipper", label: "Lønnsslipper" },
   { href: "/revisor/eksport", label: "Eksport (CSV)" },
 ];

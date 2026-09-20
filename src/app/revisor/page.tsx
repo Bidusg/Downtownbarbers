@@ -52,7 +52,13 @@ export default async function RevisorHome({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-bold">Regnskapsoversikt</h1>
-          <p className="text-sm text-muted">Read-only tilgang for revisor.</p>
+          <p className="text-sm text-muted">
+            Regnskaps- og lønnstilgang. Se{" "}
+            <a href="/revisor/rapport" className="text-accent-soft hover:underline">
+              Perioderapport
+            </a>{" "}
+            for kvartal/halvår/helår.
+          </p>
         </div>
         <a
           href="/revisor/eksport"

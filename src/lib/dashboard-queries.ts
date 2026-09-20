@@ -69,6 +69,70 @@ const osloDayKey = (iso: string) =>
   new Date(iso).toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" }); // yyyy-mm-dd
 const osloMonthKey = (iso: string) => osloDayKey(iso).slice(0, 7); // yyyy-mm
 
+/**
+ * Aggregert periode-rapport (for revisor: kvartal/halvår/helår). Totaler,
+ * antall og fordeling per barber / betalingsmåte / måned — uten rad-tak som
+ * ville kappet et helt år (bruker et høyt tak og aggregerer server-side i JS).
+ */
+export async function getPeriodReport(
+  startIso: string,
+  endIso: string,
+): Promise<{
+  total: number;
+  count: number;
+  byBarber: { name: string; nok: number }[];
+  byMethod: { method: string; nok: number }[];
+  byMonth: { key: string; nok: number; count: number }[];
+}> {
+  const empty = { total: 0, count: 0, byBarber: [], byMethod: [], byMonth: [] };
+  try {
+    const sb = await createClient();
+    const { data } = await sb
+      .from("sales")
+      .select("total_nok, sold_at, payment_method, staff(full_name)")
+      .gte("sold_at", startIso)
+      .lt("sold_at", endIso)
+      .limit(50000);
+    let total = 0;
+    let count = 0;
+    const barber = new Map<string, number>();
+    const method = new Map<string, number>();
+    const month = new Map<string, { nok: number; count: number }>();
+    for (const s of data ?? []) {
+      const amt = Number(s.total_nok) || 0;
+      total += amt;
+      count += 1;
+      const st = s.staff as { full_name?: string } | null;
+      const bname = st?.full_name ?? "Ukjent";
+      const mname = (s.payment_method as string) || "Ukjent";
+      const mk = osloMonthKey(s.sold_at as string);
+      barber.set(bname, (barber.get(bname) ?? 0) + amt);
+      method.set(mname, (method.get(mname) ?? 0) + amt);
+      const cm = month.get(mk) ?? { nok: 0, count: 0 };
+      cm.nok += amt;
+      cm.count += 1;
+      month.set(mk, cm);
+    }
+    return {
+      total: Math.round(total),
+      count,
+      byBarber: Array.from(barber, ([name, nok]) => ({ name, nok: Math.round(nok) })).sort(
+        (a, b) => b.nok - a.nok,
+      ),
+      byMethod: Array.from(method, ([m, nok]) => ({ method: m, nok: Math.round(nok) })).sort(
+        (a, b) => b.nok - a.nok,
+      ),
+      byMonth: Array.from(month, ([key, v]) => ({
+        key,
+        nok: Math.round(v.nok),
+        count: v.count,
+      })),
+    };
+  } catch {
+    return empty;
+  }
+}
+
 /** Omsetningsserie: siste 14 dager (period="days") eller 12 mnd (period="months"). */
 export async function getRevenueSeries(
   period: "days" | "months",
