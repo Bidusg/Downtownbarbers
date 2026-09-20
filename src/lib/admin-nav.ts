@@ -57,9 +57,12 @@ export const adminGroups: AdminNavGroup[] = [
     items: [
       { label: "Kunder", href: "/admin/kunder" },
       { label: "Kundeklubb", href: "/admin/kundeklubb" },
-      { label: "Kampanjer", href: "/admin/kampanjer" },
       { label: "Oppfølging", href: "/admin/oppfolging" },
-      { label: "Markedsføring", href: "/admin/markedsforing" },
+      {
+        label: "Markedsføring",
+        href: "/admin/markedsforing",
+        description: "Segmenter, e-post/SMS, samtykke",
+      },
     ],
   },
   {
