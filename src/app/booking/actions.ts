@@ -18,7 +18,13 @@ export type BookingInput = {
 
 export async function createBooking(
   input: BookingInput,
-): Promise<{ ok?: true; error?: string; bookingId?: string }> {
+): Promise<{
+  ok?: true;
+  error?: string;
+  bookingId?: string;
+  portalUrl?: string;
+  cancelUrl?: string;
+}> {
   // Server-side validering – klienten kan omgås, så vi stoler aldri på den.
   const name = titleCase(input.name);
   if (!name) return { error: "Navn mangler." };
@@ -81,7 +87,12 @@ export async function createBooking(
       portalUrl,
     });
 
-    return { ok: true, bookingId: (bookingId as string) ?? undefined };
+    return {
+      ok: true,
+      bookingId: (bookingId as string) ?? undefined,
+      portalUrl,
+      cancelUrl,
+    };
   } catch {
     return { error: "Noe gikk galt. Er databasen koblet til (.env.local)?" };
   }

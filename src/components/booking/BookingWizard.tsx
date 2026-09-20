@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createBooking } from "@/app/booking/actions";
 import { getAvailableSlots } from "@/app/booking/availability-actions";
 import { isValidEmail, isValidNorwegianPhone } from "@/lib/validate";
+import { eventLinks } from "@/lib/calendar-links";
 
 export type WizService = {
   name: string;
@@ -60,6 +61,10 @@ export function BookingWizard({
   const [phone, setPhone] = useState("");
   const [source, setSource] = useState("");
   const [done, setDone] = useState(false);
+  const [confirmLinks, setConfirmLinks] = useState<{
+    portalUrl?: string;
+    cancelUrl?: string;
+  }>({});
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -149,11 +154,23 @@ export function BookingWizard({
     setPending(false);
     if (res?.error) setError(res.error);
     else {
+      setConfirmLinks({ portalUrl: res.portalUrl, cancelUrl: res.cancelUrl });
       setDone(true);
     }
   }
 
   if (done) {
+    const durMin = parseInt(service?.duration ?? "", 10) || 30;
+    const start = new Date(`${date}T${time}:00`);
+    const cal =
+      service && !Number.isNaN(start.getTime())
+        ? eventLinks({
+            title: `Downtown Barbers – ${service.name}`,
+            start,
+            durationMin: durMin,
+            description: barber ? `Hos ${barber.name}` : undefined,
+          })
+        : null;
     return (
       <div className="border border-line bg-surface p-10 text-center">
         <p className="font-display text-3xl font-bold text-fg">Takk! 💈</p>
@@ -163,7 +180,54 @@ export function BookingWizard({
           <br />
           {date} kl. {time}
         </p>
-        <p className="mt-6 text-sm text-muted">Vi sender en bekreftelse på e-post.</p>
+
+        {cal && (
+          <div className="mt-6">
+            <p className="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
+              Legg til i kalender
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              <a
+                href={cal.icsHref}
+                download="downtown-barbers.ics"
+                className="rounded-md border border-line-2 px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
+              >
+                Apple / Outlook (.ics)
+              </a>
+              <a
+                href={cal.googleHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-md border border-line-2 px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
+              >
+                Google Kalender
+              </a>
+            </div>
+          </div>
+        )}
+
+        {(confirmLinks.portalUrl || confirmLinks.cancelUrl) && (
+          <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm">
+            {confirmLinks.portalUrl && (
+              <a
+                href={confirmLinks.portalUrl}
+                className="font-semibold text-accent-soft hover:underline"
+              >
+                Min side →
+              </a>
+            )}
+            {confirmLinks.cancelUrl && (
+              <a
+                href={confirmLinks.cancelUrl}
+                className="text-muted hover:text-fg"
+              >
+                Avbestill timen
+              </a>
+            )}
+          </div>
+        )}
+
+        <p className="mt-6 text-sm text-muted">Vi sender også en bekreftelse på e-post.</p>
       </div>
     );
   }
