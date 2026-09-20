@@ -4,6 +4,7 @@ import { getCustomerConsent } from "@/lib/dm-queries";
 import { getCustomerMembership, remainingToNext } from "@/lib/membership-queries";
 import { TierBadge } from "@/components/membership/TierBadge";
 import { updateCustomer, anonymizeCustomer, setMarketingConsent } from "../actions";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 
 const nokFmt = (n: number) => Math.round(n).toLocaleString("nb-NO") + " kr";
 
@@ -342,12 +343,14 @@ export default async function KundeKort({
                   anonymt (bokføringsplikt krever oppbevaring). <strong className="text-fg">Kan ikke angres.</strong>
                 </p>
                 <form action={anonymize} className="mt-3">
-                  <button
-                    type="submit"
+                  <ConfirmButton
+                    submit
+                    label="Anonymiser kunde"
+                    question="Anonymisere permanent? Kan ikke angres."
+                    confirmLabel="Ja, anonymiser"
                     className="border border-danger/40 px-3 py-1.5 text-xs font-semibold text-danger transition-colors hover:bg-danger/10"
-                  >
-                    Anonymiser kunde
-                  </button>
+                    confirmClassName="border border-danger/40 px-3 py-1.5 text-xs font-semibold text-danger transition-colors hover:bg-danger/10"
+                  />
                 </form>
               </>
             )}

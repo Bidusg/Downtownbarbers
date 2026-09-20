@@ -7,6 +7,7 @@ import {
   toggleProduct,
   deleteProduct,
 } from "@/app/admin/produkter/actions";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 
 export function ProductManager({ products }: { products: AdminProduct[] }) {
   const [open, setOpen] = useState(false);
@@ -88,13 +89,13 @@ export function ProductManager({ products }: { products: AdminProduct[] }) {
                   </button>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => start(() => deleteProduct(p.id))}
+                  <ConfirmButton
+                    label="Slett"
+                    confirmLabel="Ja, slett"
+                    pendingLabel="Sletter …"
                     disabled={pending}
-                    className="text-xs text-danger hover:underline"
-                  >
-                    Slett
-                  </button>
+                    onConfirm={() => deleteProduct(p.id)}
+                  />
                 </td>
               </tr>
             ))}

@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 import type { Budget, StaffOption } from "@/lib/ops-queries";
 import { setBudget, deleteBudget } from "@/app/admin/budsjett/actions";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 
 const inputCls =
   "border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft";
@@ -25,7 +26,7 @@ export function BudgetManager({
   year: number;
   month: number;
 }) {
-  const [pending, start] = useTransition();
+  const [pending] = useTransition();
   const byStaff = new Map(budgets.map((b) => [b.staff_id, b]));
   const total = budgets.reduce((s, b) => s + b.target_nok, 0);
   const years = [year - 1, year, year + 1];
@@ -115,13 +116,14 @@ export function BudgetManager({
                     </td>
                     <td className="px-4 py-3 text-right">
                       {b && (
-                        <button
-                          onClick={() => start(() => deleteBudget(b.id))}
+                        <ConfirmButton
+                          label="Nullstill"
+                          question="Nullstille budsjettet?"
+                          confirmLabel="Ja, nullstill"
+                          pendingLabel="Nullstiller …"
                           disabled={pending}
-                          className="text-xs text-danger hover:underline"
-                        >
-                          Nullstill
-                        </button>
+                          onConfirm={() => deleteBudget(b.id)}
+                        />
                       )}
                     </td>
                   </tr>

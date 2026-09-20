@@ -11,6 +11,7 @@ import {
   setServiceExclusion,
   deleteService,
 } from "@/app/admin/tjenester/actions";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 
 function ServiceForm({
   categories,
@@ -291,13 +292,13 @@ export function ServiceManager({
                       Rediger
                     </button>
                     <span className="mx-2 text-line-2">·</span>
-                    <button
-                      onClick={() => start(() => deleteService(s.id))}
+                    <ConfirmButton
+                      label="Slett"
+                      confirmLabel="Ja, slett"
+                      pendingLabel="Sletter …"
                       disabled={pending}
-                      className="text-xs text-danger hover:underline"
-                    >
-                      Slett
-                    </button>
+                      onConfirm={() => deleteService(s.id)}
+                    />
                   </td>
                 </tr>
                 {exclId === s.id && (

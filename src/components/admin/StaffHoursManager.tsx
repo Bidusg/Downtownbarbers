@@ -8,6 +8,7 @@ import {
   updateStaffHour,
   copyTurnusWeek,
 } from "@/app/admin/timelister/actions";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 
 const inputCls =
   "border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft";
@@ -233,13 +234,13 @@ export function StaffHoursManager({
                         >
                           Endre
                         </button>
-                        <button
-                          onClick={() => start(() => deleteStaffHour(h.id))}
+                        <ConfirmButton
+                          label="Slett"
+                          confirmLabel="Ja, slett"
+                          pendingLabel="Sletter …"
                           disabled={pending}
-                          className="text-xs text-danger hover:underline"
-                        >
-                          Slett
-                        </button>
+                          onConfirm={() => deleteStaffHour(h.id)}
+                        />
                       </div>
                     </li>
                   ),

@@ -6,6 +6,7 @@ import {
   createStaffException,
   deleteStaffException,
 } from "@/app/admin/timelister/actions";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 
 const inputCls =
   "border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft";
@@ -34,7 +35,7 @@ export function StaffExceptionsManager({
 }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("off_full");
-  const [pending, start] = useTransition();
+  const [pending] = useTransition();
 
   const needsTimes = mode !== "off_full";
   const nameOf = (id: string) =>
@@ -177,13 +178,13 @@ export function StaffExceptionsManager({
                     {e.note}
                   </span>
                 )}
-                <button
-                  onClick={() => start(() => deleteStaffException(e.id))}
+                <ConfirmButton
+                  label="Slett"
+                  confirmLabel="Ja, slett"
+                  pendingLabel="Sletter …"
                   disabled={pending}
-                  className="text-xs text-danger hover:underline"
-                >
-                  Slett
-                </button>
+                  onConfirm={() => deleteStaffException(e.id)}
+                />
               </li>
             );
           })}

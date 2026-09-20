@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import type { Absence, StaffOption } from "@/lib/ops-queries";
 import { createAbsence, deleteAbsence } from "@/app/admin/fravaer/actions";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 
 const inputCls =
   "border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft";
@@ -20,7 +21,7 @@ export function AbsenceManager({
   staff: StaffOption[];
 }) {
   const [open, setOpen] = useState(false);
-  const [pending, start] = useTransition();
+  const [pending] = useTransition();
 
   return (
     <div className="space-y-6">
@@ -96,13 +97,13 @@ export function AbsenceManager({
                 <td className="px-4 py-3 text-muted">{no(a.to_date)}</td>
                 <td className="px-4 py-3 text-muted">{a.reason ?? "—"}</td>
                 <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => start(() => deleteAbsence(a.id))}
+                  <ConfirmButton
+                    label="Slett"
+                    confirmLabel="Ja, slett"
+                    pendingLabel="Sletter …"
                     disabled={pending}
-                    className="text-xs text-danger hover:underline"
-                  >
-                    Slett
-                  </button>
+                    onConfirm={() => deleteAbsence(a.id)}
+                  />
                 </td>
               </tr>
             ))}

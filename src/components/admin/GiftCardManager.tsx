@@ -7,6 +7,7 @@ import {
   redeemGiftCard,
   deleteGiftCard,
 } from "@/app/admin/gavekort/actions";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 
 const inputCls =
   "border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft";
@@ -21,7 +22,7 @@ function no(iso: string | null) {
 
 export function GiftCardManager({ cards }: { cards: GiftCard[] }) {
   const [open, setOpen] = useState(false);
-  const [pending, start] = useTransition();
+  const [pending] = useTransition();
 
   const outstanding = cards.reduce((s, c) => s + Number(c.balance_nok), 0);
 
@@ -125,16 +126,14 @@ export function GiftCardManager({ cards }: { cards: GiftCard[] }) {
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => {
-                        if (confirm(`Slette gavekort ${c.code}?`))
-                          start(() => deleteGiftCard(c.id));
-                      }}
+                    <ConfirmButton
+                      label="Slett"
+                      question={`Slette gavekort ${c.code}?`}
+                      confirmLabel="Ja, slett"
+                      pendingLabel="Sletter …"
                       disabled={pending}
-                      className="text-xs text-danger hover:underline"
-                    >
-                      Slett
-                    </button>
+                      onConfirm={() => deleteGiftCard(c.id)}
+                    />
                   </td>
                 </tr>
               );
