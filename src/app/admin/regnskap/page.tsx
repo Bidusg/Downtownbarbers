@@ -2,6 +2,8 @@ import { StatTile } from "@/components/ui/StatTile";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { RevenueChart } from "@/components/admin/RevenueChart";
 import { getRevenueSeries, getRevenueSummary } from "@/lib/dashboard-queries";
+import { deriveIncomeLedger } from "@/lib/accounting";
+import { osloMonthRange } from "@/lib/period";
 
 export const dynamic = "force-dynamic";
 
@@ -10,13 +12,15 @@ const nok = (n: number) => n.toLocaleString("nb-NO") + " kr";
 export default async function AdminRegnskap({
   searchParams,
 }: {
-  searchParams: Promise<{ periode?: string }>;
+  searchParams: Promise<{ periode?: string; mnd?: string }>;
 }) {
   const sp = await searchParams;
   const period = sp.periode === "months" ? "months" : "days";
-  const [series, sum] = await Promise.all([
+  const mnd = osloMonthRange(sp.mnd);
+  const [series, sum, ledger] = await Promise.all([
     getRevenueSeries(period),
     getRevenueSummary(),
+    deriveIncomeLedger(mnd.fromIso, mnd.toIso),
   ]);
   const maxBarber = Math.max(1, ...sum.perBarber.map((b) => b.nok));
 
@@ -74,6 +78,66 @@ export default async function AdminRegnskap({
         <StatTile label="Omsetning i dag" value={nok(sum.today)} />
         <StatTile label="Antall salg" value={String(sum.saleCount)} sub="denne måneden" />
         <StatTile label="Snitt per salg" value={nok(sum.avgPerSale)} />
+      </div>
+
+      {/* Hovedbok (avledet, inntektssiden) — Fase 1 av regnskapsmodulen */}
+      <div className="border border-line bg-surface">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-6 py-4">
+          <div>
+            <h2 className="font-display text-lg font-bold">Hovedbok — {mnd.label}</h2>
+            <p className="text-xs text-muted">Avledet konto-oppstilling (inntektssiden)</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <a href={`/admin/regnskap?mnd=${mnd.prev}`} className="border border-line px-2 py-1 text-sm text-muted hover:text-fg" aria-label="Forrige måned">←</a>
+            <a href={`/admin/regnskap?mnd=${mnd.next}`} className="border border-line px-2 py-1 text-sm text-muted hover:text-fg" aria-label="Neste måned">→</a>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-line text-left text-xs text-muted">
+                <th className="px-6 py-3 font-medium">Konto</th>
+                <th className="px-6 py-3 font-medium">Tekst</th>
+                <th className="px-6 py-3 text-right font-medium">Debet</th>
+                <th className="px-6 py-3 text-right font-medium">Kredit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ledger.lines.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-8 text-center text-muted">Ingen salg denne måneden.</td>
+                </tr>
+              ) : (
+                ledger.lines.map((l) => (
+                  <tr key={l.account} className="border-b border-line last:border-0">
+                    <td className="px-6 py-3 tabular-nums text-fg-soft">{l.account}</td>
+                    <td className="px-6 py-3">{l.name}</td>
+                    <td className="px-6 py-3 text-right tabular-nums">{l.debit ? nok(l.debit) : "—"}</td>
+                    <td className="px-6 py-3 text-right tabular-nums">{l.credit ? nok(l.credit) : "—"}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+            {ledger.lines.length > 0 && (
+              <tfoot>
+                <tr className="border-t border-line-2 font-semibold">
+                  <td className="px-6 py-3" colSpan={2}>
+                    Sum {ledger.balanced ? "· balanserer ✓" : "· ubalanse!"}
+                  </td>
+                  <td className="px-6 py-3 text-right tabular-nums">{nok(ledger.totalDebit)}</td>
+                  <td className="px-6 py-3 text-right tabular-nums">{nok(ledger.totalCredit)}</td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+        <p className="border-t border-line px-6 py-3 text-xs text-muted">
+          Foreløpig, avledet oppstilling av inntektssiden — omsetning omregnet til konto/mva.{" "}
+          <strong className="text-fg">Ikke kvalitetssikret regnskap.</strong> Kontoplan og
+          mva-koder må bekreftes av regnskapsfører. Bilagsrekke, kostnader og full SAF-T kommer
+          i neste fase (se REGNSKAPSMODUL-PLAN.md). {ledger.count} salg · eks. mva{" "}
+          {nok(ledger.eks)} · mva {nok(ledger.mva)}.
+        </p>
       </div>
 
       <div className="border border-line bg-surface">

@@ -35,6 +35,41 @@ function osloMidnight(y: number, m: number, d: number): string {
   return new Date(base - tzOffsetMs(base, "Europe/Oslo")).toISOString();
 }
 
+const MND_LANG = [
+  "Januar", "Februar", "Mars", "April", "Mai", "Juni",
+  "Juli", "August", "September", "Oktober", "November", "Desember",
+];
+
+/**
+ * Én måned (Oslo) fra 'yyyy-mm' (default inneværende måned), med forrige/neste
+ * måned til enkel navigasjon.
+ */
+export function osloMonthRange(mnd?: string): {
+  key: string;
+  label: string;
+  fromIso: string;
+  toIso: string;
+  prev: string;
+  next: string;
+} {
+  const now = new Date();
+  const curKey = now
+    .toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" })
+    .slice(0, 7);
+  const key = mnd && /^\d{4}-\d{2}$/.test(mnd) ? mnd : curKey;
+  const [y, m] = key.split("-").map(Number);
+  const prevD = new Date(Date.UTC(y, m - 2, 1));
+  const nextD = new Date(Date.UTC(y, m, 1));
+  return {
+    key,
+    label: `${MND_LANG[m - 1]} ${y}`,
+    fromIso: osloMidnight(y, m, 1),
+    toIso: osloMidnight(y, m + 1, 1),
+    prev: `${prevD.getUTCFullYear()}-${pad(prevD.getUTCMonth() + 1)}`,
+    next: `${nextD.getUTCFullYear()}-${pad(nextD.getUTCMonth() + 1)}`,
+  };
+}
+
 /**
  * Løs periode fra søkeparametre. Default: inneværende kvartal/år.
  *   type=kvartal&ar=2026&kv=3
