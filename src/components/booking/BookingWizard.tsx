@@ -70,6 +70,7 @@ export function BookingWizard({
 
   const [slots, setSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [slotsError, setSlotsError] = useState(false);
 
   // Neste åpne dager som klikkbare chips (hopper over stengte ukedager).
   const openDays = useMemo(() => {
@@ -115,10 +116,12 @@ export function BookingWizard({
     let active = true;
     if (step === 2 && date && barber && service) {
       setLoadingSlots(true);
+      setSlotsError(false);
       setTime("");
-      getAvailableSlots(barber.name, service.name, date).then((s) => {
+      getAvailableSlots(barber.name, service.name, date).then((res) => {
         if (active) {
-          setSlots(s);
+          setSlots(res.slots);
+          setSlotsError(!!res.error);
           setLoadingSlots(false);
         }
       });
@@ -369,6 +372,11 @@ export function BookingWizard({
                 <p className="text-sm text-muted">Velg en dag først.</p>
               ) : loadingSlots ? (
                 <p className="text-sm text-muted">Henter ledige tider …</p>
+              ) : slotsError ? (
+                <p className="text-sm text-danger">
+                  Kunne ikke hente ledige tider akkurat nå. Prøv igjen om litt,
+                  eller velg en annen dato.
+                </p>
               ) : slots.length === 0 ? (
                 <p className="text-sm text-muted">
                   Ingen ledige tider denne dagen (stengt eller fullt). Prøv en annen dato.
@@ -404,6 +412,8 @@ export function BookingWizard({
             </div>
             <input
               placeholder="Fullt navn"
+              aria-label="Fullt navn"
+              autoComplete="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
@@ -411,7 +421,10 @@ export function BookingWizard({
             <div>
               <input
                 placeholder="E-post"
+                aria-label="E-post"
                 type="email"
+                autoComplete="email"
+                inputMode="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
@@ -423,6 +436,9 @@ export function BookingWizard({
             <div>
               <input
                 placeholder="Telefon (8 siffer)"
+                aria-label="Telefon"
+                type="tel"
+                autoComplete="tel"
                 inputMode="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
@@ -450,6 +466,19 @@ export function BookingWizard({
               </select>
             </div>
             {error && <p className="text-sm text-danger">{error}</p>}
+            {!pending && (!name.trim() || !emailOk || !phoneOk) && (
+              <p className="text-xs text-muted">
+                Fyll inn{" "}
+                {[
+                  !name.trim() ? "navn" : null,
+                  !emailOk ? "gyldig e-post" : null,
+                  !phoneOk ? "gyldig telefon" : null,
+                ]
+                  .filter(Boolean)
+                  .join(", ")}{" "}
+                for å bekrefte bookingen.
+              </p>
+            )}
           </div>
         )}
       </div>

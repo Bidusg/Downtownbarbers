@@ -2,13 +2,16 @@
 
 import { createClient } from "@/lib/supabase/server";
 
+/** Resultat av ledig-tid-oppslag: skiller «ingen tider» fra «henting feilet». */
+export type SlotsResult = { slots: string[]; error?: boolean };
+
 /** Ledige starttider (HH:MM) for barber + tjeneste + dato. Server-beregnet. */
 export async function getAvailableSlots(
   barber: string,
   service: string,
   date: string,
-): Promise<string[]> {
-  if (!barber || !service || !date) return [];
+): Promise<SlotsResult> {
+  if (!barber || !service || !date) return { slots: [] };
   try {
     const sb = await createClient();
     const { data, error } = await sb.rpc("available_slots", {
@@ -16,9 +19,9 @@ export async function getAvailableSlots(
       p_service: service,
       p_date: date,
     });
-    if (error || !data) return [];
-    return data as string[];
+    if (error) return { slots: [], error: true };
+    return { slots: (data as string[]) ?? [] };
   } catch {
-    return [];
+    return { slots: [], error: true };
   }
 }
