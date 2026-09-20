@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { AgendaBooking, ShopBarber, ShopService } from "@/lib/shop-queries";
-import { markNoShow, cancelBooking } from "@/app/kasse/actions";
+import { markNoShow, cancelBooking, reopenBooking } from "@/app/kasse/actions";
 import { DeskBooking } from "@/components/kasse/DeskBooking";
 import { PaymentControls } from "@/components/kasse/PaymentControls";
 import { SendReceiptButton } from "@/components/kasse/SendReceiptButton";
@@ -43,10 +43,11 @@ export function BookingDetailModal({
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [mode, setMode] = useState<"actions" | "pay" | "cancel" | "noshow">(
-    "actions",
-  );
+  const [mode, setMode] = useState<
+    "actions" | "pay" | "cancel" | "noshow" | "reopen"
+  >("actions");
   const [notify, setNotify] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
 
   const b = booking;
   const finished =
@@ -201,6 +202,47 @@ export function BookingDetailModal({
               Angre
             </button>
           </div>
+        ) : mode === "reopen" ? (
+          <div>
+            <p className="mb-2 text-sm text-fg">
+              {b.status === "completed"
+                ? "Angre salget? Salgsregistreringen slettes."
+                : "Angre «ikke møtt»?"}
+            </p>
+            {err && (
+              <p className="mb-2 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+                {err}
+              </p>
+            )}
+            <div className="flex items-center gap-2">
+              <button
+                disabled={pending}
+                onClick={() =>
+                  start(async () => {
+                    const res = await reopenBooking(b.id);
+                    if (res?.error) {
+                      setErr(res.error);
+                      return;
+                    }
+                    onClose();
+                    router.refresh();
+                  })
+                }
+                className="rounded-md border border-line-2 px-3 py-1.5 text-xs font-semibold text-danger hover:border-danger disabled:opacity-50"
+              >
+                {pending ? "…" : "Ja, angre"}
+              </button>
+              <button
+                onClick={() => {
+                  setErr(null);
+                  setMode("actions");
+                }}
+                className="px-2 py-1.5 text-xs text-muted hover:text-fg"
+              >
+                Avbryt
+              </button>
+            </div>
+          </div>
         ) : (
           <div className="flex flex-wrap gap-2">
             {!finished && (
@@ -242,6 +284,14 @@ export function BookingDetailModal({
               <>
                 {b.status === "completed" && b.email && (
                   <SendReceiptButton bookingId={b.id} />
+                )}
+                {(b.status === "completed" || b.status === "no_show") && (
+                  <button
+                    onClick={() => setMode("reopen")}
+                    className="rounded-md border border-line-2 px-3 py-2 text-sm text-muted transition-colors hover:text-fg"
+                  >
+                    Angre
+                  </button>
                 )}
                 <DeskBooking
                   services={services}

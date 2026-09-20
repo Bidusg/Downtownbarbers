@@ -3,7 +3,12 @@
 import { useState, useTransition } from "react";
 import type { TodayBooking } from "@/lib/dashboard-queries";
 import type { ShopBarber, ShopService } from "@/lib/shop-queries";
-import { markNoShow, cancelBooking, sendReceiptForBooking } from "@/app/kasse/actions";
+import {
+  markNoShow,
+  cancelBooking,
+  reopenBooking,
+  sendReceiptForBooking,
+} from "@/app/kasse/actions";
 import { DeskBooking } from "@/components/kasse/DeskBooking";
 import { PaymentControls } from "@/components/kasse/PaymentControls";
 import { Avatar } from "@/components/ui/Avatar";
@@ -38,7 +43,9 @@ function Row({
   barbers: ShopBarber[];
 }) {
   const [pending, start] = useTransition();
-  const [menu, setMenu] = useState<null | "pay" | "cancel" | "noshow">(null);
+  const [menu, setMenu] = useState<
+    null | "pay" | "cancel" | "noshow" | "reopen"
+  >(null);
   const [notify, setNotify] = useState(true);
 
   const done = b.status === "completed";
@@ -93,10 +100,45 @@ function Row({
 
         <span className="flex items-center gap-2">
           {finished ? (
-            <>
-              {done && <ReceiptButton b={b} />}
-              {rebook}
-            </>
+            menu === "reopen" ? (
+              <>
+                <span className="mr-1 text-xs text-muted">
+                  {done ? "Angre salget?" : "Angre?"}
+                </span>
+                <button
+                  onClick={() =>
+                    start(async () => {
+                      const res = await reopenBooking(b.id);
+                      if (!res?.error) setMenu(null);
+                    })
+                  }
+                  disabled={pending}
+                  className="rounded-md border border-line-2 px-2.5 py-1.5 text-xs font-semibold text-danger hover:border-danger disabled:opacity-50"
+                >
+                  Ja, angre
+                </button>
+                <button
+                  onClick={() => setMenu(null)}
+                  className="px-2 py-1.5 text-xs text-muted hover:text-fg"
+                >
+                  ✕
+                </button>
+              </>
+            ) : (
+              <>
+                {done && <ReceiptButton b={b} />}
+                {(done || noshow) && (
+                  <button
+                    onClick={() => setMenu("reopen")}
+                    disabled={pending}
+                    className="rounded-md border border-line-2 px-2.5 py-1.5 text-xs text-muted hover:text-fg disabled:opacity-50"
+                  >
+                    Angre
+                  </button>
+                )}
+                {rebook}
+              </>
+            )
           ) : menu === "noshow" ? (
             <>
               <span className="mr-1 text-xs text-muted">Ikke møtt?</span>

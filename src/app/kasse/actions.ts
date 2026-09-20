@@ -35,105 +35,167 @@ function fmtClock(iso: string) {
   }
 }
 
+/** Produktlinje ved betaling (voks/sjampo o.l.). Pris hentes server-side. */
+export type SaleProduct = { id: string; qty: number };
+
 export type CompleteOptions = {
   paymentMethod?: string;
   /** Kundeinfo som fylles inn ved betaling (drop-in) – lagres i CRM. */
   customer?: { name?: string; email?: string; phone?: string };
   /** Send kvittering på e-post. */
   sendReceipt?: boolean;
+  /** Produkter som selges sammen med timen (varesalg over disk). */
+  products?: SaleProduct[];
 };
 
+export type CompleteResult = { ok?: true; error?: string };
+
 /**
- * Fullfør en time: registrer salget + betalingsmåte, oppdater evt. kundeinfo
- * i CRM (drop-in), og send kvittering på e-post hvis ønsket.
+ * Fullfør en time: registrer salget (tjeneste + evt. produkter) atomisk,
+ * oppdater evt. kundeinfo i CRM (drop-in), og send kvittering hvis ønsket.
+ *
+ * VIKTIG: selve salget skrives via record_sale-RPC-en (én transaksjon:
+ * sale + sale_items + lager + status). Feiler den, markeres IKKE timen
+ * fullført, og feilen returneres slik at kassen kan vise den – i stedet
+ * for at et salg forsvinner uten spor (jf. live-test 19. sept).
  */
 export async function completeBooking(
   bookingId: string,
   opts?: CompleteOptions | string,
-) {
+): Promise<CompleteResult> {
   // Bakoverkompatibelt: tidligere signatur var (id, paymentMethod: string).
   const o: CompleteOptions =
     typeof opts === "string" ? { paymentMethod: opts } : (opts ?? {});
 
   const sb = await createClient();
 
+  // Booking-info til CRM/kvittering (leses før salget registreres).
   const { data: b } = await sb
     .from("bookings")
     .select(
-      "staff_id, customer_id, service_id, price_nok, start_at, services(name), staff(full_name)",
+      "customer_id, price_nok, start_at, services(name), staff(full_name)",
     )
     .eq("id", bookingId)
     .maybeSingle();
 
-  await sb.from("bookings").update({ status: "completed" }).eq("id", bookingId);
+  // Registrer salget atomisk. Prisene settes server-side (booking + products).
+  const products = (o.products ?? [])
+    .filter((p) => p && p.id)
+    .map((p) => ({ id: p.id, qty: Math.max(1, Math.floor(p.qty || 1)) }));
+  const { error: saleErr } = await sb.rpc("record_sale", {
+    p_booking: bookingId,
+    p_payment_method: o.paymentMethod ?? null,
+    p_products: products,
+  });
+  if (saleErr) {
+    return {
+      error:
+        saleErr.message ||
+        "Salget ble ikke registrert. Ingenting er lagret – prøv igjen.",
+    };
+  }
 
-  if (b) {
-    const { data: sale } = await sb
-      .from("sales")
-      .insert({
-        booking_id: bookingId,
-        staff_id: b.staff_id,
-        customer_id: b.customer_id,
-        total_nok: b.price_nok,
-        payment_method: o.paymentMethod ?? null,
-      })
-      .select("id")
-      .maybeSingle();
+  // --- Alt under er best-effort. Salget er allerede trygt registrert. ---
 
-    if (sale && b.service_id) {
-      await sb.from("sale_items").insert({
-        sale_id: sale.id,
-        kind: "service",
-        ref_id: b.service_id,
-        quantity: 1,
-        price_nok: b.price_nok,
+  // Legg inn / oppdater kundeinfo i CRM (typisk for drop-in ved betaling).
+  const info = o.customer;
+  if (
+    b?.customer_id &&
+    info &&
+    (info.name?.trim() || info.email?.trim() || info.phone?.trim())
+  ) {
+    const patch: Record<string, string> = {};
+    if (info.name?.trim()) patch.full_name = info.name.trim();
+    if (info.email?.trim()) patch.email = info.email.trim();
+    if (info.phone?.trim()) patch.phone = info.phone.trim();
+    await sb.from("customers").update(patch).eq("id", b.customer_id);
+  }
+
+  // Kvittering på e-post (degraderer stille – ikke en del av salgsintegriteten).
+  if (o.sendReceipt && b) {
+    let email = info?.email?.trim();
+    let name = info?.name?.trim();
+    if ((!email || !name) && b.customer_id) {
+      const { data: c } = await sb
+        .from("customers")
+        .select("full_name, email")
+        .eq("id", b.customer_id)
+        .maybeSingle();
+      email = email || (c?.email ?? undefined);
+      name = name || (c?.full_name ?? "");
+    }
+    if (email) {
+      const s = b.services as { name?: string } | null;
+      const st = b.staff as { full_name?: string } | null;
+      await sendReceiptEmail({
+        to: email,
+        name: name ?? "",
+        service: s?.name ?? "",
+        barber: st?.full_name ?? "",
+        date: fmtDay(b.start_at),
+        price: `${b.price_nok} kr`,
+        paymentMethod: o.paymentMethod,
       });
-    }
-
-    // Legg inn / oppdater kundeinfo i CRM (typisk for drop-in ved betaling).
-    const info = o.customer;
-    if (
-      b.customer_id &&
-      info &&
-      (info.name?.trim() || info.email?.trim() || info.phone?.trim())
-    ) {
-      const patch: Record<string, string> = {};
-      if (info.name?.trim()) patch.full_name = info.name.trim();
-      if (info.email?.trim()) patch.email = info.email.trim();
-      if (info.phone?.trim()) patch.phone = info.phone.trim();
-      await sb.from("customers").update(patch).eq("id", b.customer_id);
-    }
-
-    // Kvittering på e-post.
-    if (o.sendReceipt) {
-      let email = info?.email?.trim();
-      let name = info?.name?.trim();
-      if (!email || !name) {
-        const { data: c } = await sb
-          .from("customers")
-          .select("full_name, email")
-          .eq("id", b.customer_id)
-          .maybeSingle();
-        email = email || (c?.email ?? undefined);
-        name = name || (c?.full_name ?? "");
-      }
-      if (email) {
-        const s = b.services as { name?: string } | null;
-        const st = b.staff as { full_name?: string } | null;
-        await sendReceiptEmail({
-          to: email,
-          name: name ?? "",
-          service: s?.name ?? "",
-          barber: st?.full_name ?? "",
-          date: fmtDay(b.start_at),
-          price: `${b.price_nok} kr`,
-          paymentMethod: o.paymentMethod,
-        });
-      }
     }
   }
 
   refresh();
+  return { ok: true };
+}
+
+/**
+ * Angre en fullført / ikke-møtt time (feiltrykk på nettbrettet). Sletter
+ * salget, tilbakefører produktlager og setter timen tilbake til bekreftet.
+ */
+export async function reopenBooking(
+  bookingId: string,
+): Promise<{ ok?: true; error?: string }> {
+  try {
+    const sb = await createClient();
+    const { error } = await sb.rpc("reopen_booking", { p_booking: bookingId });
+    if (error) return { error: error.message };
+    refresh();
+    return { ok: true };
+  } catch {
+    return { error: "Kunne ikke angre. Prøv igjen." };
+  }
+}
+
+export type SellableProduct = { id: string; name: string; price_nok: number };
+
+/** Produkter som kan selges over disk i kassen (aktive, ikke gavekort). */
+export async function listSellableProducts(): Promise<SellableProduct[]> {
+  try {
+    const sb = await createClient();
+    const { data } = await sb
+      .from("products")
+      .select("id, name, price_nok, is_gift_card, active")
+      .eq("active", true)
+      .eq("is_gift_card", false)
+      .order("name");
+    return ((data as SellableProduct[]) ?? []).map((p) => ({
+      id: p.id,
+      name: p.name,
+      price_nok: Number(p.price_nok) || 0,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/** Tjenesteprisen for en booking (til totalvisning i kassen). */
+export async function getBookingPrice(bookingId: string): Promise<number> {
+  try {
+    const sb = await createClient();
+    const { data } = await sb
+      .from("bookings")
+      .select("price_nok")
+      .eq("id", bookingId)
+      .maybeSingle();
+    return Number(data?.price_nok) || 0;
+  } catch {
+    return 0;
+  }
 }
 
 /**
