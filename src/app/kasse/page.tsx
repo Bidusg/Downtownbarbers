@@ -6,6 +6,7 @@ import { getUpcomingBookings } from "@/lib/admin-queries";
 import { getBarbers, getServices } from "@/lib/shop-queries";
 import { ShopBookingList } from "@/components/kasse/ShopBookingList";
 import { DeskBooking } from "@/components/kasse/DeskBooking";
+import { QuickSale } from "@/components/kasse/QuickSale";
 import { NoticeBanner } from "@/components/admin/NoticeBanner";
 import { getActiveNotices } from "@/lib/notices-queries";
 
@@ -71,6 +72,7 @@ export default async function KasseDashboard() {
             barbers={barbers}
             label="+ Ny booking"
           />
+          <QuickSale barbers={barbers} />
           <Link
             href="/kasse/kalender"
             className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"

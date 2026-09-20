@@ -183,6 +183,77 @@ export async function listSellableProducts(): Promise<SellableProduct[]> {
   }
 }
 
+export type SellableService = { name: string; price_nok: number };
+
+/** Aktive behandlinger som kan selges i kassen (med pris). */
+export async function listSellableServices(): Promise<SellableService[]> {
+  try {
+    const sb = await createClient();
+    const { data } = await sb
+      .from("services")
+      .select("name, price_nok, active, sort_order")
+      .eq("active", true)
+      .order("sort_order");
+    return ((data as SellableService[]) ?? []).map((s) => ({
+      name: s.name,
+      price_nok: Number(s.price_nok) || 0,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export type WalkinInput = {
+  staffId?: string;
+  paymentMethod: string;
+  service?: string;
+  products?: SaleProduct[];
+  customer?: { name?: string; email?: string; phone?: string };
+  makeMember?: boolean;
+};
+
+/**
+ * Hurtigsalg / drop-in uten booking: behandling og/eller varer over disk,
+ * med valgfri kundeinfo (lagres i kartoteket) og valgfritt medlemskap
+ * (samtykke). Priser settes server-side i record_walkin_sale.
+ */
+export async function recordWalkinSale(
+  input: WalkinInput,
+): Promise<{ ok?: true; error?: string }> {
+  try {
+    const sb = await createClient();
+    const products = (input.products ?? [])
+      .filter((p) => p && p.id)
+      .map((p) => ({ id: p.id, qty: Math.max(1, Math.floor(p.qty || 1)) }));
+    const c = input.customer;
+    const customer =
+      c && (c.name?.trim() || c.email?.trim() || c.phone?.trim())
+        ? {
+            name: c.name?.trim() || null,
+            email: c.email?.trim() || null,
+            phone: c.phone?.trim() || null,
+          }
+        : null;
+    const { error } = await sb.rpc("record_walkin_sale", {
+      p_staff: input.staffId || null,
+      p_payment_method: input.paymentMethod ?? null,
+      p_service: input.service?.trim() || null,
+      p_products: products,
+      p_customer: customer,
+      p_make_member: !!input.makeMember,
+    });
+    if (error) {
+      return {
+        error: error.message || "Salget ble ikke registrert. Prøv igjen.",
+      };
+    }
+    refresh();
+    return { ok: true };
+  } catch {
+    return { error: "Noe gikk galt. Prøv igjen." };
+  }
+}
+
 /** Tjenesteprisen for en booking (til totalvisning i kassen). */
 export async function getBookingPrice(bookingId: string): Promise<number> {
   try {
