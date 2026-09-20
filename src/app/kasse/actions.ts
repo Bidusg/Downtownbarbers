@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getLoyaltyStatus } from "@/lib/loyalty-queries";
 import {
   sendBookingConfirmation,
   sendReceiptEmail,
@@ -251,6 +252,33 @@ export async function recordWalkinSale(
     return { ok: true };
   } catch {
     return { error: "Noe gikk galt. Prøv igjen." };
+  }
+}
+
+export type BookingLoyalty = {
+  customerId: string;
+  progress: number;
+  required: number;
+  rewardDue: boolean;
+};
+
+/** Klippekort-status for bookingens kunde (til betalingsflyten). */
+export async function getBookingLoyalty(
+  bookingId: string,
+): Promise<BookingLoyalty | null> {
+  try {
+    const sb = await createClient();
+    const { data: b } = await sb
+      .from("bookings")
+      .select("customer_id")
+      .eq("id", bookingId)
+      .maybeSingle();
+    const cid = (b?.customer_id as string | null | undefined) ?? null;
+    if (!cid) return null;
+    const l = await getLoyaltyStatus(cid);
+    return { customerId: cid, ...l };
+  } catch {
+    return null;
   }
 }
 

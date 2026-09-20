@@ -4,9 +4,12 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   completeBooking,
   getBookingPrice,
+  getBookingLoyalty,
   listSellableProducts,
   type SellableProduct,
+  type BookingLoyalty,
 } from "@/app/kasse/actions";
+import { redeemLoyalty } from "@/app/kasse/kunder/[id]/loyalty-actions";
 
 const PAYMENTS = ["Kontant", "Kort", "Vipps"];
 
@@ -53,14 +56,40 @@ export function PaymentControls({
   const [cart, setCart] = useState<Record<string, number>>({});
   const [showProducts, setShowProducts] = useState(false);
 
+  // Klippekort
+  const [loyalty, setLoyalty] = useState<BookingLoyalty | null>(null);
+  const [redeemed, setRedeemed] = useState(false);
+  const [redeeming, startRedeem] = useTransition();
+
   useEffect(() => {
     let alive = true;
     getBookingPrice(bookingId).then((p) => alive && setServicePrice(p));
     listSellableProducts().then((p) => alive && setProducts(p));
+    getBookingLoyalty(bookingId).then((l) => alive && setLoyalty(l));
     return () => {
       alive = false;
     };
   }, [bookingId]);
+
+  function redeem() {
+    if (!loyalty) return;
+    setError(null);
+    startRedeem(async () => {
+      const status = await redeemLoyalty(loyalty.customerId);
+      if (status === "ok") {
+        setRedeemed(true);
+        setLoyalty({ ...loyalty, rewardDue: false, progress: 0 });
+      } else {
+        setError(
+          status === "not_ready"
+            ? "Ikke nok klipp til å løse inn ennå."
+            : status === "forbidden"
+              ? "Ingen tilgang til å løse inn."
+              : "Kunne ikke løse inn klippekortet. Prøv igjen.",
+        );
+      }
+    });
+  }
 
   const cartLines = useMemo(
     () =>
@@ -207,6 +236,35 @@ export function PaymentControls({
         />
         Send kvittering på e-post
       </label>
+
+      {/* Klippekort */}
+      {loyalty && (
+        <div className="mb-3 rounded-lg border border-line bg-canvas px-3 py-2 text-xs">
+          {redeemed ? (
+            <span className="font-semibold text-accent-soft">
+              Gratis klipp løst inn ✓ — telleren er nullstilt.
+            </span>
+          ) : loyalty.rewardDue ? (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-semibold text-accent-soft">
+                Gratis klipp opptjent! 🎉
+              </span>
+              <button
+                type="button"
+                onClick={redeem}
+                disabled={redeeming}
+                className="rounded-md bg-accent-soft px-3 py-1.5 font-semibold text-[#211E1A] transition-opacity hover:opacity-90 disabled:opacity-60"
+              >
+                {redeeming ? "Løser inn …" : "Løs inn gratis klipp"}
+              </button>
+            </div>
+          ) : (
+            <span className="text-muted">
+              Klippekort: {loyalty.progress} / {loyalty.required} klipp
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Total */}
       <div className="mb-3 flex items-center justify-between rounded-lg bg-canvas px-3 py-2">
