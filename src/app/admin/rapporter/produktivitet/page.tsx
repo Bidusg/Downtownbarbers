@@ -118,7 +118,7 @@ export default async function AdminProduktivitet({
           <div>
             <h2 className="font-display text-lg font-bold">Scorecard per barber</h2>
             <p className="mt-1 text-xs text-muted">
-              Timeutnyttelse er booket tid mot faktisk turnus (uke A/B, fravær trukket fra).
+              Timeutnyttelse er booket tid mot faktisk turnus (uke A/B, fravær trukket fra); barbere uten turnus regnes mot åpningstiden. Samme definisjon som Nøkkeltall.
             </p>
           </div>
           <a

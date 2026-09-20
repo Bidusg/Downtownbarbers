@@ -91,7 +91,7 @@ export default async function AdminNokkeltall({
           value={k.referral.withSource > 0 ? `${k.referral.pct} %` : "—"}
           sub="munn-til-munn"
         />
-        <StatTile label="Timeutnyttelse" value={`${k.utilization.salonPct} %`} sub="mot åpningstid" />
+        <StatTile label="Timeutnyttelse" value={`${k.utilization.salonPct} %`} sub="mot turnus" />
       </div>
 
       {/* Timeutnyttelse */}
@@ -100,7 +100,7 @@ export default async function AdminNokkeltall({
           <h2 className="font-display text-lg font-bold">Timeutnyttelse</h2>
           <p className="mt-1 text-xs text-muted">
             Booket {k.utilization.bookedHours} t av {k.utilization.capacityHours} t kapasitet ·{" "}
-            {k.utilization.businessDays} åpningsdager × {k.utilization.activeBarbers} barberer (09–21, man–lør)
+            {k.utilization.activeBarbers} barberer, mot faktisk turnus (uke A/B, fravær trukket fra)
           </p>
         </div>
         <div className="p-6">
@@ -119,7 +119,9 @@ export default async function AdminNokkeltall({
             </div>
           )}
           <p className="mt-6 border-t border-line pt-4 text-xs text-muted">
-            v1: mot åpningstid. Turnus-presis utnyttelse (uke A/B per barber) aktiveres når A/B-anker er satt.
+            Booket tid mot faktisk turnus (uke A/B, fravær trukket fra). Barbere
+            uten turnus regnes mot salongens åpningstid. Samme definisjon som
+            Produktivitet-rapporten.
           </p>
         </div>
       </div>

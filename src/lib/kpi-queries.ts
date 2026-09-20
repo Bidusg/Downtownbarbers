@@ -7,12 +7,12 @@ import { getRevenueBreakdown, type Range } from "@/lib/report-queries";
  *   Omsetning/snittsalg, rebooking %, anbefaling % (kundekilde) og
  *   timeutnyttelse. Bygger på eksisterende data. Defensivt.
  *
- *   Timeutnyttelse v1: booket tid mot åpningstid (09–21, man–lør) ×
- *   antall aktive barberer. Turnus-presis (staff_hours uke A/B) er en
- *   senere oppgradering – appen har i dag ingen A/B-anker for kalenderuker.
+ *   Timeutnyttelse: booket tid mot faktisk turnus (samme kilde som
+ *   Produktivitet – RPC turnus_capacity_minutes, 0042/0047), med
+ *   salongens åpningstid som fallback for barbere uten turnus. Én felles
+ *   definisjon på tvers av Nøkkeltall og Produktivitet.
  * ===================================================================== */
 
-const OPEN_MIN_PER_DAY = 12 * 60; // 09–21
 const WOM = /anbefal/i; // munn-til-munn-kilder
 
 /** Antall åpningsdager (man–lør) i [from, to] inklusiv. */
@@ -65,7 +65,7 @@ export async function getKpiOverview(r: Range): Promise<KpiOverview> {
   };
   try {
     const sb = await createClient();
-    const [breakdown, staff, bookingsFwd, bookingsRange, newCustomerCount, newCustomerSources] = await Promise.all([
+    const [breakdown, staff, bookingsFwd, bookingsRange, newCustomerCount, newCustomerSources, capacityRes] = await Promise.all([
       getRevenueBreakdown(r),
       getStaffOptions(),
       // Alle ikke-avlyste bookinger fra periodestart og framover (til rebooking).
@@ -93,6 +93,8 @@ export async function getKpiOverview(r: Range): Promise<KpiOverview> {
         .lt("created_at", r.endIso)
         .not("source", "is", null)
         .limit(100000),
+      // Turnus-presis kapasitet (minutter per staff) – samme RPC som Produktivitet.
+      sb.rpc("turnus_capacity_minutes", { p_from: r.from, p_to: r.to }),
     ]);
 
     /* ----- Rebooking ----- */
@@ -127,15 +129,22 @@ export async function getKpiOverview(r: Range): Promise<KpiOverview> {
       if (b.staff_id) bookedMinByStaff.set(b.staff_id as string, (bookedMinByStaff.get(b.staff_id as string) ?? 0) + mins);
     }
     const activeBarbers = staff.length;
-    const capacityMinPerBarber = bd * OPEN_MIN_PER_DAY;
-    const capacityMinTotal = capacityMinPerBarber * activeBarbers;
+    // Kapasitet per barber fra turnus-RPC-en (med åpningstid-fallback) – samme
+    // kilde som Produktivitet, så tallene stemmer overens.
+    const capMinByStaff = new Map<string, number>();
+    for (const c of (capacityRes.data ?? []) as { staff_id: string; minutes: number }[]) {
+      capMinByStaff.set(c.staff_id, Number(c.minutes) || 0);
+    }
+    let capacityMinTotal = 0;
+    for (const st of staff) capacityMinTotal += capMinByStaff.get(st.id) ?? 0;
     const perBarber = staff
       .map((st) => {
         const mins = bookedMinByStaff.get(st.id) ?? 0;
+        const cap = capMinByStaff.get(st.id) ?? 0;
         return {
           name: st.full_name,
           hours: Math.round((mins / 60) * 10) / 10,
-          pct: capacityMinPerBarber > 0 ? Math.round((mins / capacityMinPerBarber) * 100) : 0,
+          pct: cap > 0 ? Math.round((mins / cap) * 100) : 0,
         };
       })
       .sort((a, b) => b.pct - a.pct);
