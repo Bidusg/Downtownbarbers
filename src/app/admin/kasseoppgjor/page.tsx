@@ -1,6 +1,10 @@
 import { StatTile } from "@/components/ui/StatTile";
 import { SettlementManager } from "@/components/admin/SettlementManager";
-import { getCashSettlements, getSalesTotalForDate } from "@/lib/ops-queries";
+import {
+  getCashSettlements,
+  getSalesTotalForDate,
+  getDiscountTotalForDate,
+} from "@/lib/ops-queries";
 import { getSalesByMethodToday } from "@/lib/dashboard-queries";
 
 export const dynamic = "force-dynamic";
@@ -19,9 +23,10 @@ export default async function AdminKasseoppgjor() {
   const today = new Date().toLocaleDateString("en-CA", {
     timeZone: "Europe/Oslo",
   });
-  const [settlements, todaySales, byMethod] = await Promise.all([
+  const [settlements, todaySales, todayDiscount, byMethod] = await Promise.all([
     getCashSettlements(),
     getSalesTotalForDate(today),
+    getDiscountTotalForDate(today),
     getSalesByMethodToday(),
   ]);
 
@@ -35,11 +40,16 @@ export default async function AdminKasseoppgjor() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3">
         <StatTile
           label="Registrert salg i dag"
           value={kr(todaySales)}
           sub="automatisk fra kassen, inkl. mva"
+        />
+        <StatTile
+          label="Rabatt gitt i dag"
+          value={kr(todayDiscount)}
+          sub="samlet avslag på dagens salg"
         />
         <StatTile
           label="Oppgjør registrert"

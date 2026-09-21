@@ -247,6 +247,26 @@ export async function getSalesTotalForDate(isoDate: string): Promise<number> {
   }
 }
 
+/** Sum rabatt gitt for en gitt dato – synliggjøres i kasseoppgjøret. */
+export async function getDiscountTotalForDate(isoDate: string): Promise<number> {
+  try {
+    const sb = await createClient();
+    const start = new Date(`${isoDate}T00:00:00.000Z`).toISOString();
+    const end = new Date(`${isoDate}T00:00:00.000Z`);
+    end.setUTCDate(end.getUTCDate() + 1);
+    const { data } = await sb
+      .from("sales")
+      .select("discount_nok")
+      .gte("sold_at", start)
+      .lt("sold_at", end.toISOString());
+    return Math.round(
+      (data ?? []).reduce((s, r) => s + (Number(r.discount_nok) || 0), 0),
+    );
+  } catch {
+    return 0;
+  }
+}
+
 /* ------------------------------ FRAVÆR ------------------------------ */
 export type Absence = {
   id: string;
