@@ -5,12 +5,111 @@ import type { AdminStaff } from "@/lib/admin-queries";
 import { FileInput } from "@/components/ui/FileInput";
 import {
   createStaff,
+  updateStaff,
   toggleStaff,
   setStaffPin,
   setStaffPostnummer,
   createStaffLogin,
   resendStaffPassword,
 } from "@/app/admin/ansatte/actions";
+
+const editInputCls =
+  "w-full border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft";
+
+/** Rediger-modal for én ansatt: navn, e-post, tittel, ansattnr. */
+function EditStaffModal({
+  staff,
+  onClose,
+}: {
+  staff: AdminStaff;
+  onClose: () => void;
+}) {
+  const [fullName, setFullName] = useState(staff.full_name);
+  const [email, setEmail] = useState(staff.email ?? "");
+  const [title, setTitle] = useState(staff.title ?? "");
+  const [empNo, setEmpNo] = useState(staff.employee_number ?? "");
+  const [err, setErr] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  function save() {
+    setErr(null);
+    start(async () => {
+      const r = await updateStaff(staff.id, {
+        full_name: fullName,
+        email,
+        title,
+        employee_number: empNo,
+      });
+      if (r.error) setErr(r.error);
+      else onClose();
+    });
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md border border-line bg-surface p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="font-display text-lg font-bold text-fg">
+            Rediger ansatt
+          </h3>
+          <button
+            onClick={onClose}
+            aria-label="Lukk"
+            className="text-2xl leading-none text-muted hover:text-fg"
+          >
+            ×
+          </button>
+        </div>
+        <div className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs text-muted">Fullt navn</label>
+            <input value={fullName} onChange={(e) => setFullName(e.target.value)} className={editInputCls} />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted">
+              E-post <span className="text-muted">(kreves for innlogging)</span>
+            </label>
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              type="email"
+              inputMode="email"
+              placeholder="navn@epost.no"
+              className={editInputCls}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted">Tittel</label>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Barber / Master / Lærling" className={editInputCls} />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted">Ansattnr</label>
+            <input value={empNo} onChange={(e) => setEmpNo(e.target.value)} placeholder="DB-007" className={editInputCls} />
+          </div>
+          {err && <p className="text-xs text-danger">{err}</p>}
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              onClick={save}
+              disabled={pending}
+              className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-40"
+            >
+              {pending ? "Lagrer …" : "Lagre"}
+            </button>
+            <button onClick={onClose} className="text-sm text-muted hover:text-fg">
+              Avbryt
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function LoginCell({
   id,
@@ -266,10 +365,14 @@ function PostnummerCell({
 
 export function StaffManager({ staff }: { staff: AdminStaff[] }) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<AdminStaff | null>(null);
   const [pending, start] = useTransition();
 
   return (
     <div className="space-y-6">
+      {editing && (
+        <EditStaffModal staff={editing} onClose={() => setEditing(null)} />
+      )}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted">{staff.length} ansatte</p>
         <button
@@ -290,6 +393,7 @@ export function StaffManager({ staff }: { staff: AdminStaff[] }) {
         >
           <input name="employee_number" placeholder="Ansattnr (f.eks. DB-007)" required className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft" />
           <input name="full_name" placeholder="Fullt navn" required className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft" />
+          <input name="email" type="email" inputMode="email" placeholder="E-post (for innlogging)" className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft" />
           <input name="title" placeholder="Tittel (Barber / Master / Lærling)" className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft" />
           <input name="bio" placeholder="Kort bio" className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft" />
           <input name="postnummer" placeholder="Postnummer (passord til lønnslipp-ZIP)" inputMode="numeric" maxLength={4} pattern="\d{4}" className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft" />
@@ -336,7 +440,25 @@ export function StaffManager({ staff }: { staff: AdminStaff[] }) {
                     <span className="flex h-9 w-9 items-center justify-center bg-surface-2 font-display text-sm font-bold text-fg">
                       {s.full_name.charAt(0)}
                     </span>
-                    <span className="font-medium text-fg">{s.full_name}</span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-fg">{s.full_name}</span>
+                        <button
+                          onClick={() => setEditing(s)}
+                          className="text-xs text-accent-soft hover:underline"
+                        >
+                          Rediger
+                        </button>
+                      </div>
+                      <span
+                        className={
+                          "block text-xs " +
+                          (s.email ? "text-muted" : "text-danger")
+                        }
+                      >
+                        {s.email ?? "Mangler e-post"}
+                      </span>
+                    </div>
                   </div>
                 </td>
                 <td className="px-4 py-3 text-muted">{s.employee_number ?? "—"}</td>

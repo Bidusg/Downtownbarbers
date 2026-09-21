@@ -139,7 +139,7 @@ export function CommandPalette() {
             placeholder="Søk i admin-sidene…"
             aria-label="Søk i admin-sidene"
             aria-controls="command-palette-list"
-            className="h-12 w-full bg-transparent text-sm text-fg outline-none placeholder:text-muted"
+            className="h-12 w-full bg-transparent text-sm text-fg outline-none focus:outline-none focus-visible:outline-none placeholder:text-muted"
           />
           <kbd className="hidden shrink-0 rounded border border-line-2 px-1.5 py-0.5 text-[10px] font-semibold text-muted sm:inline">
             Esc

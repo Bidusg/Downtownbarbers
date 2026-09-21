@@ -221,6 +221,7 @@ export async function createStaff(formData: FormData) {
       employee_number: String(formData.get("employee_number") ?? "") || null,
       full_name: String(formData.get("full_name") ?? ""),
       title: String(formData.get("title") ?? "") || null,
+      email: String(formData.get("email") ?? "").trim().toLowerCase() || null,
       bio: String(formData.get("bio") ?? "") || null,
       postnummer: String(formData.get("postnummer") ?? "").trim() || null,
       photo_url,
@@ -279,6 +280,43 @@ export async function setStaffPostnummer(
   if (error) {
     console.error("setStaffPostnummer failed:", error);
     return { error: `Kunne ikke lagre postnummer: ${error.message}` };
+  }
+  revalidatePath("/admin/ansatte");
+  return { ok: true };
+}
+
+/**
+ * Rediger grunndata på en ansatt: navn, e-post, tittel, ansattnr. E-post er
+ * det som trengs for å opprette innlogging. Kun admin.
+ */
+export async function updateStaff(
+  id: string,
+  fields: {
+    full_name?: string;
+    email?: string;
+    title?: string;
+    employee_number?: string;
+  },
+): Promise<{ ok?: true; error?: string }> {
+  await requireRole(["admin"]);
+  const patch: Record<string, string | null> = {};
+  if (fields.full_name !== undefined) {
+    const v = fields.full_name.trim();
+    if (!v) return { error: "Navn kan ikke være tomt." };
+    patch.full_name = v;
+  }
+  if (fields.email !== undefined) {
+    patch.email = fields.email.trim().toLowerCase() || null;
+  }
+  if (fields.title !== undefined) patch.title = fields.title.trim() || null;
+  if (fields.employee_number !== undefined)
+    patch.employee_number = fields.employee_number.trim() || null;
+
+  if (Object.keys(patch).length === 0) return { ok: true };
+  const sb = await createClient();
+  const { error } = await sb.from("staff").update(patch).eq("id", id);
+  if (error) {
+    return { error: `Kunne ikke lagre: ${error.message}` };
   }
   revalidatePath("/admin/ansatte");
   return { ok: true };
