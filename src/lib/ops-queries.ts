@@ -345,6 +345,28 @@ export async function getStaffHours(): Promise<StaffHour[]> {
   }
 }
 
+export type TurnusRotation = { weeks: number; currentIndex: number };
+
+/** Rotasjons-config: antall uker (N) + hvilken uke-indeks (1..N) som gjelder nå. */
+export async function getTurnusRotation(): Promise<TurnusRotation> {
+  try {
+    const sb = await createClient();
+    const today = new Date().toLocaleDateString("en-CA", {
+      timeZone: "Europe/Oslo",
+    });
+    const [cfg, idx] = await Promise.all([
+      sb.from("settings").select("value").eq("key", "turnus_rotation").maybeSingle(),
+      sb.rpc("turnus_week_parity", { p_date: today }),
+    ]);
+    const raw = Number((cfg.data?.value as { weeks?: number })?.weeks);
+    const weeks = Number.isFinite(raw) && raw >= 1 && raw <= 6 ? Math.floor(raw) : 2;
+    const currentIndex = Number(idx.data) || 1;
+    return { weeks, currentIndex };
+  } catch {
+    return { weeks: 2, currentIndex: 1 };
+  }
+}
+
 /** A/B-anker: er en PARTALLS ISO-uke «Uke A»? (default ja) */
 export async function getTurnusAnchor(): Promise<{ aIsEven: boolean }> {
   try {

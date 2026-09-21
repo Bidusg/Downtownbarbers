@@ -1,62 +1,66 @@
-# ENDRINGER — Timeplan: blokker booking + bulk-turnus (21. sept 2026)
+# ENDRINGER — Generell uke-rotasjon (21. sept 2026)
 
-Dette er **bygg 4**, oppå det som allerede er levert. Bygg 4 rører andre filer
-enn bygg 3 (timelister/turnus vs. kasse), så de kan committes hver for seg – bare
-`KJØR-I-SUPABASE.sql` deles (bygg 3 la til 0054, bygg 4 la til 0055).
+Dette er **bygg 5**, oppå det som allerede er levert (grunnmur, Shop UX, Timeplan-
+del 1). Fullfører Timeplan-eposet.
 
 ## Commit-tittel (lim inn i GitHub Desktop)
 
 ```
-Timeplan: blokker booking (alle ansatte) + bulk-turnus
+Timeplan: generell uke-rotasjon (A/B/C… valgfritt antall uker)
 ```
 
 ## Commit-beskrivelse (valgfri)
 
 ```
-Blokker booking (migrasjon 0055):
-- Admin sperrer hele eller deler av en dag for booking på ALLE ansatte
-  (helligdag, arrangement, felles fri) – som Fixit. Blokkerte tider forsvinner
-  fra ledige tider i booking (available_slots respekterer blokkeringene).
-- Admin → Timelister → «Blokker booking»: legg til (hel dag / tidsintervall +
-  grunn), se kommende blokkeringer, fjern.
+Generaliserer A/B-turnusen til et rotasjonsmønster med valgfritt antall uker
+(1–6). Mønsteret defineres én gang (antall uker + anker); systemet regner ut
+hvilken uke (1..N) som gjelder for enhver dato framover – uten årsskifte-glitch
+(teller uker fra ankeret, ikke ISO-ukenummer).
 
-Bulk-turnus:
-- Sett arbeidstid for flere ukedager (og uke A/B/hver uke) på én gang, f.eks.
-  man–fre 09–17, med valgfri «erstatt eksisterende». Admin → Timelister →
-  «Bulk-turnus».
+- Migrasjon 0056: generalisert turnus_week_parity + rotasjons-config i settings.
+  Seeder N=2 med et anker som REPRODUSERER dagens A/B, så ingenting forskyves.
+- Admin → Timelister: «Rotasjon»-kontroll (antall uker + «start på denne uken»),
+  uke-faner A..N, og parity-valg (Hver uke / Uke A..N) i turnus, bulk-turnus og
+  ukeplan. available_slots er uendret (funker for enhver N).
 ```
 
 ---
 
-## VIKTIG: kjør migrasjon 0055 i Supabase
+## VIKTIG: kjør migrasjon 0056 i Supabase
 
 Supabase → SQL Editor. Kjør enten hele `KJØR-I-SUPABASE.sql` på nytt (idempotent)
-eller bare den nye biten nederst – **0055** (ny `booking_blocks`-tabell +
-oppdatert `available_slots`). Uten den virker ikke blokker-booking.
+eller bare den nye biten nederst – **0056**. Den bevarer dagens A/B automatisk.
 
-Bulk-turnus trenger ingen migrasjon (bruker eksisterende `staff_hours`).
+## Slik bruker du det
+
+1. Admin → Timelister → **Rotasjon**: velg antall uker (f.eks. 3 = A/B/C). Huk av
+   «Start rotasjonen på denne uken» hvis du vil at inneværende uke skal være Uke A,
+   og Lagre.
+2. Uke-fanene (A, B, C …) lar deg sette ulik turnus per uke i mønsteret. «Hver uke»
+   gjelder alle.
+3. Bulk-turnus og «Ny/rediger vakt» har nå samme uke-valg (Hver uke / Uke A..N).
 
 ## Testsjekkliste
 
-- [ ] Admin → Timelister → «Blokker booking» → legg til en HEL dag fram i tid →
-      prøv å booke den dagen på nettsiden → ingen ledige tider for noen barber.
-- [ ] Legg til en DELVIS blokkering (f.eks. 12–14) → de timene forsvinner fra
-      ledige tider, resten av dagen er åpen.
-- [ ] Fjern blokkeringen → tidene kommer tilbake.
-- [ ] «Bulk-turnus» → velg ansatt, huk av man–fre, 09–17, «Hver uke» → Lagre →
-      sjekk at turnusen dukker opp i ukeplanen (uke A og B).
-- [ ] Bulk med «Erstatt eksisterende» → gamle vakter for de valgte dagene byttes ut.
+- [ ] Sett rotasjon til 3 uker + «start på denne uken» → fanene viser A, B, C, og
+      «Denne uken er Uke A».
+- [ ] Legg en vakt på «Uke C» for en ansatt → sjekk at den kun vises i uke C i
+      ukeplanen, og at kunder bare får de tidene i den uken.
+- [ ] Sett rotasjon tilbake til 2 uker → A/B som før (ingenting forskjøvet).
+- [ ] Booking på nett: velg en dato langt fram → riktig uke i rotasjonen brukes.
 
-## Filer i denne leveransen (bygg 4)
+## Filer i denne leveransen (bygg 5)
 
-7 filer: ny migrasjon 0055, KJØR-I-SUPABASE.sql, ops-queries.ts,
-timelister/actions.ts, timelister/page.tsx, og to nye komponenter
-(BulkTurnusForm, BookingBlocksManager) + denne fila.
+10 filer: ny migrasjon 0056, KJØR-I-SUPABASE.sql, ny lib `turnus.ts`,
+ops-queries.ts, timelister/actions.ts, timelister/page.tsx, ny komponent
+RotationControl, og BulkTurnusForm/StaffHoursManager/WeekSchedule (generalisert)
++ denne fila.
 
-## Gjenstår i Timeplan-eposet
+## Timeplan-eposet er nå komplett
 
-- Generell **uke-rotasjon** (A/B/C/D… med valgfritt antall uker, ikke bare A/B).
+Bulk-turnus ✓, blokker booking ✓, generell uke-rotasjon ✓. Neste epos i planen er
+Produkt / lager / strekkode.
 
 **Verifisert i sky-klone:** `tsc --noEmit` 0 feil, `next build` grønn, eslint
-uendret fra baseline. available_slots verifisert identisk med 0028 bortsett fra
-de to blokk-sjekkene.
+uendret fra baseline. Rotasjonsformelen simulert og bekreftet (N=2 gir A/B, N=3/4
+roterer riktig, fortidsdatoer håndteres); seeding bevarer dagens A/B.

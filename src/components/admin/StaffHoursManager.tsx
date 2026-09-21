@@ -9,6 +9,7 @@ import {
   copyTurnusWeek,
 } from "@/app/admin/timelister/actions";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
+import { parityLabel, parityOptions } from "@/lib/turnus";
 
 const inputCls =
   "border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft";
@@ -20,19 +21,16 @@ const WEEKDAYS = [
 // Mandag først i visningen (DB bruker 0 = søndag).
 const ORDER = [1, 2, 3, 4, 5, 6, 0];
 
-const PARITY_LABEL: Record<number, string> = {
-  0: "Hver uke",
-  1: "Uke A",
-  2: "Uke B",
-};
-
 export function StaffHoursManager({
   hours,
   staff,
+  weeks = 2,
 }: {
   hours: StaffHour[];
   staff: StaffOption[];
+  weeks?: number;
 }) {
+  const indices = parityOptions(weeks); // [1..weeks]
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -64,20 +62,24 @@ export function StaffHoursManager({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted">{hours.length} vakter i malen</p>
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => copy(1, 2)}
-            disabled={pending}
-            className="border border-line-2 px-3 py-2 text-xs font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg disabled:opacity-40"
-          >
-            Kopier A → B
-          </button>
-          <button
-            onClick={() => copy(2, 1)}
-            disabled={pending}
-            className="border border-line-2 px-3 py-2 text-xs font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg disabled:opacity-40"
-          >
-            Kopier B → A
-          </button>
+          {weeks === 2 && (
+            <>
+              <button
+                onClick={() => copy(1, 2)}
+                disabled={pending}
+                className="border border-line-2 px-3 py-2 text-xs font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg disabled:opacity-40"
+              >
+                Kopier A → B
+              </button>
+              <button
+                onClick={() => copy(2, 1)}
+                disabled={pending}
+                className="border border-line-2 px-3 py-2 text-xs font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg disabled:opacity-40"
+              >
+                Kopier B → A
+              </button>
+            </>
+          )}
           <button
             onClick={() => setOpen((o) => !o)}
             className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
@@ -117,8 +119,12 @@ export function StaffHoursManager({
           </select>
           <select name="week_parity" className={inputCls} defaultValue="0">
             <option value="0">Hver uke</option>
-            <option value="1">Uke A</option>
-            <option value="2">Uke B</option>
+            {weeks > 1 &&
+              indices.map((i) => (
+                <option key={i} value={i}>
+                  {parityLabel(i)}
+                </option>
+              ))}
           </select>
           <label className="text-xs text-muted">
             Fra
@@ -189,8 +195,12 @@ export function StaffHoursManager({
                           className={`${inputCls} w-28`}
                         >
                           <option value="0">Hver uke</option>
-                          <option value="1">Uke A</option>
-                          <option value="2">Uke B</option>
+                          {weeks > 1 &&
+                            indices.map((i) => (
+                              <option key={i} value={i}>
+                                {parityLabel(i)}
+                              </option>
+                            ))}
                         </select>
                         <button
                           type="submit"
@@ -225,7 +235,7 @@ export function StaffHoursManager({
                             : "bg-accent-soft/15 text-accent-soft")
                         }
                       >
-                        {PARITY_LABEL[h.week_parity]}
+                        {parityLabel(h.week_parity)}
                       </span>
                       <div className="flex items-center gap-3">
                         <button

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import type { StaffOption } from "@/lib/ops-queries";
 import { bulkSetStaffHours } from "@/app/admin/timelister/actions";
+import { parityLabel, parityOptions } from "@/lib/turnus";
 
 const inputCls =
   "border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft";
@@ -18,7 +19,13 @@ const DAYS: { dow: number; label: string }[] = [
   { dow: 0, label: "Søn" },
 ];
 
-export function BulkTurnusForm({ staff }: { staff: StaffOption[] }) {
+export function BulkTurnusForm({
+  staff,
+  weeks = 2,
+}: {
+  staff: StaffOption[];
+  weeks?: number;
+}) {
   const [open, setOpen] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState(false);
@@ -79,8 +86,12 @@ export function BulkTurnusForm({ staff }: { staff: StaffOption[] }) {
               Uke
               <select name="week_parity" defaultValue="0" className={inputCls}>
                 <option value="0">Hver uke</option>
-                <option value="1">Kun uke A</option>
-                <option value="2">Kun uke B</option>
+                {weeks > 1 &&
+                  parityOptions(weeks).map((i) => (
+                    <option key={i} value={i}>
+                      Kun {parityLabel(i).toLowerCase()}
+                    </option>
+                  ))}
               </select>
             </label>
           </div>

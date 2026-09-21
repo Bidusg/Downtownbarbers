@@ -2,26 +2,18 @@ import { StaffHoursManager } from "@/components/admin/StaffHoursManager";
 import { StaffExceptionsManager } from "@/components/admin/StaffExceptionsManager";
 import { BulkTurnusForm } from "@/components/admin/BulkTurnusForm";
 import { BookingBlocksManager } from "@/components/admin/BookingBlocksManager";
+import { RotationControl } from "@/components/admin/RotationControl";
 import { WeekSchedule } from "@/components/admin/WeekSchedule";
 import {
   getStaffHours,
   getStaffOptions,
-  getTurnusAnchor,
+  getTurnusRotation,
   getStaffExceptions,
   getBookingBlocks,
 } from "@/lib/ops-queries";
-import { setTurnusAnchor } from "@/app/admin/timelister/actions";
+import { parityLabel, parityOptions } from "@/lib/turnus";
 
 export const dynamic = "force-dynamic";
-
-// ISO-ukenummer (samme regel som available_slots i databasen).
-function isoWeek(d: Date): number {
-  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const day = t.getUTCDay() || 7;
-  t.setUTCDate(t.getUTCDate() + 4 - day);
-  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
-  return Math.ceil(((t.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-}
 
 export default async function AdminTimelister({
   searchParams,
@@ -29,25 +21,27 @@ export default async function AdminTimelister({
   searchParams: Promise<{ uke?: string }>;
 }) {
   const sp = await searchParams;
-  const parity: 1 | 2 = sp.uke === "b" ? 2 : 1;
-  const [hours, staff, anchor, exceptions, blocks] = await Promise.all([
+  const [hours, staff, rotation, exceptions, blocks] = await Promise.all([
     getStaffHours(),
     getStaffOptions(),
-    getTurnusAnchor(),
+    getTurnusRotation(),
     getStaffExceptions(),
     getBookingBlocks(),
   ]);
 
-  const wk = isoWeek(new Date());
-  const evenIsA = anchor.aIsEven;
-  const currentParity: 1 | 2 = (wk % 2 === 0) === evenIsA ? 1 : 2;
-  const currentLabel = currentParity === 1 ? "Uke A" : "Uke B";
+  const weeks = rotation.weeks;
+  const options = parityOptions(weeks); // [1..weeks]
+  // Valgt uke fra ?uke=N (default: uken som gjelder nå).
+  const req = Number(sp.uke);
+  const selected =
+    Number.isInteger(req) && req >= 1 && req <= weeks ? req : rotation.currentIndex;
 
-  const tab = (p: "a" | "b", label: string) => {
-    const active = (p === "b" ? 2 : 1) === parity;
+  const tab = (idx: number) => {
+    const active = idx === selected;
     return (
       <a
-        href={`/admin/timelister?uke=${p}`}
+        key={idx}
+        href={`/admin/timelister?uke=${idx}`}
         className={
           "border-b-2 px-4 py-2 text-sm transition-colors " +
           (active
@@ -55,7 +49,7 @@ export default async function AdminTimelister({
             : "border-transparent text-muted hover:text-fg")
         }
       >
-        {label}
+        {parityLabel(idx)}
       </a>
     );
   };
@@ -65,51 +59,33 @@ export default async function AdminTimelister({
       <h1 className="mb-1 font-display text-2xl font-bold">Timelister</h1>
       <p className="mb-6 text-sm text-muted">
         Ukentlig turnus per barber. Ukeplanen styrer også når kunder kan booke den
-        enkelte barberen. Du kan sette ulik turnus for <strong>uke A</strong> og{" "}
-        <strong>uke B</strong> – tider merket «Hver uke» gjelder begge.
+        enkelte barberen. Med rotasjon kan du sette ulik turnus for hver uke i
+        mønsteret – tider merket «Hver uke» gjelder alle.
       </p>
 
-      <div className="mb-4 flex items-center justify-between border-b border-line">
-        <div className="flex items-center gap-1">
-          {tab("a", "Uke A")}
-          {tab("b", "Uke B")}
+      <RotationControl weeks={weeks} />
+
+      {weeks > 1 && (
+        <div className="mb-4 flex items-center justify-between border-b border-line">
+          <div className="flex flex-wrap items-center gap-1">
+            {options.map((i) => tab(i))}
+          </div>
+          <p className="pb-2 text-xs text-muted">
+            Denne uken er{" "}
+            <strong className="text-accent-soft">
+              {parityLabel(rotation.currentIndex)}
+            </strong>
+          </p>
         </div>
-        <p className="pb-2 text-xs text-muted">
-          Denne uken (uke {wk}) er <strong className="text-accent-soft">{currentLabel}</strong>
-        </p>
-      </div>
+      )}
 
-      <form
-        action={setTurnusAnchor}
-        className="mb-6 flex flex-wrap items-center gap-2 text-xs text-muted"
-      >
-        <span>A/B-anker:</span>
-        <select
-          name="a_is_even"
-          defaultValue={evenIsA ? "even" : "odd"}
-          className="rounded-md border border-line bg-surface px-2 py-1 text-fg focus:border-accent-soft focus:outline-none"
-        >
-          <option value="even">Partallsuker (uke 2, 4, 6 …) er Uke A</option>
-          <option value="odd">Oddetallsuker (uke 1, 3, 5 …) er Uke A</option>
-        </select>
-        <button
-          type="submit"
-          className="rounded-md border border-line-2 px-3 py-1 font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
-        >
-          Lagre anker
-        </button>
-        <span className="text-[11px]">
-          Bestemmer hvilken kalenderuke som er A vs B — brukes av både booking og timelister.
-        </span>
-      </form>
-
-      <WeekSchedule hours={hours} staff={staff} parity={parity} />
+      <WeekSchedule hours={hours} staff={staff} parity={selected} />
 
       <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted uppercase">
         Rediger turnus
       </h2>
-      <BulkTurnusForm staff={staff} />
-      <StaffHoursManager hours={hours} staff={staff} />
+      <BulkTurnusForm staff={staff} weeks={weeks} />
+      <StaffHoursManager hours={hours} staff={staff} weeks={weeks} />
 
       <div className="mt-10 mb-3">
         <h2 className="text-xs font-semibold tracking-wide text-muted uppercase">

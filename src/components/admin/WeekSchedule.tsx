@@ -35,8 +35,8 @@ export function WeekSchedule({
 }: {
   hours: StaffHour[];
   staff: StaffOption[];
-  /** Hvilken uke som vises: 1 = uke A, 2 = uke B. Rader for "hver uke" (0) vises alltid. */
-  parity?: 1 | 2;
+  /** Hvilken uke-indeks (1..N) som vises. Rader for "hver uke" (0) vises alltid. */
+  parity?: number;
 }) {
   if (staff.length === 0) return null;
   const cols = "120px repeat(7, minmax(72px, 1fr))";

@@ -21,7 +21,8 @@ export async function bulkSetStaffHours(
   const start_time = String(formData.get("start_time") ?? "");
   const end_time = String(formData.get("end_time") ?? "");
   let week_parity = Number(formData.get("week_parity"));
-  if (![0, 1, 2].includes(week_parity)) week_parity = 0;
+  if (!(Number.isInteger(week_parity) && week_parity >= 0 && week_parity <= 6))
+    week_parity = 0;
   const replace = formData.get("replace") === "on";
   const days = WEEKDAYS.filter((d) => formData.get(`d${d}`) === "on");
 
@@ -106,7 +107,8 @@ export async function createStaffHour(formData: FormData) {
   const start_time = String(formData.get("start_time") ?? "");
   const end_time = String(formData.get("end_time") ?? "");
   let week_parity = Number(formData.get("week_parity"));
-  if (![0, 1, 2].includes(week_parity)) week_parity = 0;
+  if (!(Number.isInteger(week_parity) && week_parity >= 0 && week_parity <= 6))
+    week_parity = 0;
   if (!staff_id || Number.isNaN(weekday) || !start_time || !end_time) return;
   if (end_time <= start_time) return;
   await sb
@@ -128,7 +130,8 @@ export async function updateStaffHour(formData: FormData) {
   const start_time = String(formData.get("start_time") ?? "");
   const end_time = String(formData.get("end_time") ?? "");
   let week_parity = Number(formData.get("week_parity"));
-  if (![0, 1, 2].includes(week_parity)) week_parity = 0;
+  if (!(Number.isInteger(week_parity) && week_parity >= 0 && week_parity <= 6))
+    week_parity = 0;
   if (!id || !start_time || !end_time || end_time <= start_time) return;
   await sb
     .from("staff_hours")
@@ -183,6 +186,53 @@ export async function deleteStaffException(id: string) {
   const sb = await createClient();
   await sb.from("staff_exceptions").delete().eq("id", id);
   revalidatePath("/admin/timelister");
+}
+
+/** Mandag (YYYY-MM-DD) i inneværende uke, Oslo-tid. */
+function mondayOfThisWeekOslo(): string {
+  const osloStr = new Date().toLocaleDateString("en-CA", {
+    timeZone: "Europe/Oslo",
+  });
+  const [y, m, d] = osloStr.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  const dow = dt.getUTCDay(); // 0 = søndag
+  dt.setUTCDate(dt.getUTCDate() + (dow === 0 ? -6 : 1 - dow));
+  return dt.toISOString().slice(0, 10);
+}
+
+/**
+ * Sett rotasjonsmønster: antall uker (1–6) i turnus-rotasjonen. «Start på nå»
+ * (reanchor) setter ankeret til inneværende ukes mandag, så denne uken blir
+ * Uke A. Kun admin/eier.
+ */
+export async function setTurnusRotation(
+  formData: FormData,
+): Promise<{ ok?: true; error?: string }> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { error: "Ikke tilgang." };
+
+  const weeks = Number(formData.get("weeks"));
+  if (!Number.isInteger(weeks) || weeks < 1 || weeks > 6)
+    return { error: "Antall uker må være mellom 1 og 6." };
+  const reanchor = formData.get("reanchor") === "on";
+
+  const sb = await createClient();
+  const { data: cur } = await sb
+    .from("settings")
+    .select("value")
+    .eq("key", "turnus_rotation")
+    .maybeSingle();
+  const existingAnchor = (cur?.value as { anchor?: string })?.anchor;
+  const anchor = reanchor || !existingAnchor ? mondayOfThisWeekOslo() : existingAnchor;
+
+  const { error } = await sb
+    .from("settings")
+    .upsert({ key: "turnus_rotation", value: { weeks, anchor } });
+  if (error) return { error: `Kunne ikke lagre rotasjon: ${error.message}` };
+
+  revalidatePath("/admin/timelister");
+  revalidatePath("/booking");
+  return { ok: true };
 }
 
 /** Sett A/B-ankeret: hvilken paritet en partalls ISO-uke er. */
