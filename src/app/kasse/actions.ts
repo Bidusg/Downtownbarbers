@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { getLoyaltyStatus } from "@/lib/loyalty-queries";
 import { getShopContext } from "@/lib/shop-settings";
 import {
@@ -306,6 +307,9 @@ export type WalkinInput = {
   service?: string;
   products?: SaleProduct[];
   customer?: { name?: string; email?: string; phone?: string };
+  /** Valgt eksisterende kunde (fra telefonsøk). Knytter salget til denne raden.
+   *  Kontaktinfoen slås opp server-side, så telefonnr aldri må til nettleseren. */
+  customerId?: string;
   makeMember?: boolean;
   /** Rabatt i kr trukket fra totalen. Server klemmer til [0, brutto]. */
   discountNok?: number;
@@ -329,7 +333,7 @@ export async function recordWalkinSale(
       .filter((p) => p && p.id)
       .map((p) => ({ id: p.id, qty: Math.max(1, Math.floor(p.qty || 1)) }));
     const c = input.customer;
-    const customer =
+    let customer =
       c && (c.name?.trim() || c.email?.trim() || c.phone?.trim())
         ? {
             name: c.name?.trim() || null,
@@ -337,6 +341,29 @@ export async function recordWalkinSale(
             phone: c.phone?.trim() || null,
           }
         : null;
+
+    // «Kunde før betaling»: en valgt eksisterende kunde slås opp server-side
+    // (service-role) og brukes som match-nøkkel, så record_walkin_sale knytter
+    // salget til nøyaktig den raden. Telefonnr forlater aldri serveren.
+    if (input.customerId) {
+      try {
+        const svc = createServiceClient();
+        const { data: existing } = await svc
+          .from("customers")
+          .select("full_name, email, phone")
+          .eq("id", input.customerId)
+          .maybeSingle();
+        if (existing) {
+          customer = {
+            name: (existing.full_name as string) || customer?.name || null,
+            email: (existing.email as string) || null,
+            phone: (existing.phone as string) || null,
+          };
+        }
+      } catch {
+        // faller tilbake til det som ble skrevet inn manuelt
+      }
+    }
     const payments = (input.payments ?? [])
       .filter((p) => p && p.method && (p.amount ?? 0) > 0)
       .map((p) => ({ method: p.method, amount: Math.round(p.amount) }));

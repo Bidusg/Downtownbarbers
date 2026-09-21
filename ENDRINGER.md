@@ -1,110 +1,96 @@
-# ENDRINGER — Grunnmur: eier-rolle, shop-innstillinger & nivåer/prising (21. sept 2026)
+# ENDRINGER — Downtown Barbers (21. sept 2026)
 
-## Commit-tittel (lim inn i GitHub Desktop)
+Arbeidstreet inneholder nå **to bygg** som ikke er pushet ennå:
+**(1) Grunnmur** (eier-rolle, shop-innstillinger, nivåer & prising) og
+**(2) Shop UX** (hurtigsalg-redesign + kunde før betaling). De ligger oppå
+hverandre i samme filer (kassa), så enkleste vei er **én samlet push** — eller
+to commits der Shop UX bygger på grunnmuren.
+
+---
+
+## Commit-tittel (samlet — anbefalt)
 
 ```
-Grunnmur: eier-rolle + shop-innstillinger (flagg) og nivåer & prising
+Grunnmur (eier + shop-flagg + nivåer) og Shop UX (hurtigsalg-redesign + kunde før betaling)
 ```
 
-## Commit-beskrivelse (valgfri, lengre)
+Vil du dele i to commits i GitHub Desktop:
 
-```
-Foundation 1 – Shop-innstillinger + eier-tilgang:
-- Ny «eier»-rolle: full tilgang som admin + omgår alle shop-begrensninger.
-- /admin/shop-innstillinger: av/på for rabatt, venn/familie-rabatt (+ sats),
+1. **Grunnmur:** `Grunnmur: eier-rolle + shop-innstillinger (flagg) og nivåer & prising`
+   — alle filene UNNTATT hurtigsalg-endringene (men `QuickSale.tsx` og
+   `src/app/kasse/actions.ts` inneholder begge bygg, så de kan ikke skilles rent;
+   ta dem med i commit 2).
+2. **Shop UX:** `Shop UX: hurtigsalg-redesign (stegvis) + kunde før betaling (telefonsøk)`
+
+I praksis er én samlet commit renest siden kasse-filene bærer begge bygg.
+
+---
+
+## Bygg 2 — Shop UX (nytt denne runden)
+
+- **Hurtigsalg-redesign:** kassa sitt hurtigsalg er nå en skikkelig **stegvis
+  flyt**: Ansatt → Tjeneste → Produkter → Kunde → Rabatt → Betaling, med
+  stegindikator og **Neste/Forrige** for manuell overstyring. Ansatt- og
+  tjenestevalg går automatisk videre. Oppsummering før betaling.
+- **Kunde før betaling:** søk på **telefonnr eller navn** i kunde-steget; treff
+  vises (navn + antall besøk), trykk for å knytte salget til den kunden.
+  Kobles trygt via kunde-ID — telefonnummeret hentes server-side og når aldri
+  nettleseren (samme personvern-linje som ellers i kassa). Kvittering kan sendes
+  til kundens registrerte e-post.
+- Ingen ny migrasjon i dette bygget. Endrer kun `QuickSale.tsx` og
+  `src/app/kasse/actions.ts` (ny valgfri `customerId` som resolves med
+  service-role).
+
+## Bygg 1 — Grunnmur (fra tidligere i økta)
+
+- **Eier-rolle:** full tilgang som admin + omgår alle shop-begrensninger.
+- **/admin/shop-innstillinger:** av/på for rabatt, venn/familie-rabatt (+ sats),
   drop-in uten kunde, dra-for-lengde (bryter klar, funksjon kommer).
-- Flaggene håndheves server-side i kassa; eier/admin omgår.
-
-Foundation 2 – Nivåer & prising:
-- Nivåer (junior/barber/senior/master) + pris per nivå × tjeneste
-  (/admin/nivaer). Riktig pris vises automatisk på booking.
-- Nivå + hvilke tjenester en ansatt leverer velges under Ansatte → Rediger.
-  Positiv tjeneste-tilknytning (staff_services) erstatter ekskluderingsfilteret.
-
-Migrasjoner 0051–0053 (kjør KJØR-I-SUPABASE.sql).
-```
+- **/admin/nivaer:** pris per nivå × tjeneste; nivå + tjeneste-tilknytning per
+  ansatt (Ansatte → Rediger) erstatter ekskluderingsfilteret. Riktig pris vises
+  på booking.
 
 ---
 
-## VIKTIG: kjør SQL i Supabase FØR du bruker de nye sidene
+## VIKTIG: kjør SQL i Supabase (gjelder grunnmuren)
 
-Åpne Supabase → SQL Editor → lim inn **hele** `KJØR-I-SUPABASE.sql` → Run.
-Den inneholder nå alt som mangler fra denne økta:
+Supabase → SQL Editor → lim inn **hele** `KJØR-I-SUPABASE.sql` → Run. Den
+inneholder nå alt som mangler fra økta:
 
-- **0049 + 0050** — rabatt/splittbetaling. **Disse lå ikke i KJØR-fila fra før**
-  (den sluttet på 0048). Appen din bruker dem allerede, så de må kjøres.
-- **0051** — legger `eier` til rolle-enumet (`user_role`). `profiles.role` er en
-  ENUM, ikke fri tekst, så verdien må legges til før noen kan få eier-rollen.
-- **0052** — eier teller som admin i RLS + `shop_flags` (kasse-bryterne).
-- **0053** — nivåer, pris per nivå × tjeneste, og tjeneste-tilknytning per ansatt
-  (fyller `staff_services` fra dagens ekskluderinger så booking oppfører seg likt).
+- **0049 + 0050** — rabatt/splittbetaling (lå ikke i fila fra før; appen bruker
+  dem allerede).
+- **0051** — legger `eier` til rolle-enumet (`user_role`).
+- **0052** — eier teller som admin i RLS + `shop_flags`.
+- **0053** — nivåer, pris per nivå × tjeneste, tjeneste-tilknytning per ansatt.
 
-Alt er idempotent (`create or replace` / `if not exists`) — trygt å kjøre selv om
-0049/0050 allerede er kjørt. Funksjonene bruker `role::text`, så hele skriptet kan
-limes inn og kjøres i én omgang.
+Alt er idempotent, kan limes inn og kjøres i én omgang.
 
-## Etter SQL: to manuelle steg
+## Manuelle steg etter SQL
 
-1. **Gi Dawit eier-rollen:** Admin → Brukere → finn Dawit → sett rolle **Eier** → Sett.
-   (Han får da full tilgang overalt og ingen shop-begrensninger.)
-2. **Sett nivå + priser:**
-   - Admin → **Nivåer & prising**: fyll inn pris per nivå × tjeneste (tom celle =
-     basispris).
-   - Admin → **Ansatte → Rediger**: velg nivå på hver ansatt, og huk av hvilke
-     tjenester de leverer (ingen avhuket = leverer alt).
+1. **Gi Dawit eier-rollen:** Admin → Brukere → sett rolle **Eier**.
+2. **Nivå + priser:** Admin → **Nivåer & prising** (pris per nivå × tjeneste),
+   og Admin → **Ansatte → Rediger** (nivå + hvilke tjenester hver ansatt leverer).
+3. **Shop-flagg:** Admin → **Shop-innstillinger** (av/på + venn/familie-sats).
 
-## Sett flaggene
+## Testsjekkliste (Shop UX)
 
-Admin → **Shop-innstillinger**: skru rabatt / venn-familie (+ sats) / drop-in uten
-kunde av eller på. Standard bevarer dagens oppførsel (rabatt + drop-in PÅ,
-venn/familie AV).
-
----
-
-## Slik henger det sammen (kort)
-
-- **Pris:** `create_booking` priser nå etter valgt barbers nivå
-  (`effective_service_price(tjeneste, nivå)`), med basispris som fallback. Booking
-  viser samme pris når barber er valgt.
-- **Hvem leverer hva:** gikk fra «ekskludering per tjeneste» til «positiv liste per
-  ansatt» (`staff_services`). Booking-filteret er uendret (samme resultat), men
-  styres nå fra Ansatte → Rediger. Ekskluderings-UI-et i Tjenester er fjernet.
-- **Eier:** `is_admin()`/`is_shop_or_admin()` teller nå `eier` som admin i RLS.
-  I appen passerer eier alle admin-vakter (`isAdminRole`), og omgår shop-flaggene.
-
-## Testsjekkliste
-
-- [ ] Kjør KJØR-I-SUPABASE.sql uten feil.
-- [ ] Gi en testbruker rollen «Eier» → kommer inn i /admin og /kasse, ser rabatt
-      selv om rabatt er skrudd av.
-- [ ] Shop-innstillinger: skru av «Rabatt» → kasse ser ikke lenger rabattfeltet;
-      forsøk på salg med rabatt (via eldre klient) blokkeres server-side.
-- [ ] Skru av «Drop-in uten kunde» → hurtigsalg krever kunde.
-- [ ] Skru på «Venn/familie» med sats → knapp dukker opp i kassa og trekker %.
-- [ ] Nivåer & prising: sett senior-pris på en tjeneste, gi en ansatt nivå «Senior»
-      → book den ansatte → riktig pris vises + lagres på bookingen.
-- [ ] Booking: en barber som er «avhuket bort» fra en tjeneste vises ikke for den
-      tjenesten (som før).
+- [ ] Åpne Hurtigsalg → velg ansatt (går automatisk til tjeneste) → velg
+      tjeneste → legg til vare → Kunde-steget.
+- [ ] Skriv et telefonnr i kunde-søket → eksisterende kunde dukker opp → trykk
+      → salget knyttes til den kunden (sjekk i kundekortet etterpå).
+- [ ] Fyll inn ny kunde manuelt i stedet → salget oppretter/kobler som før.
+- [ ] Skru av «Drop-in uten kunde» → kunde-steget krever kunde før betaling.
+- [ ] Neste/Forrige og stegprikkene lar deg hoppe fram og tilbake.
+- [ ] Enkel og delt betaling registrerer salget; oppsummeringen stemmer.
 
 ## Kjente begrensninger / bevisste valg
 
-- **Rabatt-flagget er en driftskontroll, ikke en hard sperre.** Fri rabatt og
-  venn/familie deler samme rabattfelt. Server tillater en rabatt hvis minst én av
-  de to rabatt-bryterne er på (eller eier/admin). Er BEGGE av, blokkeres all
-  rabatt. Å skille «fri av, men venn/familie på» ned til kronebeløp krever
-  beløpsvalidering mot sats — kan tas senere om ønskelig.
-- `dra-for-lengde`-bryteren lagrer bare av/på; selve funksjonen bygges senere.
-- `staff_service_exclusions`-tabellen og de gamle unntaks-funksjonene er beholdt
-  (urørt, men ubrukt) for trygghets skyld — ingen data slettes.
-- Eier-rollen bruker samme RLS-vei som admin. To admin-config-handlinger som
-  krevde `role = 'admin'` godtar nå også eier (via `isAdminRole`).
-
-## Filer i denne leveransen
-
-37 filer: 3 nye migrasjoner (0051–0053) + KJØR-I-SUPABASE.sql, 4 nye lib/sider
-(shop-settings, levels-queries, shop-innstillinger, nivaer), 2 nye komponenter
-(ShopSettingsForm, LevelPricingMatrix), og endringer i auth/roller, kasse,
-booking, ansatte- og tjeneste-admin.
+- Kunde-lenking bruker server-side oppslag (service-role) + eksisterende
+  match-logikk i `record_walkin_sale` — ingen endring i den atomiske salgs-RPC-en.
+- Rabatt-flagget er en driftskontroll (ikke hard sperre): server tillater rabatt
+  hvis minst én rabatt-bryter er på; begge av = all rabatt blokkert.
+- `dra-for-lengde`, «ingen sletting av bookinger» og venn/familie som egen
+  booking-type er IKKE i denne pushen (neste Shop UX-runde).
 
 **Verifisert i sky-klone:** `tsc --noEmit` 0 feil, `next build` grønn, eslint
-uendret fra baseline (ingen nye lint-feil i endrede filer).
+uendret fra baseline.
