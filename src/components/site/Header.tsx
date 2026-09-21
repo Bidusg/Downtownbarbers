@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { SVGProps } from "react";
+import Link from "next/link";
 import { LogoMark } from "@/components/site/LogoMark";
 import { salon } from "@/lib/data/salon";
 
@@ -77,19 +78,19 @@ export function Header({
       }
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
-        <a href="/#top" aria-label="Downtown Barbers – til toppen">
+        <Link href="/#top" aria-label="Downtown Barbers – til toppen">
           <LogoMark className={"h-11 transition-colors " + brand} />
-        </a>
+        </Link>
 
         <nav className="hidden items-center gap-9 md:flex">
           {nav.map((n) => (
-            <a
+            <Link
               key={n.href}
               href={n.href}
               className={"text-[13px] font-medium transition-colors " + navText}
             >
               {n.label}
-            </a>
+            </Link>
           ))}
         </nav>
 
@@ -117,12 +118,12 @@ export function Header({
             <PhoneIcon className="h-4 w-4" />
             <span className="hidden sm:inline">{phone}</span>
           </a>
-          <a
+          <Link
             href="/booking"
             className="shine-btn hidden bg-accent-soft px-5 py-2.5 text-[13px] font-semibold text-[#211E1A] transition-transform hover:-translate-y-0.5 sm:inline-block"
           >
             Bestill time
-          </a>
+          </Link>
 
           {/* Hamburger – kun mobil */}
           <button
@@ -162,22 +163,22 @@ export function Header({
         <nav className="border-t border-line bg-canvas px-5 py-4 md:hidden">
           <div className="flex flex-col gap-1">
             {nav.map((n) => (
-              <a
+              <Link
                 key={n.href}
                 href={n.href}
                 onClick={() => setOpen(false)}
                 className="border-b border-line py-3 text-sm font-medium text-fg last:border-0"
               >
                 {n.label}
-              </a>
+              </Link>
             ))}
-            <a
+            <Link
               href="/booking"
               onClick={() => setOpen(false)}
               className="mt-3 bg-accent-soft px-5 py-3 text-center text-sm font-semibold text-[#211E1A]"
             >
               Bestill time
-            </a>
+            </Link>
             <a
               href={telHref}
               onClick={() => setOpen(false)}

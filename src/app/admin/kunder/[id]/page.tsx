@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCustomer } from "@/lib/admin-queries";
 import { getCustomerConsent } from "@/lib/dm-queries";
@@ -112,16 +113,16 @@ export default async function KundeKort({
 
   return (
     <div className="mx-auto max-w-4xl">
-      <a href="/admin/kunder" className="text-xs text-muted hover:text-fg">
+      <Link href="/admin/kunder" className="text-xs text-muted hover:text-fg">
         ← Tilbake til kundekartotek
-      </a>
+      </Link>
       <div className="mt-3 mb-6 flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="font-display text-2xl font-bold">{c.full_name}</h1>
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-sm text-muted">
             Kunde siden {fmtDate(c.created_at)}
           </span>
-          <a
+          <Link
             href={`/admin/kunder/${id}/kjopshistorikk`}
             className="inline-flex items-center gap-1.5 border border-line-2 px-3 py-1.5 text-xs font-semibold text-fg transition-colors hover:bg-surface-2"
           >
@@ -129,7 +130,7 @@ export default async function KundeKort({
               <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             Kjøpshistorikk (PDF)
-          </a>
+          </Link>
         </div>
       </div>
 

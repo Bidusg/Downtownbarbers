@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -68,9 +69,9 @@ export default async function AvbestillPage({
       <Card>
         <h1 className="font-display text-2xl font-bold text-fg">{m.h}</h1>
         <p className="mt-3 text-sm text-muted">{m.p}</p>
-        <a href="/" className="mt-6 inline-block text-sm text-accent-soft hover:underline">
+        <Link href="/" className="mt-6 inline-block text-sm text-accent-soft hover:underline">
           Til forsiden
-        </a>
+        </Link>
       </Card>
     );
   }
@@ -84,7 +85,7 @@ export default async function AvbestillPage({
       <Card>
         <h1 className="font-display text-2xl font-bold text-fg">Fant ikke timen</h1>
         <p className="mt-3 text-sm text-muted">Lenken ser ut til å være ugyldig eller utløpt.</p>
-        <a href="/" className="mt-6 inline-block text-sm text-accent-soft hover:underline">Til forsiden</a>
+        <Link href="/" className="mt-6 inline-block text-sm text-accent-soft hover:underline">Til forsiden</Link>
       </Card>
     );
   }
@@ -94,7 +95,7 @@ export default async function AvbestillPage({
       <Card>
         <h1 className="font-display text-2xl font-bold text-fg">Allerede avbestilt</h1>
         <p className="mt-3 text-sm text-muted">Denne timen er allerede avbestilt.</p>
-        <a href="/booking" className="mt-6 inline-block text-sm text-accent-soft hover:underline">Bestill ny time</a>
+        <Link href="/booking" className="mt-6 inline-block text-sm text-accent-soft hover:underline">Bestill ny time</Link>
       </Card>
     );
   }
@@ -136,9 +137,9 @@ export default async function AvbestillPage({
           >
             Ja, avbestill timen
           </button>
-          <a href="/" className="mt-4 inline-block text-sm text-muted hover:text-fg">
+          <Link href="/" className="mt-4 inline-block text-sm text-muted hover:text-fg">
             Nei, behold timen
-          </a>
+          </Link>
         </form>
       )}
     </Card>

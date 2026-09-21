@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -38,7 +39,7 @@ export default async function AvmeldPage({
         <p className="mt-3 text-sm text-muted">
           Du vil ikke lenger få markedsføring fra oss. Du får fortsatt viktige e-poster om timene dine.
         </p>
-        <a href="/" className="mt-6 inline-block text-sm text-accent-soft hover:underline">Til forsiden</a>
+        <Link href="/" className="mt-6 inline-block text-sm text-accent-soft hover:underline">Til forsiden</Link>
       </Card>
     );
   }
@@ -59,7 +60,7 @@ export default async function AvmeldPage({
           >
             Ja, meld meg av
           </button>
-          <a href="/" className="mt-4 inline-block text-sm text-muted hover:text-fg">Nei, behold</a>
+          <Link href="/" className="mt-4 inline-block text-sm text-muted hover:text-fg">Nei, behold</Link>
         </form>
       ) : (
         <p className="mt-6 text-sm text-muted">Lenken ser ut til å være ugyldig.</p>

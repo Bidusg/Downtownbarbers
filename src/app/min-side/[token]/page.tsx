@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCustomerMembershipByToken, remainingToNext } from "@/lib/membership-queries";
 import { TierBadge } from "@/components/membership/TierBadge";
@@ -42,7 +43,7 @@ function NotFound() {
       <div className="w-full border border-line bg-surface p-8 text-center">
         <h1 className="font-display text-2xl font-bold text-fg">Fant ikke siden</h1>
         <p className="mt-3 text-sm text-muted">Lenken ser ut til å være ugyldig eller utløpt.</p>
-        <a href="/" className="mt-6 inline-block text-sm text-accent-soft hover:underline">Til forsiden</a>
+        <Link href="/" className="mt-6 inline-block text-sm text-accent-soft hover:underline">Til forsiden</Link>
       </div>
     </main>
   );
@@ -190,9 +191,9 @@ export default async function MinSide({ params }: { params: Promise<{ token: str
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
                     <span className="text-xs text-muted">{STATUS[b.status] ?? b.status}</span>
-                    <a href={rebook} className="text-xs font-semibold text-accent-soft hover:underline">
+                    <Link href={rebook} className="text-xs font-semibold text-accent-soft hover:underline">
                       Book på nytt
-                    </a>
+                    </Link>
                   </div>
                 </li>
               );
