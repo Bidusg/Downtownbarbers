@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   verifyPin,
@@ -26,6 +26,22 @@ function hhmm(mins: number) {
 export function StemplingKiosk({ staff }: { staff: BoardStaff[] }) {
   const router = useRouter();
   const [active, setActive] = useState<BoardStaff | null>(null);
+
+  // Hold brettet ferskt på en delt kiosk: hent status + arbeidstid på nytt hvert
+  // 30. sekund, og med en gang fanen kommer i forgrunnen. Settes på pause mens
+  // et PIN-panel er åpent, så vi ikke forstyrrer inntasting.
+  useEffect(() => {
+    if (active) return;
+    const refresh = () => {
+      if (document.visibilityState === "visible") router.refresh();
+    };
+    const id = window.setInterval(refresh, 30_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [active, router]);
 
   return (
     <>
