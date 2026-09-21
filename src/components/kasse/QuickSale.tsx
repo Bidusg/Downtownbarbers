@@ -39,6 +39,11 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
   const [makeMember, setMakeMember] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Rabatt + splittbetaling
+  const [discount, setDiscount] = useState("");
+  const [split, setSplit] = useState(false);
+  const [splitAmts, setSplitAmts] = useState<Record<string, string>>({});
+
   function openModal() {
     setError(null);
     setOpen(true);
@@ -54,6 +59,9 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
     setPhone("");
     setMakeMember(false);
     setError(null);
+    setDiscount("");
+    setSplit(false);
+    setSplitAmts({});
   }
 
   const servicePrice = useMemo(
@@ -68,8 +76,17 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
     [products, cart],
   );
   const productTotal = cartLines.reduce((a, l) => a + l.price_nok * l.qty, 0);
-  const total = servicePrice + productTotal;
+  const gross = servicePrice + productTotal;
+  const discountNum = Math.max(0, Math.round(Number(discount) || 0));
+  const total = Math.max(0, Math.round(gross) - discountNum);
   const hasSomething = !!serviceName || cartLines.length > 0;
+
+  const splitEntries = PAYMENTS.map((m) => ({
+    method: m,
+    amount: Math.max(0, Math.round(Number(splitAmts[m]) || 0)),
+  })).filter((e) => e.amount > 0);
+  const splitSum = splitEntries.reduce((a, e) => a + e.amount, 0);
+  const splitOk = splitSum === total && total > 0;
 
   function setQty(id: string, qty: number) {
     setCart((c) => {
@@ -94,6 +111,37 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
         products: cartLines.map((l) => ({ id: l.id, qty: l.qty })),
         customer: { name, email, phone },
         makeMember,
+        discountNok: discountNum,
+      });
+      if (res?.error) {
+        setError(res.error);
+        return;
+      }
+      close();
+      router.refresh();
+    });
+  }
+
+  function paySplit() {
+    if (!hasSomething) {
+      setError("Velg en behandling eller minst én vare.");
+      return;
+    }
+    if (!splitOk) {
+      setError(`Betalingen (${splitSum} kr) må stemme med totalen (${total} kr).`);
+      return;
+    }
+    setError(null);
+    start(async () => {
+      const res = await recordWalkinSale({
+        staffId: barberId || undefined,
+        paymentMethod: splitEntries[0]?.method ?? "Delt",
+        service: serviceName || undefined,
+        products: cartLines.map((l) => ({ id: l.id, qty: l.qty })),
+        customer: { name, email, phone },
+        makeMember,
+        discountNok: discountNum,
+        payments: splitEntries,
       });
       if (res?.error) {
         setError(res.error);
@@ -223,10 +271,32 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
               </span>
             </label>
 
+            {/* Rabatt */}
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <label className="text-xs font-semibold tracking-wide text-muted uppercase">
+                Rabatt (kr)
+              </label>
+              <input
+                value={discount}
+                onChange={(e) => setDiscount(e.target.value.replace(/[^0-9]/g, ""))}
+                placeholder="0"
+                inputMode="numeric"
+                aria-label="Rabatt i kroner"
+                className="w-24 rounded-md border border-line bg-canvas px-3 py-1.5 text-right text-sm text-fg placeholder:text-muted outline-none focus:border-accent-soft"
+              />
+            </div>
+
             {/* Total */}
-            <div className="mb-3 flex items-center justify-between rounded-lg bg-canvas px-3 py-2">
-              <span className="text-xs font-semibold tracking-wide text-muted uppercase">Å betale</span>
-              <span className="font-display text-lg font-bold text-fg tabular-nums">{kr(total)}</span>
+            <div className="mb-3 rounded-lg bg-canvas px-3 py-2">
+              {discountNum > 0 && (
+                <div className="mb-1 text-xs text-muted">
+                  Sum {kr(gross)} · rabatt −{kr(discountNum)}
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold tracking-wide text-muted uppercase">Å betale</span>
+                <span className="font-display text-lg font-bold text-fg tabular-nums">{kr(total)}</span>
+              </div>
             </div>
 
             {error && (
@@ -235,19 +305,73 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
               </p>
             )}
 
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-muted">Betalt med:</span>
-              {PAYMENTS.map((p) => (
-                <button
-                  key={p}
-                  disabled={pending || !hasSomething}
-                  onClick={() => pay(p)}
-                  className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
-                >
-                  {pending ? "…" : p}
-                </button>
-              ))}
+            {/* Betaling: enkel eller delt */}
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs text-muted">
+                {split ? "Del betalingen på flere måter:" : "Betalt med:"}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setSplit((v) => !v);
+                  setError(null);
+                }}
+                className="text-xs font-semibold text-accent-soft hover:underline"
+              >
+                {split ? "Enkel betaling" : "Del betaling"}
+              </button>
             </div>
+
+            {split ? (
+              <div className="space-y-2">
+                {PAYMENTS.map((m) => (
+                  <div key={m} className="flex items-center justify-between gap-2">
+                    <span className="text-sm text-fg">{m}</span>
+                    <input
+                      value={splitAmts[m] ?? ""}
+                      onChange={(e) =>
+                        setSplitAmts((s) => ({
+                          ...s,
+                          [m]: e.target.value.replace(/[^0-9]/g, ""),
+                        }))
+                      }
+                      placeholder="0"
+                      inputMode="numeric"
+                      aria-label={`Beløp ${m}`}
+                      className="w-28 rounded-md border border-line bg-canvas px-3 py-1.5 text-right text-sm text-fg placeholder:text-muted outline-none focus:border-accent-soft"
+                    />
+                  </div>
+                ))}
+                <div className="flex items-center justify-between border-t border-line pt-2 text-xs">
+                  <span className={splitOk ? "text-accent-soft" : "text-muted"}>
+                    Fordelt: {kr(splitSum)} / {kr(total)}
+                    {splitSum !== total &&
+                      ` · ${splitSum > total ? "−" : "mangler "}${kr(Math.abs(total - splitSum))}`}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={pending || !hasSomething || !splitOk}
+                    onClick={paySplit}
+                    className="rounded-md bg-accent px-4 py-1.5 text-xs font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
+                  >
+                    {pending ? "…" : "Registrer betaling"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                {PAYMENTS.map((p) => (
+                  <button
+                    key={p}
+                    disabled={pending || !hasSomething}
+                    onClick={() => pay(p)}
+                    className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
+                  >
+                    {pending ? "…" : p}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -222,6 +222,10 @@ export type WalkinInput = {
   products?: SaleProduct[];
   customer?: { name?: string; email?: string; phone?: string };
   makeMember?: boolean;
+  /** Rabatt i kr trukket fra totalen. Server klemmer til [0, brutto]. */
+  discountNok?: number;
+  /** Splittbetaling: beløp per betalingsmåte. Utelates ved enkeltbetaling. */
+  payments?: SplitPayment[];
 };
 
 /**
@@ -246,6 +250,9 @@ export async function recordWalkinSale(
             phone: c.phone?.trim() || null,
           }
         : null;
+    const payments = (input.payments ?? [])
+      .filter((p) => p && p.method && (p.amount ?? 0) > 0)
+      .map((p) => ({ method: p.method, amount: Math.round(p.amount) }));
     const { error } = await sb.rpc("record_walkin_sale", {
       p_staff: input.staffId || null,
       p_payment_method: input.paymentMethod ?? null,
@@ -253,6 +260,8 @@ export async function recordWalkinSale(
       p_products: products,
       p_customer: customer,
       p_make_member: !!input.makeMember,
+      p_discount: Math.max(0, Math.round(input.discountNok ?? 0)),
+      p_payments: payments.length > 0 ? payments : null,
     });
     if (error) {
       return {
