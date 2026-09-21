@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { AdminNav } from "@/components/admin/AdminNav";
+import { AdminShell } from "@/components/admin/AdminShell";
 import { CommandPalette } from "@/components/admin/CommandPalette";
 import { NoticeBanner } from "@/components/admin/NoticeBanner";
 import { getUserRole } from "@/lib/auth";
@@ -18,17 +18,14 @@ export default async function AdminLayout({
   const notices = await getActiveNotices("admin");
 
   return (
-    <div className="min-h-screen bg-canvas text-fg">
-      <AdminNav email={me.email} initial={initial} />
+    <AdminShell email={me.email} initial={initial}>
       <CommandPalette />
-      <main className="px-4 py-8 sm:px-6">
-        {notices.length > 0 && (
-          <div className="mx-auto mb-6 max-w-6xl">
-            <NoticeBanner notices={notices} />
-          </div>
-        )}
-        {children}
-      </main>
-    </div>
+      {notices.length > 0 && (
+        <div className="mx-auto mb-6 max-w-6xl">
+          <NoticeBanner notices={notices} />
+        </div>
+      )}
+      {children}
+    </AdminShell>
   );
 }

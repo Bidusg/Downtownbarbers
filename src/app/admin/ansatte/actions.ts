@@ -43,7 +43,9 @@ function loginUrl(): string {
   return `${site}/logg-inn`;
 }
 
-type ActionResult = { ok: true } | { ok: false; error: string };
+type ActionResult =
+  | { ok: true; tempPassword?: string; email?: string }
+  | { ok: false; error: string };
 
 /**
  * Oppretter en innlogging for en ansatt: lager auth-bruker med et midlertidig
@@ -130,7 +132,9 @@ export async function createStaffLogin(staffId: string): Promise<ActionResult> {
   });
 
   revalidatePath("/admin/ansatte");
-  return { ok: true };
+  // Returner passordet så admin kan vise/kopiere det på skjermen – uavhengig
+  // av om e-posten kommer fram (viktig ved første innlogging).
+  return { ok: true, tempPassword, email };
 }
 
 /**
@@ -180,7 +184,7 @@ export async function resendStaffPassword(
   });
 
   revalidatePath("/admin/ansatte");
-  return { ok: true };
+  return { ok: true, tempPassword, email };
 }
 
 async function uploadFile(

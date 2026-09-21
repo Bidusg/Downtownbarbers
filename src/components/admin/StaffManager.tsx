@@ -23,20 +23,69 @@ function LoginCell({
 }) {
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState(false);
+  const [creds, setCreds] = useState<{ email?: string; pw: string } | null>(
+    null,
+  );
+  const [copied, setCopied] = useState(false);
   const [pending, start] = useTransition();
 
-  const run = (fn: () => Promise<{ ok: true } | { ok: false; error: string }>) =>
+  const run = (
+    fn: () => Promise<
+      | { ok: true; tempPassword?: string; email?: string }
+      | { ok: false; error: string }
+    >,
+  ) =>
     start(async () => {
       setMsg(null);
       setErr(false);
+      setCreds(null);
+      setCopied(false);
       const r = await fn();
       if (r.ok) {
         setMsg("Passord sendt på e-post ✓");
+        if (r.tempPassword) setCreds({ email: r.email, pw: r.tempPassword });
       } else {
         setErr(true);
         setMsg(r.error);
       }
     });
+
+  const copyPw = () => {
+    if (!creds) return;
+    navigator.clipboard?.writeText(creds.pw).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      },
+      () => {},
+    );
+  };
+
+  const credsBox = creds ? (
+    <div className="mt-1 rounded-md border border-accent-soft/40 bg-accent-soft/10 p-2 text-xs">
+      <p className="mb-1 font-semibold text-fg">Midlertidig passord</p>
+      {creds.email && (
+        <p className="text-muted">
+          E-post: <span className="text-fg">{creds.email}</span>
+        </p>
+      )}
+      <div className="mt-1 flex items-center gap-2">
+        <code className="rounded bg-canvas px-2 py-1 font-mono text-sm text-fg select-all">
+          {creds.pw}
+        </code>
+        <button
+          type="button"
+          onClick={copyPw}
+          className="text-accent-soft hover:underline"
+        >
+          {copied ? "Kopiert ✓" : "Kopier"}
+        </button>
+      </div>
+      <p className="mt-1 text-muted">
+        Gi dette til den ansatte. De logger inn på /logg-inn og bør bytte passord.
+      </p>
+    </div>
+  ) : null;
 
   if (hasLogin) {
     return (
@@ -58,6 +107,7 @@ function LoginCell({
             {msg}
           </span>
         )}
+        {credsBox}
       </div>
     );
   }
@@ -80,6 +130,7 @@ function LoginCell({
           {msg}
         </span>
       )}
+      {credsBox}
     </div>
   );
 }
