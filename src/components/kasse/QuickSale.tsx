@@ -9,12 +9,14 @@ import {
   listSellableServices,
   getKasseAllowances,
   searchCustomers,
+  findProductByBarcode,
   type SellableProduct,
   type SellableService,
   type KasseAllowances,
   type CustomerHit,
   type RelationType,
 } from "@/app/kasse/actions";
+import { BarcodeScanner } from "@/components/ui/BarcodeScanner";
 
 const PAYMENTS = ["Kontant", "Kort", "Vipps"];
 const kr = (n: number) => `${Math.round(n)} kr`;
@@ -148,6 +150,27 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
   })).filter((e) => e.amount > 0);
   const splitSum = splitEntries.reduce((a, e) => a + e.amount, 0);
   const splitOk = splitSum === total && total > 0;
+
+  // Strekkode-skanning i produkt-steget.
+  const [showScan, setShowScan] = useState(false);
+  const [scanMsg, setScanMsg] = useState<string | null>(null);
+  const [scanErr, setScanErr] = useState(false);
+  const [scanning, startScan] = useTransition();
+
+  function onScanProduct(code: string) {
+    setScanMsg(null);
+    setScanErr(false);
+    startScan(async () => {
+      const p = await findProductByBarcode(code);
+      if (!p || p.is_gift_card) {
+        setScanErr(true);
+        setScanMsg(`Ukjent strekkode (${code}).`);
+        return;
+      }
+      setCart((c) => ({ ...c, [p.id]: (c[p.id] ?? 0) + 1 }));
+      setScanMsg(`La til ${p.name}.`);
+    });
+  }
 
   function setQty(id: string, qty: number) {
     setCart((c) => {
@@ -357,10 +380,40 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
               {/* Steg 2: Produkter */}
               {step === 2 && (
                 <div>
-                  <p className="mb-3 text-xs text-muted">
-                    Varer (valgfritt)
-                    {cartLines.length > 0 ? ` · ${cartLines.length} i kurv` : ""}
-                  </p>
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-xs text-muted">
+                      Varer (valgfritt)
+                      {cartLines.length > 0 ? ` · ${cartLines.length} i kurv` : ""}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowScan((v) => !v);
+                        setScanMsg(null);
+                      }}
+                      className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-fg hover:border-accent-soft"
+                    >
+                      {showScan ? "Lukk skann" : "Skann strekkode"}
+                    </button>
+                  </div>
+                  {showScan && (
+                    <div className="mb-3 rounded-lg border border-line bg-canvas p-3">
+                      <BarcodeScanner onScan={onScanProduct} />
+                      {scanning && (
+                        <p className="mt-1 text-xs text-muted">Slår opp …</p>
+                      )}
+                      {scanMsg && (
+                        <p
+                          className={
+                            "mt-1 text-xs " +
+                            (scanErr ? "text-danger" : "text-accent-soft")
+                          }
+                        >
+                          {scanMsg}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   {products.length === 0 ? (
                     <p className="text-sm text-muted">Ingen varer tilgjengelig.</p>
                   ) : (

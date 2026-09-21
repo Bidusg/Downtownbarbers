@@ -6,8 +6,74 @@ import {
   createProduct,
   toggleProduct,
   deleteProduct,
+  setProductBarcode,
 } from "@/app/admin/produkter/actions";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
+import { BarcodeScanner } from "@/components/ui/BarcodeScanner";
+
+/** Inline strekkode-celle: vis/sett/endre strekkode, med skann-mulighet. */
+function BarcodeCell({
+  id,
+  barcode,
+}: {
+  id: string;
+  barcode: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState(false);
+  const [pending, start] = useTransition();
+
+  const save = (code: string) =>
+    start(async () => {
+      setMsg(null);
+      setErr(false);
+      const r = await setProductBarcode(id, code);
+      if (r.error) {
+        setErr(true);
+        setMsg(r.error);
+      } else {
+        setMsg("Lagret ✓");
+        setOpen(false);
+      }
+    });
+
+  if (!open) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className={barcode ? "font-mono text-xs text-fg" : "text-xs text-muted"}>
+          {barcode || "—"}
+        </span>
+        <button
+          onClick={() => {
+            setOpen(true);
+            setMsg(null);
+          }}
+          className="text-xs text-accent-soft hover:underline"
+        >
+          {barcode ? "Endre" : "Sett"}
+        </button>
+        {msg && !err && <span className="text-xs text-muted">{msg}</span>}
+      </div>
+    );
+  }
+  return (
+    <div className="w-64 space-y-1">
+      <BarcodeScanner onScan={save} autoFocus />
+      {pending && <p className="text-xs text-muted">Lagrer …</p>}
+      {msg && err && <p className="text-xs text-danger">{msg}</p>}
+      <button
+        onClick={() => {
+          setOpen(false);
+          setMsg(null);
+        }}
+        className="text-xs text-muted hover:text-fg hover:underline"
+      >
+        Avbryt
+      </button>
+    </div>
+  );
+}
 
 export function ProductManager({ products }: { products: AdminProduct[] }) {
   const [open, setOpen] = useState(false);
@@ -36,6 +102,7 @@ export function ProductManager({ products }: { products: AdminProduct[] }) {
           <input name="name" placeholder="Navn" required className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft" />
           <input name="price_nok" type="number" placeholder="Pris (kr)" required className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft" />
           <input name="stock" type="number" placeholder="Lager" defaultValue={0} className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft" />
+          <input name="barcode" placeholder="Strekkode (valgfritt)" className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft" />
           <label className="flex items-center gap-2 text-sm text-muted">
             <input name="is_gift_card" type="checkbox" /> Gavekort
           </label>
@@ -57,6 +124,7 @@ export function ProductManager({ products }: { products: AdminProduct[] }) {
               <th className="px-4 py-3">Produkt</th>
               <th className="px-4 py-3">Pris</th>
               <th className="px-4 py-3">Lager</th>
+              <th className="px-4 py-3">Strekkode</th>
               <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3"></th>
@@ -65,7 +133,7 @@ export function ProductManager({ products }: { products: AdminProduct[] }) {
           <tbody>
             {products.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted">
+                <td colSpan={7} className="px-4 py-8 text-center text-muted">
                   Ingen produkter enda – legg til det første, eller koble til Supabase.
                 </td>
               </tr>
@@ -75,6 +143,9 @@ export function ProductManager({ products }: { products: AdminProduct[] }) {
                 <td className="px-4 py-3 font-medium text-fg">{p.name}</td>
                 <td className="px-4 py-3 font-display">{p.price_nok} kr</td>
                 <td className="px-4 py-3 text-muted">{p.stock}</td>
+                <td className="px-4 py-3">
+                  <BarcodeCell id={p.id} barcode={p.barcode} />
+                </td>
                 <td className="px-4 py-3 text-muted">{p.is_gift_card ? "Gavekort" : "Produkt"}</td>
                 <td className="px-4 py-3">
                   <button

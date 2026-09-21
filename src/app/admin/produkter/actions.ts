@@ -27,11 +27,35 @@ export async function createProduct(formData: FormData) {
     price_nok: Number(formData.get("price_nok") ?? 0),
     stock: Number(formData.get("stock") ?? 0),
     is_gift_card: formData.get("is_gift_card") === "on",
+    barcode: String(formData.get("barcode") ?? "").trim() || null,
     image_url,
     active: true,
   });
   revalidatePath("/admin/produkter");
   revalidatePath("/butikk");
+}
+
+/** Sett/endre strekkode på et produkt (tom = fjern). Kun admin/eier. */
+export async function setProductBarcode(
+  id: string,
+  barcode: string,
+): Promise<{ ok?: true; error?: string }> {
+  const value = barcode.trim() || null;
+  const sb = await createClient();
+  const { error } = await sb
+    .from("products")
+    .update({ barcode: value })
+    .eq("id", id);
+  if (error) {
+    // Mest sannsynlig unik-konflikt (strekkoden er brukt på et annet produkt).
+    return {
+      error: error.message.includes("duplicate")
+        ? "Strekkoden er allerede i bruk på et annet produkt."
+        : `Kunne ikke lagre: ${error.message}`,
+    };
+  }
+  revalidatePath("/admin/produkter");
+  return { ok: true };
 }
 
 export async function toggleProduct(id: string, active: boolean) {

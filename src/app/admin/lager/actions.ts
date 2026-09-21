@@ -26,6 +26,36 @@ export async function adjustStockAction(formData: FormData) {
   refresh();
 }
 
+/**
+ * Lager-justering fra skanning (admin + shop). Returnerer ny beholdning for
+ * pen tilbakemelding. delta > 0 = inn, < 0 = ut.
+ */
+export async function scanAdjustStock(
+  productId: string,
+  delta: number,
+  reason: string,
+): Promise<{ ok?: true; newStock?: number; error?: string }> {
+  if (!productId || !Number.isInteger(delta) || delta === 0)
+    return { error: "Ugyldig antall." };
+  const sb = await createClient();
+  const { data, error } = await sb.rpc("record_stock_movement", {
+    p_product: productId,
+    p_delta: delta,
+    p_reason: reason || "justering",
+    p_note: "Skann",
+  });
+  if (error) {
+    return {
+      error: error.message.includes("tilgang")
+        ? "Ingen tilgang til lagerjustering."
+        : "Kunne ikke lagre justeringen.",
+    };
+  }
+  refresh();
+  revalidatePath("/kasse/lager");
+  return { ok: true, newStock: Number(data) || 0 };
+}
+
 /** Sett lager til et absolutt tall (regner ut differansen og logger den). */
 export async function setStockAction(formData: FormData) {
   const productId = String(formData.get("productId") ?? "");

@@ -1,5 +1,6 @@
 import { StatTile } from "@/components/ui/StatTile";
 import { getInventory, getStockMovements } from "@/lib/inventory-queries";
+import { StockScanAdjust } from "@/components/admin/StockScanAdjust";
 import { adjustStockAction, setStockAction, setThresholdAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +50,9 @@ export default async function AdminLager() {
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <h1 className="font-display text-2xl font-bold">Lager</h1>
+
+      <StockScanAdjust />
+
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatTile label="Produkter" value={String(items.length)} />

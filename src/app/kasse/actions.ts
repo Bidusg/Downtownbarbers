@@ -302,6 +302,45 @@ export async function reopenBooking(
   }
 }
 
+export type BarcodeProduct = {
+  id: string;
+  name: string;
+  price_nok: number;
+  stock: number;
+  is_gift_card: boolean;
+};
+
+/** Slår opp et aktivt produkt på strekkode (via RPC – funker for shop + admin). */
+export async function findProductByBarcode(
+  code: string,
+): Promise<BarcodeProduct | null> {
+  const c = code.trim();
+  if (!c) return null;
+  try {
+    const sb = await createClient();
+    const { data } = await sb.rpc("find_product_by_barcode", { p_code: c });
+    const row = (Array.isArray(data) ? data[0] : data) as
+      | {
+          id: string;
+          name: string;
+          price_nok: number;
+          stock: number;
+          is_gift_card: boolean;
+        }
+      | undefined;
+    if (!row) return null;
+    return {
+      id: row.id,
+      name: row.name,
+      price_nok: Number(row.price_nok) || 0,
+      stock: Number(row.stock) || 0,
+      is_gift_card: !!row.is_gift_card,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export type SellableProduct = { id: string; name: string; price_nok: number };
 
 /** Produkter som kan selges over disk i kassen (aktive, ikke gavekort). */

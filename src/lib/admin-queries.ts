@@ -51,6 +51,7 @@ export type AdminProduct = {
   active: boolean;
   is_gift_card: boolean;
   image_url: string | null;
+  barcode: string | null;
 };
 
 export async function getProductsAdmin(): Promise<AdminProduct[]> {
@@ -58,7 +59,7 @@ export async function getProductsAdmin(): Promise<AdminProduct[]> {
     const sb = await createClient();
     const { data } = await sb
       .from("products")
-      .select("id, name, description, price_nok, stock, active, is_gift_card, image_url")
+      .select("id, name, description, price_nok, stock, active, is_gift_card, image_url, barcode")
       .order("name");
     return (data as AdminProduct[]) ?? [];
   } catch {
