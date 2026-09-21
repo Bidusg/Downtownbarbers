@@ -39,6 +39,8 @@ function fmtClock(iso: string) {
 /** Produktlinje ved betaling (voks/sjampo o.l.). Pris hentes server-side. */
 export type SaleProduct = { id: string; qty: number };
 
+export type SplitPayment = { method: string; amount: number };
+
 export type CompleteOptions = {
   paymentMethod?: string;
   /** Kundeinfo som fylles inn ved betaling (drop-in) – lagres i CRM. */
@@ -47,6 +49,10 @@ export type CompleteOptions = {
   sendReceipt?: boolean;
   /** Produkter som selges sammen med timen (varesalg over disk). */
   products?: SaleProduct[];
+  /** Rabatt i kr trukket fra totalen (kampanje/kulanse). Server klemmer til [0, brutto]. */
+  discountNok?: number;
+  /** Splittbetaling: beløp per betalingsmåte. Utelates ved enkeltbetaling. */
+  payments?: SplitPayment[];
 };
 
 export type CompleteResult = { ok?: true; error?: string };
@@ -83,10 +89,15 @@ export async function completeBooking(
   const products = (o.products ?? [])
     .filter((p) => p && p.id)
     .map((p) => ({ id: p.id, qty: Math.max(1, Math.floor(p.qty || 1)) }));
+  const payments = (o.payments ?? [])
+    .filter((p) => p && p.method && (p.amount ?? 0) > 0)
+    .map((p) => ({ method: p.method, amount: Math.round(p.amount) }));
   const { error: saleErr } = await sb.rpc("record_sale", {
     p_booking: bookingId,
     p_payment_method: o.paymentMethod ?? null,
     p_products: products,
+    p_discount: Math.max(0, Math.round(o.discountNok ?? 0)),
+    p_payments: payments.length > 0 ? payments : null,
   });
   if (saleErr) {
     return {

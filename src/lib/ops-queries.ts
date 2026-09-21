@@ -178,13 +178,47 @@ export async function getExpectedByMethodForDate(
     end.setUTCDate(end.getUTCDate() + 1);
     const { data } = await sb
       .from("sales")
-      .select("total_nok, payment_method")
+      .select("id, total_nok, payment_method")
       .gte("sold_at", start)
       .lt("sold_at", end.toISOString());
+    const rows = (data ?? []) as {
+      id: string;
+      total_nok: number;
+      payment_method: string | null;
+    }[];
+
+    // Splittbetalinger ligger i sale_payments – autoritativ per måte. Salg uten
+    // slike rader (gamle salg, hurtigsalg) bøttes på sales.payment_method.
+    const ids = rows.map((s) => s.id);
+    const bySale = new Map<string, { method: string; amount: number }[]>();
+    if (ids.length > 0) {
+      const { data: pays } = await sb
+        .from("sale_payments")
+        .select("sale_id, method, amount")
+        .in("sale_id", ids);
+      for (const p of (pays ?? []) as {
+        sale_id: string;
+        method: string;
+        amount: number;
+      }[]) {
+        const list = bySale.get(p.sale_id) ?? [];
+        list.push({ method: p.method, amount: Number(p.amount) || 0 });
+        bySale.set(p.sale_id, list);
+      }
+    }
+
     const res = { ...empty };
-    for (const s of data ?? []) {
-      const b = methodBucket(s.payment_method as string);
-      if (b) res[b] += Number(s.total_nok) || 0;
+    for (const s of rows) {
+      const plist = bySale.get(s.id);
+      if (plist && plist.length > 0) {
+        for (const p of plist) {
+          const b = methodBucket(p.method);
+          if (b) res[b] += p.amount;
+        }
+      } else {
+        const b = methodBucket(s.payment_method as string);
+        if (b) res[b] += Number(s.total_nok) || 0;
+      }
     }
     res.cash = Math.round(res.cash);
     res.card = Math.round(res.card);
