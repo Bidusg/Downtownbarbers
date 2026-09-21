@@ -69,6 +69,61 @@ const osloDayKey = (iso: string) =>
   new Date(iso).toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" }); // yyyy-mm-dd
 const osloMonthKey = (iso: string) => osloDayKey(iso).slice(0, 7); // yyyy-mm
 
+type SaleForMethod = {
+  id: string;
+  total_nok: number | null;
+  payment_method: string | null;
+};
+
+/**
+ * Fordel en liste salg per betalingsmåte. Splittsalg (rader i sale_payments)
+ * fordeles på hver faktisk betalingsmåte; øvrige salg bøttes på
+ * sales.payment_method. Slik havner ikke delte betalinger under «Delt» i
+ * statistikken, men i riktig Kontant/Kort/Vipps. Antall telles per måte salget
+ * berørte (et splittsalg teller i begge).
+ */
+async function methodTotals(
+  sb: Awaited<ReturnType<typeof createClient>>,
+  sales: SaleForMethod[],
+): Promise<Map<string, { nok: number; count: number }>> {
+  const out = new Map<string, { nok: number; count: number }>();
+  const add = (m: string, nok: number) => {
+    const cur = out.get(m) ?? { nok: 0, count: 0 };
+    cur.nok += nok;
+    cur.count += 1;
+    out.set(m, cur);
+  };
+
+  const ids = sales.map((s) => s.id).filter(Boolean);
+  const bySale = new Map<string, { method: string; amount: number }[]>();
+  for (let i = 0; i < ids.length; i += 1000) {
+    const chunk = ids.slice(i, i + 1000);
+    const { data } = await sb
+      .from("sale_payments")
+      .select("sale_id, method, amount")
+      .in("sale_id", chunk);
+    for (const p of (data ?? []) as {
+      sale_id: string;
+      method: string;
+      amount: number;
+    }[]) {
+      const list = bySale.get(p.sale_id) ?? [];
+      list.push({ method: p.method, amount: Number(p.amount) || 0 });
+      bySale.set(p.sale_id, list);
+    }
+  }
+
+  for (const s of sales) {
+    const plist = bySale.get(s.id);
+    if (plist && plist.length > 0) {
+      for (const p of plist) add(p.method || "Ukjent", p.amount);
+    } else {
+      add((s.payment_method as string) || "Ukjent", Number(s.total_nok) || 0);
+    }
+  }
+  return out;
+}
+
 /**
  * Aggregert periode-rapport (for revisor: kvartal/halvår/helår). Totaler,
  * antall og fordeling per barber / betalingsmåte / måned — uten rad-tak som
@@ -89,37 +144,37 @@ export async function getPeriodReport(
     const sb = await createClient();
     const { data } = await sb
       .from("sales")
-      .select("total_nok, sold_at, payment_method, staff(full_name)")
+      .select("id, total_nok, sold_at, payment_method, staff(full_name)")
       .gte("sold_at", startIso)
       .lt("sold_at", endIso)
       .limit(50000);
+    const sales = data ?? [];
     let total = 0;
     let count = 0;
     const barber = new Map<string, number>();
-    const method = new Map<string, number>();
     const month = new Map<string, { nok: number; count: number }>();
-    for (const s of data ?? []) {
+    for (const s of sales) {
       const amt = Number(s.total_nok) || 0;
       total += amt;
       count += 1;
       const st = s.staff as { full_name?: string } | null;
       const bname = st?.full_name ?? "Ukjent";
-      const mname = (s.payment_method as string) || "Ukjent";
       const mk = osloMonthKey(s.sold_at as string);
       barber.set(bname, (barber.get(bname) ?? 0) + amt);
-      method.set(mname, (method.get(mname) ?? 0) + amt);
       const cm = month.get(mk) ?? { nok: 0, count: 0 };
       cm.nok += amt;
       cm.count += 1;
       month.set(mk, cm);
     }
+    // Betalingsmåte: fordel splittsalg per faktisk måte (sale_payments).
+    const method = await methodTotals(sb, sales as SaleForMethod[]);
     return {
       total: Math.round(total),
       count,
       byBarber: Array.from(barber, ([name, nok]) => ({ name, nok: Math.round(nok) })).sort(
         (a, b) => b.nok - a.nok,
       ),
-      byMethod: Array.from(method, ([m, nok]) => ({ method: m, nok: Math.round(nok) })).sort(
+      byMethod: Array.from(method, ([m, v]) => ({ method: m, nok: Math.round(v.nok) })).sort(
         (a, b) => b.nok - a.nok,
       ),
       byMonth: Array.from(month, ([key, v]) => ({
@@ -213,11 +268,11 @@ export async function getSalesForPeriod(
       .lt("sold_at", endIso)
       .order("sold_at", { ascending: false })
       .limit(5000);
+    const sales = data ?? [];
     const rows: SaleRow[] = [];
     const barber = new Map<string, number>();
-    const method = new Map<string, number>();
     let total = 0;
-    for (const s of data ?? []) {
+    for (const s of sales) {
       const st = s.staff as { full_name?: string } | null;
       const c = s.customers as { full_name?: string } | null;
       const amt = Number(s.total_nok) || 0;
@@ -233,7 +288,6 @@ export async function getSalesForPeriod(
       const bname = st?.full_name ?? "Ukjent";
       const mname = (s.payment_method as string) || "Ukjent";
       barber.set(bname, (barber.get(bname) ?? 0) + amt);
-      method.set(mname, (method.get(mname) ?? 0) + amt);
       rows.push({
         id: s.id as string,
         time,
@@ -243,11 +297,13 @@ export async function getSalesForPeriod(
         nok: Math.round(amt),
       });
     }
+    // Betalingsmåte: fordel splittsalg per faktisk måte (sale_payments).
+    const method = await methodTotals(sb, sales as SaleForMethod[]);
     return {
       rows,
       total: Math.round(total),
       byBarber: Array.from(barber, ([name, nok]) => ({ name, nok: Math.round(nok) })).sort((a, b) => b.nok - a.nok),
-      byMethod: Array.from(method, ([m, nok]) => ({ method: m, nok: Math.round(nok) })).sort((a, b) => b.nok - a.nok),
+      byMethod: Array.from(method, ([m, v]) => ({ method: m, nok: Math.round(v.nok) })).sort((a, b) => b.nok - a.nok),
     };
   } catch {
     return empty;
@@ -357,17 +413,11 @@ export async function getSalesByMethodToday(): Promise<
     end.setUTCDate(end.getUTCDate() + 1);
     const { data } = await sb
       .from("sales")
-      .select("total_nok, payment_method")
+      .select("id, total_nok, payment_method")
       .gte("sold_at", start.toISOString())
       .lt("sold_at", end.toISOString());
-    const map = new Map<string, { nok: number; count: number }>();
-    for (const s of data ?? []) {
-      const m = (s.payment_method as string) || "Ukjent";
-      const cur = map.get(m) ?? { nok: 0, count: 0 };
-      cur.nok += Number(s.total_nok) || 0;
-      cur.count += 1;
-      map.set(m, cur);
-    }
+    // Fordel splittsalg per faktisk betalingsmåte (sale_payments).
+    const map = await methodTotals(sb, (data ?? []) as SaleForMethod[]);
     return Array.from(map, ([method, v]) => ({
       method,
       nok: Math.round(v.nok),
