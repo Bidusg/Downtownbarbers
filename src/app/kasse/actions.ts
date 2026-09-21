@@ -58,6 +58,43 @@ export type CompleteOptions = {
 export type CompleteResult = { ok?: true; error?: string };
 
 /**
+ * Hent faktiske salgstall for en booking til kvitteringen: netto total,
+ * rabatt og betalingsfordeling (splitt). Best-effort – feiler stille.
+ */
+async function receiptExtras(
+  sb: Awaited<ReturnType<typeof createClient>>,
+  bookingId: string,
+): Promise<{
+  totalNok: number | null;
+  discountNok: number;
+  payments: { method: string; amount: number }[];
+}> {
+  try {
+    const { data: sale } = await sb
+      .from("sales")
+      .select("id, total_nok, discount_nok")
+      .eq("booking_id", bookingId)
+      .order("sold_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!sale) return { totalNok: null, discountNok: 0, payments: [] };
+    const { data: pays } = await sb
+      .from("sale_payments")
+      .select("method, amount")
+      .eq("sale_id", sale.id);
+    return {
+      totalNok: Number(sale.total_nok) || 0,
+      discountNok: Number(sale.discount_nok) || 0,
+      payments: ((pays ?? []) as { method: string; amount: number }[]).map(
+        (p) => ({ method: p.method, amount: Number(p.amount) || 0 }),
+      ),
+    };
+  } catch {
+    return { totalNok: null, discountNok: 0, payments: [] };
+  }
+}
+
+/**
  * Fullfør en time: registrer salget (tjeneste + evt. produkter) atomisk,
  * oppdater evt. kundeinfo i CRM (drop-in), og send kvittering hvis ønsket.
  *
@@ -139,14 +176,17 @@ export async function completeBooking(
     if (email) {
       const s = b.services as { name?: string } | null;
       const st = b.staff as { full_name?: string } | null;
+      const extras = await receiptExtras(sb, bookingId);
       await sendReceiptEmail({
         to: email,
         name: name ?? "",
         service: s?.name ?? "",
         barber: st?.full_name ?? "",
         date: fmtDay(b.start_at),
-        price: `${b.price_nok} kr`,
+        price: `${extras.totalNok ?? b.price_nok} kr`,
         paymentMethod: o.paymentMethod,
+        discount: extras.discountNok,
+        payments: extras.payments,
       });
     }
   }
@@ -575,13 +615,16 @@ export async function sendReceiptForBooking(
     if (!c?.email) return { error: "Kunden mangler e-postadresse." };
     const s = b.services as { name?: string } | null;
     const st = b.staff as { full_name?: string } | null;
+    const extras = await receiptExtras(sb, bookingId);
     await sendReceiptEmail({
       to: c.email,
       name: c.full_name ?? "",
       service: s?.name ?? "",
       barber: st?.full_name ?? "",
       date: fmtDay(b.start_at),
-      price: `${b.price_nok} kr`,
+      price: `${extras.totalNok ?? b.price_nok} kr`,
+      discount: extras.discountNok,
+      payments: extras.payments,
     });
     return { ok: true };
   } catch {

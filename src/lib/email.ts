@@ -116,14 +116,27 @@ export async function sendReceiptEmail(opts: {
   date: string;
   price: string;
   paymentMethod?: string;
+  /** Rabatt i kr – egen linje vises kun når > 0. */
+  discount?: number;
+  /** Splittbetaling: vises som «Kontant 200 kr · Kort 300 kr». */
+  payments?: { method: string; amount: number }[];
 }): Promise<void> {
   const rows: [string, string][] = [
     ["Tjeneste", opts.service],
     ["Barber", opts.barber],
     ["Dato", opts.date],
-    ["Betalt", opts.price],
   ];
-  if (opts.paymentMethod) rows.push(["Betalingsmåte", opts.paymentMethod]);
+  if (opts.discount && opts.discount > 0) {
+    rows.push(["Rabatt", `−${Math.round(opts.discount)} kr`]);
+  }
+  rows.push(["Betalt", opts.price]);
+  const paymentLine =
+    opts.payments && opts.payments.length > 0
+      ? opts.payments
+          .map((p) => `${p.method} ${Math.round(p.amount)} kr`)
+          .join(" · ")
+      : opts.paymentMethod;
+  if (paymentLine) rows.push(["Betalingsmåte", paymentLine]);
   const html = shell(
     "Kvittering 🧾",
     `Hei ${opts.name.split(" ")[0] || "der"}, takk for besøket! Her er kvitteringen din:`,
