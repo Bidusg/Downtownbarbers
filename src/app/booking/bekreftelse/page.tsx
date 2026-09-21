@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
+import { Button } from "@/components/ui/Button";
 
 export const metadata = { title: "Bekreftelse | Downtown Barbers" };
 
@@ -36,12 +36,9 @@ export default async function Bekreftelse({
             </p>
           </>
         )}
-        <Link
-          href="/"
-          className="mt-10 border border-line-2 px-6 py-3 text-sm font-semibold text-fg hover:border-fg"
-        >
+        <Button variant="subtle" href="/" className="mt-10 px-6 py-3 text-sm">
           Til forsiden
-        </Link>
+        </Button>
       </section>
       <Footer />
     </div>

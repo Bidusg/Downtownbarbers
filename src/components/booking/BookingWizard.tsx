@@ -5,6 +5,7 @@ import { createBooking } from "@/app/booking/actions";
 import { getAvailableSlots } from "@/app/booking/availability-actions";
 import { isValidEmail, isValidNorwegianPhone } from "@/lib/validate";
 import { eventLinks } from "@/lib/calendar-links";
+import { Button } from "@/components/ui/Button";
 
 export type WizService = {
   name: string;
@@ -484,29 +485,30 @@ export function BookingWizard({
       </div>
 
       <div className="flex items-center justify-between border-t border-line p-4">
-        <button
+        <Button
+          variant="ghost"
           onClick={() => setStep((s) => Math.max(0, s - 1))}
           disabled={step === 0}
-          className="px-4 py-2 text-sm text-muted hover:text-fg disabled:opacity-40"
+          className="px-4 py-2 text-sm"
         >
           Tilbake
-        </button>
+        </Button>
         {step < 3 ? (
-          <button
+          <Button
             onClick={() => canNext && setStep((s) => s + 1)}
             disabled={!canNext}
-            className="bg-accent px-6 py-2.5 text-sm font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-40"
+            className="px-6 py-2.5 text-sm"
           >
             Neste
-          </button>
+          </Button>
         ) : (
-          <button
+          <Button
             onClick={submit}
             disabled={pending || !name.trim() || !emailOk || !phoneOk}
-            className="bg-accent px-6 py-2.5 text-sm font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-40"
+            className="px-6 py-2.5 text-sm"
           >
             {pending ? "Bekrefter …" : "Bekreft booking"}
-          </button>
+          </Button>
         )}
       </div>
     </div>

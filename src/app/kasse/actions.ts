@@ -266,6 +266,8 @@ export type WalkinInput = {
   discountNok?: number;
   /** Splittbetaling: beløp per betalingsmåte. Utelates ved enkeltbetaling. */
   payments?: SplitPayment[];
+  /** Send kvittering på e-post (krever at kunde-e-post er fylt inn). */
+  sendReceipt?: boolean;
 };
 
 /**
@@ -293,7 +295,7 @@ export async function recordWalkinSale(
     const payments = (input.payments ?? [])
       .filter((p) => p && p.method && (p.amount ?? 0) > 0)
       .map((p) => ({ method: p.method, amount: Math.round(p.amount) }));
-    const { error } = await sb.rpc("record_walkin_sale", {
+    const { data: saleId, error } = await sb.rpc("record_walkin_sale", {
       p_staff: input.staffId || null,
       p_payment_method: input.paymentMethod ?? null,
       p_service: input.service?.trim() || null,
@@ -308,6 +310,47 @@ export async function recordWalkinSale(
         error: error.message || "Salget ble ikke registrert. Prøv igjen.",
       };
     }
+
+    // Kvittering (best-effort – salget er allerede trygt registrert).
+    const receiptEmail = customer?.email;
+    if (input.sendReceipt && receiptEmail && typeof saleId === "string") {
+      try {
+        const { data: sale } = await sb
+          .from("sales")
+          .select("total_nok, discount_nok")
+          .eq("id", saleId)
+          .maybeSingle();
+        const { data: pays } = await sb
+          .from("sale_payments")
+          .select("method, amount")
+          .eq("sale_id", saleId);
+        let barberName = "";
+        if (input.staffId) {
+          const { data: st } = await sb
+            .from("staff")
+            .select("full_name")
+            .eq("id", input.staffId)
+            .maybeSingle();
+          barberName = st?.full_name ?? "";
+        }
+        await sendReceiptEmail({
+          to: receiptEmail,
+          name: customer?.name ?? "",
+          service: input.service?.trim() || "Varekjøp",
+          barber: barberName,
+          date: fmtDay(new Date().toISOString()),
+          price: `${Number(sale?.total_nok) || 0} kr`,
+          paymentMethod: input.paymentMethod,
+          discount: Number(sale?.discount_nok) || 0,
+          payments: ((pays ?? []) as { method: string; amount: number }[]).map(
+            (p) => ({ method: p.method, amount: Number(p.amount) || 0 }),
+          ),
+        });
+      } catch {
+        // kvittering feiler stille – påvirker ikke salget
+      }
+    }
+
     refresh();
     return { ok: true };
   } catch {

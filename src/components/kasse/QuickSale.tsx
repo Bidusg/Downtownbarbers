@@ -37,6 +37,7 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [makeMember, setMakeMember] = useState(false);
+  const [receipt, setReceipt] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Rabatt + splittbetaling
@@ -58,6 +59,7 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
     setEmail("");
     setPhone("");
     setMakeMember(false);
+    setReceipt(false);
     setError(null);
     setDiscount("");
     setSplit(false);
@@ -112,6 +114,7 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
         customer: { name, email, phone },
         makeMember,
         discountNok: discountNum,
+        sendReceipt: receipt && !!email.trim(),
       });
       if (res?.error) {
         setError(res.error);
@@ -142,6 +145,7 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
         makeMember,
         discountNok: discountNum,
         payments: splitEntries,
+        sendReceipt: receipt && !!email.trim(),
       });
       if (res?.error) {
         setError(res.error);
@@ -256,6 +260,18 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
               <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Telefon" inputMode="tel" className={inputCls} />
             </div>
             <p className="mb-3 text-xs text-muted">Kundeinfo lagres i kundekartoteket.</p>
+
+            {/* Kvittering (kun når e-post er fylt inn) */}
+            {email.trim() && (
+              <label className="mb-3 flex items-center gap-2 text-xs text-muted">
+                <input
+                  type="checkbox"
+                  checked={receipt}
+                  onChange={(e) => setReceipt(e.target.checked)}
+                />
+                Send kvittering på e-post
+              </label>
+            )}
 
             {/* Medlem */}
             <label className="mb-3 flex items-start gap-2 text-xs text-muted">
