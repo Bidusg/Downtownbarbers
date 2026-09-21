@@ -105,6 +105,7 @@ export type GiftCard = {
   balance_nok: number;
   created_at: string;
   expires_at: string | null;
+  barcode: string | null;
 };
 
 export async function getGiftCards(): Promise<GiftCard[]> {
@@ -112,7 +113,7 @@ export async function getGiftCards(): Promise<GiftCard[]> {
     const sb = await createClient();
     const { data } = await sb
       .from("gift_cards")
-      .select("id, code, initial_nok, balance_nok, created_at, expires_at")
+      .select("id, code, initial_nok, balance_nok, created_at, expires_at, barcode")
       .order("created_at", { ascending: false });
     return (data as GiftCard[]) ?? [];
   } catch {

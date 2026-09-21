@@ -9,6 +9,7 @@ const links = [
   { href: "/kasse/kalender", label: "Kalender" },
   { href: "/kasse/kunder", label: "Kunder" },
   { href: "/kasse/lager", label: "Lager" },
+  { href: "/kasse/gavekort", label: "Gavekort" },
   { href: "/kasse/stempling", label: "Stempling" },
 ];
 
