@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { requireRole, getUserRole } from "@/lib/auth";
+import { requireRole, getUserRole, isAdminRole } from "@/lib/auth";
 import { sendStaffCredentialsEmail } from "@/lib/email";
 import { STAFF_DOCS_BUCKET } from "@/lib/staff-documents";
 
@@ -326,6 +326,59 @@ export async function toggleStaff(id: string, active: boolean) {
   const sb = await createClient();
   await sb.from("staff").update({ active }).eq("id", id);
   revalidatePath("/admin/ansatte");
+}
+
+/**
+ * Setter nivå (junior/barber/senior/master) på en ansatt. Nivået styrer prisen
+ * kunden ser ved booking (pris per nivå × tjeneste). Tom verdi nullstiller
+ * (faller tilbake til basispris). Kun admin/eier.
+ */
+export async function setStaffLevel(
+  id: string,
+  levelId: string | null,
+): Promise<{ ok?: true; error?: string }> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { error: "Ikke tilgang." };
+  const sb = await createClient();
+  const { error } = await sb
+    .from("staff")
+    .update({ level_id: levelId || null })
+    .eq("id", id);
+  if (error) return { error: `Kunne ikke lagre nivå: ${error.message}` };
+  revalidatePath("/admin/ansatte");
+  return { ok: true };
+}
+
+/**
+ * Setter hvilke tjenester en ansatt leverer (positiv tilknytning i
+ * staff_services – erstatter det gamle ekskluderingsfilteret). Erstatter hele
+ * settet. Tomt sett = leverer alt (ny ansatt-standard). Kun admin/eier.
+ */
+export async function setStaffServices(
+  id: string,
+  serviceIds: string[],
+): Promise<{ ok?: true; error?: string }> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { error: "Ikke tilgang." };
+  const sb = await createClient();
+
+  // Bytt ut hele settet: slett eksisterende, sett inn valgt.
+  const { error: delErr } = await sb
+    .from("staff_services")
+    .delete()
+    .eq("staff_id", id);
+  if (delErr) return { error: `Kunne ikke lagre tjenester: ${delErr.message}` };
+
+  const rows = Array.from(new Set(serviceIds)).map((service_id) => ({
+    staff_id: id,
+    service_id,
+  }));
+  if (rows.length > 0) {
+    const { error: insErr } = await sb.from("staff_services").insert(rows);
+    if (insErr) return { error: `Kunne ikke lagre tjenester: ${insErr.message}` };
+  }
+  revalidatePath("/admin/ansatte");
+  return { ok: true };
 }
 
 /** Setter 4-sifret stemplings-PIN for en ansatt (via sikker RPC). */

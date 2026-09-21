@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 
 const ROLE_LABEL: Record<string, string> = {
   admin: "Admin",
+  eier: "Eier",
   shop: "Kasse",
   staff: "Ansatt",
   revisor: "Revisor",
@@ -13,6 +14,7 @@ const ROLE_LABEL: Record<string, string> = {
 };
 const ROLE_STYLE: Record<string, string> = {
   admin: "bg-accent-soft/15 text-accent-soft",
+  eier: "bg-accent/15 text-accent",
   shop: "bg-surface-2 text-fg",
   staff: "bg-surface-2 text-fg",
   revisor: "bg-surface-2 text-fg",
@@ -43,6 +45,7 @@ export default async function AdminBrukere() {
 
       <div className="flex flex-wrap gap-x-6 gap-y-1 border border-line bg-surface px-5 py-4 text-xs text-muted">
         <span><strong className="text-fg">Admin</strong> — full tilgang</span>
+        <span><strong className="text-fg">Eier</strong> — full tilgang, ingen shop-begrensninger</span>
         <span><strong className="text-fg">Kasse</strong> — skranke, ingen sensitive tall</span>
         <span><strong className="text-fg">Ansatt</strong> — kun eget</span>
         <span><strong className="text-fg">Revisor</strong> — regnskap/eksport</span>

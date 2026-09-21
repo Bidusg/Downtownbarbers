@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getUserRole } from "@/lib/auth";
+import { getUserRole, isAdminRole } from "@/lib/auth";
 import { ROLES } from "@/lib/users-queries";
 
 /**
@@ -15,7 +15,7 @@ export async function setUserRole(formData: FormData) {
   if (!userId || !(ROLES as readonly string[]).includes(role)) return;
 
   const me = await getUserRole();
-  if (!me || me.role !== "admin") return;
+  if (!me || !isAdminRole(me.role)) return;
   if (me.userId === userId) return; // ikke endre egen rolle
 
   const sb = await createClient();

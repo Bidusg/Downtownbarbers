@@ -30,10 +30,13 @@ export async function getServicePopularity(
 }
 
 /**
- * Offentlig unntaksliste for booking-flyten: tjeneste-navn → liste med
- * barber-navn som IKKE utfører tjenesten. Booking-veiviseren filtrerer
- * barber-lista på dette. Navn brukes som nøkkel fordi hele booking-flyten
- * (createBooking, available_slots) allerede identifiserer med navn.
+ * Offentlig liste for booking-flyten: tjeneste-navn → barber-navn som IKKE
+ * leverer tjenesten. Booking-veiviseren filtrerer barber-lista på dette.
+ *
+ * Kilden er nå den POSITIVE tjeneste-tilknytningen (staff_services, via
+ * service_non_providers_public): en ansatt uten rader leverer alt, ellers kun
+ * tjenestene de har rad for. Vi returnerer «ikke-leverandørene» slik at
+ * booking-filteret (som filtrerer bort ekskluderte) er uendret.
  */
 export async function getPublicServiceExclusions(): Promise<
   Record<string, string[]>
@@ -41,7 +44,7 @@ export async function getPublicServiceExclusions(): Promise<
   const out: Record<string, string[]> = {};
   try {
     const sb = await createClient();
-    const { data } = await sb.rpc("service_exclusions_public");
+    const { data } = await sb.rpc("service_non_providers_public");
     for (const r of (data ?? []) as {
       service_name: string;
       barber_name: string;
@@ -49,7 +52,50 @@ export async function getPublicServiceExclusions(): Promise<
       (out[r.service_name] ??= []).push(r.barber_name);
     }
   } catch {
-    // tomt → ingen unntak (alle barbere vises, som før)
+    // tomt → ingen filtrering (alle barbere vises)
+  }
+  return out;
+}
+
+/**
+ * Offentlig nivåpris-matrise for booking-visning: tjenestenavn → nivå-slug →
+ * pris (kun satte nivåpriser). Booking viser riktig pris når barber (nivå) er
+ * valgt; ellers basisprisen.
+ */
+export async function getPublicLevelPrices(): Promise<
+  Record<string, Record<string, number>>
+> {
+  const out: Record<string, Record<string, number>> = {};
+  try {
+    const sb = await createClient();
+    const { data } = await sb.rpc("service_level_prices_public");
+    for (const r of (data ?? []) as {
+      service_name: string;
+      level_slug: string;
+      price_nok: number;
+    }[]) {
+      (out[r.service_name] ??= {})[r.level_slug] = Number(r.price_nok) || 0;
+    }
+  } catch {
+    // tomt → kun basispris
+  }
+  return out;
+}
+
+/** Offentlig oppslag: barber-navn → nivå-slug (for prisvisning i booking). */
+export async function getPublicBarberLevels(): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  try {
+    const sb = await createClient();
+    const { data } = await sb.rpc("staff_levels_public");
+    for (const r of (data ?? []) as {
+      barber_name: string;
+      level_slug: string;
+    }[]) {
+      out[r.barber_name] = r.level_slug;
+    }
+  } catch {
+    // tomt → ingen nivå
   }
   return out;
 }

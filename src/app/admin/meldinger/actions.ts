@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getUserRole } from "@/lib/auth";
+import { getUserRole, isAdminRole } from "@/lib/auth";
 import type { NoticeAudience, NoticeLevel } from "@/lib/notices-queries";
 
 const LEVELS: NoticeLevel[] = ["info", "warning", "critical"];
@@ -19,7 +19,7 @@ function toIsoOrNull(v: string): string | null {
 /** Oppretter en ny driftsmelding. Kun admin. */
 export async function createNotice(formData: FormData): Promise<void> {
   const me = await getUserRole();
-  if (!me || me.role !== "admin") return;
+  if (!me || !isAdminRole(me.role)) return;
 
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
@@ -58,7 +58,7 @@ export async function createNotice(formData: FormData): Promise<void> {
 /** Slår en melding av eller på. Kun admin. */
 export async function toggleNotice(id: string, active: boolean): Promise<void> {
   const me = await getUserRole();
-  if (!me || me.role !== "admin") return;
+  if (!me || !isAdminRole(me.role)) return;
 
   const sb = await createClient();
   await sb.from("notices").update({ active }).eq("id", id);
@@ -68,7 +68,7 @@ export async function toggleNotice(id: string, active: boolean): Promise<void> {
 /** Sletter en melding. Kun admin. */
 export async function deleteNotice(id: string): Promise<void> {
   const me = await getUserRole();
-  if (!me || me.role !== "admin") return;
+  if (!me || !isAdminRole(me.role)) return;
 
   const sb = await createClient();
   await sb.from("notices").delete().eq("id", id);

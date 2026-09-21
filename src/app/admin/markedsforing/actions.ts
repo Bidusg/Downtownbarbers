@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getUserRole } from "@/lib/auth";
+import { getUserRole, isAdminRole } from "@/lib/auth";
 import { getMarketingRecipients, type Segment, type Channel } from "@/lib/dm-queries";
 import { sendMarketingEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
@@ -15,7 +15,7 @@ import { sendSms } from "@/lib/sms";
  */
 export async function sendMarketing(formData: FormData): Promise<void> {
   const me = await getUserRole();
-  if (!me || me.role !== "admin") return;
+  if (!me || !isAdminRole(me.role)) return;
 
   const channel: Channel =
     String(formData.get("channel") ?? "email") === "sms" ? "sms" : "email";

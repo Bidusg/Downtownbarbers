@@ -6,8 +6,10 @@ import {
   getBookingPrice,
   getBookingLoyalty,
   listSellableProducts,
+  getKasseAllowances,
   type SellableProduct,
   type BookingLoyalty,
+  type KasseAllowances,
 } from "@/app/kasse/actions";
 import { redeemLoyalty } from "@/app/kasse/kunder/[id]/loyalty-actions";
 
@@ -66,11 +68,15 @@ export function PaymentControls({
   const [split, setSplit] = useState(false);
   const [splitAmts, setSplitAmts] = useState<Record<string, string>>({});
 
+  // Shop-flagg (rabatt / venn-familie). Eier/admin omgår.
+  const [allow, setAllow] = useState<KasseAllowances | null>(null);
+
   useEffect(() => {
     let alive = true;
     getBookingPrice(bookingId).then((p) => alive && setServicePrice(p));
     listSellableProducts().then((p) => alive && setProducts(p));
     getBookingLoyalty(bookingId).then((l) => alive && setLoyalty(l));
+    getKasseAllowances().then((a) => alive && setAllow(a));
     return () => {
       alive = false;
     };
@@ -304,20 +310,46 @@ export function PaymentControls({
         </div>
       )}
 
-      {/* Rabatt */}
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <label className="text-xs font-semibold tracking-wide text-muted uppercase">
-          Rabatt (kr)
-        </label>
-        <input
-          value={discount}
-          onChange={(e) => setDiscount(e.target.value.replace(/[^0-9]/g, ""))}
-          placeholder="0"
-          inputMode="numeric"
-          aria-label="Rabatt i kroner"
-          className="w-24 rounded-md border border-line bg-surface px-3 py-1.5 text-right text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
-        />
-      </div>
+      {/* Rabatt (styres av shop-flagg; eier/admin omgår) */}
+      {allow?.friendFamilyEnabled && (
+        <div className="mb-2 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() =>
+              setDiscount(
+                String(Math.round((gross * allow.friendFamilyPct) / 100)),
+              )
+            }
+            className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-fg hover:border-accent-soft"
+          >
+            Venn/familie −{allow.friendFamilyPct}%
+          </button>
+          {discountNum > 0 && (
+            <button
+              type="button"
+              onClick={() => setDiscount("")}
+              className="text-xs text-muted hover:text-fg hover:underline"
+            >
+              Nullstill rabatt
+            </button>
+          )}
+        </div>
+      )}
+      {allow?.discountAllowed && (
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <label className="text-xs font-semibold tracking-wide text-muted uppercase">
+            Rabatt (kr)
+          </label>
+          <input
+            value={discount}
+            onChange={(e) => setDiscount(e.target.value.replace(/[^0-9]/g, ""))}
+            placeholder="0"
+            inputMode="numeric"
+            aria-label="Rabatt i kroner"
+            className="w-24 rounded-md border border-line bg-surface px-3 py-1.5 text-right text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
+          />
+        </div>
+      )}
 
       {/* Total */}
       <div className="mb-3 rounded-lg bg-canvas px-3 py-2">

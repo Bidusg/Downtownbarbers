@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { CommandPalette } from "@/components/admin/CommandPalette";
 import { NoticeBanner } from "@/components/admin/NoticeBanner";
-import { getUserRole } from "@/lib/auth";
+import { getUserRole, isAdminRole } from "@/lib/auth";
 import { getActiveNotices } from "@/lib/notices-queries";
 
 export default async function AdminLayout({
@@ -12,7 +12,7 @@ export default async function AdminLayout({
 }) {
   const me = await getUserRole();
   if (!me) redirect("/logg-inn");
-  if (me.role !== "admin") redirect("/logg-inn?feil=tilgang");
+  if (!isAdminRole(me.role)) redirect("/logg-inn?feil=tilgang");
 
   const initial = (me.email ?? "K").charAt(0).toUpperCase();
   const notices = await getActiveNotices("admin");

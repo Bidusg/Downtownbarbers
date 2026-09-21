@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getUserRole } from "@/lib/auth";
+import { getUserRole, isAdminRole } from "@/lib/auth";
 
 /**
  * Lagre omdømme-konfig (Google + TripAdvisor). Kun admin. Nøkler oppdateres
@@ -12,7 +12,7 @@ import { getUserRole } from "@/lib/auth";
  */
 export async function saveReviewConfig(formData: FormData): Promise<void> {
   const me = await getUserRole();
-  if (!me || me.role !== "admin") return;
+  if (!me || !isAdminRole(me.role)) return;
 
   const sb = await createClient();
 

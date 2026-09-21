@@ -2218,3 +2218,737 @@ begin
 end $$;
 
 grant execute on function record_walkin_sale(uuid, text, text, jsonb, jsonb, boolean) to authenticated;
+
+
+-- =====================================================================
+-- NYTT FRA ØKTA 21. SEPT 2026 (kjøres etter alt over)
+--   0049 + 0050: rabatt/splittbetaling (manglet i denne fila fra før).
+--   0051: legg «eier» til rolle-enumet (user_role).
+--   0052: eier teller som admin i RLS + shop-flags (kasse-brytere).
+--   0053: nivåer & pris per nivå x tjeneste + tjeneste-tilknytning.
+-- Alt er idempotent. Funksjonene i 0052 bruker role::text, så hele
+-- blokka kan limes inn samlet og kjøres i én omgang.
+-- =====================================================================
+
+-- =====================================================================
+-- 0049 – RABATT + SPLITTBETALING I KASSEN
+--
+--   To ting kassen manglet ved betaling av en time:
+--     • Rabatt: gi et avslag i kroner på totalen (kampanje, klipp, kulanse).
+--     • Splittbetaling: dele én betaling på flere måter (f.eks. 200 kontant
+--       + resten kort).
+--
+--   Datamodell:
+--     • sales.discount_nok  – rabatt i kr trukket fra brutto. total_nok blir
+--       NETTO (brutto − rabatt), så alle eksisterende sum-spørringer stemmer.
+--     • sale_payments       – én rad per betalingsmåte på et salg. Autoritativ
+--       kilde for hva som faktisk kom inn per måte. Enkeltbetaling gir én rad,
+--       delt betaling flere. Kasseoppgjøret (0046) avstemmer mot denne.
+--
+--   record_sale utvides med p_discount + p_payments. Den gamle 3-arg-varianten
+--   DROPPES (completeBooking oppdateres i samme slipp). Summen av p_payments må
+--   stemme med netto (± 1 kr for øreavrunding), ellers rulles ALT tilbake –
+--   samme atomiske garanti som før (jf. 0044).
+--
+--   reopen_booking trenger ingen endring: sale_payments faller med cascade når
+--   salget slettes, og discount_nok ligger på sales-raden.
+-- =====================================================================
+
+-- --- Rabattkolonne på salget ------------------------------------------
+alter table sales
+  add column if not exists discount_nok numeric(10,2) not null default 0;
+
+-- --- Betalingslinjer (splittbetaling) ---------------------------------
+create table if not exists sale_payments (
+  id         uuid primary key default uuid_generate_v4(),
+  sale_id    uuid not null references sales(id) on delete cascade,
+  method     text not null,
+  amount     numeric(10,2) not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists sale_payments_sale_idx on sale_payments(sale_id);
+
+alter table sale_payments enable row level security;
+
+-- Lesing: admin alt, shop lese – speiler sales. Skriving skjer kun via
+-- SECURITY DEFINER-RPC-en record_sale, så ingen insert-policy trengs.
+drop policy if exists sale_payments_admin_all on sale_payments;
+create policy sale_payments_admin_all on sale_payments
+  for all using (is_admin()) with check (is_admin());
+
+drop policy if exists sale_payments_shop_read on sale_payments;
+create policy sale_payments_shop_read on sale_payments
+  for select using (is_shop_or_admin());
+
+-- --- record_sale: rabatt + splittbetaling -----------------------------
+-- Bytt ut den gamle 3-arg-varianten fullstendig.
+drop function if exists record_sale(uuid, text, jsonb);
+
+create or replace function record_sale(
+  p_booking        uuid,
+  p_payment_method text  default null,
+  p_products       jsonb default '[]'::jsonb,
+  p_discount       numeric default 0,
+  p_payments       jsonb default null
+) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare
+  v_booking  record;
+  v_sale     uuid;
+  v_gross    numeric(10,2) := 0;
+  v_discount numeric(10,2) := 0;
+  v_net      numeric(10,2) := 0;
+  v_item     jsonb;
+  v_prod     record;
+  v_qty      int;
+  v_new      int;
+  v_pay      jsonb;
+  v_paysum   numeric(10,2) := 0;
+  v_paycount int := 0;
+  v_method   text;
+  v_amount   numeric(10,2);
+  v_single   text;
+begin
+  if not is_shop_or_admin() then
+    raise exception 'Ikke tilgang';
+  end if;
+
+  -- Lås bookingen: samtidige kall serialiseres, så et dobbelttrykk ikke
+  -- kan lage to salg for samme time.
+  select id, staff_id, customer_id, service_id, price_nok, status
+    into v_booking
+    from bookings
+    where id = p_booking
+    for update;
+  if not found then
+    raise exception 'Fant ikke timen';
+  end if;
+  if v_booking.status = 'completed' then
+    raise exception 'Timen er allerede fullført';
+  end if;
+
+  insert into sales (booking_id, staff_id, customer_id, total_nok, payment_method)
+    values (p_booking, v_booking.staff_id, v_booking.customer_id, 0, null)
+    returning id into v_sale;
+
+  -- Tjenestelinje (prisen ble satt server-side da timen ble booket).
+  if v_booking.service_id is not null then
+    insert into sale_items (sale_id, kind, ref_id, quantity, price_nok)
+      values (v_sale, 'service', v_booking.service_id, 1,
+              coalesce(v_booking.price_nok, 0));
+    v_gross := v_gross + coalesce(v_booking.price_nok, 0);
+  end if;
+
+  -- Produktlinjer – pris hentes fra products, aldri fra klienten.
+  for v_item in
+    select * from jsonb_array_elements(coalesce(p_products, '[]'::jsonb))
+  loop
+    v_qty := greatest(1, coalesce((v_item->>'qty')::int, 1));
+
+    select id, name, price_nok
+      into v_prod
+      from products
+      where id = (v_item->>'id')::uuid and active = true
+      for update;
+    if not found then
+      raise exception 'Fant ikke produktet';
+    end if;
+
+    insert into sale_items (sale_id, kind, ref_id, description, quantity, price_nok)
+      values (v_sale, 'product', v_prod.id, v_prod.name, v_qty, v_prod.price_nok);
+    v_gross := v_gross + (v_prod.price_nok * v_qty);
+
+    update products set stock = greatest(0, stock - v_qty)
+      where id = v_prod.id
+      returning stock into v_new;
+    insert into stock_movements (product_id, delta, reason, new_stock, created_by)
+      values (v_prod.id, -v_qty, 'salg', v_new,
+              (select id from profiles where id = auth.uid()));
+  end loop;
+
+  -- Rabatt: begrenses til [0, brutto]. Netto = brutto − rabatt.
+  v_discount := least(greatest(coalesce(p_discount, 0), 0), v_gross);
+  v_net := v_gross - v_discount;
+
+  -- ---- Betaling ------------------------------------------------------
+  -- Splittbetaling hvis p_payments er gitt: valider hver linje, summér og
+  -- krev at summen matcher netto (± 1 kr for avrunding). Skriv én
+  -- sale_payments-rad per linje.
+  if p_payments is not null and jsonb_array_length(p_payments) > 0 then
+    for v_pay in select * from jsonb_array_elements(p_payments)
+    loop
+      v_method := nullif(trim(coalesce(v_pay->>'method', '')), '');
+      v_amount := round(coalesce((v_pay->>'amount')::numeric, 0), 2);
+      if v_method is null then
+        raise exception 'Betalingslinje mangler betalingsmåte';
+      end if;
+      if v_amount <= 0 then
+        continue;  -- hopp over tomme/0-linjer
+      end if;
+      insert into sale_payments (sale_id, method, amount)
+        values (v_sale, v_method, v_amount);
+      v_paysum := v_paysum + v_amount;
+      v_paycount := v_paycount + 1;
+      v_single := v_method;
+    end loop;
+
+    if v_paycount = 0 then
+      raise exception 'Ingen gyldige betalingslinjer';
+    end if;
+    if abs(v_paysum - v_net) > 1 then
+      raise exception 'Betaling (% kr) stemmer ikke med totalen (% kr)',
+        round(v_paysum), round(v_net);
+    end if;
+
+    -- payment_method: enkeltmåte hvis bare én linje, ellers «Delt».
+    update sales
+      set total_nok = v_net,
+          discount_nok = v_discount,
+          payment_method = case when v_paycount = 1 then v_single else 'Delt' end
+      where id = v_sale;
+
+  else
+    -- Enkeltbetaling: hele netto på én måte. Skriv også en sale_payments-rad
+    -- (når måte er oppgitt) så kasseoppgjøret har én ensartet kilde.
+    v_single := nullif(trim(coalesce(p_payment_method, '')), '');
+    if v_single is not null and v_net > 0 then
+      insert into sale_payments (sale_id, method, amount)
+        values (v_sale, v_single, v_net);
+    end if;
+    update sales
+      set total_nok = v_net,
+          discount_nok = v_discount,
+          payment_method = v_single
+      where id = v_sale;
+  end if;
+
+  update bookings set status = 'completed' where id = p_booking;
+
+  return v_sale;
+end $$;
+
+grant execute on function record_sale(uuid, text, jsonb, numeric, jsonb) to authenticated;
+
+
+-- =====================================================================
+-- 0050 – RABATT + SPLITTBETALING I HURTIGSALG (drop-in)
+--
+--   Speiler 0049 (record_sale) for hurtigsalg uten booking: rabatt i kr og
+--   splittbetaling over flere måter. Samme datamodell – rabatt trekkes fra
+--   brutto (total_nok = netto), og hver betaling skrives som en rad i
+--   sale_payments (også ved enkeltbetaling), så kasseoppgjøret avstemmer
+--   likt uansett hvor salget kom fra.
+--
+--   Den gamle 6-arg-varianten DROPPES; recordWalkinSale oppdateres i samme
+--   slipp. Sum av p_payments må matche netto (± 1 kr), ellers rulles ALT
+--   tilbake.
+--
+--   Forutsetter 0049 (sale_payments + sales.discount_nok finnes).
+-- =====================================================================
+drop function if exists record_walkin_sale(uuid, text, text, jsonb, jsonb, boolean);
+
+create or replace function record_walkin_sale(
+  p_staff          uuid,
+  p_payment_method text,
+  p_service        text default null,
+  p_products       jsonb default '[]'::jsonb,
+  p_customer       jsonb default null,
+  p_make_member    boolean default false,
+  p_discount       numeric default 0,
+  p_payments       jsonb default null
+) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare
+  v_customer uuid;
+  v_name text; v_email text; v_phone text;
+  v_sale uuid;
+  v_gross    numeric(10,2) := 0;
+  v_discount numeric(10,2) := 0;
+  v_net      numeric(10,2) := 0;
+  v_service_id uuid; v_service_price numeric;
+  v_item jsonb; v_prod record; v_qty int; v_new int;
+  v_pay jsonb; v_paysum numeric(10,2) := 0; v_paycount int := 0;
+  v_method text; v_amount numeric(10,2); v_single text;
+begin
+  if not is_shop_or_admin() then
+    raise exception 'Ikke tilgang';
+  end if;
+
+  if (p_service is null or trim(p_service) = '')
+     and coalesce(jsonb_array_length(p_products), 0) = 0 then
+    raise exception 'Ingenting å selge – velg behandling eller vare.';
+  end if;
+
+  -- Kunde (valgfri): match e-post, ellers telefon, ellers opprett ny.
+  if p_customer is not null then
+    v_name  := nullif(trim(p_customer->>'name'), '');
+    v_email := nullif(trim(p_customer->>'email'), '');
+    v_phone := nullif(trim(p_customer->>'phone'), '');
+
+    if v_email is not null then
+      select id into v_customer from customers
+        where lower(trim(email)) = lower(v_email) limit 1;
+    end if;
+    if v_customer is null and v_phone is not null then
+      select id into v_customer from customers
+        where regexp_replace(coalesce(phone, ''), '\s', '', 'g')
+            = regexp_replace(v_phone, '\s', '', 'g') limit 1;
+    end if;
+
+    if v_customer is null and (v_name is not null or v_email is not null or v_phone is not null) then
+      insert into customers (full_name, email, phone, source)
+        values (coalesce(v_name, 'Drop-in'), v_email, v_phone, 'Drop-in kasse')
+        returning id into v_customer;
+    elsif v_customer is not null then
+      update customers set
+        full_name = coalesce(v_name, full_name),
+        email     = coalesce(v_email, email),
+        phone     = coalesce(v_phone, phone)
+      where id = v_customer;
+    end if;
+
+    if p_make_member and v_customer is not null then
+      update customers set marketing_consent = true, marketing_consent_at = now()
+        where id = v_customer;
+    end if;
+  end if;
+
+  insert into sales (booking_id, staff_id, customer_id, total_nok, payment_method)
+    values (null, p_staff, v_customer, 0, null)
+    returning id into v_sale;
+
+  -- Behandling (tjeneste) – pris server-side.
+  if p_service is not null and trim(p_service) <> '' then
+    select id, price_nok into v_service_id, v_service_price
+      from services where name = p_service and active = true limit 1;
+    if v_service_id is null then
+      raise exception 'Fant ikke behandlingen';
+    end if;
+    insert into sale_items (sale_id, kind, ref_id, quantity, price_nok)
+      values (v_sale, 'service', v_service_id, 1, coalesce(v_service_price, 0));
+    v_gross := v_gross + coalesce(v_service_price, 0);
+  end if;
+
+  -- Varer – pris fra products, lager ned + logg.
+  for v_item in
+    select * from jsonb_array_elements(coalesce(p_products, '[]'::jsonb))
+  loop
+    v_qty := greatest(1, coalesce((v_item->>'qty')::int, 1));
+    select id, name, price_nok into v_prod
+      from products where id = (v_item->>'id')::uuid and active = true
+      for update;
+    if not found then
+      raise exception 'Fant ikke produktet';
+    end if;
+    insert into sale_items (sale_id, kind, ref_id, description, quantity, price_nok)
+      values (v_sale, 'product', v_prod.id, v_prod.name, v_qty, v_prod.price_nok);
+    v_gross := v_gross + (v_prod.price_nok * v_qty);
+    update products set stock = greatest(0, stock - v_qty)
+      where id = v_prod.id returning stock into v_new;
+    insert into stock_movements (product_id, delta, reason, new_stock, created_by)
+      values (v_prod.id, -v_qty, 'salg', v_new,
+              (select id from profiles where id = auth.uid()));
+  end loop;
+
+  -- Rabatt: begrenses til [0, brutto]. Netto = brutto − rabatt.
+  v_discount := least(greatest(coalesce(p_discount, 0), 0), v_gross);
+  v_net := v_gross - v_discount;
+
+  -- Betaling: splittbetaling hvis p_payments er gitt, ellers enkeltbetaling.
+  if p_payments is not null and jsonb_array_length(p_payments) > 0 then
+    for v_pay in select * from jsonb_array_elements(p_payments)
+    loop
+      v_method := nullif(trim(coalesce(v_pay->>'method', '')), '');
+      v_amount := round(coalesce((v_pay->>'amount')::numeric, 0), 2);
+      if v_method is null then
+        raise exception 'Betalingslinje mangler betalingsmåte';
+      end if;
+      if v_amount <= 0 then
+        continue;
+      end if;
+      insert into sale_payments (sale_id, method, amount)
+        values (v_sale, v_method, v_amount);
+      v_paysum := v_paysum + v_amount;
+      v_paycount := v_paycount + 1;
+      v_single := v_method;
+    end loop;
+
+    if v_paycount = 0 then
+      raise exception 'Ingen gyldige betalingslinjer';
+    end if;
+    if abs(v_paysum - v_net) > 1 then
+      raise exception 'Betaling (% kr) stemmer ikke med totalen (% kr)',
+        round(v_paysum), round(v_net);
+    end if;
+
+    update sales
+      set total_nok = v_net,
+          discount_nok = v_discount,
+          payment_method = case when v_paycount = 1 then v_single else 'Delt' end
+      where id = v_sale;
+  else
+    v_single := nullif(trim(coalesce(p_payment_method, '')), '');
+    if v_single is not null and v_net > 0 then
+      insert into sale_payments (sale_id, method, amount)
+        values (v_sale, v_single, v_net);
+    end if;
+    update sales
+      set total_nok = v_net,
+          discount_nok = v_discount,
+          payment_method = v_single
+      where id = v_sale;
+  end if;
+
+  return v_sale;
+end $$;
+
+grant execute on function record_walkin_sale(uuid, text, text, jsonb, jsonb, boolean, numeric, jsonb) to authenticated;
+
+
+-- =====================================================================
+-- 0051 — LEGG TIL «eier» I ROLLE-ENUMET (user_role)
+--
+--   profiles.role er en Postgres-ENUM (user_role), ikke fri tekst. Den må
+--   utvides FØR noen funksjon/policy kan lagre eller sammenligne mot 'eier'
+--   (samme som da 'revisor' ble tatt i bruk).
+--
+--   ADD VALUE IF NOT EXISTS er idempotent. Kjør denne linja ALENE først (eller
+--   som første setning) – en ny enum-verdi kan ikke BRUKES i samme transaksjon
+--   som den legges til. 0052 unngår dette ved å sammenligne på role::text, så
+--   det er uansett trygt om hele skriptet limes inn samlet.
+-- =====================================================================
+
+alter type user_role add value if not exists 'eier';
+
+
+-- =====================================================================
+-- 0052 — EIER-ROLLE (RLS) + SHOP-INNSTILLINGER (FEATURE-FLAGS)
+--
+--   Forutsetter 0051 (enum-verdien 'eier' lagt til user_role).
+--
+--   To grunnmurs-biter for shop-en:
+--
+--   1) EIER-ROLLE. Dawit (eier) skal ha full tilgang overalt – som admin –
+--      OG ingen shop-begrensninger/flagg skal gjelde for han. Vi lar rollen
+--      'eier' telle som admin i RLS ved å utvide is_admin() og
+--      is_shop_or_admin(). En egen is_owner() brukes til eier-spesifikk
+--      bypass i app-laget (flagg-sjekker i kassa). Sammenligningene bruker
+--      role::text slik at funksjonene lages trygt uansett om 'eier' allerede
+--      er «committet» i enumet (ingen enum-coercion ved CREATE).
+--
+--   2) SHOP-FLAGS. Ett sted (settings-nøkkelen 'shop_flags') styrer av/på for
+--      funksjoner som kan misbrukes: rabatt, familie/venne-rabatt (+ sats),
+--      drop-in uten kunde, dra-for-lengde. Bygget som én gjenbrukbar
+--      settings-struktur slik at nye brytere blir trivielle senere.
+--      get_shop_flags() flettes alltid mot standardverdier (så manglende
+--      nøkler får default), og er lesbar for innlogget kasse (security
+--      definer) – settings-tabellen selv forblir admin-only.
+--
+--   Idempotent.
+-- =====================================================================
+
+-- --- 1) Eier teller som admin i RLS ----------------------------------
+-- role::text unngår enum-coercion ved CREATE (trygt selv om 'eier' nettopp
+-- er lagt til enumet i samme økt).
+create or replace function is_admin() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from profiles
+    where id = auth.uid() and role::text in ('admin', 'eier')
+  );
+$$;
+
+create or replace function is_shop_or_admin() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from profiles
+    where id = auth.uid() and role::text in ('admin', 'shop', 'eier')
+  );
+$$;
+
+-- Eier-spesifikk sjekk (brukes til bypass av shop-flagg i app-laget).
+create or replace function is_owner() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from profiles where id = auth.uid() and role::text = 'eier'
+  );
+$$;
+
+-- --- 2) Shop-flags i settings ----------------------------------------
+-- Standardverdier valgt for å bevare dagens oppførsel: rabatt og drop-in
+-- uten kunde er PÅ i dag → default true. Familie/venne-rabatt og
+-- dra-for-lengde er nye → default av.
+insert into settings (key, value)
+values (
+  'shop_flags',
+  jsonb_build_object(
+    'discount_enabled', true,
+    'friend_family_discount_enabled', false,
+    'friend_family_discount_pct', 20,
+    'dropin_without_customer_enabled', true,
+    'drag_for_length_enabled', false
+  )
+)
+on conflict (key) do nothing;
+
+-- Les shop-flags, flettet mot standard (manglende nøkler fylles). Security
+-- definer + grant til authenticated slik at kassa (shop-rolle) kan lese uten
+-- direkte tilgang til settings-tabellen.
+create or replace function get_shop_flags() returns jsonb
+language sql stable security definer set search_path = public as $$
+  select
+    jsonb_build_object(
+      'discount_enabled', true,
+      'friend_family_discount_enabled', false,
+      'friend_family_discount_pct', 20,
+      'dropin_without_customer_enabled', true,
+      'drag_for_length_enabled', false
+    )
+    || coalesce((select value from settings where key = 'shop_flags'), '{}'::jsonb);
+$$;
+grant execute on function get_shop_flags() to authenticated;
+
+-- Lagre shop-flags. Kun admin/eier (is_admin dekker begge). Fletter patch
+-- inn i eksisterende verdi slik at delvise oppdateringer er trygge.
+create or replace function set_shop_flags(p_patch jsonb) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  v_new jsonb;
+begin
+  if not is_admin() then
+    raise exception 'Ikke tilgang';
+  end if;
+  insert into settings (key, value)
+    values ('shop_flags', coalesce(p_patch, '{}'::jsonb))
+  on conflict (key) do update
+    set value = settings.value || coalesce(p_patch, '{}'::jsonb)
+  returning value into v_new;
+  return v_new;
+end $$;
+grant execute on function set_shop_flags(jsonb) to authenticated;
+
+
+-- =====================================================================
+-- 0053 — NIVÅER & PRISING + TJENESTE-TILKNYTNING PER ANSATT
+--   Forutsetter 0052 (is_admin() dekker eier).
+--
+--   BESLUTTET modell (fast kr-pris per nivå × tjeneste):
+--     • staff_levels: junior / barber / senior / master (datadrevet – nye
+--       nivåer kan legges til uten kodeendring). staff.level_id peker hit.
+--     • service_level_prices: fast pris per (tjeneste × nivå). Mangler en
+--       pris for et nivå, faller vi tilbake til services.price_nok (basispris).
+--     • create_booking priser nå etter valgt barbers nivå (riktig pris vises
+--       automatisk på kundens booking), med basispris som fallback.
+--
+--   NIVÅ STYRER HVILKE TJENESTER EN ANSATT LEVERER:
+--     • Vi går fra det tungvinte «ekskluderingsfilteret»
+--       (staff_service_exclusions) til POSITIV tilknytning i staff_services
+--       (som allerede fantes, men var ubrukt). Én rad = «denne ansatte
+--       leverer denne tjenesten».
+--     • Regel: en ansatt leverer tjeneste S hvis de har en staff_services-rad
+--       for S, ELLER de ikke har noen rader i det hele tatt (ny ansatt →
+--       leverer alt som standard, ingen regresjon).
+--     • Migrasjon fyller staff_services for alle aktive ansatte ut fra dagens
+--       ekskluderinger (alle aktive tjenester unntatt de ekskluderte), så
+--       dagens oppførsel bevares. staff_service_exclusions beholdes urørt
+--       (legacy), men brukes ikke lenger av booking/kasse.
+--
+--   Idempotent.
+-- =====================================================================
+
+-- --- Nivåer -----------------------------------------------------------
+create table if not exists staff_levels (
+  id         uuid primary key default uuid_generate_v4(),
+  slug       text unique not null,
+  name       text not null,
+  sort_order int  not null default 0
+);
+
+insert into staff_levels (slug, name, sort_order) values
+  ('junior', 'Junior', 1),
+  ('barber', 'Barber', 2),
+  ('senior', 'Senior', 3),
+  ('master', 'Master', 4)
+on conflict (slug) do nothing;
+
+alter table staff
+  add column if not exists level_id uuid references staff_levels(id) on delete set null;
+
+alter table staff_levels enable row level security;
+drop policy if exists staff_levels_admin_all on staff_levels;
+create policy staff_levels_admin_all on staff_levels
+  for all using (is_admin()) with check (is_admin());
+drop policy if exists staff_levels_shop_read on staff_levels;
+create policy staff_levels_shop_read on staff_levels
+  for select using (is_shop_or_admin());
+
+-- --- Pris per nivå × tjeneste ----------------------------------------
+create table if not exists service_level_prices (
+  service_id uuid not null references services(id) on delete cascade,
+  level_id   uuid not null references staff_levels(id) on delete cascade,
+  price_nok  numeric(10,2) not null default 0,
+  updated_at timestamptz not null default now(),
+  primary key (service_id, level_id)
+);
+
+alter table service_level_prices enable row level security;
+drop policy if exists slp_admin_all on service_level_prices;
+create policy slp_admin_all on service_level_prices
+  for all using (is_admin()) with check (is_admin());
+drop policy if exists slp_shop_read on service_level_prices;
+create policy slp_shop_read on service_level_prices
+  for select using (is_shop_or_admin());
+
+-- Effektiv pris for en tjeneste på et nivå: nivåpris hvis satt, ellers
+-- basispris (services.price_nok). Security definer så create_booking og den
+-- offentlige booking-siden kan bruke den.
+create or replace function effective_service_price(p_service uuid, p_level uuid)
+returns numeric
+language sql stable security definer set search_path = public as $$
+  select coalesce(
+    (select price_nok from service_level_prices
+       where service_id = p_service and level_id = p_level),
+    (select price_nok from services where id = p_service),
+    0
+  );
+$$;
+grant execute on function effective_service_price(uuid, uuid) to anon, authenticated;
+
+-- Offentlig prismatrise for booking-visning: tjenestenavn × nivå-slug → pris
+-- (kun nivåpriser som faktisk er satt). Booking-veiviseren bruker denne til å
+-- vise riktig pris når barber (nivå) er valgt.
+create or replace function service_level_prices_public()
+returns table (service_name text, level_slug text, price_nok numeric)
+language sql stable security definer set search_path = public as $$
+  select s.name, l.slug, p.price_nok
+  from service_level_prices p
+  join services s on s.id = p.service_id
+  join staff_levels l on l.id = p.level_id
+  where s.active;
+$$;
+grant execute on function service_level_prices_public() to anon, authenticated;
+
+-- Aktive barberes nivå (navn → nivå-slug) for booking-visning.
+create or replace function staff_levels_public()
+returns table (barber_name text, level_slug text)
+language sql stable security definer set search_path = public as $$
+  select st.full_name, l.slug
+  from staff st
+  join staff_levels l on l.id = st.level_id
+  where st.active;
+$$;
+grant execute on function staff_levels_public() to anon, authenticated;
+
+-- --- Positiv tjeneste-tilknytning (erstatter ekskluderingsfilteret) ---
+-- Fyll staff_services for alle aktive ansatte ut fra dagens ekskluderinger,
+-- slik at dagens oppførsel bevares. Kun der ansatt ikke allerede har rader
+-- (idempotent – trygt å kjøre flere ganger).
+insert into staff_services (staff_id, service_id)
+select st.id, s.id
+from staff st
+cross join services s
+where st.active
+  and s.active
+  and not exists (
+    select 1 from staff_service_exclusions x
+    where x.staff_id = st.id and x.service_id = s.id
+  )
+  and not exists (
+    select 1 from staff_services ss where ss.staff_id = st.id
+  )
+on conflict (staff_id, service_id) do nothing;
+
+-- Shop kan lese staff_services (booking-filter/kasse). Admin har full tilgang.
+alter table staff_services enable row level security;
+drop policy if exists staff_services_admin_all on staff_services;
+create policy staff_services_admin_all on staff_services
+  for all using (is_admin()) with check (is_admin());
+drop policy if exists staff_services_shop_read on staff_services;
+create policy staff_services_shop_read on staff_services
+  for select using (is_shop_or_admin());
+
+-- Offentlig liste over barbere som IKKE leverer en tjeneste (for
+-- booking-veiviseren, som filtrerer barber-lista). Regel: en ansatt uten
+-- noen rader leverer ALT (ny ansatt), ellers kun tjenestene de har rad for.
+-- Denne returnerer «ikke-leverandørene» slik at booking-filteret er uendret.
+create or replace function service_non_providers_public()
+returns table (service_name text, barber_name text)
+language sql stable security definer set search_path = public as $$
+  select s.name, st.full_name
+  from services s
+  join staff st on st.active
+  where s.active
+    and exists (select 1 from staff_services ss where ss.staff_id = st.id)
+    and not exists (
+      select 1 from staff_services ss2
+      where ss2.staff_id = st.id and ss2.service_id = s.id
+    );
+$$;
+grant execute on function service_non_providers_public() to anon, authenticated;
+
+-- --- create_booking: pris etter valgt barbers nivå -------------------
+-- Identisk med 0020 bortsett fra at prisen nå slås opp via
+-- effective_service_price(tjeneste, barbers nivå), med basispris som fallback.
+create or replace function create_booking(
+  p_service text,
+  p_barber text,
+  p_start timestamptz,
+  p_name text,
+  p_email text,
+  p_phone text,
+  p_source text default null
+) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare
+  v_service uuid; v_price numeric; v_dur int;
+  v_staff uuid; v_level uuid; v_customer uuid; v_booking uuid;
+  v_source text := nullif(trim(p_source), '');
+begin
+  select id, price_nok, duration_min into v_service, v_price, v_dur
+    from services where name = p_service limit 1;
+  select id, level_id into v_staff, v_level from staff where full_name = p_barber limit 1;
+
+  -- Nivåpris hvis barber har nivå + nivåpris finnes; ellers basispris.
+  if v_service is not null and v_level is not null then
+    v_price := effective_service_price(v_service, v_level);
+  end if;
+
+  -- Finn eksisterende kunde: først e-post, ellers telefon (uten mellomrom).
+  if p_email is not null and trim(p_email) <> '' then
+    select id into v_customer from customers
+      where lower(trim(email)) = lower(trim(p_email))
+      limit 1;
+  end if;
+  if v_customer is null and p_phone is not null and trim(p_phone) <> '' then
+    select id into v_customer from customers
+      where regexp_replace(coalesce(phone, ''), '\s', '', 'g') = regexp_replace(p_phone, '\s', '', 'g')
+      limit 1;
+  end if;
+
+  if v_customer is null then
+    insert into customers (full_name, email, phone, source)
+      values (p_name, p_email, p_phone, v_source)
+      returning id into v_customer;
+  else
+    update customers set
+      full_name = coalesce(nullif(trim(p_name), ''),  full_name),
+      phone     = coalesce(nullif(trim(p_phone), ''), phone),
+      email     = coalesce(nullif(trim(p_email), ''), email),
+      source    = coalesce(source, v_source)
+    where id = v_customer;
+  end if;
+
+  insert into bookings (customer_id, staff_id, service_id, start_at, end_at, status, price_nok)
+    values (
+      v_customer, v_staff, v_service, p_start,
+      p_start + make_interval(mins => coalesce(v_dur, 30)),
+      'confirmed', coalesce(v_price, 0)
+    )
+    returning id into v_booking;
+
+  return v_booking;
+end $$;
+
+grant execute on function create_booking(text, text, timestamptz, text, text, text, text)
+  to anon, authenticated;
+

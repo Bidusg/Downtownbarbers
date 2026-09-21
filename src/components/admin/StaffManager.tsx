@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import type { AdminStaff } from "@/lib/admin-queries";
+import type { StaffLevel, PickerService } from "@/lib/levels-queries";
 import { FileInput } from "@/components/ui/FileInput";
 import {
   createStaff,
@@ -9,6 +10,8 @@ import {
   toggleStaff,
   setStaffPin,
   setStaffPostnummer,
+  setStaffLevel,
+  setStaffServices,
   createStaffLogin,
   resendStaffPassword,
 } from "@/app/admin/ansatte/actions";
@@ -16,20 +19,56 @@ import {
 const editInputCls =
   "w-full border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft";
 
-/** Rediger-modal for én ansatt: navn, e-post, tittel, ansattnr. */
+/** Rediger-modal for én ansatt: navn, e-post, tittel, ansattnr, nivå + tjenester. */
 function EditStaffModal({
   staff,
+  levels,
+  services,
+  currentServiceIds,
   onClose,
 }: {
   staff: AdminStaff;
+  levels: StaffLevel[];
+  services: PickerService[];
+  currentServiceIds: string[];
   onClose: () => void;
 }) {
   const [fullName, setFullName] = useState(staff.full_name);
   const [email, setEmail] = useState(staff.email ?? "");
   const [title, setTitle] = useState(staff.title ?? "");
   const [empNo, setEmpNo] = useState(staff.employee_number ?? "");
+  const [levelId, setLevelId] = useState(staff.level_id ?? "");
+  // Tomt sett fra før = leverer alt (ny ansatt). Da starter vi med alt huket av
+  // så et lagret valg ikke utilsiktet tømmer tilbudet.
+  const [serviceIds, setServiceIds] = useState<Set<string>>(
+    () =>
+      new Set(
+        currentServiceIds.length > 0
+          ? currentServiceIds
+          : services.map((s) => s.id),
+      ),
+  );
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
+
+  const toggleService = (id: string) =>
+    setServiceIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  // Grupper tjenester etter kategori.
+  const groups: { cat: string; rows: PickerService[] }[] = [];
+  for (const s of services) {
+    let g = groups.find((x) => x.cat === s.categoryName);
+    if (!g) {
+      g = { cat: s.categoryName, rows: [] };
+      groups.push(g);
+    }
+    g.rows.push(s);
+  }
 
   function save() {
     setErr(null);
@@ -40,8 +79,21 @@ function EditStaffModal({
         title,
         employee_number: empNo,
       });
-      if (r.error) setErr(r.error);
-      else onClose();
+      if (r.error) {
+        setErr(r.error);
+        return;
+      }
+      const lr = await setStaffLevel(staff.id, levelId || null);
+      if (lr.error) {
+        setErr(lr.error);
+        return;
+      }
+      const sr = await setStaffServices(staff.id, Array.from(serviceIds));
+      if (sr.error) {
+        setErr(sr.error);
+        return;
+      }
+      onClose();
     });
   }
 
@@ -51,7 +103,7 @@ function EditStaffModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md border border-line bg-surface p-5 shadow-2xl"
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto border border-line bg-surface p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -92,6 +144,80 @@ function EditStaffModal({
             <label className="mb-1 block text-xs text-muted">Ansattnr</label>
             <input value={empNo} onChange={(e) => setEmpNo(e.target.value)} placeholder="DB-007" className={editInputCls} />
           </div>
+
+          <div>
+            <label className="mb-1 block text-xs text-muted">
+              Nivå <span className="text-muted">(styrer prisen kunden ser)</span>
+            </label>
+            <select
+              value={levelId}
+              onChange={(e) => setLevelId(e.target.value)}
+              className={editInputCls}
+            >
+              <option value="">Uten nivå (basispris)</option>
+              {levels.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <label className="block text-xs text-muted">
+                Tjenester denne leverer
+              </label>
+              <div className="flex gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setServiceIds(new Set(services.map((s) => s.id)))}
+                  className="text-accent-soft hover:underline"
+                >
+                  Alle
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setServiceIds(new Set())}
+                  className="text-muted hover:text-fg hover:underline"
+                >
+                  Ingen
+                </button>
+              </div>
+            </div>
+            <div className="max-h-56 space-y-3 overflow-y-auto border border-line-2 bg-canvas p-3">
+              {services.length === 0 && (
+                <p className="text-xs text-muted">Ingen aktive tjenester.</p>
+              )}
+              {groups.map((g) => (
+                <div key={g.cat}>
+                  <p className="mb-1 text-[10px] font-semibold tracking-wide text-muted uppercase">
+                    {g.cat}
+                  </p>
+                  <div className="grid gap-1 sm:grid-cols-2">
+                    {g.rows.map((s) => (
+                      <label
+                        key={s.id}
+                        className="flex items-center gap-2 text-sm text-fg"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={serviceIds.has(s.id)}
+                          onChange={() => toggleService(s.id)}
+                          className="accent-accent"
+                        />
+                        {s.name}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-muted">
+              Ingen avhukede = leverer alt (standard for ny ansatt).
+            </p>
+          </div>
+
           {err && <p className="text-xs text-danger">{err}</p>}
           <div className="flex items-center gap-2 pt-1">
             <button
@@ -363,15 +489,35 @@ function PostnummerCell({
   );
 }
 
-export function StaffManager({ staff }: { staff: AdminStaff[] }) {
+export function StaffManager({
+  staff,
+  levels = [],
+  services = [],
+  staffServices = {},
+}: {
+  staff: AdminStaff[];
+  levels?: StaffLevel[];
+  services?: PickerService[];
+  /** staff_id → service_id[] */
+  staffServices?: Record<string, string[]>;
+}) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<AdminStaff | null>(null);
   const [pending, start] = useTransition();
 
+  const levelName = (id: string | null) =>
+    id ? (levels.find((l) => l.id === id)?.name ?? null) : null;
+
   return (
     <div className="space-y-6">
       {editing && (
-        <EditStaffModal staff={editing} onClose={() => setEditing(null)} />
+        <EditStaffModal
+          staff={editing}
+          levels={levels}
+          services={services}
+          currentServiceIds={staffServices[editing.id] ?? []}
+          onClose={() => setEditing(null)}
+        />
       )}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted">{staff.length} ansatte</p>
@@ -418,6 +564,7 @@ export function StaffManager({ staff }: { staff: AdminStaff[] }) {
               <th className="px-4 py-3">Ansatt</th>
               <th className="px-4 py-3">Ansattnr</th>
               <th className="px-4 py-3">Tittel</th>
+              <th className="px-4 py-3">Nivå</th>
               <th className="px-4 py-3">Kontrakt</th>
               <th className="px-4 py-3">Innlogging</th>
               <th className="px-4 py-3">Stemplings-PIN</th>
@@ -428,7 +575,7 @@ export function StaffManager({ staff }: { staff: AdminStaff[] }) {
           <tbody>
             {staff.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-muted">
+                <td colSpan={9} className="px-4 py-8 text-center text-muted">
                   Ingen ansatte enda – koble til Supabase eller legg til den første.
                 </td>
               </tr>
@@ -463,6 +610,15 @@ export function StaffManager({ staff }: { staff: AdminStaff[] }) {
                 </td>
                 <td className="px-4 py-3 text-muted">{s.employee_number ?? "—"}</td>
                 <td className="px-4 py-3 text-muted">{s.title ?? "—"}</td>
+                <td className="px-4 py-3">
+                  {levelName(s.level_id) ? (
+                    <span className="rounded-full bg-accent-soft/15 px-2 py-0.5 text-[10px] font-semibold text-accent-soft">
+                      {levelName(s.level_id)}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted">—</span>
+                  )}
+                </td>
                 <td className="px-4 py-3">
                   <div className="flex flex-col gap-0.5">
                     {s.contract_url && (

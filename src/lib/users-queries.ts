@@ -1,6 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 
-export const ROLES = ["admin", "shop", "staff", "revisor", "customer"] as const;
+export const ROLES = [
+  "admin",
+  "eier",
+  "shop",
+  "staff",
+  "revisor",
+  "customer",
+] as const;
 
 /* =====================================================================
  * BRUKERE & ROLLER

@@ -2,13 +2,11 @@
 
 import { Fragment, useState, useTransition } from "react";
 import type { AdminService, Category } from "@/lib/admin-queries";
-import type { ExclusionStaff } from "@/lib/service-catalog-queries";
 import {
   createService,
   updateService,
   toggleService,
   toggleOnlineBookable,
-  setServiceExclusion,
   deleteService,
 } from "@/app/admin/tjenester/actions";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
@@ -89,86 +87,32 @@ function ServiceForm({
   );
 }
 
-function ExclusionPanel({
-  service,
-  staff,
-  excludedIds,
-}: {
-  service: AdminService;
-  staff: ExclusionStaff[];
-  excludedIds: string[];
-}) {
-  const [pending, start] = useTransition();
-  const excluded = new Set(excludedIds);
-
-  if (staff.length === 0) {
-    return (
-      <p className="text-sm text-muted">
-        Ingen aktive barbere å sette unntak for.
-      </p>
-    );
-  }
-
-  return (
-    <div>
-      <p className="mb-3 text-xs text-muted">
-        Kryss av barbere som <strong className="text-fg">IKKE</strong> utfører «
-        {service.name}». Avkryssede vises ikke i booking for denne tjenesten.
-      </p>
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {staff.map((b) => {
-          const isExcluded = excluded.has(b.id);
-          return (
-            <label
-              key={b.id}
-              className="flex items-center gap-2 border border-line bg-canvas px-3 py-2 text-sm text-fg"
-            >
-              <input
-                type="checkbox"
-                checked={isExcluded}
-                disabled={pending}
-                onChange={(e) =>
-                  start(() =>
-                    setServiceExclusion(service.id, b.id, e.target.checked),
-                  )
-                }
-              />
-              <span>{b.full_name}</span>
-              {isExcluded && (
-                <span className="ml-auto text-xs text-danger">Ekskludert</span>
-              )}
-            </label>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 export function ServiceManager({
   services,
   categories,
-  staff = [],
-  exclusions = {},
   popularity = {},
 }: {
   services: AdminService[];
   categories: Category[];
-  staff?: ExclusionStaff[];
-  /** service_id → staff_id[] som er ekskludert */
-  exclusions?: Record<string, string[]>;
   /** service_id → antall fullførte bookinger siste 90 dager */
   popularity?: Record<string, number>;
 }) {
   const [creating, setCreating] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [exclId, setExclId] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted">{services.length} tjenester</p>
+        <p className="text-sm text-muted">
+          {services.length} tjenester
+          <span className="ml-2 text-xs">
+            · Hvem som leverer hva settes nå per ansatt under{" "}
+            <a href="/admin/ansatte" className="text-accent-soft hover:underline">
+              Ansatte → Rediger
+            </a>
+          </span>
+        </p>
         <button
           onClick={() => {
             setCreating((o) => !o);
@@ -272,19 +216,7 @@ export function ServiceManager({
                   <td className="px-4 py-3 text-right whitespace-nowrap">
                     <button
                       onClick={() => {
-                        setExclId((o) => (o === s.id ? null : s.id));
-                        setEditId(null);
-                        setCreating(false);
-                      }}
-                      className="text-xs text-accent-soft hover:underline"
-                    >
-                      Unntak
-                    </button>
-                    <span className="mx-2 text-line-2">·</span>
-                    <button
-                      onClick={() => {
                         setEditId(s.id);
-                        setExclId(null);
                         setCreating(false);
                       }}
                       className="text-xs text-accent-soft hover:underline"
@@ -301,17 +233,6 @@ export function ServiceManager({
                     />
                   </td>
                 </tr>
-                {exclId === s.id && (
-                  <tr className="border-t border-line">
-                    <td colSpan={8} className="bg-surface-2 p-4">
-                      <ExclusionPanel
-                        service={s}
-                        staff={staff}
-                        excludedIds={exclusions[s.id] ?? []}
-                      />
-                    </td>
-                  </tr>
-                )}
                 </Fragment>
               ),
             )}

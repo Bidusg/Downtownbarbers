@@ -7,8 +7,10 @@ import {
   recordWalkinSale,
   listSellableProducts,
   listSellableServices,
+  getKasseAllowances,
   type SellableProduct,
   type SellableService,
+  type KasseAllowances,
 } from "@/app/kasse/actions";
 
 const PAYMENTS = ["Kontant", "Kort", "Vipps"];
@@ -45,11 +47,15 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
   const [split, setSplit] = useState(false);
   const [splitAmts, setSplitAmts] = useState<Record<string, string>>({});
 
+  // Shop-flagg (rabatt / venn-familie / drop-in uten kunde). Eier/admin omgår.
+  const [allow, setAllow] = useState<KasseAllowances | null>(null);
+
   function openModal() {
     setError(null);
     setOpen(true);
     listSellableServices().then(setServices);
     listSellableProducts().then(setProducts);
+    getKasseAllowances().then(setAllow);
   }
   function close() {
     setOpen(false);
@@ -82,6 +88,9 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
   const discountNum = Math.max(0, Math.round(Number(discount) || 0));
   const total = Math.max(0, Math.round(gross) - discountNum);
   const hasSomething = !!serviceName || cartLines.length > 0;
+  const hasCustomer = !!(name.trim() || email.trim() || phone.trim());
+  // Drop-in uten kunde av → kunde må registreres (eier/admin omgår).
+  const customerRequired = allow ? !allow.dropinWithoutCustomerAllowed : false;
 
   const splitEntries = PAYMENTS.map((m) => ({
     method: m,
@@ -102,6 +111,10 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
   function pay(method: string) {
     if (!hasSomething) {
       setError("Velg en behandling eller minst én vare.");
+      return;
+    }
+    if (customerRequired && !hasCustomer) {
+      setError("Registrer kunde – drop-in uten kunde er slått av.");
       return;
     }
     setError(null);
@@ -128,6 +141,10 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
   function paySplit() {
     if (!hasSomething) {
       setError("Velg en behandling eller minst én vare.");
+      return;
+    }
+    if (customerRequired && !hasCustomer) {
+      setError("Registrer kunde – drop-in uten kunde er slått av.");
       return;
     }
     if (!splitOk) {
@@ -255,11 +272,15 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
 
             {/* Kundeinfo */}
             <div className="mb-3 grid gap-2 sm:grid-cols-3">
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Navn" className={inputCls} />
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder={customerRequired ? "Navn *" : "Navn"} className={inputCls} />
               <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="E-post" className={inputCls} />
               <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Telefon" inputMode="tel" className={inputCls} />
             </div>
-            <p className="mb-3 text-xs text-muted">Kundeinfo lagres i kundekartoteket.</p>
+            <p className="mb-3 text-xs text-muted">
+              {customerRequired
+                ? "Kunde må registreres (drop-in uten kunde er slått av)."
+                : "Kundeinfo lagres i kundekartoteket."}
+            </p>
 
             {/* Kvittering (kun når e-post er fylt inn) */}
             {email.trim() && (
@@ -287,20 +308,46 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
               </span>
             </label>
 
-            {/* Rabatt */}
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <label className="text-xs font-semibold tracking-wide text-muted uppercase">
-                Rabatt (kr)
-              </label>
-              <input
-                value={discount}
-                onChange={(e) => setDiscount(e.target.value.replace(/[^0-9]/g, ""))}
-                placeholder="0"
-                inputMode="numeric"
-                aria-label="Rabatt i kroner"
-                className="w-24 rounded-md border border-line bg-canvas px-3 py-1.5 text-right text-sm text-fg placeholder:text-muted outline-none focus:border-accent-soft"
-              />
-            </div>
+            {/* Rabatt (styres av shop-flagg; eier/admin omgår) */}
+            {allow?.friendFamilyEnabled && (
+              <div className="mb-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDiscount(
+                      String(Math.round((gross * allow.friendFamilyPct) / 100)),
+                    )
+                  }
+                  className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-fg hover:border-accent-soft"
+                >
+                  Venn/familie −{allow.friendFamilyPct}%
+                </button>
+                {discountNum > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setDiscount("")}
+                    className="text-xs text-muted hover:text-fg hover:underline"
+                  >
+                    Nullstill rabatt
+                  </button>
+                )}
+              </div>
+            )}
+            {allow?.discountAllowed && (
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <label className="text-xs font-semibold tracking-wide text-muted uppercase">
+                  Rabatt (kr)
+                </label>
+                <input
+                  value={discount}
+                  onChange={(e) => setDiscount(e.target.value.replace(/[^0-9]/g, ""))}
+                  placeholder="0"
+                  inputMode="numeric"
+                  aria-label="Rabatt i kroner"
+                  className="w-24 rounded-md border border-line bg-canvas px-3 py-1.5 text-right text-sm text-fg placeholder:text-muted outline-none focus:border-accent-soft"
+                />
+              </div>
+            )}
 
             {/* Total */}
             <div className="mb-3 rounded-lg bg-canvas px-3 py-2">

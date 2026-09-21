@@ -27,6 +27,7 @@ export type AdminStaff = {
   profile_id: string | null;
   email: string | null;
   postnummer: string | null;
+  level_id: string | null;
 };
 
 export type AdminBooking = {
@@ -114,7 +115,7 @@ export async function getStaffAdmin(): Promise<AdminStaff[]> {
     const { data } = await sb
       .from("staff")
       .select(
-        "id, employee_number, full_name, title, bio, photo_url, contract_url, active, email, postnummer, profile_id, pin_hash",
+        "id, employee_number, full_name, title, bio, photo_url, contract_url, active, email, postnummer, profile_id, pin_hash, level_id",
       )
       .order("employee_number");
     return (data ?? []).map((r) => {

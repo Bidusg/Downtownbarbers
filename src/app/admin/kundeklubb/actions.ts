@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getUserRole } from "@/lib/auth";
+import { getUserRole, isAdminRole } from "@/lib/auth";
 
 /**
  * Lagre ett medlemsnivå (terskler, navn, gode, farge). Kun admin.
@@ -10,7 +10,7 @@ import { getUserRole } from "@/lib/auth";
  */
 export async function saveTier(formData: FormData): Promise<void> {
   const me = await getUserRole();
-  if (!me || me.role !== "admin") return;
+  if (!me || !isAdminRole(me.role)) return;
 
   const id = Number(formData.get("id"));
   if (!Number.isInteger(id)) return;

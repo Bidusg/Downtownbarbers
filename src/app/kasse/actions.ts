@@ -3,11 +3,49 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getLoyaltyStatus } from "@/lib/loyalty-queries";
+import { getShopContext } from "@/lib/shop-settings";
 import {
   sendBookingConfirmation,
   sendReceiptEmail,
   sendNoShowEmail,
 } from "@/lib/email";
+
+/**
+ * Hva kassa har lov til, ut fra shop-flagg + rolle. Eier/admin omgår alt.
+ * Brukes av kasse-UI-en for å vise/skjule rabatt, venn/familie-knapp og
+ * drop-in-uten-kunde. Håndheves også server-side i completeBooking /
+ * recordWalkinSale (dette er kun for UX).
+ */
+export type KasseAllowances = {
+  discountAllowed: boolean;
+  friendFamilyEnabled: boolean;
+  friendFamilyPct: number;
+  dropinWithoutCustomerAllowed: boolean;
+  canBypass: boolean;
+};
+
+export async function getKasseAllowances(): Promise<KasseAllowances> {
+  const { flags, canBypass } = await getShopContext();
+  return {
+    discountAllowed: canBypass || flags.discount_enabled,
+    friendFamilyEnabled: canBypass || flags.friend_family_discount_enabled,
+    friendFamilyPct: flags.friend_family_discount_pct,
+    dropinWithoutCustomerAllowed:
+      canBypass || flags.dropin_without_customer_enabled,
+    canBypass,
+  };
+}
+
+/** En rabatt (fri eller venn/familie) er tillatt hvis eier/admin, eller minst
+ *  én av rabatt-bryterne er på. Håndheves server-side før salg registreres. */
+async function discountAllowedServer(): Promise<boolean> {
+  const { flags, canBypass } = await getShopContext();
+  return (
+    canBypass ||
+    flags.discount_enabled ||
+    flags.friend_family_discount_enabled
+  );
+}
 
 function refresh() {
   revalidatePath("/kasse");
@@ -113,6 +151,13 @@ export async function completeBooking(
 
   const sb = await createClient();
 
+  // Rabatt-flagg: en rabatt krever at rabatt (eller venn/familie) er på, eller
+  // at brukeren er eier/admin. Blokkeres her før noe registreres.
+  const discountNok = Math.max(0, Math.round(o.discountNok ?? 0));
+  if (discountNok > 0 && !(await discountAllowedServer())) {
+    return { error: "Rabatt er slått av for kassa." };
+  }
+
   // Booking-info til CRM/kvittering (leses før salget registreres).
   const { data: b } = await sb
     .from("bookings")
@@ -133,7 +178,7 @@ export async function completeBooking(
     p_booking: bookingId,
     p_payment_method: o.paymentMethod ?? null,
     p_products: products,
-    p_discount: Math.max(0, Math.round(o.discountNok ?? 0)),
+    p_discount: discountNok,
     p_payments: payments.length > 0 ? payments : null,
   });
   if (saleErr) {
@@ -295,6 +340,23 @@ export async function recordWalkinSale(
     const payments = (input.payments ?? [])
       .filter((p) => p && p.method && (p.amount ?? 0) > 0)
       .map((p) => ({ method: p.method, amount: Math.round(p.amount) }));
+
+    // Shop-flagg (håndheves server-side; eier/admin omgår).
+    const { flags, canBypass } = await getShopContext();
+    const discountNok = Math.max(0, Math.round(input.discountNok ?? 0));
+    if (
+      discountNok > 0 &&
+      !(canBypass || flags.discount_enabled || flags.friend_family_discount_enabled)
+    ) {
+      return { error: "Rabatt er slått av for kassa." };
+    }
+    if (
+      !customer &&
+      !(canBypass || flags.dropin_without_customer_enabled)
+    ) {
+      return { error: "Registrer kunde – drop-in uten kunde er slått av." };
+    }
+
     const { data: saleId, error } = await sb.rpc("record_walkin_sale", {
       p_staff: input.staffId || null,
       p_payment_method: input.paymentMethod ?? null,
@@ -302,7 +364,7 @@ export async function recordWalkinSale(
       p_products: products,
       p_customer: customer,
       p_make_member: !!input.makeMember,
-      p_discount: Math.max(0, Math.round(input.discountNok ?? 0)),
+      p_discount: discountNok,
       p_payments: payments.length > 0 ? payments : null,
     });
     if (error) {

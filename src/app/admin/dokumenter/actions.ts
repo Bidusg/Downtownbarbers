@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getUserRole } from "@/lib/auth";
+import { getUserRole, isAdminRole } from "@/lib/auth";
 
 const BUCKET = "documents";
 
@@ -27,7 +27,7 @@ function slug(name: string): string {
  */
 export async function uploadDocument(formData: FormData): Promise<void> {
   const me = await getUserRole();
-  if (!me || me.role !== "admin") return;
+  if (!me || !isAdminRole(me.role)) return;
 
   const file = formData.get("file") as File | null;
   const name = String(formData.get("name") ?? "").trim();
@@ -70,7 +70,7 @@ export async function uploadDocument(formData: FormData): Promise<void> {
 /** Sletter både Storage-objektet og metadata-raden. Kun admin. */
 export async function deleteDocument(id: string): Promise<void> {
   const me = await getUserRole();
-  if (!me || me.role !== "admin") return;
+  if (!me || !isAdminRole(me.role)) return;
 
   const sb = await createClient();
   const { data: doc } = await sb
@@ -96,7 +96,7 @@ export async function getSignedUrl(
   downloadName?: string,
 ): Promise<string | null> {
   const me = await getUserRole();
-  if (!me || me.role !== "admin") return null;
+  if (!me || !isAdminRole(me.role)) return null;
 
   const sb = await createClient();
   const { data, error } = await sb.storage

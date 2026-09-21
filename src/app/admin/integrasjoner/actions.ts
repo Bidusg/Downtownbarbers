@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getUserRole } from "@/lib/auth";
+import { getUserRole, isAdminRole } from "@/lib/auth";
 import { sendSms, getSmsConfig } from "@/lib/sms";
 
 /**
@@ -12,7 +12,7 @@ import { sendSms, getSmsConfig } from "@/lib/sms";
  */
 export async function saveSmsConfig(formData: FormData): Promise<void> {
   const me = await getUserRole();
-  if (!me || me.role !== "admin") return;
+  if (!me || !isAdminRole(me.role)) return;
 
   const sb = await createClient();
   const t = (k: string) => String(formData.get(k) ?? "").trim();
@@ -55,7 +55,7 @@ export async function sendTestSms(
   formData: FormData,
 ): Promise<TestSmsState> {
   const me = await getUserRole();
-  if (!me || me.role !== "admin") {
+  if (!me || !isAdminRole(me.role)) {
     return { ok: false, message: "Kun admin kan sende test-SMS." };
   }
   const to = String(formData.get("to") ?? "").trim();

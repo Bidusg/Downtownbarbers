@@ -1,7 +1,14 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-export type Role = "admin" | "shop" | "staff" | "customer" | "revisor";
+export type Role = "admin" | "eier" | "shop" | "staff" | "customer" | "revisor";
+
+/** «Admin-lik» tilgang: admin OG eier. Eier (Dawit) har full tilgang overalt
+ *  – som admin – og skal passere alle admin-vakter. Speiler is_admin() i SQL,
+ *  som også teller 'eier' som admin. */
+export function isAdminRole(role: Role | string | null | undefined): boolean {
+  return role === "admin" || role === "eier";
+}
 
 /** Henter innlogget bruker + rolle (fra profiles). Null hvis ikke innlogget. */
 export async function getUserRole(): Promise<{
@@ -36,7 +43,11 @@ export async function getUserRole(): Promise<{
 export async function requireRole(allowed: Role[]): Promise<Role> {
   const me = await getUserRole();
   if (!me) redirect("/logg-inn");
-  if (!allowed.includes(me.role)) redirect("/logg-inn?feil=tilgang");
+  // Eier teller som admin: passerer der 'admin' er tillatt.
+  const ok =
+    allowed.includes(me.role) ||
+    (isAdminRole(me.role) && allowed.includes("admin"));
+  if (!ok) redirect("/logg-inn?feil=tilgang");
   return me.role;
 }
 
@@ -44,6 +55,7 @@ export async function requireRole(allowed: Role[]): Promise<Role> {
 export function homeForRole(role: Role): string {
   switch (role) {
     case "admin":
+    case "eier":
       return "/admin";
     case "shop":
       return "/kasse";

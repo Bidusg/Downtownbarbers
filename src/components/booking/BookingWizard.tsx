@@ -25,6 +25,8 @@ export function BookingWizard({
   services,
   barbers,
   exclusions = {},
+  levelPrices = {},
+  barberLevels = {},
   closedWeekdays = [],
   initialServiceName,
   initialBarberName,
@@ -33,6 +35,10 @@ export function BookingWizard({
   barbers: WizBarber[];
   /** Tjeneste-navn → barber-navn som IKKE utfører tjenesten. */
   exclusions?: Record<string, string[]>;
+  /** Tjeneste-navn → nivå-slug → pris (nivåpris når barber er valgt). */
+  levelPrices?: Record<string, Record<string, number>>;
+  /** Barber-navn → nivå-slug. */
+  barberLevels?: Record<string, string>;
   /** Ukedager (0=søndag … 6=lørdag) salongen er stengt – filtreres bort fra dagvalget. */
   closedWeekdays?: number[];
   /** Forhåndsvalgt tjeneste/barber (f.eks. «Book på nytt» fra min-side). */
@@ -112,6 +118,17 @@ export function BookingWizard({
     }
   }, [availableBarbers, barber]);
 
+  // Pris som vises: nivåpris når barber (med nivå + satt nivåpris) er valgt,
+  // ellers tjenestens basispris. Speiler prisen create_booking faktisk setter.
+  const priceLabel = useMemo(() => {
+    if (service && barber) {
+      const slug = barberLevels[barber.name];
+      const lv = slug ? levelPrices[service.name]?.[slug] : undefined;
+      if (typeof lv === "number") return `${Math.round(lv)} kr`;
+    }
+    return service?.price ?? "";
+  }, [service, barber, barberLevels, levelPrices]);
+
   // Hent ledige tider når dato/barber/tjeneste er valgt
   useEffect(() => {
     let active = true;
@@ -153,7 +170,7 @@ export function BookingWizard({
       email,
       phone,
       source,
-      price: service!.price,
+      price: priceLabel,
     });
     setPending(false);
     if (res?.error) setError(res.error);
@@ -409,7 +426,7 @@ export function BookingWizard({
             <div className="mb-2 border border-line bg-surface-2 p-4 text-sm text-muted">
               <strong className="text-fg">{service?.name}</strong> ({service?.duration}) hos{" "}
               <strong className="text-fg">{barber?.name}</strong> · {date} kl. {time} ·{" "}
-              <span className="text-fg">{service?.price}</span>
+              <span className="text-fg">{priceLabel}</span>
             </div>
             <input
               placeholder="Fullt navn"
