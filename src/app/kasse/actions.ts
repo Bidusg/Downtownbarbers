@@ -3,8 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { getUserRole, isAdminRole } from "@/lib/auth";
 import { getLoyaltyStatus } from "@/lib/loyalty-queries";
 import { getShopContext } from "@/lib/shop-settings";
+
+/** Venn/familie-salgstype (0054). Tagges på salget for bruk/hyppighet. */
+export type RelationType = "venn" | "familie";
 import {
   sendBookingConfirmation,
   sendReceiptEmail,
@@ -37,16 +41,6 @@ export async function getKasseAllowances(): Promise<KasseAllowances> {
   };
 }
 
-/** En rabatt (fri eller venn/familie) er tillatt hvis eier/admin, eller minst
- *  én av rabatt-bryterne er på. Håndheves server-side før salg registreres. */
-async function discountAllowedServer(): Promise<boolean> {
-  const { flags, canBypass } = await getShopContext();
-  return (
-    canBypass ||
-    flags.discount_enabled ||
-    flags.friend_family_discount_enabled
-  );
-}
 
 function refresh() {
   revalidatePath("/kasse");
@@ -82,6 +76,8 @@ export type SplitPayment = { method: string; amount: number };
 
 export type CompleteOptions = {
   paymentMethod?: string;
+  /** Venn/familie-salg (tagges på salget). */
+  relationType?: RelationType;
   /** Kundeinfo som fylles inn ved betaling (drop-in) – lagres i CRM. */
   customer?: { name?: string; email?: string; phone?: string };
   /** Send kvittering på e-post. */
@@ -152,11 +148,22 @@ export async function completeBooking(
 
   const sb = await createClient();
 
-  // Rabatt-flagg: en rabatt krever at rabatt (eller venn/familie) er på, eller
-  // at brukeren er eier/admin. Blokkeres her før noe registreres.
+  // Rabatt-flagg (type-bevisst): venn/familie-rabatt krever at venn/familie er
+  // på; fri rabatt krever at fri rabatt er på. Eier/admin omgår. Blokkeres her
+  // før noe registreres.
+  const { flags: sflags, canBypass: sBypass } = await getShopContext();
+  const ffEnabled = sBypass || sflags.friend_family_discount_enabled;
+  const freeEnabled = sBypass || sflags.discount_enabled;
   const discountNok = Math.max(0, Math.round(o.discountNok ?? 0));
-  if (discountNok > 0 && !(await discountAllowedServer())) {
-    return { error: "Rabatt er slått av for kassa." };
+  if (discountNok > 0) {
+    const ok = o.relationType ? ffEnabled : freeEnabled;
+    if (!ok) {
+      return {
+        error: o.relationType
+          ? "Venn/familie-rabatt er slått av for kassa."
+          : "Rabatt er slått av for kassa.",
+      };
+    }
   }
 
   // Booking-info til CRM/kvittering (leses før salget registreres).
@@ -175,7 +182,7 @@ export async function completeBooking(
   const payments = (o.payments ?? [])
     .filter((p) => p && p.method && (p.amount ?? 0) > 0)
     .map((p) => ({ method: p.method, amount: Math.round(p.amount) }));
-  const { error: saleErr } = await sb.rpc("record_sale", {
+  const { data: saleId, error: saleErr } = await sb.rpc("record_sale", {
     p_booking: bookingId,
     p_payment_method: o.paymentMethod ?? null,
     p_products: products,
@@ -191,6 +198,20 @@ export async function completeBooking(
   }
 
   // --- Alt under er best-effort. Salget er allerede trygt registrert. ---
+
+  // Venn/familie-tag på salget (0054) – kun når venn/familie er på (unngå at
+  // en manipulert forespørsel forurenser rapporten). Service-rolle fordi sales
+  // bare har admin-RLS (shop skriver via SECURITY DEFINER).
+  if (o.relationType && ffEnabled && typeof saleId === "string") {
+    try {
+      await createServiceClient()
+        .from("sales")
+        .update({ relation_type: o.relationType })
+        .eq("id", saleId);
+    } catch {
+      // best-effort – påvirker ikke salget
+    }
+  }
 
   // Legg inn / oppdater kundeinfo i CRM (typisk for drop-in ved betaling).
   const info = o.customer;
@@ -250,6 +271,28 @@ export async function reopenBooking(
 ): Promise<{ ok?: true; error?: string }> {
   try {
     const sb = await createClient();
+
+    // Ingen skjuling av no-show: en «ikke møtt» som har passert kan ikke angres
+    // av kasse (det ville fjerne no-show fra rapporten). Eier/admin kan overstyre.
+    // Angre et FULLFØRT salg (feiltrykk) er fortsatt lov for kasse.
+    const { data: b } = await sb
+      .from("bookings")
+      .select("status, start_at, customer_id")
+      .eq("id", bookingId)
+      .maybeSingle();
+    if (
+      b?.status === "no_show" &&
+      b?.customer_id &&
+      new Date(b.start_at as string).getTime() < Date.now()
+    ) {
+      const me = await getUserRole();
+      if (!isAdminRole(me?.role)) {
+        return {
+          error: "En passert «ikke møtt» kan bare angres av eier/admin.",
+        };
+      }
+    }
+
     const { error } = await sb.rpc("reopen_booking", { p_booking: bookingId });
     if (error) return { error: error.message };
     refresh();
@@ -310,6 +353,8 @@ export type WalkinInput = {
   /** Valgt eksisterende kunde (fra telefonsøk). Knytter salget til denne raden.
    *  Kontaktinfoen slås opp server-side, så telefonnr aldri må til nettleseren. */
   customerId?: string;
+  /** Venn/familie-salg (tagges på salget). */
+  relationType?: RelationType;
   makeMember?: boolean;
   /** Rabatt i kr trukket fra totalen. Server klemmer til [0, brutto]. */
   discountNok?: number;
@@ -368,19 +413,22 @@ export async function recordWalkinSale(
       .filter((p) => p && p.method && (p.amount ?? 0) > 0)
       .map((p) => ({ method: p.method, amount: Math.round(p.amount) }));
 
-    // Shop-flagg (håndheves server-side; eier/admin omgår).
+    // Shop-flagg (håndheves server-side; eier/admin omgår). Type-bevisst rabatt.
     const { flags, canBypass } = await getShopContext();
+    const ffEnabled = canBypass || flags.friend_family_discount_enabled;
+    const freeEnabled = canBypass || flags.discount_enabled;
     const discountNok = Math.max(0, Math.round(input.discountNok ?? 0));
-    if (
-      discountNok > 0 &&
-      !(canBypass || flags.discount_enabled || flags.friend_family_discount_enabled)
-    ) {
-      return { error: "Rabatt er slått av for kassa." };
+    if (discountNok > 0) {
+      const ok = input.relationType ? ffEnabled : freeEnabled;
+      if (!ok) {
+        return {
+          error: input.relationType
+            ? "Venn/familie-rabatt er slått av for kassa."
+            : "Rabatt er slått av for kassa.",
+        };
+      }
     }
-    if (
-      !customer &&
-      !(canBypass || flags.dropin_without_customer_enabled)
-    ) {
+    if (!customer && !(canBypass || flags.dropin_without_customer_enabled)) {
       return { error: "Registrer kunde – drop-in uten kunde er slått av." };
     }
 
@@ -398,6 +446,19 @@ export async function recordWalkinSale(
       return {
         error: error.message || "Salget ble ikke registrert. Prøv igjen.",
       };
+    }
+
+    // Venn/familie-tag på salget (0054) – kun når venn/familie er på. Service-
+    // rolle fordi sales bare har admin-RLS (shop skriver via SECURITY DEFINER).
+    if (input.relationType && ffEnabled && typeof saleId === "string") {
+      try {
+        await createServiceClient()
+          .from("sales")
+          .update({ relation_type: input.relationType })
+          .eq("id", saleId);
+      } catch {
+        // best-effort
+      }
     }
 
     // Kvittering (best-effort – salget er allerede trygt registrert).
@@ -531,11 +592,38 @@ export async function markNoShow(
   return { ok: true, emailed };
 }
 
-/** Avlys en booking. */
-export async function cancelBooking(bookingId: string) {
+/**
+ * Avlys en booking. En ekte time som ALLEREDE har passert kan ikke avlyses –
+ * da skal den markeres «Ikke møtt» så no-show forblir synlig (ingen skjuling).
+ * Eier/admin kan overstyre. Tidsblokker (uten kunde) kan alltid avlyses.
+ */
+export async function cancelBooking(
+  bookingId: string,
+): Promise<{ ok?: true; error?: string }> {
   const sb = await createClient();
-  await sb.from("bookings").update({ status: "cancelled" }).eq("id", bookingId);
+  const { data: b } = await sb
+    .from("bookings")
+    .select("start_at, customer_id, status")
+    .eq("id", bookingId)
+    .maybeSingle();
+
+  if (b?.customer_id && new Date(b.start_at as string).getTime() < Date.now()) {
+    const me = await getUserRole();
+    if (!isAdminRole(me?.role)) {
+      return {
+        error:
+          "En time som har passert kan ikke avlyses. Marker «Ikke møtt» eller «Fullført».",
+      };
+    }
+  }
+
+  const { error } = await sb
+    .from("bookings")
+    .update({ status: "cancelled" })
+    .eq("id", bookingId);
+  if (error) return { error: "Kunne ikke avlyse timen." };
   refresh();
+  return { ok: true };
 }
 
 /**

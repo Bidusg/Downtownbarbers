@@ -13,6 +13,7 @@ import {
   type SellableService,
   type KasseAllowances,
   type CustomerHit,
+  type RelationType,
 } from "@/app/kasse/actions";
 
 const PAYMENTS = ["Kontant", "Kort", "Vipps"];
@@ -58,6 +59,7 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
   const [receipt, setReceipt] = useState(false);
 
   const [discount, setDiscount] = useState("");
+  const [relationType, setRelationType] = useState<RelationType | null>(null);
   const [split, setSplit] = useState(false);
   const [splitAmts, setSplitAmts] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -83,6 +85,7 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
     setMakeMember(false);
     setReceipt(false);
     setDiscount("");
+    setRelationType(null);
     setSplit(false);
     setSplitAmts({});
     setError(null);
@@ -127,7 +130,10 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
   );
   const productTotal = cartLines.reduce((a, l) => a + l.price_nok * l.qty, 0);
   const gross = servicePrice + productTotal;
-  const discountNum = Math.max(0, Math.round(Number(discount) || 0));
+  // Venn/familie-rabatt beregnes LIVE av gross; fri rabatt tas fra feltet.
+  const discountNum = relationType
+    ? Math.round((gross * (allow?.friendFamilyPct ?? 0)) / 100)
+    : Math.max(0, Math.round(Number(discount) || 0));
   const total = Math.max(0, Math.round(gross) - discountNum);
   const hasSomething = !!serviceName || cartLines.length > 0;
   const hasCustomer = !!picked || !!(name.trim() || email.trim() || phone.trim());
@@ -213,6 +219,7 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
           : { name: name, email: email, phone: phone },
         makeMember,
         discountNok: discountNum,
+        relationType: relationType ?? undefined,
         payments: useSplit ? splitEntries : undefined,
         sendReceipt: receipt,
       });
@@ -517,32 +524,33 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
                     </p>
                   )}
                   {allow?.friendFamilyEnabled && (
-                    <div className="mb-3 flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setDiscount(
-                            String(
-                              Math.round((gross * allow.friendFamilyPct) / 100),
-                            ),
-                          )
-                        }
-                        className="rounded-md border border-line px-3 py-2 text-sm font-semibold text-fg hover:border-accent-soft"
-                      >
+                    <div className="mb-3">
+                      <p className="mb-1.5 text-xs text-muted">
                         Venn/familie −{allow.friendFamilyPct}%
-                      </button>
-                      {discountNum > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setDiscount("")}
-                          className="text-xs text-muted hover:text-fg hover:underline"
-                        >
-                          Nullstill
-                        </button>
-                      )}
+                        {relationType && ` = ${kr(discountNum)}`}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        {(["venn", "familie"] as RelationType[]).map((t) => (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() =>
+                              setRelationType((cur) => (cur === t ? null : t))
+                            }
+                            className={
+                              "rounded-md border px-3 py-2 text-sm font-semibold capitalize transition-colors " +
+                              (relationType === t
+                                ? "border-accent-soft bg-accent-soft/10 text-fg"
+                                : "border-line text-fg hover:border-accent-soft")
+                            }
+                          >
+                            {t}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
-                  {allow?.discountAllowed && (
+                  {allow?.discountAllowed && !relationType && (
                     <div className="flex items-center justify-between gap-2">
                       <label className="text-xs font-semibold tracking-wide text-muted uppercase">
                         Rabatt (kr)

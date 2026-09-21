@@ -1,96 +1,62 @@
-# ENDRINGER — Downtown Barbers (21. sept 2026)
+# ENDRINGER — Shop UX: ingen sletting + venn/familie-type (21. sept 2026)
 
-Arbeidstreet inneholder nå **to bygg** som ikke er pushet ennå:
-**(1) Grunnmur** (eier-rolle, shop-innstillinger, nivåer & prising) og
-**(2) Shop UX** (hurtigsalg-redesign + kunde før betaling). De ligger oppå
-hverandre i samme filer (kassa), så enkleste vei er **én samlet push** — eller
-to commits der Shop UX bygger på grunnmuren.
+Grunnmuren og forrige Shop UX-runde er allerede committet og pushet (remote står
+på `9efe2ca`). Dette er **neste commit** oppå det – bygg 3.
 
----
-
-## Commit-tittel (samlet — anbefalt)
+## Commit-tittel (lim inn i GitHub Desktop)
 
 ```
-Grunnmur (eier + shop-flagg + nivåer) og Shop UX (hurtigsalg-redesign + kunde før betaling)
+Shop UX: ingen sletting av bookinger (no-show) + venn/familie som salgstype
 ```
 
-Vil du dele i to commits i GitHub Desktop:
+## Commit-beskrivelse (valgfri)
 
-1. **Grunnmur:** `Grunnmur: eier-rolle + shop-innstillinger (flagg) og nivåer & prising`
-   — alle filene UNNTATT hurtigsalg-endringene (men `QuickSale.tsx` og
-   `src/app/kasse/actions.ts` inneholder begge bygg, så de kan ikke skilles rent;
-   ta dem med i commit 2).
-2. **Shop UX:** `Shop UX: hurtigsalg-redesign (stegvis) + kunde før betaling (telefonsøk)`
+```
+Ingen sletting/skjuling av no-show:
+- En passert time kan ikke avlyses av kasse (må markeres «Ikke møtt»); en
+  passert «ikke møtt» kan ikke «angres» av kasse. Eier/admin kan overstyre.
+  Å angre et fullført salg (feiltrykk) er fortsatt lov for kasse.
+- Håndheves i cancelBooking, reopenBooking og setBookingStatus; tydelig
+  feilmelding i kassa.
 
-I praksis er én samlet commit renest siden kasse-filene bærer begge bygg.
-
----
-
-## Bygg 2 — Shop UX (nytt denne runden)
-
-- **Hurtigsalg-redesign:** kassa sitt hurtigsalg er nå en skikkelig **stegvis
-  flyt**: Ansatt → Tjeneste → Produkter → Kunde → Rabatt → Betaling, med
-  stegindikator og **Neste/Forrige** for manuell overstyring. Ansatt- og
-  tjenestevalg går automatisk videre. Oppsummering før betaling.
-- **Kunde før betaling:** søk på **telefonnr eller navn** i kunde-steget; treff
-  vises (navn + antall besøk), trykk for å knytte salget til den kunden.
-  Kobles trygt via kunde-ID — telefonnummeret hentes server-side og når aldri
-  nettleseren (samme personvern-linje som ellers i kassa). Kvittering kan sendes
-  til kundens registrerte e-post.
-- Ingen ny migrasjon i dette bygget. Endrer kun `QuickSale.tsx` og
-  `src/app/kasse/actions.ts` (ny valgfri `customerId` som resolves med
-  service-role).
-
-## Bygg 1 — Grunnmur (fra tidligere i økta)
-
-- **Eier-rolle:** full tilgang som admin + omgår alle shop-begrensninger.
-- **/admin/shop-innstillinger:** av/på for rabatt, venn/familie-rabatt (+ sats),
-  drop-in uten kunde, dra-for-lengde (bryter klar, funksjon kommer).
-- **/admin/nivaer:** pris per nivå × tjeneste; nivå + tjeneste-tilknytning per
-  ansatt (Ansatte → Rediger) erstatter ekskluderingsfilteret. Riktig pris vises
-  på booking.
+Venn/familie som egen salgstype (migrasjon 0054):
+- To knapper i kassa (Venn/Familie) tagger salget (relation_type) og trekker
+  satsen (beregnes live). Rabatt håndheves type-bevisst.
+- Bruk/hyppighet vises på Admin → Rapporter → Produktivitet.
+```
 
 ---
 
-## VIKTIG: kjør SQL i Supabase (gjelder grunnmuren)
+## VIKTIG: kjør migrasjon 0054 i Supabase
 
-Supabase → SQL Editor → lim inn **hele** `KJØR-I-SUPABASE.sql` → Run. Den
-inneholder nå alt som mangler fra økta:
+Supabase → SQL Editor. Du kan enten kjøre **hele** `KJØR-I-SUPABASE.sql` på nytt
+(idempotent), eller bare den nye biten nederst – **0054** (legger
+`relation_type` på `sales`). Uten den virker ikke venn/familie-taggingen.
 
-- **0049 + 0050** — rabatt/splittbetaling (lå ikke i fila fra før; appen bruker
-  dem allerede).
-- **0051** — legger `eier` til rolle-enumet (`user_role`).
-- **0052** — eier teller som admin i RLS + `shop_flags`.
-- **0053** — nivåer, pris per nivå × tjeneste, tjeneste-tilknytning per ansatt.
+## Testsjekkliste
 
-Alt er idempotent, kan limes inn og kjøres i én omgang.
+- [ ] Prøv å «Avlys» en passert, ubetalt time i kassa → blokkeres med melding om
+      å bruke «Ikke møtt».
+- [ ] Marker den «Ikke møtt» → prøv «Angre» som kasse → blokkeres (eier/admin kan).
+- [ ] Avlys en FREMTIDIG time → går fint. Angre et fullført salg → går fint.
+- [ ] Trykk «Venn» i kassa → rabatt trekkes; legg til en vare → rabatten
+      oppdateres automatisk (live). Fullfør → salget er tagget.
+- [ ] Admin → Rapporter → Produktivitet → «Venn/familie-salg» viser antall + kr.
 
-## Manuelle steg etter SQL
+## Filer i denne leveransen (bygg 3)
 
-1. **Gi Dawit eier-rollen:** Admin → Brukere → sett rolle **Eier**.
-2. **Nivå + priser:** Admin → **Nivåer & prising** (pris per nivå × tjeneste),
-   og Admin → **Ansatte → Rediger** (nivå + hvilke tjenester hver ansatt leverer).
-3. **Shop-flagg:** Admin → **Shop-innstillinger** (av/på + venn/familie-sats).
-
-## Testsjekkliste (Shop UX)
-
-- [ ] Åpne Hurtigsalg → velg ansatt (går automatisk til tjeneste) → velg
-      tjeneste → legg til vare → Kunde-steget.
-- [ ] Skriv et telefonnr i kunde-søket → eksisterende kunde dukker opp → trykk
-      → salget knyttes til den kunden (sjekk i kundekortet etterpå).
-- [ ] Fyll inn ny kunde manuelt i stedet → salget oppretter/kobler som før.
-- [ ] Skru av «Drop-in uten kunde» → kunde-steget krever kunde før betaling.
-- [ ] Neste/Forrige og stegprikkene lar deg hoppe fram og tilbake.
-- [ ] Enkel og delt betaling registrerer salget; oppsummeringen stemmer.
+12 filer: ny migrasjon 0054, KJØR-I-SUPABASE.sql, kasse/actions.ts,
+admin/bookinger/actions.ts, QuickSale/PaymentControls/ShopBookingList/
+BookingDetailModal, admin/BookingManager, report-queries.ts og
+rapporter/produktivitet/page.tsx (+ denne fila).
 
 ## Kjente begrensninger / bevisste valg
 
-- Kunde-lenking bruker server-side oppslag (service-role) + eksisterende
-  match-logikk i `record_walkin_sale` — ingen endring i den atomiske salgs-RPC-en.
-- Rabatt-flagget er en driftskontroll (ikke hard sperre): server tillater rabatt
-  hvis minst én rabatt-bryter er på; begge av = all rabatt blokkert.
-- `dra-for-lengde`, «ingen sletting av bookinger» og venn/familie som egen
-  booking-type er IKKE i denne pushen (neste Shop UX-runde).
+- «Kunde før betaling»: en valgt kunde uten e-post OG uten telefon kan i sjeldne
+  tilfeller opprette en dublett i stedet for å koble (matcher på e-post/telefon).
+- Rabatt-flagget håndhever *type* (fri vs venn/familie), men ikke at
+  venn/familie-beløpet er nøyaktig satsen.
+- Gjenstår i Shop UX: dra-for-lengde i kalenderen (flagget finnes alt).
 
 **Verifisert i sky-klone:** `tsc --noEmit` 0 feil, `next build` grønn, eslint
-uendret fra baseline.
+uendret fra baseline. Verifiseringsgjennomgang med subagent; funn adressert.

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { StatTile } from "@/components/ui/StatTile";
-import { resolveRange } from "@/lib/report-queries";
+import { resolveRange, getRelationSummary } from "@/lib/report-queries";
 import {
   getBarberScores,
   getNoShowOverview,
@@ -44,10 +44,12 @@ export default async function AdminProduktivitet({
   const sp = await searchParams;
   const r = resolveRange(sp.from, sp.to);
 
-  const [scores, noShow] = await Promise.all([
+  const [scores, noShow, relation] = await Promise.all([
     getBarberScores(r),
     getNoShowOverview(r),
+    getRelationSummary(r),
   ]);
+  const relTotal = relation.venn.count + relation.familie.count;
 
   const eksport = `/admin/rapporter/eksport?type=produktivitet&from=${r.from}&to=${r.to}`;
 
@@ -102,6 +104,34 @@ export default async function AdminProduktivitet({
             Oppdater
           </button>
         </form>
+      </div>
+
+      {/* Venn/familie-salg */}
+      <div className="border border-line bg-surface p-5">
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="font-display text-lg font-bold">Venn/familie-salg</h2>
+          <span className="text-sm text-muted">
+            {relTotal} salg i perioden
+          </span>
+        </div>
+        {relTotal === 0 ? (
+          <p className="text-sm text-muted">
+            Ingen venn-/familie-salg registrert i perioden.
+          </p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <StatTile
+              label="Venn"
+              value={String(relation.venn.count)}
+              sub={nok(relation.venn.nok)}
+            />
+            <StatTile
+              label="Familie"
+              value={String(relation.familie.count)}
+              sub={nok(relation.familie.nok)}
+            />
+          </div>
+        )}
       </div>
 
       {/* Salong-sammendrag */}

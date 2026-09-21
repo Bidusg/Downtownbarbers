@@ -303,6 +303,42 @@ export async function getRevenueBreakdown(r: Range): Promise<Breakdown> {
   };
 }
 
+/* ---------- Venn/familie-salg (0054) ---------- */
+
+export type RelationSummary = {
+  venn: { count: number; nok: number };
+  familie: { count: number; nok: number };
+};
+
+/** Antall og omsetning for venn-/familie-salg i perioden (bruk/hyppighet). */
+export async function getRelationSummary(r: Range): Promise<RelationSummary> {
+  const out: RelationSummary = {
+    venn: { count: 0, nok: 0 },
+    familie: { count: 0, nok: 0 },
+  };
+  try {
+    const sb = await createClient();
+    const { data } = await sb
+      .from("sales")
+      .select("relation_type, total_nok")
+      .in("relation_type", ["venn", "familie"])
+      .gte("sold_at", r.startIso)
+      .lt("sold_at", r.endIso)
+      .limit(100000);
+    for (const s of (data ?? []) as {
+      relation_type: string;
+      total_nok: number;
+    }[]) {
+      const k = s.relation_type === "familie" ? "familie" : "venn";
+      out[k].count += 1;
+      out[k].nok += Number(s.total_nok) || 0;
+    }
+  } catch {
+    // tomt
+  }
+  return out;
+}
+
 /* ---------- 3) Per behandlingskategori ---------- */
 
 export type CatRow = { category: string; nok: number; count: number };

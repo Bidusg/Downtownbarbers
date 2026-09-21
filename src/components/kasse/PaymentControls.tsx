@@ -10,6 +10,7 @@ import {
   type SellableProduct,
   type BookingLoyalty,
   type KasseAllowances,
+  type RelationType,
 } from "@/app/kasse/actions";
 import { redeemLoyalty } from "@/app/kasse/kunder/[id]/loyalty-actions";
 
@@ -65,6 +66,7 @@ export function PaymentControls({
 
   // Rabatt + splittbetaling
   const [discount, setDiscount] = useState("");
+  const [relationType, setRelationType] = useState<RelationType | null>(null);
   const [split, setSplit] = useState(false);
   const [splitAmts, setSplitAmts] = useState<Record<string, string>>({});
 
@@ -111,7 +113,11 @@ export function PaymentControls({
   );
   const productTotal = cartLines.reduce((a, l) => a + l.price_nok * l.qty, 0);
   const gross = (servicePrice ?? 0) + productTotal;
-  const discountNum = Math.max(0, Math.round(Number(discount) || 0));
+  // Venn/familie-rabatt beregnes LIVE av gross (aldri utdatert hvis kurven
+  // endres etter valg); fri rabatt tas fra feltet.
+  const discountNum = relationType
+    ? Math.round((gross * (allow?.friendFamilyPct ?? 0)) / 100)
+    : Math.max(0, Math.round(Number(discount) || 0));
   const total = Math.max(0, Math.round(gross) - discountNum);
 
   // Splittbetaling: beløp per måte, sum, og om det stemmer med totalen.
@@ -140,6 +146,7 @@ export function PaymentControls({
         sendReceipt: receipt && !!(email.trim() || customerEmail),
         products: cartLines.map((l) => ({ id: l.id, qty: l.qty })),
         discountNok: discountNum,
+        relationType: relationType ?? undefined,
       });
       if (res?.error) {
         setError(res.error);
@@ -161,6 +168,7 @@ export function PaymentControls({
         sendReceipt: receipt && !!(email.trim() || customerEmail),
         products: cartLines.map((l) => ({ id: l.id, qty: l.qty })),
         discountNok: discountNum,
+        relationType: relationType ?? undefined,
         payments: splitEntries,
       });
       if (res?.error) {
@@ -312,30 +320,34 @@ export function PaymentControls({
 
       {/* Rabatt (styres av shop-flagg; eier/admin omgår) */}
       {allow?.friendFamilyEnabled && (
-        <div className="mb-2 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() =>
-              setDiscount(
-                String(Math.round((gross * allow.friendFamilyPct) / 100)),
-              )
-            }
-            className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-fg hover:border-accent-soft"
-          >
+        <div className="mb-2">
+          <p className="mb-1 text-xs text-muted">
             Venn/familie −{allow.friendFamilyPct}%
-          </button>
-          {discountNum > 0 && (
-            <button
-              type="button"
-              onClick={() => setDiscount("")}
-              className="text-xs text-muted hover:text-fg hover:underline"
-            >
-              Nullstill rabatt
-            </button>
-          )}
+            {relationType && ` = ${kr(discountNum)}`}
+          </p>
+          <div className="flex items-center gap-2">
+            {(["venn", "familie"] as RelationType[]).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => {
+                  setRelationType((cur) => (cur === t ? null : t));
+                  setDiscount("");
+                }}
+                className={
+                  "rounded-md border px-3 py-1.5 text-xs font-semibold capitalize transition-colors " +
+                  (relationType === t
+                    ? "border-accent-soft bg-accent-soft/10 text-fg"
+                    : "border-line text-fg hover:border-accent-soft")
+                }
+              >
+                {t}
+              </button>
+            ))}
+          </div>
         </div>
       )}
-      {allow?.discountAllowed && (
+      {allow?.discountAllowed && !relationType && (
         <div className="mb-3 flex items-center justify-between gap-2">
           <label className="text-xs font-semibold tracking-wide text-muted uppercase">
             Rabatt (kr)

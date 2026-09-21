@@ -42,7 +42,9 @@ function Row({ b }: { b: AdminBooking }) {
 
   const act = (status: BookingStatus) => {
     setOpen(false);
-    start(() => setBookingStatus(b.id, status));
+    start(async () => {
+      await setBookingStatus(b.id, status);
+    });
   };
 
   return (
