@@ -1,62 +1,62 @@
-# ENDRINGER — Shop UX: ingen sletting + venn/familie-type (21. sept 2026)
+# ENDRINGER — Timeplan: blokker booking + bulk-turnus (21. sept 2026)
 
-Grunnmuren og forrige Shop UX-runde er allerede committet og pushet (remote står
-på `9efe2ca`). Dette er **neste commit** oppå det – bygg 3.
+Dette er **bygg 4**, oppå det som allerede er levert. Bygg 4 rører andre filer
+enn bygg 3 (timelister/turnus vs. kasse), så de kan committes hver for seg – bare
+`KJØR-I-SUPABASE.sql` deles (bygg 3 la til 0054, bygg 4 la til 0055).
 
 ## Commit-tittel (lim inn i GitHub Desktop)
 
 ```
-Shop UX: ingen sletting av bookinger (no-show) + venn/familie som salgstype
+Timeplan: blokker booking (alle ansatte) + bulk-turnus
 ```
 
 ## Commit-beskrivelse (valgfri)
 
 ```
-Ingen sletting/skjuling av no-show:
-- En passert time kan ikke avlyses av kasse (må markeres «Ikke møtt»); en
-  passert «ikke møtt» kan ikke «angres» av kasse. Eier/admin kan overstyre.
-  Å angre et fullført salg (feiltrykk) er fortsatt lov for kasse.
-- Håndheves i cancelBooking, reopenBooking og setBookingStatus; tydelig
-  feilmelding i kassa.
+Blokker booking (migrasjon 0055):
+- Admin sperrer hele eller deler av en dag for booking på ALLE ansatte
+  (helligdag, arrangement, felles fri) – som Fixit. Blokkerte tider forsvinner
+  fra ledige tider i booking (available_slots respekterer blokkeringene).
+- Admin → Timelister → «Blokker booking»: legg til (hel dag / tidsintervall +
+  grunn), se kommende blokkeringer, fjern.
 
-Venn/familie som egen salgstype (migrasjon 0054):
-- To knapper i kassa (Venn/Familie) tagger salget (relation_type) og trekker
-  satsen (beregnes live). Rabatt håndheves type-bevisst.
-- Bruk/hyppighet vises på Admin → Rapporter → Produktivitet.
+Bulk-turnus:
+- Sett arbeidstid for flere ukedager (og uke A/B/hver uke) på én gang, f.eks.
+  man–fre 09–17, med valgfri «erstatt eksisterende». Admin → Timelister →
+  «Bulk-turnus».
 ```
 
 ---
 
-## VIKTIG: kjør migrasjon 0054 i Supabase
+## VIKTIG: kjør migrasjon 0055 i Supabase
 
-Supabase → SQL Editor. Du kan enten kjøre **hele** `KJØR-I-SUPABASE.sql` på nytt
-(idempotent), eller bare den nye biten nederst – **0054** (legger
-`relation_type` på `sales`). Uten den virker ikke venn/familie-taggingen.
+Supabase → SQL Editor. Kjør enten hele `KJØR-I-SUPABASE.sql` på nytt (idempotent)
+eller bare den nye biten nederst – **0055** (ny `booking_blocks`-tabell +
+oppdatert `available_slots`). Uten den virker ikke blokker-booking.
+
+Bulk-turnus trenger ingen migrasjon (bruker eksisterende `staff_hours`).
 
 ## Testsjekkliste
 
-- [ ] Prøv å «Avlys» en passert, ubetalt time i kassa → blokkeres med melding om
-      å bruke «Ikke møtt».
-- [ ] Marker den «Ikke møtt» → prøv «Angre» som kasse → blokkeres (eier/admin kan).
-- [ ] Avlys en FREMTIDIG time → går fint. Angre et fullført salg → går fint.
-- [ ] Trykk «Venn» i kassa → rabatt trekkes; legg til en vare → rabatten
-      oppdateres automatisk (live). Fullfør → salget er tagget.
-- [ ] Admin → Rapporter → Produktivitet → «Venn/familie-salg» viser antall + kr.
+- [ ] Admin → Timelister → «Blokker booking» → legg til en HEL dag fram i tid →
+      prøv å booke den dagen på nettsiden → ingen ledige tider for noen barber.
+- [ ] Legg til en DELVIS blokkering (f.eks. 12–14) → de timene forsvinner fra
+      ledige tider, resten av dagen er åpen.
+- [ ] Fjern blokkeringen → tidene kommer tilbake.
+- [ ] «Bulk-turnus» → velg ansatt, huk av man–fre, 09–17, «Hver uke» → Lagre →
+      sjekk at turnusen dukker opp i ukeplanen (uke A og B).
+- [ ] Bulk med «Erstatt eksisterende» → gamle vakter for de valgte dagene byttes ut.
 
-## Filer i denne leveransen (bygg 3)
+## Filer i denne leveransen (bygg 4)
 
-12 filer: ny migrasjon 0054, KJØR-I-SUPABASE.sql, kasse/actions.ts,
-admin/bookinger/actions.ts, QuickSale/PaymentControls/ShopBookingList/
-BookingDetailModal, admin/BookingManager, report-queries.ts og
-rapporter/produktivitet/page.tsx (+ denne fila).
+7 filer: ny migrasjon 0055, KJØR-I-SUPABASE.sql, ops-queries.ts,
+timelister/actions.ts, timelister/page.tsx, og to nye komponenter
+(BulkTurnusForm, BookingBlocksManager) + denne fila.
 
-## Kjente begrensninger / bevisste valg
+## Gjenstår i Timeplan-eposet
 
-- «Kunde før betaling»: en valgt kunde uten e-post OG uten telefon kan i sjeldne
-  tilfeller opprette en dublett i stedet for å koble (matcher på e-post/telefon).
-- Rabatt-flagget håndhever *type* (fri vs venn/familie), men ikke at
-  venn/familie-beløpet er nøyaktig satsen.
-- Gjenstår i Shop UX: dra-for-lengde i kalenderen (flagget finnes alt).
+- Generell **uke-rotasjon** (A/B/C/D… med valgfritt antall uker, ikke bare A/B).
 
 **Verifisert i sky-klone:** `tsc --noEmit` 0 feil, `next build` grønn, eslint
-uendret fra baseline. Verifiseringsgjennomgang med subagent; funn adressert.
+uendret fra baseline. available_slots verifisert identisk med 0028 bortsett fra
+de to blokk-sjekkene.

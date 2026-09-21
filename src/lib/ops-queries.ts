@@ -435,6 +435,41 @@ export type StaffException = {
   note: string | null;
 };
 
+export type BookingBlock = {
+  id: string;
+  date: string; // YYYY-MM-DD
+  start_time: string | null; // HH:MM, null = hele dagen
+  end_time: string | null;
+  reason: string | null;
+};
+
+/** Kommende booking-blokkeringer (admin sperrer tid for alle ansatte). */
+export async function getBookingBlocks(): Promise<BookingBlock[]> {
+  try {
+    const sb = await createClient();
+    const today = new Date().toLocaleDateString("en-CA", {
+      timeZone: "Europe/Oslo",
+    });
+    const { data } = await sb
+      .from("booking_blocks")
+      .select("id, block_date, start_time, end_time, reason")
+      .gte("block_date", today)
+      .order("block_date");
+    return (data ?? []).map((r) => {
+      const t = (v: unknown) => (v ? String(v).slice(0, 5) : null);
+      return {
+        id: r.id as string,
+        date: r.block_date as string,
+        start_time: t(r.start_time),
+        end_time: t(r.end_time),
+        reason: (r.reason as string) ?? null,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
 /** Kommende avvik (fra og med i dag), sortert på dato. */
 export async function getStaffExceptions(): Promise<StaffException[]> {
   try {

@@ -1,11 +1,14 @@
 import { StaffHoursManager } from "@/components/admin/StaffHoursManager";
 import { StaffExceptionsManager } from "@/components/admin/StaffExceptionsManager";
+import { BulkTurnusForm } from "@/components/admin/BulkTurnusForm";
+import { BookingBlocksManager } from "@/components/admin/BookingBlocksManager";
 import { WeekSchedule } from "@/components/admin/WeekSchedule";
 import {
   getStaffHours,
   getStaffOptions,
   getTurnusAnchor,
   getStaffExceptions,
+  getBookingBlocks,
 } from "@/lib/ops-queries";
 import { setTurnusAnchor } from "@/app/admin/timelister/actions";
 
@@ -27,11 +30,12 @@ export default async function AdminTimelister({
 }) {
   const sp = await searchParams;
   const parity: 1 | 2 = sp.uke === "b" ? 2 : 1;
-  const [hours, staff, anchor, exceptions] = await Promise.all([
+  const [hours, staff, anchor, exceptions, blocks] = await Promise.all([
     getStaffHours(),
     getStaffOptions(),
     getTurnusAnchor(),
     getStaffExceptions(),
+    getBookingBlocks(),
   ]);
 
   const wk = isoWeek(new Date());
@@ -104,6 +108,7 @@ export default async function AdminTimelister({
       <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted uppercase">
         Rediger turnus
       </h2>
+      <BulkTurnusForm staff={staff} />
       <StaffHoursManager hours={hours} staff={staff} />
 
       <div className="mt-10 mb-3">
@@ -121,6 +126,18 @@ export default async function AdminTimelister({
         </p>
       </div>
       <StaffExceptionsManager exceptions={exceptions} staff={staff} />
+
+      <div className="mt-10 mb-3">
+        <h2 className="text-xs font-semibold tracking-wide text-muted uppercase">
+          Blokker booking
+        </h2>
+        <p className="mt-1 text-sm text-muted">
+          Sperr hele eller deler av en dag for booking på{" "}
+          <strong>alle ansatte</strong> (helligdag, arrangement, felles fri).
+          Blokkerte tider forsvinner fra ledige tider i booking.
+        </p>
+      </div>
+      <BookingBlocksManager blocks={blocks} />
     </div>
   );
 }

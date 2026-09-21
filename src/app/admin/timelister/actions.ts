@@ -2,6 +2,102 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getUserRole, isAdminRole } from "@/lib/auth";
+
+const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
+
+/**
+ * Bulk-turnus: sett arbeidstid for flere ukedager (og paritet) på én gang.
+ * F.eks. man–fre 09–17. Kan valgfritt erstatte eksisterende vakter for de
+ * valgte dagene (samme paritet) først. Kun admin/eier.
+ */
+export async function bulkSetStaffHours(
+  formData: FormData,
+): Promise<{ ok?: true; error?: string }> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { error: "Ikke tilgang." };
+
+  const staff_id = String(formData.get("staff_id") ?? "");
+  const start_time = String(formData.get("start_time") ?? "");
+  const end_time = String(formData.get("end_time") ?? "");
+  let week_parity = Number(formData.get("week_parity"));
+  if (![0, 1, 2].includes(week_parity)) week_parity = 0;
+  const replace = formData.get("replace") === "on";
+  const days = WEEKDAYS.filter((d) => formData.get(`d${d}`) === "on");
+
+  if (!staff_id) return { error: "Velg en ansatt." };
+  if (days.length === 0) return { error: "Velg minst én ukedag." };
+  if (!start_time || !end_time || end_time <= start_time)
+    return { error: "Sett gyldig start/slutt (slutt etter start)." };
+
+  const sb = await createClient();
+
+  // Erstatt: slett eksisterende vakter for valgte dager med samme paritet
+  // (0 = «hver uke» treffer begge, ellers kun den valgte pariteten).
+  if (replace) {
+    let del = sb.from("staff_hours").delete().eq("staff_id", staff_id).in("weekday", days);
+    del = week_parity === 0 ? del : del.in("week_parity", [0, week_parity]);
+    const { error: delErr } = await del;
+    if (delErr) return { error: `Kunne ikke rydde eksisterende: ${delErr.message}` };
+  }
+
+  const rows = days.map((weekday) => ({
+    staff_id,
+    weekday,
+    start_time,
+    end_time,
+    week_parity,
+  }));
+  const { error } = await sb.from("staff_hours").insert(rows);
+  if (error) return { error: `Kunne ikke lagre turnus: ${error.message}` };
+
+  revalidatePath("/admin/timelister");
+  return { ok: true };
+}
+
+/**
+ * Legg til en booking-blokkering (admin sperrer tid for alle ansatte).
+ * Hele dagen (ingen tid) eller et tidsintervall. Kun admin/eier.
+ */
+export async function createBookingBlock(
+  formData: FormData,
+): Promise<{ ok?: true; error?: string }> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { error: "Ikke tilgang." };
+
+  const block_date = String(formData.get("block_date") ?? "");
+  const wholeDay = formData.get("whole_day") === "on";
+  const start_time = String(formData.get("start_time") ?? "");
+  const end_time = String(formData.get("end_time") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim() || null;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(block_date))
+    return { error: "Velg en gyldig dato." };
+  if (!wholeDay && (!start_time || !end_time || end_time <= start_time))
+    return { error: "Sett gyldig tidsintervall, eller velg hele dagen." };
+
+  const sb = await createClient();
+  const { error } = await sb.from("booking_blocks").insert({
+    block_date,
+    start_time: wholeDay ? null : start_time,
+    end_time: wholeDay ? null : end_time,
+    reason,
+  });
+  if (error) return { error: `Kunne ikke lagre blokkering: ${error.message}` };
+
+  revalidatePath("/admin/timelister");
+  revalidatePath("/booking");
+  return { ok: true };
+}
+
+export async function deleteBookingBlock(id: string) {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return;
+  const sb = await createClient();
+  await sb.from("booking_blocks").delete().eq("id", id);
+  revalidatePath("/admin/timelister");
+  revalidatePath("/booking");
+}
 
 export async function createStaffHour(formData: FormData) {
   const sb = await createClient();
