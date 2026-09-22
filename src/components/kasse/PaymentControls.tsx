@@ -6,16 +6,10 @@ import {
   getBookingPrice,
   getBookingLoyalty,
   listSellableProducts,
-  getKasseAllowances,
-  getMemberCampaignOffersForBooking,
   type SellableProduct,
   type BookingLoyalty,
-  type KasseAllowances,
-  type RelationType,
-  type MemberCampaignOffer,
 } from "@/app/kasse/actions";
 import { redeemLoyalty } from "@/app/kasse/kunder/[id]/loyalty-actions";
-import { CouponPicker, couponDiscount } from "@/components/kasse/CouponPicker";
 
 const PAYMENTS = ["Kontant", "Kort", "Vipps"];
 
@@ -38,11 +32,13 @@ export function PaymentControls({
   bookingId,
   customerName,
   customerEmail,
+  canDiscount = true,
   onDone,
 }: {
   bookingId: string;
   customerName: string;
   customerEmail: string | null;
+  canDiscount?: boolean;
   onDone: () => void;
 }) {
   const [pending, start] = useTransition();
@@ -69,26 +65,14 @@ export function PaymentControls({
 
   // Rabatt + splittbetaling
   const [discount, setDiscount] = useState("");
-  const [relationType, setRelationType] = useState<RelationType | null>(null);
   const [split, setSplit] = useState(false);
   const [splitAmts, setSplitAmts] = useState<Record<string, string>>({});
-
-  // Medlems-kuponger for bookingens kunde
-  const [offers, setOffers] = useState<MemberCampaignOffer[]>([]);
-  const [couponId, setCouponId] = useState<string | null>(null);
-
-  // Shop-flagg (rabatt / venn-familie). Eier/admin omgår.
-  const [allow, setAllow] = useState<KasseAllowances | null>(null);
 
   useEffect(() => {
     let alive = true;
     getBookingPrice(bookingId).then((p) => alive && setServicePrice(p));
     listSellableProducts().then((p) => alive && setProducts(p));
     getBookingLoyalty(bookingId).then((l) => alive && setLoyalty(l));
-    getKasseAllowances().then((a) => alive && setAllow(a));
-    getMemberCampaignOffersForBooking(bookingId).then(
-      (o) => alive && setOffers(o),
-    );
     return () => {
       alive = false;
     };
@@ -123,17 +107,8 @@ export function PaymentControls({
   );
   const productTotal = cartLines.reduce((a, l) => a + l.price_nok * l.qty, 0);
   const gross = (servicePrice ?? 0) + productTotal;
-  // Venn/familie-rabatt beregnes LIVE av gross (aldri utdatert hvis kurven
-  // endres etter valg); fri rabatt tas fra feltet.
-  const discountNum = relationType
-    ? Math.round((gross * (allow?.friendFamilyPct ?? 0)) / 100)
-    : Math.max(0, Math.round(Number(discount) || 0));
-  // Kupong-rabatt (visning). Serveren beregner det autoritative beløpet.
-  const coupon = offers.find((o) => o.id === couponId) ?? null;
-  const couponDisc = coupon ? couponDiscount(coupon, gross) : 0;
-  // Samlet rabatt begrenses til brutto (som server-side).
-  const totalDiscount = Math.min(discountNum + couponDisc, Math.round(gross));
-  const total = Math.max(0, Math.round(gross) - totalDiscount);
+  const discountNum = Math.max(0, Math.round(Number(discount) || 0));
+  const total = Math.max(0, Math.round(gross) - discountNum);
 
   // Splittbetaling: beløp per måte, sum, og om det stemmer med totalen.
   const splitEntries = PAYMENTS.map((m) => ({
@@ -161,8 +136,6 @@ export function PaymentControls({
         sendReceipt: receipt && !!(email.trim() || customerEmail),
         products: cartLines.map((l) => ({ id: l.id, qty: l.qty })),
         discountNok: discountNum,
-        campaignId: couponId ?? undefined,
-        relationType: relationType ?? undefined,
       });
       if (res?.error) {
         setError(res.error);
@@ -184,8 +157,6 @@ export function PaymentControls({
         sendReceipt: receipt && !!(email.trim() || customerEmail),
         products: cartLines.map((l) => ({ id: l.id, qty: l.qty })),
         discountNok: discountNum,
-        campaignId: couponId ?? undefined,
-        relationType: relationType ?? undefined,
         payments: splitEntries,
       });
       if (res?.error) {
@@ -335,36 +306,8 @@ export function PaymentControls({
         </div>
       )}
 
-      {/* Rabatt (styres av shop-flagg; eier/admin omgår) */}
-      {allow?.friendFamilyEnabled && (
-        <div className="mb-2">
-          <p className="mb-1 text-xs text-muted">
-            Venn/familie −{allow.friendFamilyPct}%
-            {relationType && ` = ${kr(discountNum)}`}
-          </p>
-          <div className="flex items-center gap-2">
-            {(["venn", "familie"] as RelationType[]).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => {
-                  setRelationType((cur) => (cur === t ? null : t));
-                  setDiscount("");
-                }}
-                className={
-                  "rounded-md border px-3 py-1.5 text-xs font-semibold capitalize transition-colors " +
-                  (relationType === t
-                    ? "border-accent-soft bg-accent-soft/10 text-fg"
-                    : "border-line text-fg hover:border-accent-soft")
-                }
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      {allow?.discountAllowed && !relationType && (
+      {/* Rabatt (skjules hvis deaktivert i shop-innstillinger) */}
+      {canDiscount && (
         <div className="mb-3 flex items-center justify-between gap-2">
           <label className="text-xs font-semibold tracking-wide text-muted uppercase">
             Rabatt (kr)
@@ -380,22 +323,11 @@ export function PaymentControls({
         </div>
       )}
 
-      {/* Medlemskupong (vises kun når kunden har gyldige kuponger) */}
-      <CouponPicker
-        offers={offers}
-        selectedId={couponId}
-        onSelect={setCouponId}
-        gross={gross}
-      />
-
       {/* Total */}
       <div className="mb-3 rounded-lg bg-canvas px-3 py-2">
-        {totalDiscount > 0 && (
+        {discountNum > 0 && (
           <div className="mb-1 flex items-center justify-between text-xs text-muted">
-            <span>
-              Sum {kr(gross)} · rabatt −{kr(totalDiscount)}
-              {couponDisc > 0 && coupon ? ` (kupong: ${coupon.name})` : ""}
-            </span>
+            <span>Sum {kr(gross)} · rabatt −{kr(discountNum)}</span>
           </div>
         )}
         <div className="flex items-center justify-between">

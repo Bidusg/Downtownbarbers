@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { StatTile } from "@/components/ui/StatTile";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Button } from "@/components/ui/Button";
 import { resolveRange, getRelationSummary } from "@/lib/report-queries";
 import {
   getBarberScores,
@@ -55,20 +57,18 @@ export default async function AdminProduktivitet({
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-bold">Produktivitet per barber</h1>
-          <p className="mt-1 text-sm text-muted">
-            Periode: <span className="text-fg">{r.label}</span>
-          </p>
-        </div>
-        <Link
-          href={`/admin/rapporter?from=${r.from}&to=${r.to}`}
-          className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
-        >
-          ← Rapporter
-        </Link>
-      </div>
+      <PageHeader
+        title="Produktivitet per barber"
+        description={`Periode: ${r.label}`}
+        actions={
+          <Link
+            href={`/admin/rapporter?from=${r.from}&to=${r.to}`}
+            className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
+          >
+            ← Rapporter
+          </Link>
+        }
+      />
 
       {/* Periodevelger */}
       <div className="border border-line bg-surface p-5">
@@ -100,9 +100,9 @@ export default async function AdminProduktivitet({
             Til
             <input type="date" name="to" defaultValue={r.to} className="border border-line bg-canvas px-3 py-2 text-sm text-fg" />
           </label>
-          <button type="submit" className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90">
+          <Button type="submit" className="px-4 py-2 text-sm">
             Oppdater
-          </button>
+          </Button>
         </form>
       </div>
 

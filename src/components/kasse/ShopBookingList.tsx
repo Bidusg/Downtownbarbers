@@ -37,17 +37,18 @@ function Row({
   b,
   services,
   barbers,
+  canDiscount,
 }: {
   b: TodayBooking;
   services: ShopService[];
   barbers: ShopBarber[];
+  canDiscount: boolean;
 }) {
   const [pending, start] = useTransition();
   const [menu, setMenu] = useState<
     null | "pay" | "cancel" | "noshow" | "reopen"
   >(null);
   const [notify, setNotify] = useState(true);
-  const [cancelErr, setCancelErr] = useState<string | null>(null);
 
   const done = b.status === "completed";
   const noshow = b.status === "no_show";
@@ -176,34 +177,16 @@ function Row({
             </>
           ) : menu === "cancel" ? (
             <>
-              {cancelErr ? (
-                <span className="mr-1 max-w-[220px] text-xs text-danger">
-                  {cancelErr}
-                </span>
-              ) : (
-                <span className="mr-1 text-xs text-muted">Avlyse?</span>
-              )}
-              {!cancelErr && (
-                <button
-                  onClick={() =>
-                    start(async () => {
-                      setCancelErr(null);
-                      const res = await cancelBooking(b.id);
-                      if (res?.error) setCancelErr(res.error);
-                      else setMenu(null);
-                    })
-                  }
-                  disabled={pending}
-                  className="rounded-md border border-line-2 px-2.5 py-1.5 text-xs font-semibold text-danger hover:border-danger disabled:opacity-50"
-                >
-                  Ja, avlys
-                </button>
-              )}
+              <span className="mr-1 text-xs text-muted">Avlyse?</span>
               <button
-                onClick={() => {
-                  setMenu(null);
-                  setCancelErr(null);
-                }}
+                onClick={() => start(() => cancelBooking(b.id))}
+                disabled={pending}
+                className="rounded-md border border-line-2 px-2.5 py-1.5 text-xs font-semibold text-danger hover:border-danger disabled:opacity-50"
+              >
+                Ja, avlys
+              </button>
+              <button
+                onClick={() => setMenu(null)}
                 className="px-2 py-1.5 text-xs text-muted hover:text-fg"
               >
                 ✕
@@ -256,6 +239,7 @@ function Row({
             bookingId={b.id}
             customerName={b.customer}
             customerEmail={b.customerEmail}
+            canDiscount={canDiscount}
             onDone={() => setMenu(null)}
           />
         </div>
@@ -268,10 +252,12 @@ export function ShopBookingList({
   bookings,
   services,
   barbers,
+  canDiscount = true,
 }: {
   bookings: TodayBooking[];
   services: ShopService[];
   barbers: ShopBarber[];
+  canDiscount?: boolean;
 }) {
   if (bookings.length === 0) {
     return <p className="py-4 text-sm text-muted">Ingen timer i dag.</p>;
@@ -279,7 +265,13 @@ export function ShopBookingList({
   return (
     <ul className="divide-y divide-line">
       {bookings.map((b) => (
-        <Row key={b.id} b={b} services={services} barbers={barbers} />
+        <Row
+          key={b.id}
+          b={b}
+          services={services}
+          barbers={barbers}
+          canDiscount={canDiscount}
+        />
       ))}
     </ul>
   );

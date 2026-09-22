@@ -1,4 +1,6 @@
 import { StatTile } from "@/components/ui/StatTile";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Button } from "@/components/ui/Button";
 import { getInventory, getStockMovements } from "@/lib/inventory-queries";
 import { StockScanAdjust } from "@/components/admin/StockScanAdjust";
 import { adjustStockAction, setStockAction, setThresholdAction } from "./actions";
@@ -49,7 +51,7 @@ export default async function AdminLager() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <h1 className="font-display text-2xl font-bold">Lager</h1>
+      <PageHeader title="Lager" />
 
       <StockScanAdjust />
 
@@ -91,9 +93,9 @@ export default async function AdminLager() {
             Notat (valgfritt)
             <input name="note" type="text" className="border border-line-2 bg-canvas px-3 py-2 text-sm text-fg" />
           </label>
-          <button type="submit" className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 sm:col-span-2">
+          <Button type="submit" className="px-4 py-2 text-sm sm:col-span-2">
             Registrer
-          </button>
+          </Button>
         </form>
       </details>
 

@@ -1,5 +1,6 @@
 import { getUserRole } from "@/lib/auth";
 import { getUsers, ROLES } from "@/lib/users-queries";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { setUserRole } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -35,13 +36,10 @@ export default async function AdminBrukere() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <h1 className="font-display text-2xl font-bold">Brukere &amp; roller</h1>
-        <p className="mt-1 text-sm text-muted">
-          Styr hvem som har tilgang til hva. Nye brukere opprettes i Supabase Auth (inviter på
-          e-post) — her setter du rollen deres.
-        </p>
-      </div>
+      <PageHeader
+        title="Brukere & roller"
+        description="Styr hvem som har tilgang til hva. Nye brukere opprettes i Supabase Auth (inviter på e-post) — her setter du rollen deres."
+      />
 
       <div className="flex flex-wrap gap-x-6 gap-y-1 border border-line bg-surface px-5 py-4 text-xs text-muted">
         <span><strong className="text-fg">Admin</strong> — full tilgang</span>

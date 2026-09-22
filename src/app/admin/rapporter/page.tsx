@@ -1,5 +1,7 @@
 import { StatTile } from "@/components/ui/StatTile";
 import { ProgressBar } from "@/components/ui/ProgressBar";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Button } from "@/components/ui/Button";
 import { RevenueChart } from "@/components/admin/RevenueChart";
 import {
   resolveRange,
@@ -86,28 +88,26 @@ export default async function AdminRapporter({
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-bold">Rapporter</h1>
-          <p className="mt-1 text-sm text-muted">
-            Periode: <span className="text-fg">{r.label}</span>
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <a
-            href={`/admin/rapporter/produktivitet?from=${r.from}&to=${r.to}`}
-            className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
-          >
-            Produktivitet per barber →
-          </a>
-          <a
-            href="/admin/rapporter/grunndata"
-            className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
-          >
-            Eksporter alt (grunndata) ↓
-          </a>
-        </div>
-      </div>
+      <PageHeader
+        title="Rapporter"
+        description={`Periode: ${r.label}`}
+        actions={
+          <>
+            <a
+              href={`/admin/rapporter/produktivitet?from=${r.from}&to=${r.to}`}
+              className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
+            >
+              Produktivitet per barber →
+            </a>
+            <a
+              href="/admin/rapporter/grunndata"
+              className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
+            >
+              Eksporter alt (grunndata) ↓
+            </a>
+          </>
+        }
+      />
 
       {/* Periodevelger */}
       <div className="border border-line bg-surface p-5">
@@ -150,12 +150,9 @@ export default async function AdminRapporter({
               className="border border-line bg-canvas px-3 py-2 text-sm text-fg"
             />
           </label>
-          <button
-            type="submit"
-            className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90"
-          >
+          <Button type="submit" className="px-4 py-2 text-sm">
             Oppdater
-          </button>
+          </Button>
         </form>
       </div>
 

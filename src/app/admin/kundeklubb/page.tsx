@@ -1,5 +1,6 @@
 import { getMembershipTiers, getMembershipCounts } from "@/lib/membership-queries";
 import { StatTile } from "@/components/ui/StatTile";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { MembershipTiersEditor } from "@/components/admin/MembershipTiersEditor";
 
 export const dynamic = "force-dynamic";
@@ -13,16 +14,10 @@ export default async function AdminKundeklubb() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
-      <div>
-        <h1 className="font-display text-2xl font-bold">Kundeklubb</h1>
-        <p className="mt-1 text-sm text-muted">
-          Medlemsnivåer utledes automatisk av kundens livstidsforbruk og antall
-          fullførte besøk. En kunde får det høyeste nivået der forbruket{" "}
-          <em>eller</em> antall besøk er over terskelen. Ingen poeng, ingen manuell
-          tildeling. Du kan legge til nye topp-nivåer (f.eks. Platinum), slette
-          nivåer og endre rekkefølgen selv — uten hjelp fra utvikler.
-        </p>
-      </div>
+      <PageHeader
+        title="Kundeklubb"
+        description="Medlemsnivåer utledes automatisk av kundens livstidsforbruk og antall fullførte besøk. En kunde får det høyeste nivået der forbruket eller antall besøk er over terskelen. Ingen poeng, ingen manuell tildeling. Du kan legge til nye topp-nivåer (f.eks. Platinum), slette nivåer og endre rekkefølgen selv — uten hjelp fra utvikler."
+      />
 
       {/* Antall kunder per nivå */}
       <div>

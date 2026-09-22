@@ -1,4 +1,5 @@
 import { ServiceManager } from "@/components/admin/ServiceManager";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { getServicesAdmin, getCategories } from "@/lib/admin-queries";
 import { getServicePopularity } from "@/lib/service-catalog-queries";
 
@@ -13,7 +14,7 @@ export default async function AdminTjenester() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <h1 className="mb-6 font-display text-2xl font-bold">Tjenester</h1>
+      <PageHeader title="Tjenester" />
       <ServiceManager
         services={services}
         categories={categories}

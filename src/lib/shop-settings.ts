@@ -1,95 +1,119 @@
+// Shop-innstillinger (feature-flags) + eier-tilgang.
+//
+// Flaggene styrer funksjoner som kan misbrukes og derfor skal kunne skrus
+// av/på fra admin. En EIER (profiles.is_owner) omgår begrensningene – flaggene
+// gjelder ikke for eieren i shop.
+//
+// Lagres som JSON under settings-nøkkelen 'shop_flags' (admin skriver).
+
 import { createClient } from "@/lib/supabase/server";
-import { getUserRole, isAdminRole } from "@/lib/auth";
 
-/**
- * Shop-innstillinger (feature-flags). Ett sted styrer av/på for funksjoner i
- * kassa som kan misbrukes. Lagres i settings-nøkkelen 'shop_flags' (jsonb) og
- * leses via get_shop_flags() (security definer – kassa/shop kan lese uten
- * direkte tilgang til settings-tabellen). Bygget som én gjenbrukbar struktur:
- * en ny bryter = ett felt her + én rad i admin-panelet.
- */
 export type ShopFlags = {
-  /** Fri rabatt (kr) i kassa. */
-  discount_enabled: boolean;
-  /** Egen «venn/familie»-rabattknapp med fast prosentsats. */
-  friend_family_discount_enabled: boolean;
-  /** Prosentsats for venn/familie-rabatt. */
-  friend_family_discount_pct: number;
-  /** Tillat hurtigsalg/drop-in uten å registrere kunde. */
-  dropin_without_customer_enabled: boolean;
-  /** Dra-for-lengde i kalender (kommer – ikke koblet enda). */
-  drag_for_length_enabled: boolean;
+  /** Rabatt tilgjengelig i kassen. */
+  discountEnabled: boolean;
+  /** Dra-for-lengde på bookinger (fremtidig funksjon). */
+  dragLengthEnabled: boolean;
+  /** Drop-in/hurtigsalg uten registrert kunde tillatt. */
+  dropinWithoutCustomerEnabled: boolean;
+  /** Venn/familie-rabatt tilgjengelig. */
+  familyFriendDiscountEnabled: boolean;
+  /** Sats for venn/familie-rabatt i prosent (0–100). */
+  familyFriendDiscountPct: number;
 };
 
-export const SHOP_FLAG_DEFAULTS: ShopFlags = {
-  discount_enabled: true,
-  friend_family_discount_enabled: false,
-  friend_family_discount_pct: 20,
-  dropin_without_customer_enabled: true,
-  drag_for_length_enabled: false,
+export const DEFAULT_SHOP_FLAGS: ShopFlags = {
+  discountEnabled: true,
+  dragLengthEnabled: false,
+  dropinWithoutCustomerEnabled: true,
+  familyFriendDiscountEnabled: false,
+  familyFriendDiscountPct: 100,
 };
 
-type BoolFlagKey =
-  | "discount_enabled"
-  | "friend_family_discount_enabled"
-  | "dropin_without_customer_enabled"
-  | "drag_for_length_enabled";
+const SETTINGS_KEY = "shop_flags";
 
-function coerceFlags(raw: unknown): ShopFlags {
-  const v = (raw ?? {}) as Partial<Record<keyof ShopFlags, unknown>>;
-  const bool = (k: BoolFlagKey): boolean =>
-    typeof v[k] === "boolean" ? (v[k] as boolean) : SHOP_FLAG_DEFAULTS[k];
-  const pct = Number(v.friend_family_discount_pct);
+function coerce(raw: unknown): ShopFlags {
+  const v = (raw ?? {}) as Partial<ShopFlags>;
   return {
-    discount_enabled: bool("discount_enabled"),
-    friend_family_discount_enabled: bool("friend_family_discount_enabled"),
-    friend_family_discount_pct:
-      Number.isFinite(pct) && pct >= 0 && pct <= 100
-        ? pct
-        : SHOP_FLAG_DEFAULTS.friend_family_discount_pct,
-    dropin_without_customer_enabled: bool("dropin_without_customer_enabled"),
-    drag_for_length_enabled: bool("drag_for_length_enabled"),
+    discountEnabled: v.discountEnabled ?? DEFAULT_SHOP_FLAGS.discountEnabled,
+    dragLengthEnabled:
+      v.dragLengthEnabled ?? DEFAULT_SHOP_FLAGS.dragLengthEnabled,
+    dropinWithoutCustomerEnabled:
+      v.dropinWithoutCustomerEnabled ??
+      DEFAULT_SHOP_FLAGS.dropinWithoutCustomerEnabled,
+    familyFriendDiscountEnabled:
+      v.familyFriendDiscountEnabled ??
+      DEFAULT_SHOP_FLAGS.familyFriendDiscountEnabled,
+    familyFriendDiscountPct: Math.max(
+      0,
+      Math.min(
+        100,
+        Math.round(
+          Number(
+            v.familyFriendDiscountPct ??
+              DEFAULT_SHOP_FLAGS.familyFriendDiscountPct,
+          ),
+        ),
+      ),
+    ),
   };
 }
 
-/** Leser gjeldende shop-flags (flettet mot standardverdier). */
+/** Les gjeldende shop-flagg (fyller inn standarder for det som mangler). */
 export async function getShopFlags(): Promise<ShopFlags> {
   try {
     const sb = await createClient();
-    const { data } = await sb.rpc("get_shop_flags");
-    return coerceFlags(data);
+    const { data } = await sb
+      .from("settings")
+      .select("value")
+      .eq("key", SETTINGS_KEY)
+      .maybeSingle();
+    return coerce(data?.value);
   } catch {
-    return { ...SHOP_FLAG_DEFAULTS };
+    return { ...DEFAULT_SHOP_FLAGS };
   }
 }
 
-/** Lagrer en delvis oppdatering av shop-flags. Kun admin/eier (RPC håndhever). */
-export async function saveShopFlags(
-  patch: Partial<ShopFlags>,
-): Promise<{ ok?: true; error?: string }> {
+/** Er innlogget bruker eier (Dawit)? */
+export async function currentUserIsOwner(): Promise<boolean> {
   try {
     const sb = await createClient();
-    const { error } = await sb.rpc("set_shop_flags", { p_patch: patch });
-    if (error) return { error: error.message };
-    return { ok: true };
+    const {
+      data: { user },
+    } = await sb.auth.getUser();
+    if (!user) return false;
+    const { data } = await sb
+      .from("profiles")
+      .select("is_owner")
+      .eq("id", user.id)
+      .maybeSingle();
+    return !!data?.is_owner;
   } catch {
-    return { error: "Kunne ikke lagre innstillinger." };
+    return false;
   }
 }
 
-export type ShopContext = {
-  role: string;
-  /** Admin/eier omgår alle shop-begrensninger. */
-  canBypass: boolean;
+export type ShopAccess = {
   flags: ShopFlags;
+  isOwner: boolean;
+  /** Effektive rettigheter (flagg ELLER eier). */
+  canDiscount: boolean;
+  canDropinWithoutCustomer: boolean;
+  canFamilyFriendDiscount: boolean;
+  canDragLength: boolean;
 };
 
-/**
- * Kontekst for kassa: rolle + flagg + om brukeren omgår begrensninger.
- * Eier (og admin) har ingen shop-begrensninger.
- */
-export async function getShopContext(): Promise<ShopContext> {
-  const [me, flags] = await Promise.all([getUserRole(), getShopFlags()]);
-  const role = me?.role ?? "shop";
-  return { role, canBypass: isAdminRole(role), flags };
+/** Samlet tilgang for shop: flagg + eier-bypass. Én kilde til sannhet i UI. */
+export async function getShopAccess(): Promise<ShopAccess> {
+  const [flags, isOwner] = await Promise.all([
+    getShopFlags(),
+    currentUserIsOwner(),
+  ]);
+  return {
+    flags,
+    isOwner,
+    canDiscount: flags.discountEnabled || isOwner,
+    canDropinWithoutCustomer: flags.dropinWithoutCustomerEnabled || isOwner,
+    canFamilyFriendDiscount: flags.familyFriendDiscountEnabled || isOwner,
+    canDragLength: flags.dragLengthEnabled || isOwner,
+  };
 }

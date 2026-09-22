@@ -1,5 +1,7 @@
 import { requireRole } from "@/lib/auth";
 import { getGoLiveChecklist, type CheckStatus } from "@/lib/go-live";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Card } from "@/components/ui/Card";
 
 export const dynamic = "force-dynamic";
 
@@ -17,16 +19,13 @@ export default async function AdminGoLive() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
-      <div>
-        <h1 className="font-display text-2xl font-bold">Go-live sjekkliste</h1>
-        <p className="mt-1 text-sm text-muted">
-          Live status på alt som må på plass før full lansering. Oppdateres
-          automatisk når nøkler/innstillinger settes.
-        </p>
-      </div>
+      <PageHeader
+        title="Go-live sjekkliste"
+        description="Live status på alt som må på plass før full lansering. Oppdateres automatisk når nøkler/innstillinger settes."
+      />
 
       {/* Sammendrag */}
-      <div className="border border-line bg-surface p-6">
+      <Card className="p-6" padded={false}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="font-display text-3xl font-bold">
@@ -43,7 +42,7 @@ export default async function AdminGoLive() {
             <p className="mt-1 text-right text-xs text-muted">{pct}% klart</p>
           </div>
         </div>
-      </div>
+      </Card>
 
       {groups.map((g) => (
         <div key={g.title} className="border border-line bg-surface">

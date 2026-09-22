@@ -1,4 +1,6 @@
 import { getDueFollowups } from "@/lib/followups";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Button } from "@/components/ui/Button";
 import { sendFollowupsNow } from "./actions";
 
 function fmtDate(iso: string) {
@@ -19,18 +21,15 @@ export default async function AdminOppfolging() {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <div className="mb-2 flex items-baseline justify-between">
-        <h1 className="font-display text-2xl font-bold">Oppfølging</h1>
-        <span className="text-sm text-muted">{due.length} klar</span>
-      </div>
-      <p className="mb-5 max-w-2xl text-sm text-muted">
-        Kunder som ikke har vært innom på 6+ uker og ikke har en kommende time.
-        De får en vennlig «book ny time»-e-post
-        {hasAi
-          ? ", skrevet av AI (Claude)"
-          : " (fast mal – legg til ANTHROPIC_API_KEY i Vercel for AI-tekst)"}
-        . Oppfølging kjører også automatisk hver dag.
-      </p>
+      <PageHeader
+        title="Oppfølging"
+        description={`Kunder som ikke har vært innom på 6+ uker og ikke har en kommende time. De får en vennlig «book ny time»-e-post${
+          hasAi
+            ? ", skrevet av AI (Claude)"
+            : " (fast mal – legg til ANTHROPIC_API_KEY i Vercel for AI-tekst)"
+        }. Oppfølging kjører også automatisk hver dag.`}
+        actions={<span className="text-sm text-muted">{due.length} klar</span>}
+      />
 
       {!hasAi && (
         <div className="mb-5 border border-line bg-surface px-4 py-3 text-xs text-muted">
@@ -43,12 +42,9 @@ export default async function AdminOppfolging() {
 
       {due.length > 0 && (
         <form action={sendFollowupsNow} className="mb-5">
-          <button
-            type="submit"
-            className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90"
-          >
+          <Button type="submit" className="px-4 py-2 text-sm">
             Send oppfølging nå ({due.length})
-          </button>
+          </Button>
         </form>
       )}
 

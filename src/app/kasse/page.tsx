@@ -9,6 +9,7 @@ import { DeskBooking } from "@/components/kasse/DeskBooking";
 import { QuickSale } from "@/components/kasse/QuickSale";
 import { NoticeBanner } from "@/components/admin/NoticeBanner";
 import { getActiveNotices } from "@/lib/notices-queries";
+import { getShopAccess } from "@/lib/shop-settings";
 
 function dayLabel(iso: string) {
   try {
@@ -35,13 +36,15 @@ function timeLabel(iso: string) {
 export default async function KasseDashboard() {
   await requireRole(["shop", "admin"]);
   const notices = await getActiveNotices("shop");
-  const [today, todayBookings, upcoming, barbers, services] = await Promise.all([
-    getShopToday(),
-    getTodayBookings(),
-    getUpcomingBookings(),
-    getBarbers(),
-    getServices(),
-  ]);
+  const [today, todayBookings, upcoming, barbers, services, access] =
+    await Promise.all([
+      getShopToday(),
+      getTodayBookings(),
+      getUpcomingBookings(),
+      getBarbers(),
+      getServices(),
+      getShopAccess(),
+    ]);
   // Kommende (etter i dag), gruppert per dag – uten kroner (shop ser aldri omsetning)
   const startTomorrow = new Date();
   startTomorrow.setHours(0, 0, 0, 0);
@@ -72,7 +75,7 @@ export default async function KasseDashboard() {
             barbers={barbers}
             label="+ Ny booking"
           />
-          <QuickSale barbers={barbers} />
+          <QuickSale barbers={barbers} canDiscount={access.canDiscount} />
           <Link
             href="/kasse/kalender"
             className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
@@ -120,6 +123,7 @@ export default async function KasseDashboard() {
               bookings={todayBookings}
               services={services}
               barbers={barbers}
+              canDiscount={access.canDiscount}
             />
           ) : (
             // Demo-modus: vis planlagte tider uten handlingsknapper

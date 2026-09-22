@@ -1,4 +1,6 @@
 import { getNotices, type NoticeLevel } from "@/lib/notices-queries";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Button } from "@/components/ui/Button";
 import { createNotice, toggleNotice, deleteNotice } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -42,14 +44,10 @@ export default async function AdminMeldinger() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
-      <div>
-        <h1 className="font-display text-2xl font-bold">Driftsmeldinger</h1>
-        <p className="mt-1 text-sm text-muted">
-          Interne beskjeder som vises som banner i admin-, kasse- og
-          ansatt-panelene. Velg nivå, målgruppe og eventuelt en periode meldingen
-          skal være synlig i.
-        </p>
-      </div>
+      <PageHeader
+        title="Driftsmeldinger"
+        description="Interne beskjeder som vises som banner i admin-, kasse- og ansatt-panelene. Velg nivå, målgruppe og eventuelt en periode meldingen skal være synlig i."
+      />
 
       {/* Ny melding */}
       <form action={createNotice} className="space-y-4 border border-line bg-surface p-6">
@@ -131,12 +129,9 @@ export default async function AdminMeldinger() {
           Aktiv (vis meldingen nå)
         </label>
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="submit"
-            className="bg-accent px-5 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90"
-          >
+          <Button type="submit" className="px-5 py-2 text-sm">
             Opprett melding
-          </button>
+          </Button>
           <span className="text-xs text-muted">
             Tom «fra/til» betyr uten start/slutt.
           </span>

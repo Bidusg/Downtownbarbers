@@ -1,5 +1,6 @@
 import { getVouchers } from "@/lib/vouchers-queries";
 import { VoucherManager } from "@/components/admin/VoucherManager";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -10,14 +11,10 @@ export default async function AdminBilag() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
-      <div>
-        <h1 className="font-display text-2xl font-bold">Bilag til revisor</h1>
-        <p className="mt-1 text-sm text-muted">
-          Last opp fakturaer, kvitteringer og bilag. De dukker automatisk opp
-          hos revisor – ingen manuell utsending. Filene lagres privat, og
-          nedlasting skjer via tidsbegrensede lenker.
-        </p>
-      </div>
+      <PageHeader
+        title="Bilag til revisor"
+        description="Last opp fakturaer, kvitteringer og bilag. De dukker automatisk opp hos revisor – ingen manuell utsending. Filene lagres privat, og nedlasting skjer via tidsbegrensede lenker."
+      />
 
       <VoucherManager vouchers={vouchers} />
 

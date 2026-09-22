@@ -1,5 +1,6 @@
 import { BudgetManager } from "@/components/admin/BudgetManager";
 import { getBudgets, getStaffOptions } from "@/lib/ops-queries";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export default async function AdminBudsjett({
   searchParams,
@@ -18,11 +19,10 @@ export default async function AdminBudsjett({
 
   return (
     <div className="mx-auto max-w-5xl">
-      <h1 className="mb-1 font-display text-2xl font-bold">Budsjett</h1>
-      <p className="mb-6 text-sm text-muted">
-        Omsetningsmål per barber per måned. Brukes som grunnlag for
-        måloppnåelse i regnskapet.
-      </p>
+      <PageHeader
+        title="Budsjett"
+        description="Omsetningsmål per barber per måned. Brukes som grunnlag for måloppnåelse i regnskapet."
+      />
       <BudgetManager
         budgets={budgets}
         staff={staff}

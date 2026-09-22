@@ -1,6 +1,7 @@
 import { getRatingOverview } from "@/lib/rating-queries";
 import { getReviewsSummary, getReviewConfigAdmin } from "@/lib/reviews";
 import { ReviewConfigForm } from "@/components/admin/ReviewConfigForm";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,7 @@ export default async function AdminRating() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
-      <h1 className="font-display text-2xl font-bold">Rating & omdømme</h1>
+      <PageHeader title="Rating & omdømme" />
 
       {/* ---------- Samlet omdømme (alle kilder) ---------- */}
       <div className="border border-line bg-surface p-6">

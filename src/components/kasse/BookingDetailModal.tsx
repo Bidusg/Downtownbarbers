@@ -33,12 +33,14 @@ export function BookingDetailModal({
   services,
   barbers,
   barberColor,
+  canDiscount = true,
   onClose,
 }: {
   booking: AgendaBooking;
   services: ShopService[];
   barbers: ShopBarber[];
   barberColor: string;
+  canDiscount?: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -135,6 +137,7 @@ export function BookingDetailModal({
               bookingId={b.id}
               customerName={b.customer ?? ""}
               customerEmail={b.email}
+              canDiscount={canDiscount}
               onDone={() => {
                 onClose();
                 router.refresh();
@@ -186,42 +189,21 @@ export function BookingDetailModal({
             </div>
           </div>
         ) : mode === "cancel" ? (
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted">Avlyse denne timen?</span>
-              <button
-                disabled={pending}
-                onClick={() =>
-                  start(async () => {
-                    setErr(null);
-                    const res = await cancelBooking(b.id);
-                    if (res?.error) {
-                      setErr(res.error);
-                      return;
-                    }
-                    onClose();
-                    router.refresh();
-                  })
-                }
-                className="rounded-md border border-line-2 px-3 py-1.5 text-xs font-semibold text-danger hover:border-danger disabled:opacity-50"
-              >
-                Ja, avlys
-              </button>
-              <button
-                onClick={() => {
-                  setErr(null);
-                  setMode("actions");
-                }}
-                className="px-2 py-1.5 text-xs text-muted hover:text-fg"
-              >
-                Angre
-              </button>
-            </div>
-            {err && (
-              <p className="mt-2 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
-                {err}
-              </p>
-            )}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted">Avlyse denne timen?</span>
+            <button
+              disabled={pending}
+              onClick={() => act(() => cancelBooking(b.id))}
+              className="rounded-md border border-line-2 px-3 py-1.5 text-xs font-semibold text-danger hover:border-danger disabled:opacity-50"
+            >
+              Ja, avlys
+            </button>
+            <button
+              onClick={() => setMode("actions")}
+              className="px-2 py-1.5 text-xs text-muted hover:text-fg"
+            >
+              Angre
+            </button>
           </div>
         ) : mode === "reopen" ? (
           <div>

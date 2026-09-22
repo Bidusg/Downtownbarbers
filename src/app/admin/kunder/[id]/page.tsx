@@ -6,6 +6,8 @@ import { getCustomerMembership, remainingToNext } from "@/lib/membership-queries
 import { TierBadge } from "@/components/membership/TierBadge";
 import { updateCustomer, anonymizeCustomer, setMarketingConsent } from "../actions";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Button } from "@/components/ui/Button";
 
 const nokFmt = (n: number) => Math.round(n).toLocaleString("nb-NO") + " kr";
 
@@ -116,22 +118,26 @@ export default async function KundeKort({
       <Link href="/admin/kunder" className="text-xs text-muted hover:text-fg">
         ← Tilbake til kundekartotek
       </Link>
-      <div className="mt-3 mb-6 flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="font-display text-2xl font-bold">{c.full_name}</h1>
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm text-muted">
-            Kunde siden {fmtDate(c.created_at)}
-          </span>
-          <Link
-            href={`/admin/kunder/${id}/kjopshistorikk`}
-            className="inline-flex items-center gap-1.5 border border-line-2 px-3 py-1.5 text-xs font-semibold text-fg transition-colors hover:bg-surface-2"
-          >
-            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            Kjøpshistorikk (PDF)
-          </Link>
-        </div>
+      <div className="mt-3">
+        <PageHeader
+          title={c.full_name}
+          actions={
+            <>
+              <span className="text-sm text-muted">
+                Kunde siden {fmtDate(c.created_at)}
+              </span>
+              <Link
+                href={`/admin/kunder/${id}/kjopshistorikk`}
+                className="inline-flex items-center gap-1.5 border border-line-2 px-3 py-1.5 text-xs font-semibold text-fg transition-colors hover:bg-surface-2"
+              >
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Kjøpshistorikk (PDF)
+              </Link>
+            </>
+          }
+        />
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -249,12 +255,9 @@ export default async function KundeKort({
             />
           </div>
           <div className="flex items-center gap-3">
-            <button
-              type="submit"
-              className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90"
-            >
+            <Button type="submit" className="px-4 py-2 text-sm">
               Lagre
-            </button>
+            </Button>
             {c.phone && (
               <a href={`tel:${c.phone}`} className="text-xs text-muted hover:text-fg">
                 Ring

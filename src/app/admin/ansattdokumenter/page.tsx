@@ -7,6 +7,8 @@ import {
 } from "@/lib/staff-documents";
 import { StaffDocUploader } from "@/components/admin/StaffDocUploader";
 import { ContractMigrationButton } from "@/components/admin/ContractMigrationButton";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Button } from "@/components/ui/Button";
 import { deleteStaffDocument } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -83,14 +85,10 @@ export default async function AdminAnsattdokumenter({
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
-      <div>
-        <h1 className="font-display text-2xl font-bold">Ansattdokumenter</h1>
-        <p className="mt-1 text-sm text-muted">
-          Dokumenter per ansatt — kontrakter og andre vedlegg. Filene lagres
-          privat, og åpnes via tidsbegrensede signerte lenker. Lønnslipper
-          genereres av revisor og vises her, men lastes ikke opp av admin.
-        </p>
-      </div>
+      <PageHeader
+        title="Ansattdokumenter"
+        description="Dokumenter per ansatt — kontrakter og andre vedlegg. Filene lagres privat, og åpnes via tidsbegrensede signerte lenker. Lønnslipper genereres av revisor og vises her, men lastes ikke opp av admin."
+      />
 
       <ContractMigrationButton />
 
@@ -115,12 +113,9 @@ export default async function AdminAnsattdokumenter({
             ))}
           </select>
         </div>
-        <button
-          type="submit"
-          className="bg-accent px-5 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90"
-        >
+        <Button type="submit" className="px-5 py-2 text-sm">
           Vis
-        </button>
+        </Button>
       </form>
 
       {staff.length === 0 && (

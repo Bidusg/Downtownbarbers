@@ -4,6 +4,7 @@ import { SiteSettingsForm } from "@/components/admin/SiteSettingsForm";
 import { SiteImagesManager } from "@/components/admin/SiteImagesManager";
 import { SiteCraftManager } from "@/components/admin/SiteCraftManager";
 import { SitePreview } from "@/components/admin/SitePreview";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -16,13 +17,10 @@ export default async function AdminNettside() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-10">
-      <div>
-        <h1 className="mb-2 font-display text-2xl font-bold">Nettside</h1>
-        <p className="text-sm text-muted">
-          Endre tekst, kontaktinfo, åpningstider, farge og bilder på den
-          offentlige forsiden. Endringer vises med én gang du lagrer.
-        </p>
-      </div>
+      <PageHeader
+        title="Nettside"
+        description="Endre tekst, kontaktinfo, åpningstider, farge og bilder på den offentlige forsiden. Endringer vises med én gang du lagrer."
+      />
 
       <SiteSettingsForm initial={settings} />
 

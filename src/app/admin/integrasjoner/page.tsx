@@ -3,6 +3,7 @@ import { config } from "@/lib/config";
 import { getSmsConfigAdmin } from "@/lib/sms";
 import { getReviewConfigAdmin } from "@/lib/reviews";
 import { SmsConfigForm } from "@/components/admin/SmsConfigForm";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -57,13 +58,10 @@ export default async function AdminIntegrasjoner() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
-      <div>
-        <h1 className="font-display text-2xl font-bold">Integrasjoner</h1>
-        <p className="mt-1 text-sm text-muted">
-          Koble til og test eksterne tjenester. Hemmeligheter lagres trygt (kun
-          admin) og vises aldri tilbake.
-        </p>
-      </div>
+      <PageHeader
+        title="Integrasjoner"
+        description="Koble til og test eksterne tjenester. Hemmeligheter lagres trygt (kun admin) og vises aldri tilbake."
+      />
 
       {/* Statusoversikt */}
       <div className="grid gap-4 sm:grid-cols-2">

@@ -1,5 +1,6 @@
 import { StatTile } from "@/components/ui/StatTile";
 import { ProgressBar } from "@/components/ui/ProgressBar";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { getGoalProgress } from "@/lib/analytics-queries";
 
 export const dynamic = "force-dynamic";
@@ -36,26 +37,26 @@ export default async function AdminMaloppnaelse({
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-bold">Måloppnåelse</h1>
-          <p className="mt-1 text-sm text-muted">Resultat mot budsjett, {MND[month - 1]} {year}.</p>
-        </div>
-        <div className="flex items-center gap-1">
-          <a
-            href={`/admin/maloppnaelse?year=${prev.y}&month=${prev.m}`}
-            className="border border-line-2 px-3 py-1.5 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-fg"
-          >
-            ← {MND[prev.m - 1].slice(0, 3)}
-          </a>
-          <a
-            href={`/admin/maloppnaelse?year=${next.y}&month=${next.m}`}
-            className="border border-line-2 px-3 py-1.5 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-fg"
-          >
-            {MND[next.m - 1].slice(0, 3)} →
-          </a>
-        </div>
-      </div>
+      <PageHeader
+        title="Måloppnåelse"
+        description={`Resultat mot budsjett, ${MND[month - 1]} ${year}.`}
+        actions={
+          <>
+            <a
+              href={`/admin/maloppnaelse?year=${prev.y}&month=${prev.m}`}
+              className="border border-line-2 px-3 py-1.5 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-fg"
+            >
+              ← {MND[prev.m - 1].slice(0, 3)}
+            </a>
+            <a
+              href={`/admin/maloppnaelse?year=${next.y}&month=${next.m}`}
+              className="border border-line-2 px-3 py-1.5 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-fg"
+            >
+              {MND[next.m - 1].slice(0, 3)} →
+            </a>
+          </>
+        }
+      />
 
       {!hasTargets && (
         <div className="flex items-start gap-3 border border-accent-soft/30 bg-accent-soft/5 px-4 py-3 text-sm">

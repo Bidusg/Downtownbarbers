@@ -12,6 +12,7 @@ import {
   getBookingBlocks,
 } from "@/lib/ops-queries";
 import { parityLabel, parityOptions } from "@/lib/turnus";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -56,12 +57,10 @@ export default async function AdminTimelister({
 
   return (
     <div className="mx-auto max-w-6xl">
-      <h1 className="mb-1 font-display text-2xl font-bold">Timelister</h1>
-      <p className="mb-6 text-sm text-muted">
-        Ukentlig turnus per barber. Ukeplanen styrer også når kunder kan booke den
-        enkelte barberen. Med rotasjon kan du sette ulik turnus for hver uke i
-        mønsteret – tider merket «Hver uke» gjelder alle.
-      </p>
+      <PageHeader
+        title="Timelister"
+        description="Ukentlig turnus per barber. Ukeplanen styrer også når kunder kan booke den enkelte barberen. Med rotasjon kan du sette ulik turnus for hver uke i mønsteret – tider merket «Hver uke» gjelder alle."
+      />
 
       <RotationControl weeks={weeks} />
 

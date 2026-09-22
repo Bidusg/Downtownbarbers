@@ -1,4 +1,6 @@
 import { StatTile } from "@/components/ui/StatTile";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Card } from "@/components/ui/Card";
 import { getPayroll, PAYROLL } from "@/lib/ops-queries";
 
 const kr = (n: number) =>
@@ -30,13 +32,12 @@ export default async function AdminLonn({
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <div>
-        <h1 className="mb-1 font-display text-2xl font-bold">Lønn</h1>
-        <p className="text-sm text-muted">
-          Grunnlønn {kr(PAYROLL.BASE_NOK)} + {Math.round(PAYROLL.RATE * 100)} %
-          provisjon av omsetning (eks. mva) over {kr(PAYROLL.THRESHOLD_NOK)}.
-        </p>
-      </div>
+      <PageHeader
+        title="Lønn"
+        description={`Grunnlønn ${kr(PAYROLL.BASE_NOK)} + ${Math.round(
+          PAYROLL.RATE * 100,
+        )} % provisjon av omsetning (eks. mva) over ${kr(PAYROLL.THRESHOLD_NOK)}.`}
+      />
 
       {/* Måneds-velger */}
       <form method="get" className="flex flex-wrap items-end gap-3 border border-line bg-surface p-4">
@@ -119,7 +120,7 @@ export default async function AdminLonn({
         </table>
       </div>
 
-      <div className="border border-line bg-surface p-5 text-sm text-muted">
+      <Card className="text-sm text-muted">
         <p className="mb-2 font-semibold text-fg">Slik regnes lønnen</p>
         <p className="font-display text-fg">
           lønn = {kr(PAYROLL.BASE_NOK)} + {PAYROLL.RATE.toString().replace(".", ",")} × maks(0, omsetning eks. mva − {kr(PAYROLL.THRESHOLD_NOK)})
@@ -130,7 +131,7 @@ export default async function AdminLonn({
           regnes som beløp ÷ {(1 + PAYROLL.MVA).toString().replace(".", ",")}{" "}
           ({Math.round(PAYROLL.MVA * 100)} % mva).
         </p>
-      </div>
+      </Card>
     </div>
   );
 }

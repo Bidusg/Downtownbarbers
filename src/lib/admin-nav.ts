@@ -26,6 +26,11 @@ export const adminGroups: AdminNavGroup[] = [
       { label: "Bookinger", href: "/admin/bookinger" },
       { label: "Kasseoppgjør", href: "/admin/kasseoppgjor" },
       { label: "Meldinger", href: "/admin/meldinger" },
+      {
+        label: "Shop-innstillinger",
+        href: "/admin/innstillinger",
+        description: "Skru kassefunksjoner av/på + eiere",
+      },
     ],
   },
   {
@@ -47,19 +52,9 @@ export const adminGroups: AdminNavGroup[] = [
     label: "Butikk & lager",
     items: [
       { label: "Tjenester", href: "/admin/tjenester" },
-      {
-        label: "Nivåer & prising",
-        href: "/admin/nivaer",
-        description: "Pris per nivå × tjeneste",
-      },
       { label: "Produkter", href: "/admin/produkter" },
       { label: "Lager", href: "/admin/lager" },
       { label: "Gavekort", href: "/admin/gavekort" },
-      {
-        label: "Shop-innstillinger",
-        href: "/admin/shop-innstillinger",
-        description: "Av/på-brytere for kassa",
-      },
     ],
   },
   {
@@ -67,11 +62,6 @@ export const adminGroups: AdminNavGroup[] = [
     items: [
       { label: "Kunder", href: "/admin/kunder" },
       { label: "Kundeklubb", href: "/admin/kundeklubb" },
-      {
-        label: "Kuponger",
-        href: "/admin/kuponger",
-        description: "Sesong-kuponger til medlemmer",
-      },
       { label: "Oppfølging", href: "/admin/oppfolging" },
       {
         label: "Markedsføring",
@@ -117,11 +107,6 @@ export const adminGroups: AdminNavGroup[] = [
         label: "Regnskap",
         href: "/admin/regnskap",
         description: "Bilag og hovedbok",
-      },
-      {
-        label: "Bilag",
-        href: "/admin/bilag",
-        description: "Fakturaer og bilag til revisor",
       },
     ],
   },

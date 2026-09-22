@@ -2,6 +2,8 @@ import {
   getDocuments,
   getDocumentCategories,
 } from "@/lib/documents-queries";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Button } from "@/components/ui/Button";
 import { uploadDocument, deleteDocument, downloadDocument } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -46,14 +48,10 @@ export default async function AdminDokumenter({
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
-      <div>
-        <h1 className="font-display text-2xl font-bold">Dokumentsenter</h1>
-        <p className="mt-1 text-sm text-muted">
-          Felles filarkiv for salongen — last opp, kategoriser, last ned og
-          slett dokumenter. Kun synlig for administratorer, og filene lagres
-          privat (nedlasting via tidsbegrensede lenker).
-        </p>
-      </div>
+      <PageHeader
+        title="Dokumentsenter"
+        description="Felles filarkiv for salongen — last opp, kategoriser, last ned og slett dokumenter. Kun synlig for administratorer, og filene lagres privat (nedlasting via tidsbegrensede lenker)."
+      />
 
       {sp.lastet !== undefined && (
         <div className="flex items-start gap-3 border border-accent-soft/30 bg-accent-soft/5 px-4 py-3 text-sm">
@@ -120,12 +118,9 @@ export default async function AdminDokumenter({
           </datalist>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="submit"
-            className="bg-accent px-5 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90"
-          >
+          <Button type="submit" className="px-5 py-2 text-sm">
             Last opp
-          </button>
+          </Button>
           <span className="text-xs text-muted">Filen lagres i privat arkiv.</span>
         </div>
       </form>
