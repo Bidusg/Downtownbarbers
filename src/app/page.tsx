@@ -108,6 +108,11 @@ export default async function Home({
   const craftFinal = siteCraft.length
     ? siteCraft.map((c) => ({ img: c.imageUrl, title: c.title, text: c.body ?? "" }))
     : craft;
+  // Enkeltbilder for «Om oss» og banneret (første aktive), med fallback.
+  const aboutImg =
+    siteImages.find((i) => i.section === "about")?.url ?? "/img/neckline.jpg";
+  const bannerImg =
+    siteImages.find((i) => i.section === "banner")?.url ?? "/img/neon-sign.jpg";
   const accentStyle = {
     ["--color-accent-soft"]: s.accent_hex,
   } as CSSProperties;
@@ -236,7 +241,7 @@ export default async function Home({
           <Reveal variant="right" delay={120}>
             <div className="img-zoom relative aspect-[4/3] overflow-hidden">
               <img
-                src="/img/neckline.jpg"
+                src={aboutImg}
                 alt="Barber som renser nakkelinjen hos Downtown Barbers"
                 loading="lazy"
                 className="h-full w-full object-cover"
@@ -317,7 +322,7 @@ export default async function Home({
       {/* ===================== NEON-BANNER (parallax) ===================== */}
       <section className="relative flex min-h-[70vh] items-center justify-center overflow-hidden border-b border-line">
         <img
-          src="/img/neon-sign.jpg"
+          src={bannerImg}
           alt="Downtown Barbers neonskilt"
           loading="lazy"
           className="absolute inset-0 h-full w-full object-cover object-top"
@@ -328,7 +333,7 @@ export default async function Home({
             Downtown Barbers · Oslo
           </p>
           <p className="mx-auto mt-5 max-w-3xl font-display text-3xl leading-tight font-bold text-white sm:text-5xl">
-            Der presisjon møter stil.
+            {s.slogan}
           </p>
         </Reveal>
       </section>

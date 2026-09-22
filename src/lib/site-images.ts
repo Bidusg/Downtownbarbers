@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
  * ===================================================================== */
 
 export const SITE_BUCKET = "site";
-export type SiteSection = "hero" | "gallery";
+export type SiteSection = "hero" | "gallery" | "about" | "banner";
 
 export type SiteImage = {
   id: string;

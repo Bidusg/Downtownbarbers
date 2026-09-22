@@ -1,71 +1,69 @@
-# ENDRINGER — Nettside-CMS etappe 2: «Håndverket» redigerbart (22. sept 2026)
+# ENDRINGER — Nettside-CMS etappe 3: Om oss + banner redigerbart (22. sept 2026)
 
-Dette er **bygg 13**, oppå det som allerede er levert. Fortsetter Nettside-CMS-
-eposet med etappe 2: «Håndverket»-seksjonen på forsiden (tre blokker med bilde,
-tittel og tekst) var hardkodet – nå styrer Dawit dem selv fra admin. Samme
-mønster som etappe 1 (bilder).
+Dette er **bygg 14**, oppå det som allerede er levert. Fullfører de siste
+hardkodede bildene på forsiden: **«Om oss»-bildet** og **neon-banneret** kan nå
+byttes fra admin. Banner-teksten bruker nå slagordet fra innstillingene.
 
 ## Commit-tittel (lim inn i GitHub Desktop)
 
 ```
-Nettside-CMS (etappe 2): «Håndverket»-blokkene redigerbare fra admin
+Nettside-CMS (etappe 3): «Om oss»- og banner-bilde redigerbart + banner-tekst fra slagord
 ```
 
 ## Commit-beskrivelse (valgfri)
 
 ```
-Migrasjon 0064: site_craft (bilde + tittel + tekst + sort_order + active) på
-den offentlige 'site'-bøtta fra 0063. RLS: offentlig lesing, admin skriv.
+Migrasjon 0065: utvider site_images.section til hero/gallery/about/banner (samme
+'site'-bøtte som 0063). «Om oss» og banneret er enkeltbilder – forsiden bruker
+det første aktive, med fallback til de innebygde.
 
-- Admin → Nettside → «Håndverket»: legg til blokk (bilde + tittel + tekst),
-  rediger tekst, omordne (↑/↓), skjul/vis og slett. Skjulte blokker vises kun
-  i forhåndsvisningen.
-- Forsiden leser aktive blokker fra site_craft, med fallback til de innebygde
-  blokkene når ingen er lagt til.
-- Live forhåndsvisning (fra etappe 1) dekker også dette.
+- Admin → Nettside → Bilder: to nye slots, «Om oss»-bilde og Banner-bilde
+  (bilde, ikke klipp). Samme opplasting/skjul/slett som de andre seksjonene.
+- Forsiden: Om oss-bildet og neon-banneret leses fra CMS med fallback; banner-
+  teksten viser nå slagordet (site_settings.slogan) i stedet for hardkodet tekst.
 ```
 
 ---
 
-## VIKTIG: kjør migrasjon 0064 i Supabase
+## VIKTIG: kjør migrasjon 0065 i Supabase
 
 Supabase → SQL Editor. Kjør enten hele `KJØR-I-SUPABASE.sql` på nytt (idempotent)
-eller bare den nye biten nederst – **0064**. Bruker samme 'site'-bøtte som 0063
-(ingen ny bøtte). Uten migrasjonen viser forsiden de innebygde håndverk-blokkene
-som før.
+eller bare den nye biten nederst – **0065**. Uten den godtar ikke databasen de
+nye seksjonene (about/banner), og opplasting til dem feiler. Ingen ny bøtte –
+bruker 'site' fra etappe 1.
 
 ## Slik bruker du det
 
-1. Admin → **Nettside** → **Håndverket**.
-2. **+ Ny blokk**: velg bilde, skriv tittel og en kort tekst → «Legg til blokk».
-3. Rediger tittel/tekst på en eksisterende blokk og trykk **Lagre tekst**.
-4. **↑/↓** endrer rekkefølgen, **Skjul/Vis** tar en blokk av/på forsiden,
-   **Slett** fjerner den helt.
-5. **Forhåndsvisning** nederst viser resultatet (også skjulte blokker).
+1. Admin → **Nettside** → **Bilder**.
+2. **«Om oss»-bilde:** last opp ett bilde → erstatter bildet i «Om oss»-seksjonen.
+3. **Banner-bilde:** last opp ett bilde → erstatter neon-banneret.
+4. Bruk **Forhåndsvisning** for å se resultatet. «Skjul» tar bildet av forsiden
+   (da vises fallback-bildet igjen).
+5. Banner-teksten styres av **slagordet** øverst i Nettside-skjemaet.
 
 ## Testsjekkliste
 
-- [ ] Admin → Nettside → Håndverket → Ny blokk (bilde + tittel + tekst) → vises.
-- [ ] Forhåndsvisning → Oppdater: blokken vises i «Håndverket»-seksjonen.
-- [ ] Endre tittel/tekst → Lagre tekst → forhåndsvisning viser endringen.
-- [ ] ↑/↓ endrer rekkefølgen på forsiden.
-- [ ] Skjul → borte på offentlig forside, synlig i forhåndsvisning. Vis → tilbake.
-- [ ] Uten egne blokker: forsiden viser standard-håndverket.
+- [ ] Admin → Nettside → Bilder: «Om oss»-bilde → last opp → forhåndsvisning
+      viser nytt bilde i «Om oss».
+- [ ] Banner-bilde → last opp → neon-banneret bytter bilde.
+- [ ] Endre slagordet i skjemaet → banner-teksten oppdateres.
+- [ ] Skjul et av dem → fallback-bildet vises igjen på forsiden.
+- [ ] Uten opplasting: forsiden viser standardbildene som før.
 
-## Filer i denne leveransen (bygg 13)
+## Filer i denne leveransen (bygg 14)
 
-8 filer: ny migrasjon 0064, KJØR-I-SUPABASE.sql, site-images-lib (getSiteCraft),
-admin/nettside actions + page, ny SiteCraftManager-komponent, forsiden (page.tsx)
-+ denne fila.
+7 filer: ny migrasjon 0065, KJØR-I-SUPABASE.sql, site-images-lib (SiteSection),
+admin/nettside actions (validering), SiteImagesManager (nye slots), forsiden
+(page.tsx) + denne fila.
 
-## Nettside-CMS videre
+## Nettside-CMS er nå bredt dekket
 
-Etappe 1 (hero + galleri-bilder) ✓, etappe 2 (Håndverket-blokker) ✓. Mulig
-etappe 3 senere: flere seksjoner / mer fri plassering, og evt. utkast/publiser
-for tekst. Ellers gjenstår **UI & ytelse** i planen.
+Etappe 1 (hero + galleri) ✓, etappe 2 (Håndverket) ✓, etappe 3 (Om oss + banner
++ banner-tekst) ✓. Alle de store forside-bildene og -tekstene er nå redigerbare
+fra admin. Gjenstår i planen: **UI & ytelse**. (Videre CMS-finpuss – f.eks.
+CTA-seksjonens tekster – kan tas ved behov.)
 
 **Verifisert i sky-klone:** `tsc --noEmit` 0 feil, `next build` grønn, eslint
-uendret fra baseline (24). Review-agent bekreftet at det er en trygg speiling av
-etappe 1 – kun admin/eier kan endre (server-vakt + RLS), forhåndsvisning av
-skjulte blokker er låst til admin, og forsiden faller trygt tilbake til
-standardinnholdet.
+uendret fra baseline (24). Bygger på det samme, allerede review'de CMS-mønsteret
+(site_images + admin-vakt + RLS + forhåndsvisning + fallback) – kun seksjons-
+listen og to enkeltbilde-oppslag er nytt.

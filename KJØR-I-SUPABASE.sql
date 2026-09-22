@@ -4261,3 +4261,28 @@ create policy site_craft_read on site_craft
 drop policy if exists site_craft_admin_all on site_craft;
 create policy site_craft_admin_all on site_craft
   for all using (is_admin()) with check (is_admin());
+
+
+-- ---------------------------------------------------------------------
+-- 0065 — Nettside-CMS (etappe 3): about/banner-seksjoner
+-- Utvider site_images.section til hero/gallery/about/banner, så «Om oss»-
+-- bildet og neon-banneret også kan byttes fra admin. Enkeltbilder (første
+-- aktive), fallback til de innebygde. Gjenbruker 'site'-bøtta.
+-- ---------------------------------------------------------------------
+do $$
+declare c text;
+begin
+  -- Dropp enhver eksisterende CHECK som nevner 'section' (auto-navngitt eller vår).
+  for c in
+    select conname from pg_constraint
+     where conrelid = 'public.site_images'::regclass
+       and contype = 'c'
+       and pg_get_constraintdef(oid) ilike '%section%'
+  loop
+    execute format('alter table site_images drop constraint %I', c);
+  end loop;
+
+  alter table site_images
+    add constraint site_images_section_check
+    check (section in ('hero', 'gallery', 'about', 'banner'));
+end $$;

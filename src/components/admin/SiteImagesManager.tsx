@@ -13,6 +13,8 @@ import { ConfirmButton } from "@/components/ui/ConfirmButton";
 const SECTIONS: { key: SiteSection; title: string; hint: string }[] = [
   { key: "hero", title: "Hero-karusell", hint: "Bilder og klipp øverst på forsiden" },
   { key: "gallery", title: "Galleri", hint: "«Fra stolen»-seksjonen" },
+  { key: "about", title: "«Om oss»-bilde", hint: "Enkeltbilde – det første aktive brukes" },
+  { key: "banner", title: "Banner-bilde", hint: "Neon-banneret – det første aktive brukes" },
 ];
 
 function Thumb({ img }: { img: SiteImage }) {

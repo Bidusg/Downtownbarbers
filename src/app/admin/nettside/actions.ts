@@ -48,7 +48,8 @@ export async function uploadSiteImage(formData: FormData): Promise<Result> {
   if (!(await adminGuard())) return { error: "Ingen tilgang." };
 
   const section = String(formData.get("section") ?? "") as SiteSection;
-  if (section !== "hero" && section !== "gallery") {
+  const VALID: SiteSection[] = ["hero", "gallery", "about", "banner"];
+  if (!VALID.includes(section)) {
     return { error: "Ugyldig seksjon." };
   }
   const file = formData.get("file") as File | null;
@@ -56,9 +57,9 @@ export async function uploadSiteImage(formData: FormData): Promise<Result> {
   if (!file || file.size === 0) return { error: "Du må velge en fil." };
 
   const kind = (file.type || "").startsWith("video/") ? "video" : "image";
-  // Galleriet viser bilder (ikke klipp) – klipp hører til hero-karusellen.
-  if (section === "gallery" && kind === "video") {
-    return { error: "Galleriet støtter bilder. Legg klipp i hero-karusellen." };
+  // Kun hero-karusellen støtter klipp – øvrige seksjoner er bilder.
+  if (section !== "hero" && kind === "video") {
+    return { error: "Denne seksjonen støtter bilder. Legg klipp i hero-karusellen." };
   }
   const path = `${section}/${crypto.randomUUID()}-${slug(file.name)}`;
 
