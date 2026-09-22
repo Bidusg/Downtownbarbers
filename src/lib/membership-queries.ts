@@ -16,6 +16,7 @@ export type MembershipTier = {
   minVisits: number;
   benefit: string | null;
   color: string | null;
+  sortOrder: number;
 };
 
 export type CustomerMembership = {
@@ -91,7 +92,8 @@ export async function getMembershipTiers(): Promise<MembershipTier[]> {
     const sb = await createClient();
     const { data } = await sb
       .from("membership_tiers")
-      .select("id, name, min_spend, min_visits, benefit, color")
+      .select("id, name, min_spend, min_visits, benefit, color, sort_order")
+      .order("sort_order", { ascending: true })
       .order("id", { ascending: true });
     return (data ?? []).map((t) => ({
       id: Number(t.id),
@@ -100,6 +102,7 @@ export async function getMembershipTiers(): Promise<MembershipTier[]> {
       minVisits: Number(t.min_visits) || 0,
       benefit: (t.benefit as string | null) ?? null,
       color: (t.color as string | null) ?? null,
+      sortOrder: Number(t.sort_order) || 0,
     }));
   } catch {
     return [];
@@ -119,7 +122,8 @@ export async function getMembershipCounts(): Promise<MembershipCount[]> {
     const [tiersRes, salesRes, bookRes, custRes] = await Promise.all([
       sb
         .from("membership_tiers")
-        .select("id, name, min_spend, min_visits")
+        .select("id, name, min_spend, min_visits, sort_order")
+        .order("sort_order", { ascending: true })
         .order("id", { ascending: true }),
       sb
         .from("sales")
