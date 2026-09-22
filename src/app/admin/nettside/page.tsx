@@ -1,15 +1,17 @@
 import { getSiteSettings } from "@/lib/site-settings";
-import { getSiteImages } from "@/lib/site-images";
+import { getSiteImages, getSiteCraft } from "@/lib/site-images";
 import { SiteSettingsForm } from "@/components/admin/SiteSettingsForm";
 import { SiteImagesManager } from "@/components/admin/SiteImagesManager";
+import { SiteCraftManager } from "@/components/admin/SiteCraftManager";
 import { SitePreview } from "@/components/admin/SitePreview";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminNettside() {
-  const [settings, images] = await Promise.all([
+  const [settings, images, craft] = await Promise.all([
     getSiteSettings(),
     getSiteImages(true),
+    getSiteCraft(true),
   ]);
 
   return (
@@ -35,6 +37,18 @@ export default async function AdminNettside() {
           </p>
         </div>
         <SiteImagesManager images={images} />
+      </section>
+
+      <section className="space-y-4">
+        <div>
+          <h2 className="font-display text-xl font-bold">Håndverket</h2>
+          <p className="text-sm text-muted">
+            Blokkene (bilde + tittel + tekst) i «Håndverket»-seksjonen. Rediger
+            tekst, omordne med ↑/↓, skjul eller slett. Uten egne blokker viser
+            forsiden standardinnholdet.
+          </p>
+        </div>
+        <SiteCraftManager blocks={craft} />
       </section>
 
       <section className="space-y-4">

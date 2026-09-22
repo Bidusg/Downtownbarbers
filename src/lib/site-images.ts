@@ -58,3 +58,50 @@ export async function getSiteImages(includeInactive = false): Promise<SiteImage[
     return [];
   }
 }
+
+/* ----------------- HÅNDVERKET-BLOKKER (CMS etappe 2) ----------------- */
+
+export type CraftBlock = {
+  id: string;
+  imageUrl: string;
+  title: string;
+  body: string | null;
+  sortOrder: number;
+  active: boolean;
+};
+
+type CraftRow = {
+  id: string;
+  image_path: string;
+  title: string;
+  body: string | null;
+  sort_order: number;
+  active: boolean;
+};
+
+/**
+ * «Håndverket»-blokkene (bilde + tittel + tekst), sortert. includeInactive=true
+ * tar med skjulte (admin + forhåndsvisning).
+ */
+export async function getSiteCraft(includeInactive = false): Promise<CraftBlock[]> {
+  try {
+    const sb = await createClient();
+    let q = sb
+      .from("site_craft")
+      .select("id, image_path, title, body, sort_order, active")
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (!includeInactive) q = q.eq("active", true);
+    const { data } = await q;
+    return ((data as CraftRow[]) ?? []).map((r) => ({
+      id: r.id,
+      imageUrl: sb.storage.from(SITE_BUCKET).getPublicUrl(r.image_path).data.publicUrl,
+      title: r.title,
+      body: r.body,
+      sortOrder: r.sort_order,
+      active: r.active,
+    }));
+  } catch {
+    return [];
+  }
+}

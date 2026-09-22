@@ -4230,3 +4230,34 @@ create policy site_images_read on site_images
 drop policy if exists site_images_admin_all on site_images;
 create policy site_images_admin_all on site_images
   for all using (is_admin()) with check (is_admin());
+
+
+-- ---------------------------------------------------------------------
+-- 0064 — Nettside-CMS (etappe 2): «Håndverket»-blokkene redigerbare
+-- site_craft (bilde + tittel + tekst + rekkefølge + aktiv) på 'site'-bøtta.
+-- Admin styrer blokkene fra Admin → Nettside; forsiden viser aktive med
+-- fallback til de innebygde.
+-- ---------------------------------------------------------------------
+create table if not exists site_craft (
+  id          uuid primary key default gen_random_uuid(),
+  image_path  text not null,                  -- sti i 'site'-bøtta
+  title       text not null default '',
+  body        text,
+  sort_order  int not null default 0,         -- rekkefølge (lav = først)
+  active      boolean not null default true,  -- inaktive vises kun i forhåndsvisning
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists site_craft_order_idx
+  on site_craft (sort_order, created_at);
+
+alter table site_craft enable row level security;
+
+-- Offentlig lesing (forsiden er offentlig), admin full tilgang.
+drop policy if exists site_craft_read on site_craft;
+create policy site_craft_read on site_craft
+  for select using (true);
+
+drop policy if exists site_craft_admin_all on site_craft;
+create policy site_craft_admin_all on site_craft
+  for all using (is_admin()) with check (is_admin());

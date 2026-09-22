@@ -165,3 +165,134 @@ export async function moveSiteImage(id: string, dir: "up" | "down"): Promise<Res
   refreshSite();
   return { ok: true };
 }
+
+/* ------------------- HÅNDVERKET-BLOKKER (etappe 2) ------------------- */
+
+/** Ny håndverk-blokk: bilde + tittel + tekst. Kun admin. */
+export async function createCraft(formData: FormData): Promise<Result> {
+  if (!(await adminGuard())) return { error: "Ingen tilgang." };
+  const file = formData.get("file") as File | null;
+  const title = String(formData.get("title") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+  if (!file || file.size === 0) return { error: "Du må velge et bilde." };
+  if (!title) return { error: "Skriv en tittel." };
+  if ((file.type || "").startsWith("video/")) {
+    return { error: "Håndverket støtter bilder, ikke klipp." };
+  }
+
+  const path = `craft/${crypto.randomUUID()}-${slug(file.name)}`;
+  const sb = await createClient();
+  const { error } = await sb.storage.from(SITE_BUCKET).upload(path, file, {
+    upsert: false,
+    contentType: file.type || undefined,
+  });
+  if (error) return { error: "Opplastingen feilet. Prøv igjen." };
+
+  const { data: last } = await sb
+    .from("site_craft")
+    .select("sort_order")
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextOrder = (Number(last?.sort_order) || 0) + 1;
+
+  const { error: dbErr } = await sb.from("site_craft").insert({
+    image_path: path,
+    title,
+    body: body || null,
+    sort_order: nextOrder,
+    active: true,
+  });
+  if (dbErr) {
+    await sb.storage.from(SITE_BUCKET).remove([path]);
+    return { error: "Kunne ikke lagre blokken. Prøv igjen." };
+  }
+  refreshSite();
+  return { ok: true };
+}
+
+/** Lagre tekst (tittel + brødtekst) på en håndverk-blokk. Kun admin. */
+export async function saveCraftText(
+  id: string,
+  title: string,
+  body: string,
+): Promise<Result> {
+  if (!(await adminGuard())) return { error: "Ingen tilgang." };
+  const t = title.trim();
+  if (!t) return { error: "Skriv en tittel." };
+  const sb = await createClient();
+  const { error } = await sb
+    .from("site_craft")
+    .update({ title: t, body: body.trim() || null })
+    .eq("id", id);
+  if (error) return { error: "Kunne ikke lagre." };
+  refreshSite();
+  return { ok: true };
+}
+
+/** Slett en håndverk-blokk (bilde + rad). Kun admin. */
+export async function deleteCraft(id: string): Promise<Result> {
+  if (!(await adminGuard())) return { error: "Ingen tilgang." };
+  const sb = await createClient();
+  const { data: row } = await sb
+    .from("site_craft")
+    .select("image_path")
+    .eq("id", id)
+    .maybeSingle();
+  if (row?.image_path) {
+    await sb.storage.from(SITE_BUCKET).remove([row.image_path as string]);
+  }
+  const { error } = await sb.from("site_craft").delete().eq("id", id);
+  if (error) return { error: "Kunne ikke slette." };
+  refreshSite();
+  return { ok: true };
+}
+
+/** Slå en håndverk-blokk av/på. Kun admin. */
+export async function toggleCraft(id: string, active: boolean): Promise<Result> {
+  if (!(await adminGuard())) return { error: "Ingen tilgang." };
+  const sb = await createClient();
+  const { error } = await sb.from("site_craft").update({ active }).eq("id", id);
+  if (error) return { error: "Kunne ikke oppdatere." };
+  refreshSite();
+  return { ok: true };
+}
+
+/** Flytt en håndverk-blokk opp/ned i rekkefølgen. Kun admin. */
+export async function moveCraft(id: string, dir: "up" | "down"): Promise<Result> {
+  if (!(await adminGuard())) return { error: "Ingen tilgang." };
+  const sb = await createClient();
+  const { data: me } = await sb
+    .from("site_craft")
+    .select("id, sort_order")
+    .eq("id", id)
+    .maybeSingle();
+  if (!me) return { error: "Fant ikke blokken." };
+
+  const base = sb.from("site_craft").select("id, sort_order");
+  const { data: other } =
+    dir === "up"
+      ? await base
+          .lt("sort_order", me.sort_order as number)
+          .order("sort_order", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : await base
+          .gt("sort_order", me.sort_order as number)
+          .order("sort_order", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+  if (!other) return { ok: true };
+
+  await sb
+    .from("site_craft")
+    .update({ sort_order: other.sort_order as number })
+    .eq("id", me.id as string);
+  await sb
+    .from("site_craft")
+    .update({ sort_order: me.sort_order as number })
+    .eq("id", other.id as string);
+
+  refreshSite();
+  return { ok: true };
+}

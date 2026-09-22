@@ -11,7 +11,7 @@ import {
   groupByCategory,
 } from "@/lib/queries";
 import { getSiteSettings } from "@/lib/site-settings";
-import { getSiteImages } from "@/lib/site-images";
+import { getSiteImages, getSiteCraft } from "@/lib/site-images";
 import { getUserRole, isAdminRole } from "@/lib/auth";
 import { getPublicReviewsSummary } from "@/lib/reviews";
 
@@ -85,12 +85,13 @@ export default async function Home({
   const role = wantPreview ? await getUserRole() : null;
   const preview = wantPreview && isAdminRole(role?.role);
 
-  const [services, team, s, omdomme, siteImages] = await Promise.all([
+  const [services, team, s, omdomme, siteImages, siteCraft] = await Promise.all([
     getPublicServices(),
     getPublicBarbers(),
     getSiteSettings(),
     getPublicReviewsSummary(),
     getSiteImages(preview),
+    getSiteCraft(preview),
   ]);
   const serviceCategories = groupByCategory(services);
 
@@ -103,6 +104,10 @@ export default async function Home({
   const galleryFinal = dbGallery.length
     ? dbGallery.map((i) => ({ src: i.url, alt: i.alt ?? "" }))
     : gallery;
+  // Håndverket-blokkene fra CMS, med fallback til de innebygde.
+  const craftFinal = siteCraft.length
+    ? siteCraft.map((c) => ({ img: c.imageUrl, title: c.title, text: c.body ?? "" }))
+    : craft;
   const accentStyle = {
     ["--color-accent-soft"]: s.accent_hex,
   } as CSSProperties;
@@ -254,8 +259,8 @@ export default async function Home({
             </h2>
           </Reveal>
           <div className="mt-14 grid gap-6 md:grid-cols-3">
-            {craft.map((c, i) => (
-              <Reveal key={c.title} delay={i * 120} variant="up">
+            {craftFinal.map((c, i) => (
+              <Reveal key={c.img} delay={i * 120} variant="up">
                 <figure className="group">
                   <div className="img-zoom relative aspect-[3/4] overflow-hidden">
                     <img
