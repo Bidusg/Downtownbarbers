@@ -10,13 +10,16 @@ import {
   getKasseAllowances,
   searchCustomers,
   findProductByBarcode,
+  getMemberCampaignOffers,
   type SellableProduct,
   type SellableService,
   type KasseAllowances,
   type CustomerHit,
   type RelationType,
+  type MemberCampaignOffer,
 } from "@/app/kasse/actions";
 import { BarcodeScanner } from "@/components/ui/BarcodeScanner";
+import { CouponPicker, couponDiscount } from "@/components/kasse/CouponPicker";
 
 const PAYMENTS = ["Kontant", "Kort", "Vipps"];
 const kr = (n: number) => `${Math.round(n)} kr`;
@@ -66,6 +69,10 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
   const [splitAmts, setSplitAmts] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
+  // Medlems-kuponger for valgt (eksisterende) kunde.
+  const [offers, setOffers] = useState<MemberCampaignOffer[]>([]);
+  const [couponId, setCouponId] = useState<string | null>(null);
+
   function openModal() {
     reset();
     setOpen(true);
@@ -91,6 +98,8 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
     setSplit(false);
     setSplitAmts({});
     setError(null);
+    setOffers([]);
+    setCouponId(null);
   }
   function close() {
     setOpen(false);
@@ -119,6 +128,21 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
     };
   }, [custQuery, picked]);
 
+  // Hent medlems-kuponger for valgt kunde. State settes kun i den asynkrone
+  // callbacken (ingen synkron setState i effekt-kroppen); nullstilling av
+  // valgt kupong skjer i selectCustomer/clearCustomer.
+  useEffect(() => {
+    const id = picked?.id;
+    if (!id) return;
+    let alive = true;
+    getMemberCampaignOffers(id).then((o) => {
+      if (alive) setOffers(o);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [picked?.id]);
+
   const servicePrice = useMemo(
     () => services.find((s) => s.name === serviceName)?.price_nok ?? 0,
     [services, serviceName],
@@ -136,7 +160,11 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
   const discountNum = relationType
     ? Math.round((gross * (allow?.friendFamilyPct ?? 0)) / 100)
     : Math.max(0, Math.round(Number(discount) || 0));
-  const total = Math.max(0, Math.round(gross) - discountNum);
+  // Kupong-rabatt (visning). Serveren beregner det autoritative beløpet.
+  const coupon = offers.find((o) => o.id === couponId) ?? null;
+  const couponDisc = coupon ? couponDiscount(coupon, gross) : 0;
+  const totalDiscount = Math.min(discountNum + couponDisc, Math.round(gross));
+  const total = Math.max(0, Math.round(gross) - totalDiscount);
   const hasSomething = !!serviceName || cartLines.length > 0;
   const hasCustomer = !!picked || !!(name.trim() || email.trim() || phone.trim());
   const customerRequired = allow ? !allow.dropinWithoutCustomerAllowed : false;
@@ -208,12 +236,15 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
     setPhone("");
     setHits([]);
     setCustQuery("");
+    setCouponId(null);
   }
   function clearCustomer() {
     setPicked(null);
     setName("");
     setEmail("");
     setPhone("");
+    setOffers([]);
+    setCouponId(null);
   }
 
   function submit(method: string, useSplit: boolean) {
@@ -242,6 +273,7 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
           : { name: name, email: email, phone: phone },
         makeMember,
         discountNok: discountNum,
+        campaignId: couponId ?? undefined,
         relationType: relationType ?? undefined,
         payments: useSplit ? splitEntries : undefined,
         sendReceipt: receipt,
@@ -571,11 +603,21 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
               {/* Steg 4: Rabatt */}
               {step === 4 && (
                 <div>
-                  {!allow?.friendFamilyEnabled && !allow?.discountAllowed && (
-                    <p className="text-sm text-muted">
-                      Ingen rabatt tilgjengelig. Gå videre til betaling.
-                    </p>
-                  )}
+                  {!allow?.friendFamilyEnabled &&
+                    !allow?.discountAllowed &&
+                    offers.length === 0 && (
+                      <p className="text-sm text-muted">
+                        Ingen rabatt tilgjengelig. Gå videre til betaling.
+                      </p>
+                    )}
+
+                  <CouponPicker
+                    offers={offers}
+                    selectedId={couponId}
+                    onSelect={setCouponId}
+                    gross={gross}
+                  />
+
                   {allow?.friendFamilyEnabled && (
                     <div className="mb-3">
                       <p className="mb-1.5 text-xs text-muted">
@@ -621,9 +663,10 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
                     </div>
                   )}
                   <div className="mt-4 rounded-lg bg-canvas px-3 py-2">
-                    {discountNum > 0 && (
+                    {totalDiscount > 0 && (
                       <div className="mb-1 text-xs text-muted">
-                        Sum {kr(gross)} · rabatt −{kr(discountNum)}
+                        Sum {kr(gross)} · rabatt −{kr(totalDiscount)}
+                        {couponDisc > 0 && coupon ? ` (kupong: ${coupon.name})` : ""}
                       </div>
                     )}
                     <div className="flex items-center justify-between">
@@ -654,8 +697,8 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
                       label="Kunde"
                       value={picked?.name || name.trim() || "Drop-in"}
                     />
-                    {discountNum > 0 && (
-                      <Row label="Rabatt" value={`−${kr(discountNum)}`} />
+                    {totalDiscount > 0 && (
+                      <Row label="Rabatt" value={`−${kr(totalDiscount)}`} />
                     )}
                     <div className="mt-1 flex items-center justify-between border-t border-line pt-1.5">
                       <span className="text-xs font-semibold tracking-wide text-muted uppercase">

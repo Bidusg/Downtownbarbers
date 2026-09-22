@@ -7,12 +7,15 @@ import {
   getBookingLoyalty,
   listSellableProducts,
   getKasseAllowances,
+  getMemberCampaignOffersForBooking,
   type SellableProduct,
   type BookingLoyalty,
   type KasseAllowances,
   type RelationType,
+  type MemberCampaignOffer,
 } from "@/app/kasse/actions";
 import { redeemLoyalty } from "@/app/kasse/kunder/[id]/loyalty-actions";
+import { CouponPicker, couponDiscount } from "@/components/kasse/CouponPicker";
 
 const PAYMENTS = ["Kontant", "Kort", "Vipps"];
 
@@ -70,6 +73,10 @@ export function PaymentControls({
   const [split, setSplit] = useState(false);
   const [splitAmts, setSplitAmts] = useState<Record<string, string>>({});
 
+  // Medlems-kuponger for bookingens kunde
+  const [offers, setOffers] = useState<MemberCampaignOffer[]>([]);
+  const [couponId, setCouponId] = useState<string | null>(null);
+
   // Shop-flagg (rabatt / venn-familie). Eier/admin omgår.
   const [allow, setAllow] = useState<KasseAllowances | null>(null);
 
@@ -79,6 +86,9 @@ export function PaymentControls({
     listSellableProducts().then((p) => alive && setProducts(p));
     getBookingLoyalty(bookingId).then((l) => alive && setLoyalty(l));
     getKasseAllowances().then((a) => alive && setAllow(a));
+    getMemberCampaignOffersForBooking(bookingId).then(
+      (o) => alive && setOffers(o),
+    );
     return () => {
       alive = false;
     };
@@ -118,7 +128,12 @@ export function PaymentControls({
   const discountNum = relationType
     ? Math.round((gross * (allow?.friendFamilyPct ?? 0)) / 100)
     : Math.max(0, Math.round(Number(discount) || 0));
-  const total = Math.max(0, Math.round(gross) - discountNum);
+  // Kupong-rabatt (visning). Serveren beregner det autoritative beløpet.
+  const coupon = offers.find((o) => o.id === couponId) ?? null;
+  const couponDisc = coupon ? couponDiscount(coupon, gross) : 0;
+  // Samlet rabatt begrenses til brutto (som server-side).
+  const totalDiscount = Math.min(discountNum + couponDisc, Math.round(gross));
+  const total = Math.max(0, Math.round(gross) - totalDiscount);
 
   // Splittbetaling: beløp per måte, sum, og om det stemmer med totalen.
   const splitEntries = PAYMENTS.map((m) => ({
@@ -146,6 +161,7 @@ export function PaymentControls({
         sendReceipt: receipt && !!(email.trim() || customerEmail),
         products: cartLines.map((l) => ({ id: l.id, qty: l.qty })),
         discountNok: discountNum,
+        campaignId: couponId ?? undefined,
         relationType: relationType ?? undefined,
       });
       if (res?.error) {
@@ -168,6 +184,7 @@ export function PaymentControls({
         sendReceipt: receipt && !!(email.trim() || customerEmail),
         products: cartLines.map((l) => ({ id: l.id, qty: l.qty })),
         discountNok: discountNum,
+        campaignId: couponId ?? undefined,
         relationType: relationType ?? undefined,
         payments: splitEntries,
       });
@@ -363,11 +380,22 @@ export function PaymentControls({
         </div>
       )}
 
+      {/* Medlemskupong (vises kun når kunden har gyldige kuponger) */}
+      <CouponPicker
+        offers={offers}
+        selectedId={couponId}
+        onSelect={setCouponId}
+        gross={gross}
+      />
+
       {/* Total */}
       <div className="mb-3 rounded-lg bg-canvas px-3 py-2">
-        {discountNum > 0 && (
+        {totalDiscount > 0 && (
           <div className="mb-1 flex items-center justify-between text-xs text-muted">
-            <span>Sum {kr(gross)} · rabatt −{kr(discountNum)}</span>
+            <span>
+              Sum {kr(gross)} · rabatt −{kr(totalDiscount)}
+              {couponDisc > 0 && coupon ? ` (kupong: ${coupon.name})` : ""}
+            </span>
           </div>
         )}
         <div className="flex items-center justify-between">

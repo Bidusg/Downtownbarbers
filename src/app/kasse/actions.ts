@@ -42,6 +42,72 @@ export async function getKasseAllowances(): Promise<KasseAllowances> {
 }
 
 
+/** Valgbar medlems-kupong i kassa (fra member_campaign_offers). */
+export type MemberCampaignOffer = {
+  id: string;
+  name: string;
+  description: string | null;
+  discountType: "percent" | "fixed";
+  discountValue: number;
+  expiresAt: string | null;
+};
+
+type OfferRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  discount_type: string;
+  discount_value: number | string;
+  expires_at: string | null;
+};
+
+function mapOffers(data: unknown): MemberCampaignOffer[] {
+  const rows = (Array.isArray(data) ? data : []) as OfferRow[];
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    description: r.description ?? null,
+    discountType: r.discount_type === "percent" ? "percent" : "fixed",
+    discountValue: Number(r.discount_value) || 0,
+    expiresAt: r.expires_at ?? null,
+  }));
+}
+
+/** Gyldige kuponger for en kunde-id (til hurtigsalg med valgt kunde). */
+export async function getMemberCampaignOffers(
+  customerId: string,
+): Promise<MemberCampaignOffer[]> {
+  if (!customerId) return [];
+  try {
+    const sb = await createClient();
+    const { data } = await sb.rpc("member_campaign_offers", { p_customer: customerId });
+    return mapOffers(data);
+  } catch {
+    return [];
+  }
+}
+
+/** Gyldige kuponger for kunden på en booking (kunde-id slås opp server-side). */
+export async function getMemberCampaignOffersForBooking(
+  bookingId: string,
+): Promise<MemberCampaignOffer[]> {
+  if (!bookingId) return [];
+  try {
+    const sb = await createClient();
+    const { data: b } = await sb
+      .from("bookings")
+      .select("customer_id")
+      .eq("id", bookingId)
+      .maybeSingle();
+    const customerId = b?.customer_id as string | null;
+    if (!customerId) return [];
+    const { data } = await sb.rpc("member_campaign_offers", { p_customer: customerId });
+    return mapOffers(data);
+  } catch {
+    return [];
+  }
+}
+
 function refresh() {
   revalidatePath("/kasse");
   revalidatePath("/kasse/kalender");
@@ -86,6 +152,8 @@ export type CompleteOptions = {
   products?: SaleProduct[];
   /** Rabatt i kr trukket fra totalen (kampanje/kulanse). Server klemmer til [0, brutto]. */
   discountNok?: number;
+  /** Valgt medlems-kupong. Rabatten beregnes + valideres server-side (record_sale). */
+  campaignId?: string;
   /** Splittbetaling: beløp per betalingsmåte. Utelates ved enkeltbetaling. */
   payments?: SplitPayment[];
 };
@@ -188,6 +256,7 @@ export async function completeBooking(
     p_products: products,
     p_discount: discountNok,
     p_payments: payments.length > 0 ? payments : null,
+    p_campaign: o.campaignId || null,
   });
   if (saleErr) {
     return {
@@ -397,6 +466,8 @@ export type WalkinInput = {
   makeMember?: boolean;
   /** Rabatt i kr trukket fra totalen. Server klemmer til [0, brutto]. */
   discountNok?: number;
+  /** Valgt medlems-kupong. Rabatten beregnes + valideres server-side. */
+  campaignId?: string;
   /** Splittbetaling: beløp per betalingsmåte. Utelates ved enkeltbetaling. */
   payments?: SplitPayment[];
   /** Send kvittering på e-post (krever at kunde-e-post er fylt inn). */
@@ -480,6 +551,7 @@ export async function recordWalkinSale(
       p_make_member: !!input.makeMember,
       p_discount: discountNok,
       p_payments: payments.length > 0 ? payments : null,
+      p_campaign: input.campaignId || null,
     });
     if (error) {
       return {

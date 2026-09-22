@@ -1,71 +1,80 @@
-# ENDRINGER — Kundeklubb: datadrevne nivåer (21. sept 2026)
+# ENDRINGER — Sesong-kuponger til medlemmer (22. sept 2026)
 
-Dette er **bygg 8**, oppå det som allerede er levert. Starter eposet
-«Kundeklubb». Nå kan du styre medlemsnivåene helt selv — legge til nye
-topp-nivåer (Platinum), slette nivåer og endre rekkefølgen — uten utvikler.
+Dette er **bygg 9**, oppå det som allerede er levert. Fullfører eposet
+«Kundeklubb». Nå kan Dawit utstede tidsavgrensede rabattkuponger til
+klubbmedlemmer, og kassa løser dem inn — med rabatten beregnet og validert
+trygt på serveren.
 
 ## Commit-tittel (lim inn i GitHub Desktop)
 
 ```
-Kundeklubb: datadrevne nivåer (legg til / slett / omordne, f.eks. Platinum)
+Kundeklubb: sesong-kuponger til medlemmer (utsted i admin, innløs i kassa)
 ```
 
 ## Commit-beskrivelse (valgfri)
 
 ```
-Migrasjon 0059: membership_tiers får sort_order (rang, høyere = bedre nivå),
-backfill fra id så dagens Bronse/Sølv/Gull-rekkefølge er uendret. Nivå-regelen
-er lik som før (høyeste nivå der forbruk ELLER besøk er over terskelen), bare
-rangert på sort_order. Tre nye admin-RPC-er (security definer + is_admin-vakt):
-membership_tier_add (atomisk ny id + rang), _delete (nekter det siste nivået),
-_move (bytt rang med naboen).
+Migrasjon 0060: member_campaigns + member_campaign_redemptions (+ RLS). Kuponger
+er prosent eller fast beløp, målrettet per klubbnivå (f.eks. Gull og oppover),
+med sesong (gyldig fra/utløp) og valgfri engangsbruk per medlem.
 
-- Admin → Kundeklubb: rediger nivå (navn/terskler/gode/farge), ↑/↓ for å
-  omordne, slett nivå, og «+ Nytt nivå» for å legge til Platinum e.l.
-- customer_membership, «min side» og kundekortet virker uendret for N nivåer.
+Server-sikkert: klienten sender BARE hvilken kupong som er valgt (p_campaign) –
+aldri et kronebeløp. record_sale og record_walkin_sale får valgfri p_campaign;
+er den satt, beregner + validerer apply_member_campaign rabatten mot brutto,
+sjekker sesong/nivå/engangsbruk og logger innløsningen ATOMISK med salget. Er
+p_campaign null, er salgsflyten byte-identisk med før (verifisert mot 0049/0050).
+
+- Admin → Kuponger (/admin/kuponger): utsted/administrer kuponger, slå av/på,
+  slett; se antall innløsninger.
+- Kassa: når kunden har gyldige kuponger, dukker en «Medlemskupong»-velger opp
+  i Rabatt-steget (hurtigsalg) og i betalingsboksen (time). Rabatten vises, og
+  serveren fastsetter det endelige beløpet.
 ```
 
 ---
 
-## VIKTIG: kjør migrasjon 0059 i Supabase
+## VIKTIG: kjør migrasjon 0060 i Supabase
 
 Supabase → SQL Editor. Kjør enten hele `KJØR-I-SUPABASE.sql` på nytt (idempotent)
-eller bare den nye biten nederst – **0059**. Uten den finnes ikke `sort_order`,
-og «legg til / omordne» virker ikke.
+eller bare den nye biten nederst – **0060**. Uten den finnes ikke kupong-tabellene,
+og record_sale/record_walkin_sale mangler p_campaign (kassa vil feile ved salg
+til den er kjørt).
 
 ## Slik bruker du det
 
-1. Admin → **Kundeklubb**. Nivåene vises høyest først (toppnivået øverst).
-2. **Legg til Platinum:** «+ Nytt nivå» → navn (Platinum), farge, min. forbruk
-   og/eller min. besøk, og et medlemsgode. Det legges til som nytt toppnivå.
-3. **Omordne:** ↑/↓ på hvert kort flytter nivået opp/ned i rangen.
-4. **Slett:** «Slett nivå» (kan ikke slette det siste — det må alltid finnes ett).
-5. La det **laveste** nivået ha 0 kr / 0 besøk, så alle kunder alltid havner på
-   et nivå.
-
-Nivået utledes fortsatt automatisk av livstidsforbruk og fullførte besøk —
-ingen poeng, ingen manuell tildeling.
+1. **Utsted:** Admin → **Kuponger** → «+ Ny kupong». Velg prosent eller fast
+   beløp, målgruppe (alle medlemmer, eller f.eks. «Gull og oppover»), evt.
+   gyldig fra/utløp, og om den kan brukes én eller flere ganger per medlem.
+2. **Innløs i kassa:** velg/​slå opp kunden. Har kunden en gyldig kupong, vises
+   «Medlemskupong» i Rabatt-steget (hurtigsalg) eller i betalingsboksen (time).
+   Trykk kupongen → rabatten trekkes fra → registrer betalingen som vanlig.
+3. Kupongen gjelder bare medlemmer på riktig nivå, innenfor sesongen, og (om
+   valgt) kun én gang per medlem. Alt håndheves på serveren.
 
 ## Testsjekkliste
 
-- [ ] Admin → Kundeklubb viser Bronse/Sølv/Gull som før, med riktig fordeling.
-- [ ] Legg til «Platinum» (f.eks. 15000 kr / 20 besøk, farge #E5E4E2) → dukker
-      opp som nytt toppnivå.
-- [ ] En kunde over Platinum-terskelen får Platinum på kundekortet og «min side».
-- [ ] ↑/↓ endrer rekkefølgen; ↑ er deaktivert øverst, ↓ nederst.
-- [ ] Slett et nivå → forsvinner; prøv å slette ned til ett → nektes.
-- [ ] Endre terskel/gode på et nivå og lagre → «min side» viser oppdatert gode.
+- [ ] Admin → Kuponger: lag «−20% i august» for alle medlemmer.
+- [ ] Kassa (time eller hurtigsalg) med en medlemskunde → kupongen vises →
+      trekkes fra → salget registreres med riktig netto.
+- [ ] Lag en kupong kun for «Gull og oppover» → vises for en Gull-kunde, ikke
+      for en Bronse-kunde.
+- [ ] Engangskupong: prøv å bruke den to ganger på samme kunde → nektes 2. gang.
+- [ ] Sett utløp i går → kupongen dukker ikke opp i kassa.
+- [ ] Slå en kupong «Av» i admin → forsvinner fra kassa. Slett → borte.
 
-## Filer i denne leveransen (bygg 8)
+## Filer i denne leveransen (bygg 9)
 
-7 filer: ny migrasjon 0059, KJØR-I-SUPABASE.sql, ny komponent
-MembershipTiersEditor, kundeklubb actions + page, membership-queries + denne fila.
+10 filer: ny migrasjon 0060, KJØR-I-SUPABASE.sql, ny CouponPicker + CampaignManager,
+ny /admin/kuponger side + actions, campaigns-queries, kasse/actions (p_campaign +
+offers), PaymentControls + QuickSale, admin-nav + denne fila.
 
-## Neste i planen
+## Eposet «Kundeklubb» er nå komplett
 
-Kundeklubb-eposet kan utvides med **sesong-kuponger til medlemmer** (utsted/innløs
-i kassa). Den utsatte Shop UX-biten **dra-for-lengde** i kalenderen står også igjen.
+Datadrevne nivåer (platinum) ✓, sesong-kuponger til medlemmer ✓. Neste utsatte
+punkt i planen er **dra-for-lengde** i kalenderen (Shop UX).
 
-**Verifisert i sky-klone:** `tsc --noEmit` 0 feil, `next build` grønn, eslint
-uendret fra baseline (24). Review-agent bekreftet bakoverkompatibilitet,
-idempotens og at kun admin/eier kan endre nivåene.
+**Verifisert i sky-klone:** `tsc --noEmit` 0 feil, `next build` grønn (nye ruter
+/admin/kuponger), eslint uendret fra baseline (24). Review-agent bekreftet at
+salgs-RPC-ene er byte-identiske med før når ingen kupong brukes, at kupong-
+rabatten ikke kan forfalskes fra klienten, og at kun admin/eier kan utstede
+kuponger.
