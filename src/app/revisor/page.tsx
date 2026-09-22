@@ -147,6 +147,9 @@ export default async function RevisorHome({
           <button type="submit" className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover">
             Last ned SAF-T (XML)
           </button>
+          <a href={`/revisor/eksport/xlsx?from=${saftFrom}&to=${saftTo}`} className="border border-line-2 px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft">
+            Salg denne måned (Excel)
+          </a>
           <a href="/revisor/eksport" className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg">
             Alle salg (CSV)
           </a>

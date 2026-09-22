@@ -268,6 +268,151 @@ export async function getDiscountTotalForDate(isoDate: string): Promise<number> 
   }
 }
 
+/* ---------------------- DAG-FOR-DAG AVSTEMMING ---------------------- */
+
+export type DailyReconRow = {
+  /** UTC-dagsnøkkel yyyy-mm-dd (samme dagsvindu som getExpectedByMethodForDate). */
+  date: string;
+  expected: MethodBreakdown;
+  /** Talt beløp fra dagsoppgjøret, eller null hvis dagen ikke er avstemt. */
+  counted: MethodBreakdown | null;
+  note: string | null;
+  settled: boolean;
+};
+
+const chunk = <T>(arr: T[], n: number): T[][] => {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
+  return out;
+};
+
+/**
+ * Dag-for-dag avstemming: for hver dag i vinduet [endDate − (days−1), endDate]
+ * gir vi forventet salg per betalingsmåte (fra salget, splitt-bevisst – samme
+ * grunnlag som selve oppgjøret) og talt beløp fra dagsoppgjøret om det finnes.
+ * Avviket regnes ut ved visning. Nyeste dag først; dager helt uten salg OG uten
+ * oppgjør utelates. Defensivt: tom liste ved feil.
+ */
+export async function getDailyReconciliation(
+  endDate: string,
+  days: number,
+): Promise<DailyReconRow[]> {
+  try {
+    const sb = await createClient();
+    const endD = new Date(`${endDate}T00:00:00.000Z`);
+    const startD = new Date(endD);
+    startD.setUTCDate(startD.getUTCDate() - (days - 1));
+    const endExclusive = new Date(endD);
+    endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+    const startKey = startD.toISOString().slice(0, 10);
+
+    // Salg i vinduet.
+    const { data: sales } = await sb
+      .from("sales")
+      .select("id, sold_at, total_nok, payment_method")
+      .gte("sold_at", startD.toISOString())
+      .lt("sold_at", endExclusive.toISOString())
+      .limit(100000);
+    const salesRows = (sales ?? []) as {
+      id: string;
+      sold_at: string;
+      total_nok: number;
+      payment_method: string | null;
+    }[];
+
+    // Splittbetalinger (autoritativ per måte) – hentet i sider for å unngå
+    // for lange spørringer.
+    const bySale = new Map<string, { method: string; amount: number }[]>();
+    for (const ids of chunk(salesRows.map((s) => s.id), 500)) {
+      const { data: pays } = await sb
+        .from("sale_payments")
+        .select("sale_id, method, amount")
+        .in("sale_id", ids);
+      for (const p of (pays ?? []) as {
+        sale_id: string;
+        method: string;
+        amount: number;
+      }[]) {
+        const l = bySale.get(p.sale_id) ?? [];
+        l.push({ method: p.method, amount: Number(p.amount) || 0 });
+        bySale.set(p.sale_id, l);
+      }
+    }
+
+    // Forventet per dag.
+    const expByDay = new Map<string, MethodBreakdown>();
+    for (const s of salesRows) {
+      const key = new Date(s.sold_at).toISOString().slice(0, 10);
+      const acc = expByDay.get(key) ?? { cash: 0, card: 0, vipps: 0 };
+      const plist = bySale.get(s.id);
+      if (plist && plist.length > 0) {
+        for (const p of plist) {
+          const b = methodBucket(p.method);
+          if (b) acc[b] += p.amount;
+        }
+      } else {
+        const b = methodBucket(s.payment_method as string);
+        if (b) acc[b] += Number(s.total_nok) || 0;
+      }
+      expByDay.set(key, acc);
+    }
+
+    // Oppgjør i vinduet.
+    const { data: setts } = await sb
+      .from("cash_settlements")
+      .select("settle_date, counted_cash, counted_card, counted_vipps, note")
+      .gte("settle_date", startKey)
+      .lte("settle_date", endDate);
+    const settByDay = new Map<
+      string,
+      { counted: MethodBreakdown; note: string | null }
+    >();
+    for (const s of (setts ?? []) as {
+      settle_date: string;
+      counted_cash: number | null;
+      counted_card: number | null;
+      counted_vipps: number | null;
+      note: string | null;
+    }[]) {
+      settByDay.set(s.settle_date, {
+        counted: {
+          cash: Number(s.counted_cash ?? 0),
+          card: Number(s.counted_card ?? 0),
+          vipps: Number(s.counted_vipps ?? 0),
+        },
+        note: s.note ?? null,
+      });
+    }
+
+    const rows: DailyReconRow[] = [];
+    for (let i = 0; i < days; i++) {
+      const d = new Date(endD);
+      d.setUTCDate(d.getUTCDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      const exp = expByDay.get(key);
+      const st = settByDay.get(key);
+      if (!exp && !st) continue;
+      const expected = exp
+        ? {
+            cash: Math.round(exp.cash),
+            card: Math.round(exp.card),
+            vipps: Math.round(exp.vipps),
+          }
+        : { cash: 0, card: 0, vipps: 0 };
+      rows.push({
+        date: key,
+        expected,
+        counted: st ? st.counted : null,
+        note: st?.note ?? null,
+        settled: !!st,
+      });
+    }
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
 /* ------------------------------ FRAVÆR ------------------------------ */
 export type Absence = {
   id: string;

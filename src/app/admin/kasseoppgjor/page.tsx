@@ -1,11 +1,22 @@
 import { StatTile } from "@/components/ui/StatTile";
 import { SettlementManager } from "@/components/admin/SettlementManager";
+import { DailyReconciliation } from "@/components/admin/DailyReconciliation";
 import {
   getCashSettlements,
   getSalesTotalForDate,
   getDiscountTotalForDate,
+  getDailyReconciliation,
 } from "@/lib/ops-queries";
 import { getSalesByMethodToday } from "@/lib/dashboard-queries";
+
+const RECON_DAYS = 30;
+
+/** Eldste dato i et {days}-dagers vindu t.o.m. {endDate} (UTC yyyy-mm-dd). */
+function windowStartFor(endDate: string, days: number): string {
+  const d = new Date(`${endDate}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() - (days - 1));
+  return d.toISOString().slice(0, 10);
+}
 
 export const dynamic = "force-dynamic";
 
@@ -23,12 +34,14 @@ export default async function AdminKasseoppgjor() {
   const today = new Date().toLocaleDateString("en-CA", {
     timeZone: "Europe/Oslo",
   });
-  const [settlements, todaySales, todayDiscount, byMethod] = await Promise.all([
-    getCashSettlements(),
-    getSalesTotalForDate(today),
-    getDiscountTotalForDate(today),
-    getSalesByMethodToday(),
-  ]);
+  const [settlements, todaySales, todayDiscount, byMethod, reconRows] =
+    await Promise.all([
+      getCashSettlements(),
+      getSalesTotalForDate(today),
+      getDiscountTotalForDate(today),
+      getSalesByMethodToday(),
+      getDailyReconciliation(today, RECON_DAYS),
+    ]);
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -87,6 +100,13 @@ export default async function AdminKasseoppgjor() {
       </div>
 
       <SettlementManager settlements={settlements} defaultDate={today} />
+
+      <DailyReconciliation
+        initialRows={reconRows}
+        windowStart={windowStartFor(today, RECON_DAYS)}
+        endDate={today}
+        windowDays={RECON_DAYS}
+      />
     </div>
   );
 }

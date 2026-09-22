@@ -2,9 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getUserRole, isAdminRole } from "@/lib/auth";
 import {
   getExpectedByMethodForDate,
+  getDailyReconciliation,
   type MethodBreakdown,
+  type DailyReconRow,
 } from "@/lib/ops-queries";
 
 function num(v: FormDataEntryValue | null): number {
@@ -53,4 +56,18 @@ export async function deleteSettlement(id: string) {
   const sb = await createClient();
   await sb.from("cash_settlements").delete().eq("id", id);
   revalidatePath("/admin/kasseoppgjor");
+}
+
+/**
+ * Eldre dager i dag-for-dag-visningen: hent {days} dager t.o.m. {endDate}.
+ * Brukes av «Vis eldre» for å bla bakover uten å laste hele siden på nytt.
+ */
+export async function moreReconciliation(
+  endDate: string,
+  days: number,
+): Promise<DailyReconRow[]> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return [];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(endDate)) return [];
+  return getDailyReconciliation(endDate, Math.min(Math.max(days, 1), 92));
 }

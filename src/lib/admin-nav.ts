@@ -118,6 +118,11 @@ export const adminGroups: AdminNavGroup[] = [
         href: "/admin/regnskap",
         description: "Bilag og hovedbok",
       },
+      {
+        label: "Bilag",
+        href: "/admin/bilag",
+        description: "Fakturaer og bilag til revisor",
+      },
     ],
   },
   {

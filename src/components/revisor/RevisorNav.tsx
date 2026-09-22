@@ -7,6 +7,7 @@ const links = [
   { href: "/revisor/omsetning", label: "Omsetning" },
   { href: "/revisor/rapport", label: "Perioderapport" },
   { href: "/revisor/lonnslipper", label: "Lønnsslipper" },
+  { href: "/revisor/bilag", label: "Bilag" },
   { href: "/revisor/eksport", label: "Eksport (CSV)" },
 ];
 

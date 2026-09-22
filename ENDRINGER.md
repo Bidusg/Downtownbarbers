@@ -1,70 +1,88 @@
-# ENDRINGER — Dra-for-lengde i kalenderen (22. sept 2026)
+# ENDRINGER — Rapport & eksport (22. sept 2026)
 
-Dette er **bygg 10**, oppå det som allerede er levert. Tar den utsatte Shop
-UX-biten: dra i nederkanten av en booking i dagskalenderen for å endre lengden.
-Styres av flagget «Dra-for-lengde» (Admin → Shop-innstillinger), som allerede
-fantes — nå er det koblet.
+Dette er **bygg 11**, oppå det som allerede er levert. Starter eposet «Rapport &
+eksport» og tar alle tre delene: dag-for-dag kasseoppgjør, penere eksporter
+(Excel/PDF), og at revisor får opplastede bilag automatisk.
 
 ## Commit-tittel (lim inn i GitHub Desktop)
 
 ```
-Kalender: dra-for-lengde (endre bookingens varighet ved å dra nederkanten)
+Rapport & eksport: dag-for-dag oppgjør, Excel/PDF-eksport og bilag til revisor
 ```
 
 ## Commit-beskrivelse (valgfri)
 
 ```
-Migrasjon 0061: set_booking_length (security definer) – shop/admin endrer en
-bookings sluttid. Starttid beholdes; min 5 min; ingen overlapp med andre aktive
-bookinger/blokker for samme barber. Shop kan ikke oppdatere bookings direkte,
-så endringen går via RPC (speiler reschedule_booking).
+Del A — Dag-for-dag kasseoppgjør: getDailyReconciliation gir forventet (fra
+salget, splitt-bevisst) vs. talt (fra oppgjøret) vs. avvik per dag. Ny «Dag for
+dag»-visning i Admin → Kasseoppgjør med «Vis eldre» (bla 30 dager bakover om
+gangen). Ingen nye kolonner – bruker cash_settlements fra 0046.
 
-- DayCalendar: dra-håndtak nederst på hver aktive booking (skjult for
-  fullført/ikke-møtt og når flagget er av). Live høyde + sluttid mens man drar,
-  5-min snapp, og en feilmelding hvis den nye lengden overlapper.
-- Kalender-siden sender canResize fra drag_for_length_enabled (eier/admin omgår).
+Del B — Penere eksporter: delt xlsx-stil, ny pen Excel av salg (Sammendrag +
+detaljerte salg) på /revisor/eksport/xlsx, med knapper på revisor-oversikt og
+perioderapport. Kasseoppgjøret kan lastes ned som pen PDF (dag-for-dag) i samme
+stil som kundenes kjøpshistorikk.
+
+Del C — Bilag til revisor (migrasjon 0062): privat 'vouchers'-bøtte + tabell.
+Dawit laster opp fakturaer/kvitteringer/bilag i Admin → Bilag; de dukker
+AUTOMATISK opp hos revisor (Revisor → Bilag), nedlastbare via signerte URL-er.
+Revisor er strengt lese-kun (RLS + server-vakter). Nav lagt til begge steder.
 ```
 
 ---
 
-## VIKTIG: kjør migrasjon 0061 i Supabase
+## VIKTIG: kjør migrasjon 0062 i Supabase
 
 Supabase → SQL Editor. Kjør enten hele `KJØR-I-SUPABASE.sql` på nytt (idempotent)
-eller bare den nye biten nederst – **0061**. Uten den finnes ikke
-set_booking_length, og dra-for-lengde vil gi feil.
-
-## Slå på funksjonen
-
-Admin → **Shop-innstillinger** → slå på **«Dra-for-lengde i kalender»**. (Eier/
-admin har den alltid på.) Uten flagget vises ingen dra-håndtak i kassa.
+eller bare den nye biten nederst – **0062**. Uten den finnes ikke bilag-bøtta/
+tabellen, og Admin → Bilag / Revisor → Bilag virker ikke. (Del A og B trenger
+ingen migrasjon.)
 
 ## Slik bruker du det
 
-1. Åpne Kasse → **Kalender**.
-2. Hold på det lille håndtaket i **nederkanten** av en booking og dra opp/ned.
-   Lengden snapper til 5 minutter, og den nye sluttiden vises mens du drar.
-3. Slipp for å lagre. Overlapper den nye lengden en annen booking eller blokk
-   hos samme barber, får du en melding og lengden beholdes.
+**Dag-for-dag kasseoppgjør** (Admin → Kasseoppgjør): under oppgjørs-skjemaet
+ligger nå «Dag for dag» – forventet, talt og avvik per dag. «Vis eldre» blar
+bakover. «Last ned PDF» gir en pen rapport for perioden du har lastet inn.
 
-Fullførte og ikke-møtte timer kan ikke endres. Å flytte en booking til en annen
-barber gjøres fortsatt ved å dra hele blokken (uendret).
+**Penere eksporter:**
+- Revisor → oversikt / perioderapport: «Salg (Excel)» gir en formatert .xlsx
+  (sammendrag + alle salg). CSV og SAF-T er som før.
+- Admin → Kasseoppgjør → «Last ned PDF»: dag-for-dag-rapport som PDF.
+
+**Bilag til revisor:**
+- Admin → **Bilag**: last opp faktura/kvittering/bilag med dato, leverandør,
+  type, beløp og mva.
+- Revisor → **Bilag**: ser og laster ned alt automatisk – ingen utsending.
 
 ## Testsjekkliste
 
-- [ ] Slå på «Dra-for-lengde» i Shop-innstillinger → håndtak dukker opp i kalenderen.
-- [ ] Dra nederkanten på en booking → lengden endres, sluttid vises mens du drar.
-- [ ] Prøv å dra så den overlapper neste booking → melding, lengden beholdes.
-- [ ] Fullført/ikke-møtt time → intet håndtak.
-- [ ] Slå av flagget (som shop, ikke eier) → håndtakene forsvinner.
-- [ ] Dra hele blokken til en annen barber → fungerer som før (PIN-godkjenning).
+- [ ] Admin → Kasseoppgjør: «Dag for dag» viser dagens + tidligere dager; avvik
+      stemmer med et registrert oppgjør. «Vis eldre» henter flere dager.
+- [ ] «Last ned PDF» i dag-for-dag gir en pen PDF for perioden.
+- [ ] Revisor → perioderapport → «Salg (Excel)» laster ned en formatert .xlsx.
+- [ ] Admin → Bilag: last opp en faktura (med beløp/mva) → vises i lista.
+- [ ] Logg inn som revisor → Bilag: samme bilag vises, «Last ned» åpner filen.
+- [ ] Revisor kan IKKE laste opp eller slette bilag (kun lese/laste ned).
 
-## Filer i denne leveransen (bygg 10)
+## Filer i denne leveransen (bygg 11)
 
-6 filer: ny migrasjon 0061, KJØR-I-SUPABASE.sql, kasse/actions (setBookingLength),
-kalender-siden (canResize), DayCalendar (dra-håndtak) + denne fila.
+Del A: ops-queries (getDailyReconciliation), kasseoppgjor/actions + page, ny
+DailyReconciliation-komponent.
+Del B: ny xlsx/style + xlsx/sales + revisor/eksport/xlsx-rute; ny pdf/kasseoppgjor
++ kasseoppgjor/pdf-rute; knapper på revisor/page + revisor/rapport.
+Del C: migrasjon 0062, vouchers-queries, admin/bilag (page+actions+VoucherManager),
+revisor/bilag (page+VoucherList), admin-nav + RevisorNav.
+Delt: KJØR-I-SUPABASE.sql + denne fila.
 
-**Verifisert i sky-klone:** `tsc --noEmit` 0 feil, `next build` grønn, eslint
-uendret fra baseline (24). Review-agent bekreftet at RPC-en er trygg (kun
-shop/admin, låser raden, min 5 min, overlapp-sjekk), at dra-håndtaket ikke
-kolliderer med dag-sveip / barber-flytt / åpne-booking, og at flagget gjemmer
-håndtakene når det er av.
+## Eposet «Rapport & eksport» er nå komplett
+
+Dag-for-dag oppgjør ✓, penere eksporter (Excel/PDF) ✓, revisor får bilag
+automatisk ✓. (Sesong-kupongene som lå under her ble levert i bygg 9.) Neste epos
+i planen er **Nettside-CMS** eller **UI & ytelse**.
+
+**Verifisert i sky-klone:** `tsc --noEmit` 0 feil, `next build` grønn (nye ruter
+/admin/bilag, /revisor/bilag, /admin/kasseoppgjor/pdf, /revisor/eksport/xlsx),
+eslint uendret fra baseline (24). Review-agent bekreftet at dag-for-dag-
+beregningen matcher oppgjørets grunnlag, at eksportene er rollestyrte, og at
+revisor er strengt lese-kun på bilag (ingen sti lekkes til klienten; nedlasting
+kun via korte signerte URL-er).

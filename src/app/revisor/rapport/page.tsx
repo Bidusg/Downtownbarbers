@@ -69,12 +69,18 @@ export default async function RevisorRapport({
             der ikke annet er angitt.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <a
-            href={`/revisor/eksport?from=${p.fromDate}&to=${p.toDate}`}
+            href={`/revisor/eksport/xlsx?from=${p.fromDate}&to=${p.toDate}`}
             className="border border-line-2 px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
           >
-            Salg i perioden (CSV)
+            Salg i perioden (Excel)
+          </a>
+          <a
+            href={`/revisor/eksport?from=${p.fromDate}&to=${p.toDate}`}
+            className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
+          >
+            CSV
           </a>
           <a
             href={`/revisor/eksport/saft?from=${p.fromDate}&to=${p.toDate}`}
