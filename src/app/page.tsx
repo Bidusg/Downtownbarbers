@@ -11,6 +11,8 @@ import {
   groupByCategory,
 } from "@/lib/queries";
 import { getSiteSettings } from "@/lib/site-settings";
+import { getSiteImages } from "@/lib/site-images";
+import { getUserRole, isAdminRole } from "@/lib/auth";
 import { getPublicReviewsSummary } from "@/lib/reviews";
 
 function Label({ children }: { children: React.ReactNode }) {
@@ -72,14 +74,35 @@ const craft = [
   },
 ];
 
-export default async function Home() {
-  const [services, team, s, omdomme] = await Promise.all([
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ preview?: string }>;
+}) {
+  // Forhåndsvisning (?preview=1) tar med skjulte bilder – kun for admin.
+  const sp = await searchParams;
+  const wantPreview = sp?.preview === "1";
+  const role = wantPreview ? await getUserRole() : null;
+  const preview = wantPreview && isAdminRole(role?.role);
+
+  const [services, team, s, omdomme, siteImages] = await Promise.all([
     getPublicServices(),
     getPublicBarbers(),
     getSiteSettings(),
     getPublicReviewsSummary(),
+    getSiteImages(preview),
   ]);
   const serviceCategories = groupByCategory(services);
+
+  // Hero + galleri fra CMS-bildene, med fallback til de innebygde bildene.
+  const dbHero = siteImages.filter((i) => i.section === "hero");
+  const heroSlidesFinal: Slide[] = dbHero.length
+    ? dbHero.map((i) => ({ type: i.kind, src: i.url }))
+    : heroSlides;
+  const dbGallery = siteImages.filter((i) => i.section === "gallery");
+  const galleryFinal = dbGallery.length
+    ? dbGallery.map((i) => ({ src: i.url, alt: i.alt ?? "" }))
+    : gallery;
   const accentStyle = {
     ["--color-accent-soft"]: s.accent_hex,
   } as CSSProperties;
@@ -91,7 +114,7 @@ export default async function Home() {
 
       {/* ===================== HERO ===================== */}
       <section className="relative flex min-h-[92vh] items-end overflow-hidden">
-        <HeroCarousel slides={heroSlides} poster="/media/hero/poster.jpg" />
+        <HeroCarousel slides={heroSlidesFinal} poster="/media/hero/poster.jpg" />
         {/* Overlays for lesbarhet */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/60" />
         <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-transparent to-transparent" />
@@ -266,7 +289,7 @@ export default async function Home() {
             </h2>
           </Reveal>
           <div className="mt-12 gap-5 columns-1 sm:columns-2">
-            {gallery.map((g, i) => (
+            {galleryFinal.map((g, i) => (
               <Reveal
                 key={g.src}
                 delay={(i % 2) * 90}
