@@ -1,4 +1,6 @@
 import { StatTile } from "@/components/ui/StatTile";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Card } from "@/components/ui/Card";
 import { SettlementManager } from "@/components/admin/SettlementManager";
 import { DailyReconciliation } from "@/components/admin/DailyReconciliation";
 import {
@@ -45,13 +47,10 @@ export default async function AdminKasseoppgjor() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
-      <div>
-        <h1 className="mb-1 font-display text-2xl font-bold">Kasseoppgjør</h1>
-        <p className="text-sm text-muted">
-          Dagens salg kommer automatisk inn fra kassen. Registrer et dagsoppgjør
-          for å avstemme mot faktisk kontant/kort. Beløp er inkl. mva.
-        </p>
-      </div>
+      <PageHeader
+        title="Kasseoppgjør"
+        description="Dagens salg kommer automatisk inn fra kassen. Registrer et dagsoppgjør for å avstemme mot faktisk kontant/kort. Beløp er inkl. mva."
+      />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatTile
@@ -72,10 +71,7 @@ export default async function AdminKasseoppgjor() {
       </div>
 
       {/* Auto-fordeling på betalingsmåte */}
-      <div className="border border-line bg-surface">
-        <h2 className="border-b border-line px-5 py-3 text-xs font-semibold tracking-wide text-muted uppercase">
-          Dagens salg fordelt på betalingsmåte
-        </h2>
+      <Card title="Dagens salg fordelt på betalingsmåte" padded={false}>
         {byMethod.length === 0 ? (
           <p className="px-5 py-6 text-sm text-muted">
             Ingen salg registrert i dag enda.
@@ -97,7 +93,7 @@ export default async function AdminKasseoppgjor() {
             </tbody>
           </table>
         )}
-      </div>
+      </Card>
 
       <SettlementManager settlements={settlements} defaultDate={today} />
 

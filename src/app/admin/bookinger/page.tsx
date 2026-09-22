@@ -1,5 +1,6 @@
 import { getDayAgenda, getBarbers, getServices } from "@/lib/shop-queries";
 import { DayCalendar } from "@/components/kasse/DayCalendar";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -24,12 +25,10 @@ export default async function AdminBookinger({
 
   return (
     <div className="mx-auto max-w-6xl">
-      <div className="mb-4 flex items-baseline justify-between">
-        <h1 className="font-display text-2xl font-bold">Bookinger</h1>
-        <span className="text-sm text-muted">
-          Dagskalender · book, flytt, blokker
-        </span>
-      </div>
+      <PageHeader
+        title="Bookinger"
+        description="Dagskalender · book, flytt og blokker."
+      />
       <DayCalendar
         date={date}
         agenda={agenda}

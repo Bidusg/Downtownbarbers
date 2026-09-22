@@ -1,5 +1,7 @@
 import { getCustomersPage } from "@/lib/admin-queries";
 import { CustomerTable } from "@/components/admin/CustomerTable";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Button } from "@/components/ui/Button";
 import { createCustomer } from "./actions";
 
 const inputCls =
@@ -17,10 +19,10 @@ export default async function AdminKunder({
 
   return (
     <div className="mx-auto max-w-5xl">
-      <div className="mb-6 flex items-baseline justify-between">
-        <h1 className="font-display text-2xl font-bold">Kundekartotek</h1>
-        <span className="text-sm text-muted">{total} kunder</span>
-      </div>
+      <PageHeader
+        title="Kundekartotek"
+        actions={<span className="text-sm text-muted">{total} kunder</span>}
+      />
 
       <details className="mb-6 border border-line bg-surface">
         <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-accent-soft">
@@ -32,9 +34,9 @@ export default async function AdminKunder({
           <input name="email" type="email" placeholder="E-post" className={inputCls} />
           <input name="category" placeholder="Kategori (valgfritt)" className={inputCls} />
           <input name="notes" placeholder="Notat (valgfritt)" className={`${inputCls} sm:col-span-2`} />
-          <button type="submit" className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover sm:col-span-2">
+          <Button type="submit" className="px-4 py-2 text-sm sm:col-span-2">
             Opprett kunde
-          </button>
+          </Button>
         </form>
       </details>
 

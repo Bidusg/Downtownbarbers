@@ -1,5 +1,8 @@
 import { StatTile } from "@/components/ui/StatTile";
 import { ProgressBar } from "@/components/ui/ProgressBar";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import { RevenueChart } from "@/components/admin/RevenueChart";
 import {
   getRevenueSeries,
@@ -24,6 +27,11 @@ export default async function AdminDashboard() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
+      <PageHeader
+        title="Dashboard"
+        description="Omsetning, mål og dagens drift på ett sted."
+      />
+
       {!sum.hasData && (
         <div className="flex items-start gap-3 border border-accent-soft/30 bg-accent-soft/5 px-4 py-3 text-sm">
           <span className="mt-0.5 text-accent-soft">●</span>
@@ -42,17 +50,21 @@ export default async function AdminDashboard() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="border border-line bg-surface p-6 lg:col-span-2">
+        <Card className="lg:col-span-2">
           <div className="mb-4 flex items-baseline justify-between">
             <h2 className="font-display text-lg font-bold">Omsetning siste 14 dager</h2>
-            <a href="/admin/regnskap" className="text-xs font-semibold text-accent-soft hover:text-fg">
+            <Button
+              href="/admin/regnskap"
+              variant="link"
+              className="text-xs font-semibold"
+            >
               Se regnskap →
-            </a>
+            </Button>
           </div>
           <RevenueChart data={series} drillBase="/admin/omsetning" period="days" />
-        </div>
+        </Card>
 
-        <div className="border border-line bg-surface p-6">
+        <Card>
           <h2 className="mb-1 font-display text-lg font-bold">Shop – dagsmål</h2>
           <p className="mb-5 text-xs text-muted">Kunder gjennom dagen</p>
           <div className="mb-2 flex items-end justify-between">
@@ -67,10 +79,10 @@ export default async function AdminDashboard() {
               Testtall til ekte bookinger registreres.
             </p>
           )}
-        </div>
+        </Card>
       </div>
 
-      <div className="border border-line bg-surface p-6">
+      <Card>
         <div className="mb-6 flex items-baseline justify-between">
           <h2 className="font-display text-lg font-bold">Omsetning per barber</h2>
           <span className="text-xs text-muted">denne måneden</span>
@@ -89,7 +101,7 @@ export default async function AdminDashboard() {
             ))}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

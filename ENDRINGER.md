@@ -1,69 +1,68 @@
-# ENDRINGER — Nettside-CMS etappe 3: Om oss + banner redigerbart (22. sept 2026)
+# ENDRINGER — UI & ytelse: admin-reskin på design-systemet (22. sept 2026)
 
-Dette er **bygg 14**, oppå det som allerede er levert. Fullfører de siste
-hardkodede bildene på forsiden: **«Om oss»-bildet** og **neon-banneret** kan nå
-byttes fra admin. Banner-teksten bruker nå slagordet fra innstillingene.
+Dette er **bygg 15**, oppå det som allerede er levert. Starter «UI & ytelse»:
+de mest brukte admin-sidene legges på de delte design-primitivene
+(PageHeader / Card / Button), så alt får samme rytme og hierarki.
 
 ## Commit-tittel (lim inn i GitHub Desktop)
 
 ```
-Nettside-CMS (etappe 3): «Om oss»- og banner-bilde redigerbart + banner-tekst fra slagord
+UI: admin-reskin – Dashboard, Bookinger, Kasseoppgjør, Ansatte, Kunder på design-systemet
 ```
 
 ## Commit-beskrivelse (valgfri)
 
 ```
-Migrasjon 0065: utvider site_images.section til hero/gallery/about/banner (samme
-'site'-bøtte som 0063). «Om oss» og banneret er enkeltbilder – forsiden bruker
-det første aktive, med fallback til de innebygde.
+Tar i bruk de eksisterende primitivene (PageHeader/Card/Button) på de fem mest
+brukte admin-sidene, for et enhetlig uttrykk – uten funksjonsendring.
 
-- Admin → Nettside → Bilder: to nye slots, «Om oss»-bilde og Banner-bilde
-  (bilde, ikke klipp). Samme opplasting/skjul/slett som de andre seksjonene.
-- Forsiden: Om oss-bildet og neon-banneret leses fra CMS med fallback; banner-
-  teksten viser nå slagordet (site_settings.slogan) i stedet for hardkodet tekst.
+- PageHeader (tittel + beskrivelse + evt. handlinger) på Dashboard, Bookinger,
+  Kasseoppgjør, Ansatte og Kunder – erstatter ad-hoc-toppene.
+- Card på panelene (Dashboard-panelene, «Dagens salg fordelt på betalingsmåte»).
+- Button på aksent-knapper/-lenker («Opprett kunde», «Se regnskap»).
+
+Ingen migrasjon, ingen oppførselsendring. Eneste synlige delta er at panel-
+luften harmoniseres (p-6 → p-5, Card sin standard).
 ```
 
 ---
 
-## VIKTIG: kjør migrasjon 0065 i Supabase
+## Ingen migrasjon
 
-Supabase → SQL Editor. Kjør enten hele `KJØR-I-SUPABASE.sql` på nytt (idempotent)
-eller bare den nye biten nederst – **0065**. Uten den godtar ikke databasen de
-nye seksjonene (about/banner), og opplasting til dem feiler. Ingen ny bøtte –
-bruker 'site' fra etappe 1.
+Denne leveransen er ren UI – ingen database-endring. Du trenger IKKE kjøre noe
+i Supabase.
 
-## Slik bruker du det
+## Hva som er nytt
 
-1. Admin → **Nettside** → **Bilder**.
-2. **«Om oss»-bilde:** last opp ett bilde → erstatter bildet i «Om oss»-seksjonen.
-3. **Banner-bilde:** last opp ett bilde → erstatter neon-banneret.
-4. Bruk **Forhåndsvisning** for å se resultatet. «Skjul» tar bildet av forsiden
-   (da vises fallback-bildet igjen).
-5. Banner-teksten styres av **slagordet** øverst i Nettside-skjemaet.
+Fem admin-sider har fått samme, ryddige topp og panel-uttrykk via de delte
+komponentene som allerede lå i kodebasen:
+
+- **Dashboard**: PageHeader + de tre panelene som Card, «Se regnskap» som Button.
+- **Bookinger**: PageHeader.
+- **Kasseoppgjør**: PageHeader, betalingsmåte-panelet som Card.
+- **Ansatte**: PageHeader.
+- **Kunder**: PageHeader (med antall til høyre), «Opprett kunde» som Button.
 
 ## Testsjekkliste
 
-- [ ] Admin → Nettside → Bilder: «Om oss»-bilde → last opp → forhåndsvisning
-      viser nytt bilde i «Om oss».
-- [ ] Banner-bilde → last opp → neon-banneret bytter bilde.
-- [ ] Endre slagordet i skjemaet → banner-teksten oppdateres.
-- [ ] Skjul et av dem → fallback-bildet vises igjen på forsiden.
-- [ ] Uten opplasting: forsiden viser standardbildene som før.
+- [ ] Åpne Admin → Dashboard, Bookinger, Kasseoppgjør, Ansatte, Kunder: alle har
+      lik, ryddig sidetopp.
+- [ ] Kunder → «+ Ny kunde» → fyll ut → «Opprett kunde»: kunden opprettes som før.
+- [ ] Dashboard → «Se regnskap»: går til /admin/regnskap.
+- [ ] Kasseoppgjør: panelene ser like ut, dag-for-dag og oppgjør virker som før.
 
-## Filer i denne leveransen (bygg 14)
+## Filer i denne leveransen (bygg 15)
 
-7 filer: ny migrasjon 0065, KJØR-I-SUPABASE.sql, site-images-lib (SiteSection),
-admin/nettside actions (validering), SiteImagesManager (nye slots), forsiden
-(page.tsx) + denne fila.
+6 filer: admin/page (Dashboard), admin/bookinger, admin/kasseoppgjor,
+admin/ansatte, admin/kunder + denne fila. (Ingen migrasjon.)
 
-## Nettside-CMS er nå bredt dekket
+## UI & ytelse videre
 
-Etappe 1 (hero + galleri) ✓, etappe 2 (Håndverket) ✓, etappe 3 (Om oss + banner
-+ banner-tekst) ✓. Alle de store forside-bildene og -tekstene er nå redigerbare
-fra admin. Gjenstår i planen: **UI & ytelse**. (Videre CMS-finpuss – f.eks.
-CTA-seksjonens tekster – kan tas ved behov.)
+Admin-reskin på de mest brukte sidene ✓. Neste steg i denne delen: samme løft på
+resten av admin, så revisor- og ansatt-sidene, forenkle åpningstider-delen, og
+gjøre tunge sider lettere. Si ifra hva du vil ta.
 
 **Verifisert i sky-klone:** `tsc --noEmit` 0 feil, `next build` grønn, eslint
-uendret fra baseline (24). Bygger på det samme, allerede review'de CMS-mønsteret
-(site_images + admin-vakt + RLS + forhåndsvisning + fallback) – kun seksjons-
-listen og to enkeltbilde-oppslag er nytt.
+uendret fra baseline (24). Review-agent bekreftet at JSX-nestingen er riktig, at
+skjema-innsending og lenkenavigasjon er bevart, og at layouten er uendret bortsett
+fra den tilsiktede padding-harmoniseringen.

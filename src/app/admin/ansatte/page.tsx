@@ -1,4 +1,5 @@
 import { StaffManager } from "@/components/admin/StaffManager";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { getStaffAdmin } from "@/lib/admin-queries";
 import {
   getLevels,
@@ -15,7 +16,10 @@ export default async function AdminAnsatte() {
   ]);
   return (
     <div className="mx-auto max-w-5xl">
-      <h1 className="mb-6 font-display text-2xl font-bold">Ansatte</h1>
+      <PageHeader
+        title="Ansatte"
+        description="Barbere og ansatte – profil, nivå, tjenester og tilgang."
+      />
       <StaffManager
         staff={staff}
         levels={levels}
