@@ -798,6 +798,30 @@ export async function rescheduleBooking(
 }
 
 /**
+ * Endre en bookings LENGDE (dra-for-lengde i kalenderen). Starttiden beholdes,
+ * kun sluttiden endres. Server-side validering (min 5 min, ingen overlapp,
+ * ikke fullført/kansellert) ligger i set_booking_length-RPC-en.
+ */
+export async function setBookingLength(
+  bookingId: string,
+  endIso: string,
+): Promise<{ ok?: true; error?: string }> {
+  if (!bookingId || !endIso) return { error: "Mangler felt." };
+  try {
+    const sb = await createClient();
+    const { error } = await sb.rpc("set_booking_length", {
+      p_booking: bookingId,
+      p_end: endIso,
+    });
+    if (error) return { error: error.message };
+    refresh();
+    return { ok: true };
+  } catch {
+    return { error: "Kunne ikke endre lengden." };
+  }
+}
+
+/**
  * Flytt en booking til en ANNEN barber – krever at den OPPRINNELIGE barberen
  * godkjenner med sin PIN (samme PIN som stemplingsuret). Tidspunktet beholdes;
  * krediteringen følger bookingen, så den nye barberen krediteres salget.

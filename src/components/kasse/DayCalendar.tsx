@@ -1,13 +1,18 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { Fragment, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { AgendaBooking, ShopBarber, ShopService } from "@/lib/shop-queries";
 import { colorAt } from "@/lib/colors";
 import { Avatar } from "@/components/ui/Avatar";
 import { DeskBooking } from "@/components/kasse/DeskBooking";
 import { BookingDetailModal } from "@/components/kasse/BookingDetailModal";
-import { blockTime, cancelBooking, reassignBookingBarber } from "@/app/kasse/actions";
+import {
+  blockTime,
+  cancelBooking,
+  reassignBookingBarber,
+  setBookingLength,
+} from "@/app/kasse/actions";
 
 const OPEN = 9 * 60; // 09:00
 const CLOSE = 21 * 60; // 21:00
@@ -57,6 +62,7 @@ export function DayCalendar({
   services,
   basePath = "/kasse/kalender",
   canBlock = false,
+  canResize = false,
 }: {
   date: string;
   agenda: AgendaBooking[];
@@ -64,12 +70,24 @@ export function DayCalendar({
   services: ShopService[];
   basePath?: string;
   canBlock?: boolean;
+  canResize?: boolean;
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<AgendaBooking | null>(null);
   const [blockOpen, setBlockOpen] = useState(false);
   const [, startCancel] = useTransition();
   const [dragId, setDragId] = useState<string | null>(null);
+
+  // Dra-for-lengde: aktiv resize + live sluttid (minutter etter midnatt, Oslo).
+  const [resize, setResize] = useState<{
+    id: string;
+    startMin: number;
+    endMin: number;
+    y0: number;
+  } | null>(null);
+  const [resizeEnd, setResizeEnd] = useState<number | null>(null);
+  const [resizeMsg, setResizeMsg] = useState<string | null>(null);
+  const [, startResizeSave] = useTransition();
   const [transfer, setTransfer] = useState<{
     booking: AgendaBooking;
     toBarber: string;
@@ -150,6 +168,46 @@ export function DayCalendar({
     });
   }
 
+  // ---- Dra-for-lengde -------------------------------------------------
+  const SNAP = 5; // minutter
+  function beginResize(e: React.PointerEvent, b: AgendaBooking) {
+    e.preventDefault();
+    e.stopPropagation();
+    setResizeMsg(null);
+    const startMin = osloMinutes(b.start_at);
+    const endMin = osloMinutes(b.end_at);
+    setResize({ id: b.id, startMin, endMin, y0: e.clientY });
+    setResizeEnd(endMin);
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      /* noop */
+    }
+  }
+  function moveResize(e: React.PointerEvent) {
+    if (!resize) return;
+    const dy = e.clientY - resize.y0;
+    let end = resize.endMin + dy / PX;
+    end = Math.round(end / SNAP) * SNAP;
+    end = Math.max(resize.startMin + SNAP, Math.min(end, CLOSE));
+    setResizeEnd(end);
+  }
+  function endResize() {
+    const cur = resize;
+    const newEnd = resizeEnd;
+    setResize(null);
+    setResizeEnd(null);
+    if (!cur || newEnd == null || newEnd === cur.endMin) return;
+    const hh = String(Math.floor(newEnd / 60)).padStart(2, "0");
+    const mm = String(newEnd % 60).padStart(2, "0");
+    const endIso = new Date(`${date}T${hh}:${mm}:00`).toISOString();
+    startResizeSave(async () => {
+      const res = await setBookingLength(cur.id, endIso);
+      if (res.error) setResizeMsg(res.error);
+      router.refresh();
+    });
+  }
+
   return (
     <div>
       {/* Topplinje */}
@@ -180,6 +238,12 @@ export function DayCalendar({
           <DeskBooking services={services} barbers={barbers} label="+ Ny booking" />
         </div>
       </div>
+
+      {resizeMsg && (
+        <p className="mb-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+          {resizeMsg}
+        </p>
+      )}
 
       {/* Rutenett */}
       <div
@@ -258,7 +322,12 @@ export function DayCalendar({
 
                   {col.items.map((b) => {
                     const s = Math.max(osloMinutes(b.start_at), OPEN);
-                    const e = Math.min(osloMinutes(b.end_at), CLOSE);
+                    // Live sluttid under en aktiv resize; ellers bookingens egen.
+                    const endMin =
+                      resize?.id === b.id && resizeEnd != null
+                        ? resizeEnd
+                        : osloMinutes(b.end_at);
+                    const e = Math.min(endMin, CLOSE);
                     const top = (s - OPEN) * PX;
                     const height = Math.max((e - s) * PX, 26);
 
@@ -293,53 +362,86 @@ export function DayCalendar({
 
                     const completed = b.status === "completed";
                     const noshow = b.status === "no_show";
+                    const resizable = canResize && !completed && !noshow;
+                    const isResizing = resize?.id === b.id;
                     return (
-                      <button
-                        key={b.id}
-                        onClick={() => {
-                          if (moved.current) return;
-                          setSelected(b);
-                        }}
-                        draggable={!completed && !noshow}
-                        onDragStart={(e) => {
-                          e.stopPropagation();
-                          setDragId(b.id);
-                          e.dataTransfer.effectAllowed = "move";
-                          try {
-                            e.dataTransfer.setData("text/plain", b.id);
-                          } catch {
-                            /* noop */
-                          }
-                        }}
-                        onDragEnd={() => setDragId(null)}
-                        title="Dra til en annen barber for å flytte kunden"
-                        className="absolute right-1 left-1 cursor-grab overflow-hidden rounded-md border-l-[3px] px-2 py-1 text-left transition-transform hover:z-10 hover:scale-[1.02] active:cursor-grabbing"
-                        style={{
-                          top,
-                          height,
-                          background: color + "26",
-                          borderLeftColor: color,
-                          opacity:
-                            dragId === b.id ? 0.35 : completed || noshow ? 0.6 : 1,
-                        }}
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <Avatar
-                            name={b.customer ?? "?"}
-                            colorKey={b.customer_id ?? undefined}
-                            size={16}
-                          />
-                          <span className="truncate text-xs font-semibold text-fg">
-                            {hhmm(b.start_at)} {b.customer ?? "—"}
-                          </span>
-                        </div>
-                        {height > 38 && (
-                          <p className="truncate text-[10px] text-muted">
-                            {completed ? "✓ " : noshow ? "✗ " : ""}
-                            {b.service ?? ""}
-                          </p>
+                      <Fragment key={b.id}>
+                        <button
+                          onClick={() => {
+                            if (moved.current || isResizing) return;
+                            setSelected(b);
+                          }}
+                          draggable={!completed && !noshow && !isResizing}
+                          onDragStart={(e) => {
+                            e.stopPropagation();
+                            setDragId(b.id);
+                            e.dataTransfer.effectAllowed = "move";
+                            try {
+                              e.dataTransfer.setData("text/plain", b.id);
+                            } catch {
+                              /* noop */
+                            }
+                          }}
+                          onDragEnd={() => setDragId(null)}
+                          title="Dra til en annen barber for å flytte kunden"
+                          className="absolute right-1 left-1 cursor-grab overflow-hidden rounded-md border-l-[3px] px-2 py-1 text-left transition-transform hover:z-10 hover:scale-[1.02] active:cursor-grabbing"
+                          style={{
+                            top,
+                            height,
+                            background: color + "26",
+                            borderLeftColor: color,
+                            opacity:
+                              dragId === b.id ? 0.35 : completed || noshow ? 0.6 : 1,
+                          }}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <Avatar
+                              name={b.customer ?? "?"}
+                              colorKey={b.customer_id ?? undefined}
+                              size={16}
+                            />
+                            <span className="truncate text-xs font-semibold text-fg">
+                              {hhmm(b.start_at)} {b.customer ?? "—"}
+                            </span>
+                          </div>
+                          {height > 38 && (
+                            <p className="truncate text-[10px] text-muted">
+                              {completed ? "✓ " : noshow ? "✗ " : ""}
+                              {b.service ?? ""}
+                            </p>
+                          )}
+                        </button>
+
+                        {/* Dra-håndtak nederst: endre lengde */}
+                        {resizable && (
+                          <div
+                            onPointerDown={(ev) => beginResize(ev, b)}
+                            onPointerMove={moveResize}
+                            onPointerUp={endResize}
+                            title="Dra for å endre lengde"
+                            aria-label="Endre lengde"
+                            className="absolute right-1 left-1 z-20 flex h-3 cursor-ns-resize items-center justify-center rounded-b-md"
+                            style={{
+                              top: top + height - 7,
+                              background: color + "55",
+                              touchAction: "none",
+                            }}
+                          >
+                            <span className="h-0.5 w-6 rounded-full bg-fg/50" />
+                          </div>
                         )}
-                      </button>
+
+                        {/* Live sluttid mens man drar */}
+                        {isResizing && resizeEnd != null && (
+                          <div
+                            className="pointer-events-none absolute right-1 z-30 rounded bg-fg px-1.5 py-0.5 text-[10px] font-bold text-surface tabular-nums"
+                            style={{ top: top + height + 2 }}
+                          >
+                            {String(Math.floor(resizeEnd / 60)).padStart(2, "0")}:
+                            {String(resizeEnd % 60).padStart(2, "0")}
+                          </div>
+                        )}
+                      </Fragment>
                     );
                   })}
                 </div>

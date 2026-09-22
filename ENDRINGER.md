@@ -1,80 +1,70 @@
-# ENDRINGER — Sesong-kuponger til medlemmer (22. sept 2026)
+# ENDRINGER — Dra-for-lengde i kalenderen (22. sept 2026)
 
-Dette er **bygg 9**, oppå det som allerede er levert. Fullfører eposet
-«Kundeklubb». Nå kan Dawit utstede tidsavgrensede rabattkuponger til
-klubbmedlemmer, og kassa løser dem inn — med rabatten beregnet og validert
-trygt på serveren.
+Dette er **bygg 10**, oppå det som allerede er levert. Tar den utsatte Shop
+UX-biten: dra i nederkanten av en booking i dagskalenderen for å endre lengden.
+Styres av flagget «Dra-for-lengde» (Admin → Shop-innstillinger), som allerede
+fantes — nå er det koblet.
 
 ## Commit-tittel (lim inn i GitHub Desktop)
 
 ```
-Kundeklubb: sesong-kuponger til medlemmer (utsted i admin, innløs i kassa)
+Kalender: dra-for-lengde (endre bookingens varighet ved å dra nederkanten)
 ```
 
 ## Commit-beskrivelse (valgfri)
 
 ```
-Migrasjon 0060: member_campaigns + member_campaign_redemptions (+ RLS). Kuponger
-er prosent eller fast beløp, målrettet per klubbnivå (f.eks. Gull og oppover),
-med sesong (gyldig fra/utløp) og valgfri engangsbruk per medlem.
+Migrasjon 0061: set_booking_length (security definer) – shop/admin endrer en
+bookings sluttid. Starttid beholdes; min 5 min; ingen overlapp med andre aktive
+bookinger/blokker for samme barber. Shop kan ikke oppdatere bookings direkte,
+så endringen går via RPC (speiler reschedule_booking).
 
-Server-sikkert: klienten sender BARE hvilken kupong som er valgt (p_campaign) –
-aldri et kronebeløp. record_sale og record_walkin_sale får valgfri p_campaign;
-er den satt, beregner + validerer apply_member_campaign rabatten mot brutto,
-sjekker sesong/nivå/engangsbruk og logger innløsningen ATOMISK med salget. Er
-p_campaign null, er salgsflyten byte-identisk med før (verifisert mot 0049/0050).
-
-- Admin → Kuponger (/admin/kuponger): utsted/administrer kuponger, slå av/på,
-  slett; se antall innløsninger.
-- Kassa: når kunden har gyldige kuponger, dukker en «Medlemskupong»-velger opp
-  i Rabatt-steget (hurtigsalg) og i betalingsboksen (time). Rabatten vises, og
-  serveren fastsetter det endelige beløpet.
+- DayCalendar: dra-håndtak nederst på hver aktive booking (skjult for
+  fullført/ikke-møtt og når flagget er av). Live høyde + sluttid mens man drar,
+  5-min snapp, og en feilmelding hvis den nye lengden overlapper.
+- Kalender-siden sender canResize fra drag_for_length_enabled (eier/admin omgår).
 ```
 
 ---
 
-## VIKTIG: kjør migrasjon 0060 i Supabase
+## VIKTIG: kjør migrasjon 0061 i Supabase
 
 Supabase → SQL Editor. Kjør enten hele `KJØR-I-SUPABASE.sql` på nytt (idempotent)
-eller bare den nye biten nederst – **0060**. Uten den finnes ikke kupong-tabellene,
-og record_sale/record_walkin_sale mangler p_campaign (kassa vil feile ved salg
-til den er kjørt).
+eller bare den nye biten nederst – **0061**. Uten den finnes ikke
+set_booking_length, og dra-for-lengde vil gi feil.
+
+## Slå på funksjonen
+
+Admin → **Shop-innstillinger** → slå på **«Dra-for-lengde i kalender»**. (Eier/
+admin har den alltid på.) Uten flagget vises ingen dra-håndtak i kassa.
 
 ## Slik bruker du det
 
-1. **Utsted:** Admin → **Kuponger** → «+ Ny kupong». Velg prosent eller fast
-   beløp, målgruppe (alle medlemmer, eller f.eks. «Gull og oppover»), evt.
-   gyldig fra/utløp, og om den kan brukes én eller flere ganger per medlem.
-2. **Innløs i kassa:** velg/​slå opp kunden. Har kunden en gyldig kupong, vises
-   «Medlemskupong» i Rabatt-steget (hurtigsalg) eller i betalingsboksen (time).
-   Trykk kupongen → rabatten trekkes fra → registrer betalingen som vanlig.
-3. Kupongen gjelder bare medlemmer på riktig nivå, innenfor sesongen, og (om
-   valgt) kun én gang per medlem. Alt håndheves på serveren.
+1. Åpne Kasse → **Kalender**.
+2. Hold på det lille håndtaket i **nederkanten** av en booking og dra opp/ned.
+   Lengden snapper til 5 minutter, og den nye sluttiden vises mens du drar.
+3. Slipp for å lagre. Overlapper den nye lengden en annen booking eller blokk
+   hos samme barber, får du en melding og lengden beholdes.
+
+Fullførte og ikke-møtte timer kan ikke endres. Å flytte en booking til en annen
+barber gjøres fortsatt ved å dra hele blokken (uendret).
 
 ## Testsjekkliste
 
-- [ ] Admin → Kuponger: lag «−20% i august» for alle medlemmer.
-- [ ] Kassa (time eller hurtigsalg) med en medlemskunde → kupongen vises →
-      trekkes fra → salget registreres med riktig netto.
-- [ ] Lag en kupong kun for «Gull og oppover» → vises for en Gull-kunde, ikke
-      for en Bronse-kunde.
-- [ ] Engangskupong: prøv å bruke den to ganger på samme kunde → nektes 2. gang.
-- [ ] Sett utløp i går → kupongen dukker ikke opp i kassa.
-- [ ] Slå en kupong «Av» i admin → forsvinner fra kassa. Slett → borte.
+- [ ] Slå på «Dra-for-lengde» i Shop-innstillinger → håndtak dukker opp i kalenderen.
+- [ ] Dra nederkanten på en booking → lengden endres, sluttid vises mens du drar.
+- [ ] Prøv å dra så den overlapper neste booking → melding, lengden beholdes.
+- [ ] Fullført/ikke-møtt time → intet håndtak.
+- [ ] Slå av flagget (som shop, ikke eier) → håndtakene forsvinner.
+- [ ] Dra hele blokken til en annen barber → fungerer som før (PIN-godkjenning).
 
-## Filer i denne leveransen (bygg 9)
+## Filer i denne leveransen (bygg 10)
 
-10 filer: ny migrasjon 0060, KJØR-I-SUPABASE.sql, ny CouponPicker + CampaignManager,
-ny /admin/kuponger side + actions, campaigns-queries, kasse/actions (p_campaign +
-offers), PaymentControls + QuickSale, admin-nav + denne fila.
+6 filer: ny migrasjon 0061, KJØR-I-SUPABASE.sql, kasse/actions (setBookingLength),
+kalender-siden (canResize), DayCalendar (dra-håndtak) + denne fila.
 
-## Eposet «Kundeklubb» er nå komplett
-
-Datadrevne nivåer (platinum) ✓, sesong-kuponger til medlemmer ✓. Neste utsatte
-punkt i planen er **dra-for-lengde** i kalenderen (Shop UX).
-
-**Verifisert i sky-klone:** `tsc --noEmit` 0 feil, `next build` grønn (nye ruter
-/admin/kuponger), eslint uendret fra baseline (24). Review-agent bekreftet at
-salgs-RPC-ene er byte-identiske med før når ingen kupong brukes, at kupong-
-rabatten ikke kan forfalskes fra klienten, og at kun admin/eier kan utstede
-kuponger.
+**Verifisert i sky-klone:** `tsc --noEmit` 0 feil, `next build` grønn, eslint
+uendret fra baseline (24). Review-agent bekreftet at RPC-en er trygg (kun
+shop/admin, låser raden, min 5 min, overlapp-sjekk), at dra-håndtaket ikke
+kolliderer med dag-sveip / barber-flytt / åpne-booking, og at flagget gjemmer
+håndtakene når det er av.
