@@ -52,6 +52,11 @@ export const adminGroups: AdminNavGroup[] = [
     label: "Butikk & lager",
     items: [
       { label: "Tjenester", href: "/admin/tjenester" },
+      {
+        label: "Priser (nivå)",
+        href: "/admin/priser",
+        description: "Pris/varighet per nivå per tjeneste",
+      },
       { label: "Produkter", href: "/admin/produkter" },
       { label: "Lager", href: "/admin/lager" },
       { label: "Gavekort", href: "/admin/gavekort" },

@@ -7,13 +7,19 @@ import { isValidEmail, isValidNorwegianPhone } from "@/lib/validate";
 import { eventLinks } from "@/lib/calendar-links";
 import { Button } from "@/components/ui/Button";
 
+import type { LevelPriceMap } from "@/lib/queries";
+import type { StaffLevel } from "@/lib/levels";
+
 export type WizService = {
   name: string;
   price: string;
   duration: string;
   category: string;
+  basePrice: number;
+  baseDuration: number;
+  levelPrices: LevelPriceMap;
 };
-export type WizBarber = { name: string; title: string };
+export type WizBarber = { name: string; title: string; level: StaffLevel };
 
 const STEPS = ["Tjeneste", "Barber", "Tid", "Kontakt"];
 
@@ -21,12 +27,27 @@ function isoDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** Effektiv pris/varighet for en tjeneste gitt barberens nivå (fallback: grunn). */
+function effective(s: WizService, b: WizBarber | null) {
+  const lp = b ? s.levelPrices[b.level] : undefined;
+  return {
+    price: lp?.price ?? s.basePrice,
+    duration: lp?.duration ?? s.baseDuration,
+  };
+}
+
+/** Prisspenn for en tjeneste (grunnpris + alle nivåpriser). */
+function priceSpan(s: WizService) {
+  const vals = [s.basePrice, ...Object.values(s.levelPrices).map((v) => v.price)];
+  const min = Math.min(...vals);
+  const max = Math.max(...vals);
+  return { min, max, varies: max !== min };
+}
+
 export function BookingWizard({
   services,
   barbers,
   exclusions = {},
-  levelPrices = {},
-  barberLevels = {},
   closedWeekdays = [],
   initialServiceName,
   initialBarberName,
@@ -35,10 +56,6 @@ export function BookingWizard({
   barbers: WizBarber[];
   /** Tjeneste-navn → barber-navn som IKKE utfører tjenesten. */
   exclusions?: Record<string, string[]>;
-  /** Tjeneste-navn → nivå-slug → pris (nivåpris når barber er valgt). */
-  levelPrices?: Record<string, Record<string, number>>;
-  /** Barber-navn → nivå-slug. */
-  barberLevels?: Record<string, string>;
   /** Ukedager (0=søndag … 6=lørdag) salongen er stengt – filtreres bort fra dagvalget. */
   closedWeekdays?: number[];
   /** Forhåndsvalgt tjeneste/barber (f.eks. «Book på nytt» fra min-side). */
@@ -118,17 +135,6 @@ export function BookingWizard({
     }
   }, [availableBarbers, barber]);
 
-  // Pris som vises: nivåpris når barber (med nivå + satt nivåpris) er valgt,
-  // ellers tjenestens basispris. Speiler prisen create_booking faktisk setter.
-  const priceLabel = useMemo(() => {
-    if (service && barber) {
-      const slug = barberLevels[barber.name];
-      const lv = slug ? levelPrices[service.name]?.[slug] : undefined;
-      if (typeof lv === "number") return `${Math.round(lv)} kr`;
-    }
-    return service?.price ?? "";
-  }, [service, barber, barberLevels, levelPrices]);
-
   // Hent ledige tider når dato/barber/tjeneste er valgt
   useEffect(() => {
     let active = true;
@@ -170,7 +176,7 @@ export function BookingWizard({
       email,
       phone,
       source,
-      price: priceLabel,
+      price: `${effective(service!, barber).price} kr`,
     });
     setPending(false);
     if (res?.error) setError(res.error);
@@ -181,7 +187,7 @@ export function BookingWizard({
   }
 
   if (done) {
-    const durMin = parseInt(service?.duration ?? "", 10) || 30;
+    const durMin = service ? effective(service, barber).duration : 30;
     const start = new Date(`${date}T${time}:00`);
     const cal =
       service && !Number.isNaN(start.getTime())
@@ -302,7 +308,21 @@ export function BookingWizard({
                           <span className="block font-medium text-fg">{s.name}</span>
                           <span className="block text-xs text-muted">{s.duration}</span>
                         </span>
-                        <span className="font-display text-sm text-fg">{s.price}</span>
+                        <span className="shrink-0 text-right">
+                          {(() => {
+                            const sp = priceSpan(s);
+                            return (
+                              <span className="font-display text-sm text-fg">
+                                {sp.varies && (
+                                  <span className="mr-1 text-[10px] font-normal text-muted">
+                                    fra
+                                  </span>
+                                )}
+                                {sp.min} kr
+                              </span>
+                            );
+                          })()}
+                        </span>
                       </button>
                     ))}
                 </div>
@@ -339,6 +359,12 @@ export function BookingWizard({
                 </span>
                 <span className="block font-medium text-fg">{b.name}</span>
                 <span className="block text-xs text-muted">{b.title}</span>
+                {service && (
+                  <span className="mt-1 block font-display text-xs text-accent-soft">
+                    {effective(service, b).price} kr ·{" "}
+                    {effective(service, b).duration} min
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -384,7 +410,8 @@ export function BookingWizard({
             </div>
             <div>
               <label className="mb-2 block text-xs font-semibold tracking-wide text-muted uppercase">
-                Ledige tider {service ? `· ${service.duration}` : ""}
+                Ledige tider{" "}
+                {service ? `· ${effective(service, barber).duration} min` : ""}
               </label>
               {!date ? (
                 <p className="text-sm text-muted">Velg en dag først.</p>
@@ -424,9 +451,12 @@ export function BookingWizard({
         {step === 3 && (
           <div className="space-y-4">
             <div className="mb-2 border border-line bg-surface-2 p-4 text-sm text-muted">
-              <strong className="text-fg">{service?.name}</strong> ({service?.duration}) hos{" "}
+              <strong className="text-fg">{service?.name}</strong>
+              {service && ` (${effective(service, barber).duration} min)`} hos{" "}
               <strong className="text-fg">{barber?.name}</strong> · {date} kl. {time} ·{" "}
-              <span className="text-fg">{priceLabel}</span>
+              <span className="text-fg">
+                {service ? `${effective(service, barber).price} kr` : ""}
+              </span>
             </div>
             <input
               placeholder="Fullt navn"
