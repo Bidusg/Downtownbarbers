@@ -1,4 +1,5 @@
 import { ProgressBar } from "@/components/ui/ProgressBar";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { requireRole, getUserRole } from "@/lib/auth";
 import { getMyAgenda } from "@/lib/ansatt-queries";
 import { getGoalProgress } from "@/lib/analytics-queries";
@@ -56,6 +57,7 @@ export default async function AnsattDashboard() {
 
   return (
     <main className="mx-auto max-w-3xl space-y-8 p-6">
+        <PageHeader title="Min side" />
         <NoticeBanner notices={notices} />
         {/* MIN TIMEPLAN */}
         <section className="border border-line bg-surface p-6">

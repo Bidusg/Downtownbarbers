@@ -1,5 +1,6 @@
 import { getMyStaffLink, getMyTurnus, getMyUpcomingShifts } from "@/lib/ansatt-queries";
 import { getTurnusAnchor } from "@/lib/ops-queries";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -92,7 +93,7 @@ export default async function AnsattTurnus() {
   return (
     <main className="mx-auto max-w-3xl space-y-8 p-6">
       <div>
-        <h1 className="font-display text-xl font-bold">Min turnus</h1>
+        <PageHeader title="Min turnus" />
         <p className="mt-1 text-sm text-muted">
           Din faste ukeplan (uke A / uke B). Denne uken (uke {wk}) er{" "}
           <strong className="text-accent-soft">{currentLabel}</strong>. Endringer

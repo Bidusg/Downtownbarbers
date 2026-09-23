@@ -1,32 +1,29 @@
-# ENDRINGER — UI-reskin: resten av admin på design-systemet (22. sept 2026)
+# ENDRINGER — UI-reskin: revisor + ansatt på design-systemet (23. sept 2026)
 
-Dette er **bygg 16**, oppå det som allerede er levert. Fortsetter «UI & ytelse»:
-resten av admin-sidene legges på de delte primitivene (PageHeader / Card /
-Button), så hele admin-området er enhetlig. Bygg 15 tok de fem mest brukte
-sidene; her tas ~29 sider til.
+Dette er **bygg 17**, oppå det som allerede er levert. Fullfører reskin-arbeidet
+i «UI & ytelse»: revisor-sidene og ansatt-portalen legges på de delte
+primitivene (PageHeader / Card / Button), så alle tre områdene — admin, revisor
+og ansatt — ser like ryddige ut.
 
 ## Commit-tittel (lim inn i GitHub Desktop)
 
 ```
-UI: reskin resten av admin på design-systemet (PageHeader/Card/Button)
+UI: reskin revisor + ansatt på design-systemet (PageHeader/Card/Button)
 ```
 
 ## Commit-beskrivelse (valgfri)
 
 ```
-Tar i bruk PageHeader (og Card/Button der det er en ren 1:1-bytte) på de
-resterende admin-sidene, for et enhetlig uttrykk – uten funksjonsendring.
-Fordelt på tre agenter, integrert og verifisert samlet.
+Tar i bruk PageHeader (og Button der byttet er rent) på revisor- og
+ansatt-sidene, for et enhetlig uttrykk – uten funksjonsendring.
 
-- PageHeader (tittel + beskrivelse + evt. handlinger) på ~29 admin-sider.
-- Button på de rene aksent-knappene (submit/lenker) der byttet er trygt.
-- Card der et panel var en åpenbar 1:1-match; ellers latt urørt.
-- kampanjer (ren redirect) og omsetning (bruker delt OmsetningView med egen
-  tittel) er bevisst utelatt – de har ingen egen sidetopp å bytte.
+Revisor: Regnskapsoversikt, Perioderapport, Lønnsslipper, Bilag. Eksport-/SAF-T-
+knapper flyttet til sidetoppens handlinger der det passet; skjemaer og
+disclaimere urørt. revisor/omsetning er utelatt (bruker delt OmsetningView med
+egen tittel).
+Ansatt: Min side, Mine dokumenter, Mine fravær, Mine timer, Min turnus.
 
-Ingen migrasjon, ingen oppførselsendring. Enkelte undertitler mistet inline-
-utheving (kursiv/farge) fordi PageHeader.description er ren tekst – ordene er
-beholdt.
+Ingen migrasjon, ingen oppførselsendring.
 ```
 
 ---
@@ -37,35 +34,29 @@ Ren UI – ingen database-endring. Du trenger IKKE kjøre noe i Supabase.
 
 ## Hva som er nytt
 
-Resten av admin-sidene har fått samme ryddige sidetopp via de delte
-komponentene: bl.a. Tjenester, Produkter, Lager, Gavekort, Lønn, Timelister,
-Fravær, Brukere, Ansattdokumenter, Dokumenter, Bilag, Kundeklubb, Kuponger,
-Oppfølging, Markedsføring, Meldinger, Nøkkeltall, Rapporter, Produktivitet,
-Regnskap, Rating, Nettside, Nivåer, Shop-innstillinger, Go-live, Integrasjoner,
-Budsjett, Måloppnåelse, og kundekortet.
+- **Revisor**: Regnskapsoversikt, Perioderapport, Lønnsslipper og Bilag har fått
+  enhetlig sidetopp; eksport- og SAF-T-lenker ligger nå ryddig i toppen.
+- **Ansatt-portalen**: Min side, Mine dokumenter, Mine fravær, Mine timer og Min
+  turnus har fått samme sidetopp.
+- revisor/omsetning er bevisst utelatt (deler OmsetningView med admin, som har
+  egen tittel — unngår dobbel tittel).
 
 ## Testsjekkliste
 
-- [ ] Bla gjennom admin-menyen: alle sider har lik, ryddig sidetopp (tittel +
-      evt. beskrivelse/handlinger til høyre).
-- [ ] Sider med skjema (f.eks. Lager «Registrer», Meldinger «Opprett»,
-      Markedsføring «Send»): knappene virker som før.
-- [ ] Sider med eksport/periode (Regnskap, Rapporter, Nøkkeltall,
-      Produktivitet): eksport-lenker og velgere virker som før.
-- [ ] Kundekort (Kunder → en kunde): tittelen er kundens navn, «Kjøpshistorikk
-      (PDF)» og «Kunde siden …» ligger til høyre.
+- [ ] Logg inn som revisor: alle sider har lik sidetopp; eksport (Excel/CSV/
+      SAF-T) og perioderapport-velgerne virker som før.
+- [ ] Logg inn som ansatt: Min side, dokumenter, fravær, timer og turnus har lik
+      sidetopp og virker som før.
 
-## Filer i denne leveransen (bygg 16)
+## Filer i denne leveransen (bygg 17)
 
-~29 admin-sider (page.tsx) + denne fila. Ingen migrasjon.
+9 sider (4 revisor + 5 ansatt) + denne fila. Ingen migrasjon.
 
 ## UI & ytelse videre
 
-Admin-reskin er nå komplett (mest brukte i bygg 15 + resten her). Gjenstår i
-denne delen: samme løft på **revisor** og **ansatt**-sidene, forenkle
-**åpningstider**-delen, og lette tunge sider. Si ifra hva du vil ta.
+Reskin er nå komplett for admin, revisor og ansatt. Gjenstår i denne delen:
+forenkle **åpningstider**-delen, og **lette tunge sider**. Si ifra hva du vil ta.
 
 **Verifisert i sky-klone:** `tsc --noEmit` 0 feil, `next build` grønn (alle ruter
-kompilerer), eslint uendret fra baseline (24). Spot-sjekket de vanskeligste
-(dynamisk kundekort-tittel, eksport-handlinger). Ingen oppførsels- eller
-data-endring – kun sidetopp/panel-kosmetikk.
+kompilerer), eslint uendret fra baseline (24). Kun sidetopp/panel-kosmetikk —
+ingen data- eller oppførselsendring.

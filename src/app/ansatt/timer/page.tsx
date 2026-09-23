@@ -3,6 +3,7 @@ import {
   getMyShiftDays,
   getMyShiftEvents,
 } from "@/lib/ansatt-queries";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -101,12 +102,10 @@ export default async function AnsattTimer() {
 
   return (
     <main className="mx-auto max-w-3xl space-y-8 p-6">
-      <div>
-        <h1 className="font-display text-xl font-bold">Mine timer</h1>
-        <p className="mt-1 text-sm text-muted">
-          Dine egne stemplede timer de siste fire ukene. Kun lesing.
-        </p>
-      </div>
+      <PageHeader
+        title="Mine timer"
+        description="Dine egne stemplede timer de siste fire ukene. Kun lesing."
+      />
 
       {!link.linked ? (
         <div className="border border-line bg-surface px-4 py-8 text-center text-sm text-muted">

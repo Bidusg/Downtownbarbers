@@ -1,5 +1,7 @@
 import { StatTile } from "@/components/ui/StatTile";
 import { ProgressBar } from "@/components/ui/ProgressBar";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Button } from "@/components/ui/Button";
 import { RevenueChart } from "@/components/admin/RevenueChart";
 import {
   getRevenueSeries,
@@ -49,23 +51,22 @@ export default async function RevisorHome({
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl font-bold">Regnskapsoversikt</h1>
-          <p className="text-sm text-muted">
-            Regnskaps- og lønnstilgang. Se{" "}
-            <a href="/revisor/rapport" className="text-accent-soft hover:underline">
-              Perioderapport
-            </a>{" "}
-            for kvartal/halvår/helår.
-          </p>
-        </div>
-        <a
-          href="/revisor/eksport"
-          className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
-        >
-          Last ned alle salg (CSV)
-        </a>
+      <div>
+        <PageHeader
+          title="Regnskapsoversikt"
+          actions={
+            <Button href="/revisor/eksport" className="px-4 py-2 text-sm">
+              Last ned alle salg (CSV)
+            </Button>
+          }
+        />
+        <p className="text-sm text-muted">
+          Regnskaps- og lønnstilgang. Se{" "}
+          <a href="/revisor/rapport" className="text-accent-soft hover:underline">
+            Perioderapport
+          </a>{" "}
+          for kvartal/halvår/helår.
+        </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-4">

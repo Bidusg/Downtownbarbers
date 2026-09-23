@@ -1,5 +1,6 @@
 import { getVouchers } from "@/lib/vouchers-queries";
 import { VoucherList } from "@/components/revisor/VoucherList";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -10,13 +11,10 @@ export default async function RevisorBilag() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
-      <div>
-        <h1 className="font-display text-2xl font-bold">Bilag</h1>
-        <p className="mt-1 text-sm text-muted">
-          Fakturaer, kvitteringer og bilag lastet opp av salongen. Klikk «Last
-          ned» for å hente en kopi. Lenkene er private og gyldige i 60 sekunder.
-        </p>
-      </div>
+      <PageHeader
+        title="Bilag"
+        description="Fakturaer, kvitteringer og bilag lastet opp av salongen. Klikk «Last ned» for å hente en kopi. Lenkene er private og gyldige i 60 sekunder."
+      />
 
       <VoucherList vouchers={vouchers} />
     </div>

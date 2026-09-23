@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/auth";
 import { StatTile } from "@/components/ui/StatTile";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { PAYROLL } from "@/lib/ops-queries";
 import { getPayrollForMonth } from "@/lib/payroll-slips";
 import { GeneratePayslipsButton } from "@/components/revisor/GeneratePayslipsButton";
@@ -38,14 +39,14 @@ export default async function RevisorLonnslipper({
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <div>
-        <h1 className="mb-1 font-display text-2xl font-bold">Lønnsslipper</h1>
-        <p className="text-sm text-muted">
-          Grunnlønn {kr(PAYROLL.BASE_NOK)} + {Math.round(PAYROLL.RATE * 100)} %
-          provisjon av omsetning (eks. mva) over {kr(PAYROLL.THRESHOLD_NOK)}.
-          Forhåndsvis under, og generer PDF til hver ansatt.
-        </p>
-      </div>
+      <PageHeader
+        title="Lønnsslipper"
+        description={`Grunnlønn ${kr(PAYROLL.BASE_NOK)} + ${Math.round(
+          PAYROLL.RATE * 100,
+        )} % provisjon av omsetning (eks. mva) over ${kr(
+          PAYROLL.THRESHOLD_NOK,
+        )}. Forhåndsvis under, og generer PDF til hver ansatt.`}
+      />
 
       {/* Måneds-velger */}
       <form

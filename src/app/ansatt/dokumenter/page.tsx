@@ -5,6 +5,7 @@ import {
 } from "@/lib/staff-documents";
 import { DocumentUploadForm } from "@/components/ansatt/DocumentUploadForm";
 import { DeleteDocumentButton } from "@/components/ansatt/DeleteDocumentButton";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -78,13 +79,10 @@ export default async function AnsattDokumenter() {
 
   return (
     <main className="mx-auto max-w-3xl space-y-8 p-6">
-      <div>
-        <h1 className="font-display text-xl font-bold">Mine dokumenter</h1>
-        <p className="mt-1 text-sm text-muted">
-          Kontrakt, lønnslipper og andre dokumenter – kun synlig for deg og
-          ledelsen.
-        </p>
-      </div>
+      <PageHeader
+        title="Mine dokumenter"
+        description="Kontrakt, lønnslipper og andre dokumenter – kun synlig for deg og ledelsen."
+      />
 
       {!link.linked ? (
         <div className="border border-line bg-surface px-4 py-8 text-center text-sm text-muted">

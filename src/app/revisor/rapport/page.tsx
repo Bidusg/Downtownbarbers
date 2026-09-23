@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/auth";
 import { StatTile } from "@/components/ui/StatTile";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { PAYROLL } from "@/lib/ops-queries";
 import { resolvePeriod } from "@/lib/period";
 import { getPeriodReport } from "@/lib/dashboard-queries";
@@ -61,35 +62,32 @@ export default async function RevisorRapport({
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl font-bold">Perioderapport</h1>
-          <p className="text-sm text-muted">
-            Nøkkeltall for kvartals-, halvårs- og helårsrapport. Beløp inkl. mva
-            der ikke annet er angitt.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <a
-            href={`/revisor/eksport/xlsx?from=${p.fromDate}&to=${p.toDate}`}
-            className="border border-line-2 px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
-          >
-            Salg i perioden (Excel)
-          </a>
-          <a
-            href={`/revisor/eksport?from=${p.fromDate}&to=${p.toDate}`}
-            className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
-          >
-            CSV
-          </a>
-          <a
-            href={`/revisor/eksport/saft?from=${p.fromDate}&to=${p.toDate}`}
-            className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
-          >
-            SAF-T (XML)
-          </a>
-        </div>
-      </div>
+      <PageHeader
+        title="Perioderapport"
+        description="Nøkkeltall for kvartals-, halvårs- og helårsrapport. Beløp inkl. mva der ikke annet er angitt."
+        actions={
+          <>
+            <a
+              href={`/revisor/eksport/xlsx?from=${p.fromDate}&to=${p.toDate}`}
+              className="border border-line-2 px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
+            >
+              Salg i perioden (Excel)
+            </a>
+            <a
+              href={`/revisor/eksport?from=${p.fromDate}&to=${p.toDate}`}
+              className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
+            >
+              CSV
+            </a>
+            <a
+              href={`/revisor/eksport/saft?from=${p.fromDate}&to=${p.toDate}`}
+              className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
+            >
+              SAF-T (XML)
+            </a>
+          </>
+        }
+      />
 
       {/* Velger */}
       <div className="border border-line bg-surface">

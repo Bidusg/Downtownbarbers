@@ -7,6 +7,7 @@ import {
 } from "@/lib/ansatt-queries";
 import { LeaveRequestForm } from "@/components/ansatt/LeaveRequestForm";
 import { WithdrawLeaveButton } from "@/components/ansatt/WithdrawLeaveButton";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -54,12 +55,10 @@ export default async function AnsattFravaer() {
 
   return (
     <main className="mx-auto max-w-3xl space-y-8 p-6">
-      <div>
-        <h1 className="font-display text-xl font-bold">Mine fravær</h1>
-        <p className="mt-1 text-sm text-muted">
-          Registrert fravær og fri – og en søknad hvis du trenger mer.
-        </p>
-      </div>
+      <PageHeader
+        title="Mine fravær"
+        description="Registrert fravær og fri – og en søknad hvis du trenger mer."
+      />
 
       {!link.linked ? (
         <div className="border border-line bg-surface px-4 py-8 text-center text-sm text-muted">
