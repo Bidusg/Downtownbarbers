@@ -256,3 +256,289 @@ body {
     animation: none !important;
   }
 }
+
+/* =====================================================================
+ * BACK-OFFICE-SKALL — animert topbar delt av admin/revisor/ansatt/kasse.
+ * Alt er scopet med .bo-* og respekterer prefers-reduced-motion nederst.
+ * ===================================================================== */
+
+/* Glass-topbar: gjennomskinnelig flate med blur og fin dybde. */
+.bo-topbar {
+  background: color-mix(in oklch, oklch(var(--surface)) 82%, transparent);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  backdrop-filter: saturate(1.4) blur(14px);
+  border-bottom: 1px solid transparent;
+  transition: box-shadow 0.4s ease, background 0.4s ease;
+}
+/* Litt sterkere skygge når man har scrollet (data-scrolled settes i JS). */
+.bo-topbar[data-scrolled="true"] {
+  background: color-mix(in oklch, oklch(var(--surface)) 92%, transparent);
+  box-shadow: 0 10px 30px -18px oklch(var(--fg) / 0.5);
+}
+
+/* Levende accent-linje langs underkanten som glir sakte frem og tilbake. */
+.bo-accent-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    oklch(var(--accent-soft) / 0) 8%,
+    oklch(var(--accent-soft) / 0.9) 50%,
+    oklch(var(--accent-soft) / 0) 92%,
+    transparent
+  );
+  background-size: 220% 100%;
+  animation: bo-line-slide 7s ease-in-out infinite;
+  opacity: 0.65;
+  pointer-events: none;
+}
+@keyframes bo-line-slide {
+  0%,
+  100% {
+    background-position: 0% 0;
+  }
+  50% {
+    background-position: 100% 0;
+  }
+}
+
+/* Merke-glød bak rolle-badgen. */
+.bo-badge {
+  position: relative;
+}
+.bo-badge::before {
+  content: "";
+  position: absolute;
+  inset: -40% -30%;
+  background: radial-gradient(
+    60% 120% at 50% 50%,
+    oklch(var(--accent-soft) / 0.28),
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+}
+.bo-badge:hover::before {
+  opacity: 1;
+}
+
+/* Glidende aktiv/hover-pill i nav. Posisjon settes via CSS-variabler. */
+.bo-navrail {
+  position: relative;
+}
+.bo-pill {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  height: 2.1rem;
+  width: var(--pill-w, 0px);
+  transform: translate(var(--pill-x, 0px), -50%) scaleX(var(--pill-s, 1));
+  transform-origin: left center;
+  background: oklch(var(--fg) / 0.06);
+  border: 1px solid oklch(var(--accent-soft) / 0.28);
+  border-radius: 0.6rem;
+  opacity: var(--pill-o, 0);
+  transition:
+    transform 0.42s cubic-bezier(0.22, 1.2, 0.32, 1),
+    width 0.42s cubic-bezier(0.22, 1.2, 0.32, 1),
+    opacity 0.3s ease;
+  pointer-events: none;
+  box-shadow: 0 6px 18px -12px oklch(var(--accent-soft) / 0.9);
+}
+/* Underline-variant (for flate nav-rader). */
+.bo-underline {
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  height: 2px;
+  width: var(--pill-w, 0px);
+  transform: translateX(var(--pill-x, 0px));
+  background: oklch(var(--accent-soft));
+  border-radius: 999px;
+  opacity: var(--pill-o, 0);
+  transition:
+    transform 0.42s cubic-bezier(0.22, 1.2, 0.32, 1),
+    width 0.42s cubic-bezier(0.22, 1.2, 0.32, 1),
+    opacity 0.3s ease;
+  pointer-events: none;
+  box-shadow: 0 0 12px oklch(var(--accent-soft) / 0.7);
+}
+
+/* Nav-knapp: liten løft + accent på hover. */
+.bo-navbtn {
+  position: relative;
+  transition:
+    color 0.25s ease,
+    transform 0.25s cubic-bezier(0.22, 1.2, 0.32, 1);
+}
+.bo-navbtn:hover {
+  transform: translateY(-1px);
+}
+.bo-navbtn svg {
+  transition: transform 0.35s cubic-bezier(0.22, 1.2, 0.32, 1);
+}
+.bo-navbtn:hover svg {
+  transform: translateY(-1px) scale(1.12) rotate(-3deg);
+}
+
+/* Mega-dropdown: spretter opp med lett fjær + klarner blur. */
+.bo-mega {
+  transform-origin: top center;
+  animation: bo-mega-in 0.34s cubic-bezier(0.22, 1.25, 0.32, 1) both;
+  box-shadow:
+    0 30px 60px -30px oklch(var(--fg) / 0.55),
+    0 8px 24px -18px oklch(var(--fg) / 0.4);
+}
+@keyframes bo-mega-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.97);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+/* Elementer inne i dropdown kommer inn etter tur (--i settes per element). */
+.bo-mega-item {
+  opacity: 0;
+  animation: bo-item-in 0.4s cubic-bezier(0.22, 1.1, 0.32, 1) both;
+  animation-delay: calc(var(--i, 0) * 32ms + 40ms);
+}
+@keyframes bo-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.bo-mega-item {
+  transition:
+    background 0.2s ease,
+    transform 0.2s cubic-bezier(0.22, 1.2, 0.32, 1);
+}
+.bo-mega-item:hover {
+  transform: translateX(3px);
+}
+/* Pil som skyter frem på hover i dropdown-rad. */
+.bo-mega-item .bo-arrow {
+  opacity: 0;
+  transform: translateX(-4px);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s cubic-bezier(0.22, 1.2, 0.32, 1);
+}
+.bo-mega-item:hover .bo-arrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Mobil fullskjerm-meny: bakteppe fader, panel glir ned, rader staggered. */
+.bo-sheet {
+  animation: bo-fade 0.25s ease both;
+}
+.bo-sheet-panel {
+  animation: bo-sheet-in 0.4s cubic-bezier(0.22, 1.2, 0.32, 1) both;
+}
+@keyframes bo-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes bo-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(-14px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+.bo-sheet-row {
+  opacity: 0;
+  animation: bo-item-in 0.42s cubic-bezier(0.22, 1.1, 0.32, 1) both;
+  animation-delay: calc(var(--i, 0) * 26ms + 60ms);
+}
+
+/* Hamburger-strekene → X. */
+.bo-burger span {
+  transition:
+    transform 0.34s cubic-bezier(0.22, 1.2, 0.32, 1),
+    opacity 0.2s ease;
+}
+
+/* Sideovergang på ruteendring (key = pathname). */
+.bo-page {
+  animation: bo-page-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes bo-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+/* Søkeknapp med mild glød på hover. */
+.bo-search:hover {
+  border-color: oklch(var(--accent-soft) / 0.6);
+  box-shadow: 0 0 0 3px oklch(var(--accent-soft) / 0.12);
+}
+
+/* Avatar-ring som pulserer helt diskret. */
+.bo-avatar {
+  box-shadow: 0 0 0 0 oklch(var(--accent-soft) / 0.5);
+  transition: box-shadow 0.4s ease, transform 0.3s ease;
+}
+.bo-avatar:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 4px oklch(var(--accent-soft) / 0.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bo-accent-line,
+  .bo-mega,
+  .bo-mega-item,
+  .bo-sheet,
+  .bo-sheet-panel,
+  .bo-sheet-row,
+  .bo-page {
+    animation: none !important;
+  }
+  .bo-mega-item,
+  .bo-sheet-row,
+  .bo-page {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+  .bo-pill,
+  .bo-underline,
+  .bo-navbtn,
+  .bo-navbtn svg,
+  .bo-avatar,
+  .bo-burger span {
+    transition: none !important;
+  }
+}
