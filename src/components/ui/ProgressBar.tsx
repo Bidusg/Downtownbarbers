@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils/cn";
 
 type Props = {
@@ -10,11 +13,19 @@ type Props = {
 };
 
 /**
- * Fremdriftsbar (0–100 %). Merkevare: skarpe hjørner, #F47721 (accent-soft) som fyll.
- * Brukes for shop-dagsmål og ansatt-månedsmål.
+ * Fremdriftsbar (0–100 %). Merkevare: skarpe hjørner, #F47721 (accent-soft) som
+ * gradient-fyll med et rolig skinn-sveip. Fyllet animeres fra 0 til verdien når
+ * baren mountes. Brukes for shop-dagsmål og ansatt-månedsmål.
  */
 export function ProgressBar({ value, label, caption, className }: Props) {
   const pct = Math.max(0, Math.min(100, value));
+  // Start på 0 og voks til verdien etter mount (fin «fyll»-animasjon).
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setW(pct));
+    return () => cancelAnimationFrame(id);
+  }, [pct]);
+
   return (
     <div className={cn("w-full", className)}>
       {(label || caption) && (
@@ -34,8 +45,8 @@ export function ProgressBar({ value, label, caption, className }: Props) {
         aria-label={label}
       >
         <div
-          className="h-full bg-accent-soft transition-[width] duration-700 ease-out"
-          style={{ width: `${pct}%` }}
+          className="bo-bar-fill h-full transition-[width] duration-[900ms] ease-out"
+          style={{ width: `${w}%` }}
         />
       </div>
     </div>

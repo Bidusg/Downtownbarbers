@@ -516,6 +516,137 @@ body {
   box-shadow: 0 0 0 4px oklch(var(--accent-soft) / 0.18);
 }
 
+/* =====================================================================
+ * INNHOLD — samme bevegelsesspråk på KPI-fliser, kort, knapper, barer.
+ * Beholder merkevarens skarpe hjørner; legger til dybde, løft og accent.
+ * ===================================================================== */
+
+/* KPI-flis: løft + accent-glød, voksende venstrekant og et skinn-sveip. */
+.bo-tile {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.35s cubic-bezier(0.22, 1.2, 0.32, 1),
+    box-shadow 0.35s ease,
+    border-color 0.35s ease;
+}
+.bo-tile::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: oklch(var(--accent-soft));
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 0.45s cubic-bezier(0.22, 1.2, 0.32, 1);
+}
+.bo-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    oklch(var(--fg) / 0.06) 50%,
+    transparent 70%
+  );
+  transform: translateX(-130%);
+  transition: transform 0.75s ease;
+  pointer-events: none;
+}
+.bo-tile:hover {
+  transform: translateY(-3px);
+  border-color: oklch(var(--accent-soft) / 0.45);
+  box-shadow: 0 18px 42px -26px oklch(var(--fg) / 0.55);
+}
+.bo-tile:hover::before {
+  transform: scaleY(1);
+}
+.bo-tile:hover::after {
+  transform: translateX(130%);
+}
+
+/* Kort/panel: mild interaktiv respons på hover. */
+.bo-card {
+  transition:
+    transform 0.3s cubic-bezier(0.22, 1.2, 0.32, 1),
+    box-shadow 0.3s ease,
+    border-color 0.3s ease;
+}
+.bo-card:hover {
+  border-color: oklch(var(--accent-soft) / 0.35);
+  box-shadow: 0 16px 40px -28px oklch(var(--fg) / 0.5);
+}
+
+/* Knapp: løft på hover, lite trykk på klikk. */
+.bo-btn {
+  transition:
+    transform 0.2s cubic-bezier(0.22, 1.2, 0.32, 1),
+    background-color 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    opacity 0.2s ease;
+}
+.bo-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+.bo-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
+
+/* Fremdriftsbar: gradient-fyll med rolig skinn-sveip. */
+.bo-bar-fill {
+  position: relative;
+  background: linear-gradient(
+    90deg,
+    oklch(var(--accent-soft) / 0.8),
+    oklch(var(--accent-soft))
+  );
+  overflow: hidden;
+}
+.bo-bar-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  transform: translateX(-100%);
+  animation: bo-bar-shine 2.6s ease-in-out infinite;
+}
+@keyframes bo-bar-shine {
+  0% {
+    transform: translateX(-100%);
+  }
+  55%,
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+/* Stagger-inn for grupper av fliser/rader (--i settes per element). */
+.bo-rise {
+  opacity: 0;
+  animation: bo-rise-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+@keyframes bo-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .bo-accent-line,
   .bo-mega,
@@ -523,12 +654,15 @@ body {
   .bo-sheet,
   .bo-sheet-panel,
   .bo-sheet-row,
-  .bo-page {
+  .bo-page,
+  .bo-bar-fill::after,
+  .bo-rise {
     animation: none !important;
   }
   .bo-mega-item,
   .bo-sheet-row,
-  .bo-page {
+  .bo-page,
+  .bo-rise {
     opacity: 1 !important;
     transform: none !important;
     filter: none !important;
@@ -538,7 +672,12 @@ body {
   .bo-navbtn,
   .bo-navbtn svg,
   .bo-avatar,
-  .bo-burger span {
+  .bo-burger span,
+  .bo-tile,
+  .bo-tile::before,
+  .bo-tile::after,
+  .bo-card,
+  .bo-btn {
     transition: none !important;
   }
 }

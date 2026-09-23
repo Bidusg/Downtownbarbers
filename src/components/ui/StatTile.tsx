@@ -8,7 +8,7 @@ export function StatTile({
   sub?: string;
 }) {
   return (
-    <div className="border border-line bg-surface p-5">
+    <div className="bo-tile border border-line bg-surface p-5">
       <p className="text-[10px] font-semibold tracking-[0.2em] text-muted uppercase">
         {label}
       </p>

@@ -21,7 +21,7 @@ export function Card({
   padded?: boolean;
 }) {
   return (
-    <div className={"border border-line bg-surface " + className}>
+    <div className={"bo-card border border-line bg-surface " + className}>
       {(title || actions) && (
         <div className="flex items-center justify-between gap-2 border-b border-line px-5 py-3">
           {title && (
