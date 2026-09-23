@@ -2,9 +2,9 @@ import { createClient } from "@/lib/supabase/server";
 
 /* =====================================================================
  * RAPPORT-MOTOR
- *   Fixit-stil rapporter over en valgfri periode. All omsetning regnes
- *   som union av interne salg (`sales`, fra kassen) + eksterne salg
- *   (`external_sales`, speilet fra Zettle) slik at totalene stemmer.
+ *   Fixit-stil rapporter over en valgfri periode. All omsetning kommer fra
+ *   kassens egne salg (`sales`) – eget betalingssystem registrerer alt salg
+ *   uansett terminal, så det er eneste kilde.
  *   Alle tidsavgrensninger og bøtter er i Europe/Oslo.
  *   Defensivt: hver funksjon svarer med tomt resultat ved feil.
  * ===================================================================== */
@@ -129,7 +129,6 @@ export function resolveRange(from?: string, to?: string): Range {
 /* ---------- Rådata-henting (delt) ---------- */
 
 type SaleRaw = { sold_at: string; total_nok: number; payment_method: string | null; barber: string };
-type ExtRaw = { sold_at: string; amount_nok: number; payment_type: string | null };
 
 async function fetchInternalSales(r: Range): Promise<SaleRaw[]> {
   try {
@@ -151,25 +150,6 @@ async function fetchInternalSales(r: Range): Promise<SaleRaw[]> {
   }
 }
 
-async function fetchExternalSales(r: Range): Promise<ExtRaw[]> {
-  try {
-    const sb = await createClient();
-    const { data } = await sb
-      .from("external_sales")
-      .select("sold_at, amount_nok, payment_type")
-      .gte("sold_at", r.startIso)
-      .lt("sold_at", r.endIso)
-      .limit(100000);
-    return (data ?? []).map((s) => ({
-      sold_at: s.sold_at as string,
-      amount_nok: Number(s.amount_nok) || 0,
-      payment_type: (s.payment_type as string) ?? null,
-    }));
-  } catch {
-    return [];
-  }
-}
-
 /* ---------- 1) Omsetning over tid ---------- */
 
 export type Granularity = "day" | "week" | "month" | "hour" | "weekday";
@@ -183,19 +163,16 @@ export const GRANULARITIES: { key: Granularity; label: string }[] = [
   { key: "weekday", label: "Per ukedag" },
 ];
 
-/** Omsetningsserie i valgt oppløsning, sales + external_sales samlet. */
+/** Omsetningsserie i valgt oppløsning (fra kassens salg). */
 export async function getRevenueByGranularity(
   r: Range,
   g: Granularity,
 ): Promise<RevBucket[]> {
-  const [internal, external] = await Promise.all([
-    fetchInternalSales(r),
-    fetchExternalSales(r),
-  ]);
-  const all: { sold_at: string; nok: number }[] = [
-    ...internal.map((s) => ({ sold_at: s.sold_at, nok: s.total_nok })),
-    ...external.map((s) => ({ sold_at: s.sold_at, nok: s.amount_nok })),
-  ];
+  const internal = await fetchInternalSales(r);
+  const all: { sold_at: string; nok: number }[] = internal.map((s) => ({
+    sold_at: s.sold_at,
+    nok: s.total_nok,
+  }));
 
   const sums = new Map<string, { label: string; nok: number; sort: string }>();
   const add = (key: string, label: string, sort: string, nok: number) => {
@@ -249,8 +226,6 @@ export async function getRevenueByGranularity(
 
 export type Breakdown = {
   total: number;
-  internal: number;
-  external: number;
   saleCount: number;
   avg: number;
   byBarber: { name: string; nok: number }[];
@@ -268,75 +243,24 @@ const prettyMethod = (m: string | null): string => {
 };
 
 export async function getRevenueBreakdown(r: Range): Promise<Breakdown> {
-  const [internal, external] = await Promise.all([
-    fetchInternalSales(r),
-    fetchExternalSales(r),
-  ]);
+  const internal = await fetchInternalSales(r);
   const barber = new Map<string, number>();
   const method = new Map<string, number>();
-  let internalTotal = 0;
+  let total = 0;
   for (const s of internal) {
-    internalTotal += s.total_nok;
+    total += s.total_nok;
     barber.set(s.barber, (barber.get(s.barber) ?? 0) + s.total_nok);
     const m = prettyMethod(s.payment_method);
     method.set(m, (method.get(m) ?? 0) + s.total_nok);
   }
-  let externalTotal = 0;
-  for (const s of external) {
-    externalTotal += s.amount_nok;
-    const m = prettyMethod(s.payment_type) + " (Zettle)";
-    method.set(m, (method.get(m) ?? 0) + s.amount_nok);
-  }
-  if (externalTotal > 0) {
-    barber.set("Eksterne salg (Zettle)", (barber.get("Eksterne salg (Zettle)") ?? 0) + externalTotal);
-  }
-  const total = internalTotal + externalTotal;
-  const saleCount = internal.length + external.length;
+  const saleCount = internal.length;
   return {
     total: Math.round(total),
-    internal: Math.round(internalTotal),
-    external: Math.round(externalTotal),
     saleCount,
     avg: saleCount ? Math.round(total / saleCount) : 0,
     byBarber: Array.from(barber, ([name, nok]) => ({ name, nok: Math.round(nok) })).sort((a, b) => b.nok - a.nok),
     byMethod: Array.from(method, ([m, nok]) => ({ method: m, nok: Math.round(nok) })).sort((a, b) => b.nok - a.nok),
   };
-}
-
-/* ---------- Venn/familie-salg (0054) ---------- */
-
-export type RelationSummary = {
-  venn: { count: number; nok: number };
-  familie: { count: number; nok: number };
-};
-
-/** Antall og omsetning for venn-/familie-salg i perioden (bruk/hyppighet). */
-export async function getRelationSummary(r: Range): Promise<RelationSummary> {
-  const out: RelationSummary = {
-    venn: { count: 0, nok: 0 },
-    familie: { count: 0, nok: 0 },
-  };
-  try {
-    const sb = await createClient();
-    const { data } = await sb
-      .from("sales")
-      .select("relation_type, total_nok")
-      .in("relation_type", ["venn", "familie"])
-      .gte("sold_at", r.startIso)
-      .lt("sold_at", r.endIso)
-      .limit(100000);
-    for (const s of (data ?? []) as {
-      relation_type: string;
-      total_nok: number;
-    }[]) {
-      const k = s.relation_type === "familie" ? "familie" : "venn";
-      out[k].count += 1;
-      out[k].nok += Number(s.total_nok) || 0;
-    }
-  } catch {
-    // tomt
-  }
-  return out;
 }
 
 /* ---------- 3) Per behandlingskategori ---------- */
@@ -345,12 +269,10 @@ export type CatRow = { category: string; nok: number; count: number };
 export type CategoryReport = {
   rows: CatRow[];
   serviceTotal: number;
-  /** Varesalg fanges via Zettle (ikke itemisert per kategori her). */
-  productExternal: number;
 };
 
 export async function getCategoryBreakdown(r: Range): Promise<CategoryReport> {
-  const empty: CategoryReport = { rows: [], serviceTotal: 0, productExternal: 0 };
+  const empty: CategoryReport = { rows: [], serviceTotal: 0 };
   try {
     const sb = await createClient();
     // sale_items i perioden (join på sales.sold_at). Kun tjenestelinjer finnes i dag.
@@ -395,10 +317,6 @@ export async function getCategoryBreakdown(r: Range): Promise<CategoryReport> {
       bucket.set(label, cur);
     }
 
-    // Varesalg via Zettle (total, ikke per kategori).
-    const external = await fetchExternalSales(r);
-    const productExternal = external.reduce((a, s) => a + s.amount_nok, 0);
-
     return {
       rows: Array.from(bucket, ([category, v]) => ({
         category,
@@ -406,7 +324,6 @@ export async function getCategoryBreakdown(r: Range): Promise<CategoryReport> {
         count: v.count,
       })).sort((a, b) => b.nok - a.nok),
       serviceTotal: Math.round(serviceTotal),
-      productExternal: Math.round(productExternal),
     };
   } catch {
     return empty;
@@ -420,7 +337,6 @@ export type VatReport = {
   rate: number; // prosent
   total: Vat;
   services: Vat;
-  external: Vat;
 };
 
 const VAT_RATE = 25; // standard norsk MVA på tjenester og varer
@@ -435,17 +351,12 @@ function splitVat(gross: number): Vat {
 }
 
 export async function getVatReport(r: Range): Promise<VatReport> {
-  const [internal, external] = await Promise.all([
-    fetchInternalSales(r),
-    fetchExternalSales(r),
-  ]);
+  const internal = await fetchInternalSales(r);
   const svcGross = internal.reduce((a, s) => a + s.total_nok, 0);
-  const extGross = external.reduce((a, s) => a + s.amount_nok, 0);
   return {
     rate: VAT_RATE,
     services: splitVat(svcGross),
-    external: splitVat(extGross),
-    total: splitVat(svcGross + extGross),
+    total: splitVat(svcGross),
   };
 }
 
@@ -461,8 +372,7 @@ export type SlowRow = {
 /**
  * Produkter rangert etter lav omløpshastighet: aktive produkter (ikke gavekort),
  * sortert på solgte enheter i perioden (stigende), så høyt lager først.
- * Produktsalg registreres i dag primært via Zettle; itemisert enhetstelling
- * finnes bare der `sale_items` har produktlinjer, ellers vises 0 (ærlig).
+ * Enhetstelling kommer fra produktlinjer i `sale_items`.
  */
 export async function getSlowMovers(r: Range): Promise<SlowRow[]> {
   try {

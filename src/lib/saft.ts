@@ -5,9 +5,9 @@ import type { Range } from "@/lib/report-queries";
 /* =====================================================================
  * SAF-T Financial (Regnskap) v1.30 – eksport for revisor.
  *
- *   Bygger en strukturert SAF-T Financial XML fra salgssiden (kassesalg +
- *   eksterne Zettle-salg): standard kontoplan, MVA-kode og balanserte
- *   daglige bilag (debet kasse/bank, kredit salgsinntekt + utgående mva).
+ *   Bygger en strukturert SAF-T Financial XML fra salgssiden (kassesalg):
+ *   standard kontoplan, MVA-kode og balanserte daglige bilag (debet
+ *   kasse/bank, kredit salgsinntekt + utgående mva).
  *
  *   VIKTIG (ærlig avgrensning): dette dekker INNTEKTSSIDEN. Fullt lovpålagt
  *   SAF-T med kjøp/kostnader, lønnsposteringer og inn-/utgående balanse
@@ -101,20 +101,14 @@ export async function buildSaftXml(r: Range): Promise<string> {
   const [company] = await Promise.all([getSaftCompany()]);
   const sb = await createClient();
 
-  const [salesRes, extRes] = await Promise.all([
-    sb.from("sales")
-      .select("sold_at, total_nok, payment_method")
-      .gte("sold_at", r.startIso)
-      .lt("sold_at", r.endIso)
-      .limit(200000),
-    sb.from("external_sales")
-      .select("sold_at, amount_nok, payment_type")
-      .gte("sold_at", r.startIso)
-      .lt("sold_at", r.endIso)
-      .limit(200000),
-  ]);
+  const salesRes = await sb
+    .from("sales")
+    .select("sold_at, total_nok, payment_method")
+    .gte("sold_at", r.startIso)
+    .lt("sold_at", r.endIso)
+    .limit(200000);
 
-  // Aggreger per Oslo-dag: kontant vs bank (kort/vipps/zettle → bank).
+  // Aggreger per Oslo-dag: kontant vs bank (kort/vipps → bank).
   const byDay = new Map<string, DayAgg>();
   const add = (day: string, gross: number, cash: boolean) => {
     const cur = byDay.get(day) ?? { cash: 0, bank: 0, gross: 0 };
@@ -125,10 +119,6 @@ export async function buildSaftXml(r: Range): Promise<string> {
   };
   for (const s of (salesRes.data ?? []) as { sold_at: string; total_nok: number; payment_method: string | null }[]) {
     add(osloDay(s.sold_at), Number(s.total_nok) || 0, isCash(s.payment_method));
-  }
-  for (const s of (extRes.data ?? []) as { sold_at: string; amount_nok: number; payment_type: string | null }[]) {
-    // Eksterne (Zettle) regnes som bank (kort).
-    add(osloDay(s.sold_at), Number(s.amount_nok) || 0, false);
   }
 
   const days = Array.from(byDay.keys()).sort();

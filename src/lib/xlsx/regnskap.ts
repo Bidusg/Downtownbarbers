@@ -67,8 +67,6 @@ export async function workbookFromData(
 
   const rows: { label: string; val: number; money?: boolean; bold?: boolean }[] = [
     { label: "Omsetning totalt (inkl. mva)", val: b.total, money: true, bold: true },
-    { label: "   herav kasse", val: b.internal, money: true },
-    { label: "   herav Zettle", val: b.external, money: true },
     { label: `Netto eks. mva`, val: v.total.net, money: true },
     { label: `MVA ${v.rate} %`, val: v.total.vat, money: true },
     { label: "Antall salg", val: b.saleCount },

@@ -1,7 +1,5 @@
 import { StatTile } from "@/components/ui/StatTile";
 import { ProgressBar } from "@/components/ui/ProgressBar";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { Button } from "@/components/ui/Button";
 import { resolveRange } from "@/lib/report-queries";
 import { getKpiOverview } from "@/lib/kpi-queries";
 
@@ -40,7 +38,12 @@ export default async function AdminNokkeltall({
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <PageHeader title="Nøkkeltall" description={`Periode: ${r.label}`} />
+      <div>
+        <h1 className="font-display text-2xl font-bold">Nøkkeltall</h1>
+        <p className="mt-1 text-sm text-muted">
+          Periode: <span className="text-fg">{r.label}</span>
+        </p>
+      </div>
 
       {/* Periodevelger */}
       <div className="border border-line bg-surface p-5">
@@ -72,15 +75,15 @@ export default async function AdminNokkeltall({
             Til
             <input type="date" name="to" defaultValue={r.to} className="border border-line bg-canvas px-3 py-2 text-sm text-fg" />
           </label>
-          <Button type="submit" className="px-4 py-2 text-sm">
+          <button type="submit" className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90">
             Oppdater
-          </Button>
+          </button>
         </form>
       </div>
 
       {/* Nøkkeltall-fliser */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <StatTile label="Omsetning" value={nok(k.revenue)} sub="inkl. Zettle" />
+        <StatTile label="Omsetning" value={nok(k.revenue)} sub="fra kassen" />
         <StatTile label="Snitt per salg" value={nok(k.avgSale)} />
         <StatTile label="Rebooking" value={`${k.rebooking.pct} %`} sub="kom tilbake" />
         <StatTile

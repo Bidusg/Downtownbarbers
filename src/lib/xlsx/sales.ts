@@ -83,8 +83,6 @@ async function workbookFromData(r: Range, b: Breakdown, sales: SaleRow[]) {
   const cnt = s.addRow(["Antall salg", b.saleCount]);
   cnt.getCell(1).font = { color: { argb: INK } };
   kv("Snitt per salg", Math.round(b.avg));
-  kv("Internt (kassesalg)", Math.round(b.internal));
-  kv("Eksternt (Zettle o.l.)", Math.round(b.external));
 
   s.addRow([]);
   const bh = s.addRow(["Per barber", "Omsetning"]);

@@ -1,7 +1,5 @@
 import { StatTile } from "@/components/ui/StatTile";
 import { ProgressBar } from "@/components/ui/ProgressBar";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { Button } from "@/components/ui/Button";
 import { RevenueChart } from "@/components/admin/RevenueChart";
 import {
   resolveRange,
@@ -88,26 +86,28 @@ export default async function AdminRapporter({
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <PageHeader
-        title="Rapporter"
-        description={`Periode: ${r.label}`}
-        actions={
-          <>
-            <a
-              href={`/admin/rapporter/produktivitet?from=${r.from}&to=${r.to}`}
-              className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
-            >
-              Produktivitet per barber →
-            </a>
-            <a
-              href="/admin/rapporter/grunndata"
-              className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
-            >
-              Eksporter alt (grunndata) ↓
-            </a>
-          </>
-        }
-      />
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl font-bold">Rapporter</h1>
+          <p className="mt-1 text-sm text-muted">
+            Periode: <span className="text-fg">{r.label}</span>
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <a
+            href={`/admin/rapporter/produktivitet?from=${r.from}&to=${r.to}`}
+            className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
+          >
+            Produktivitet per barber →
+          </a>
+          <a
+            href="/admin/rapporter/grunndata"
+            className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
+          >
+            Eksporter alt (grunndata) ↓
+          </a>
+        </div>
+      </div>
 
       {/* Periodevelger */}
       <div className="border border-line bg-surface p-5">
@@ -150,15 +150,18 @@ export default async function AdminRapporter({
               className="border border-line bg-canvas px-3 py-2 text-sm text-fg"
             />
           </label>
-          <Button type="submit" className="px-4 py-2 text-sm">
+          <button
+            type="submit"
+            className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90"
+          >
             Oppdater
-          </Button>
+          </button>
         </form>
       </div>
 
       {/* Nøkkeltall */}
       <div className="grid gap-4 sm:grid-cols-4">
-        <StatTile label="Omsetning" value={nok(brk.total)} sub="inkl. Zettle" />
+        <StatTile label="Omsetning" value={nok(brk.total)} sub="fra kassen" />
         <StatTile label="Antall salg" value={String(brk.saleCount)} />
         <StatTile label="Snitt per salg" value={nok(brk.avg)} />
         <StatTile label={`Herav MVA (${vat.rate}%)`} value={nok(vat.total.vat)} />
@@ -234,12 +237,6 @@ export default async function AdminRapporter({
               ))}
             </div>
           )}
-          {cat.productExternal > 0 && (
-            <p className="mt-6 border-t border-line pt-4 text-sm text-muted">
-              Varesalg via Zettle (ikke fordelt på kategori):{" "}
-              <span className="font-medium text-fg">{nok(cat.productExternal)}</span>
-            </p>
-          )}
         </div>
       </div>
 
@@ -258,8 +255,7 @@ export default async function AdminRapporter({
             </thead>
             <tbody>
               {[
-                { label: "Tjenester (kasse)", v: vat.services },
-                { label: "Varesalg (Zettle)", v: vat.external },
+                { label: "Kassesalg", v: vat.services },
               ].map((row) => (
                 <tr key={row.label} className="border-b border-line">
                   <td className="px-6 py-3 text-fg-soft">{row.label}</td>
