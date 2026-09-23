@@ -4,8 +4,8 @@ import { buildDailyVoucherPlan, postDailyVoucher } from "@/lib/tripletex/voucher
 
 /**
  * Sender gårsdagens dagsbilag til Tripletex (revisor). Ment å kjøres av Vercel
- * Cron én gang i døgnet (natt). Idempotens/duplikat-sperre bør vurderes før vi
- * slår på faktisk posting (TRIPLETEX_POSTING_ENABLED=true).
+ * Cron én gang i døgnet (natt). Duplikatsperre er på plass: en dato som allerede
+ * er postet (logget i tripletex_voucher_log) postes ikke på nytt.
  *
  * Trygghet:
  *  - CRON_SECRET-header kreves hvis satt (som de andre cron-rutene).

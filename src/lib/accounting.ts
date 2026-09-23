@@ -9,6 +9,7 @@
 
 import { PAYROLL } from "@/lib/ops-queries";
 import { getPeriodReport } from "@/lib/dashboard-queries";
+import { createClient } from "@/lib/supabase/server";
 
 export type LedgerLine = {
   account: string;
@@ -26,7 +27,18 @@ const METHOD_ACCOUNT: Record<string, { account: string; name: string }> = {
   vipps: { account: "1921", name: "Bankinnskudd (Vipps)" },
 };
 const OTHER_ACCOUNT = { account: "1990", name: "Uspesifisert oppgjør" };
-const SALES_ACCOUNT = { account: "3000", name: "Salgsinntekt, avgiftspliktig" };
+
+// Salgsinntekt splittes på tjenester vs. varesalg. Kontonumrene kan overstyres
+// via env (Kumar bekrefter de endelige – 3000/3001 er foreløpige). Uten
+// varelinjer havner alt på tjeneste-kontoen, akkurat som før splitten.
+const SERVICE_SALES_ACCOUNT = {
+  account: process.env.TRIPLETEX_ACCOUNT_SERVICE || "3000",
+  name: "Salgsinntekt tjenester, avgiftspliktig",
+};
+const PRODUCT_SALES_ACCOUNT = {
+  account: process.env.TRIPLETEX_ACCOUNT_PRODUCT || "3001",
+  name: "Salgsinntekt varer, avgiftspliktig",
+};
 const VAT_ACCOUNT = { account: "2700", name: "Utgående mva (25 %)" };
 
 export type IncomeLedger = {
@@ -34,6 +46,9 @@ export type IncomeLedger = {
   inkl: number;
   eks: number;
   mva: number;
+  /** Netto salgsinntekt fordelt på tjenester vs. varer (eks. mva). */
+  serviceEks: number;
+  productEks: number;
   totalDebit: number;
   totalCredit: number;
   balanced: boolean;
@@ -41,16 +56,51 @@ export type IncomeLedger = {
 };
 
 /**
+ * Sum av salgslinjer per type (tjeneste vs. vare) for perioden. Brukes kun til
+ * å finne fordelingsnøkkelen mellom tjeneste- og varesalg – selve debet/kredit
+ * bygges på faktisk innbetaling, så en evt. avstand mellom linjesum og
+ * betalingssum påvirker bare fordelingen, aldri balansen.
+ */
+async function revenueSplitByKind(
+  startIso: string,
+  endIso: string,
+): Promise<{ product: number; service: number }> {
+  try {
+    const sb = await createClient();
+    const { data } = await sb
+      .from("sale_items")
+      .select("kind, price_nok, sales!inner(sold_at)")
+      .gte("sales.sold_at", startIso)
+      .lt("sales.sold_at", endIso)
+      .limit(100000);
+    let product = 0;
+    let service = 0;
+    for (const it of data ?? []) {
+      const amt = Number((it as { price_nok?: number }).price_nok) || 0;
+      if ((it as { kind?: string }).kind === "product") product += amt;
+      else service += amt; // tjenester + øvrige linjer som i dag
+    }
+    return { product, service };
+  } catch {
+    return { product: 0, service: 0 };
+  }
+}
+
+/**
  * Avledet hovedbok (inntektssiden) for en periode: debet per betalingsmåte
  * (kundens innbetaling inkl. mva) mot kredit salgsinntekt (eks. mva) +
  * utgående mva. Kredit-siden regnes fra faktisk debet-sum, så oppstillingen
- * alltid balanserer (debet = kredit).
+ * alltid balanserer (debet = kredit). Salgsinntekten fordeles på tjeneste- og
+ * vare-konto etter forholdet mellom tjeneste- og varelinjer i perioden.
  */
 export async function deriveIncomeLedger(
   startIso: string,
   endIso: string,
 ): Promise<IncomeLedger> {
-  const rep = await getPeriodReport(startIso, endIso);
+  const [rep, split] = await Promise.all([
+    getPeriodReport(startIso, endIso),
+    revenueSplitByKind(startIso, endIso),
+  ]);
 
   // Debet per betalingsmåte.
   const debitMap = new Map<string, LedgerLine>();
@@ -72,18 +122,29 @@ export async function deriveIncomeLedger(
   const eks = Math.round(totalDebit / (1 + PAYROLL.MVA));
   const mva = totalDebit - eks;
 
-  const lines: LedgerLine[] = [
-    ...debitLines,
-    { ...SALES_ACCOUNT, debit: 0, credit: eks },
-    { ...VAT_ACCOUNT, debit: 0, credit: mva },
-  ];
-  const totalCredit = eks + mva;
+  // Fordel netto salgsinntekt på vare vs. tjeneste. Varens andel avrundes og
+  // tjenesten tar resten, så summen treffer `eks` eksakt.
+  const base = split.product + split.service;
+  const productEks = base > 0 ? Math.round((eks * split.product) / base) : 0;
+  const serviceEks = eks - productEks;
+
+  const creditLines: LedgerLine[] = [];
+  if (serviceEks !== 0)
+    creditLines.push({ ...SERVICE_SALES_ACCOUNT, debit: 0, credit: serviceEks });
+  if (productEks !== 0)
+    creditLines.push({ ...PRODUCT_SALES_ACCOUNT, debit: 0, credit: productEks });
+  if (mva !== 0) creditLines.push({ ...VAT_ACCOUNT, debit: 0, credit: mva });
+
+  const lines: LedgerLine[] = [...debitLines, ...creditLines];
+  const totalCredit = serviceEks + productEks + mva;
 
   return {
     lines,
     inkl: totalDebit,
     eks,
     mva,
+    serviceEks,
+    productEks,
     totalDebit,
     totalCredit,
     balanced: totalDebit === totalCredit,

@@ -9,6 +9,7 @@
 // opp id-en per kontonummer ved kjøring (ulik i test/prod) og cacher den.
 
 import { deriveIncomeLedger } from "@/lib/accounting";
+import { createServiceClient } from "@/lib/supabase/service";
 import { TRIPLETEX } from "./config";
 import { tripletexFetch } from "./client";
 
@@ -84,18 +85,76 @@ export async function buildDailyVoucherPlan(
 
 export type PostResult =
   | { status: "skipped"; reason: string; plan: DailyVoucherPlan }
+  | { status: "already_posted"; voucherId: number | null; plan: DailyVoucherPlan }
   | { status: "dry_run"; plan: DailyVoucherPlan; body: unknown }
   | { status: "posted"; voucherId: number; plan: DailyVoucherPlan };
 
 /**
+ * Duplikatsperre: har vi allerede postet et ekte dagsbilag for denne datoen?
+ * Kun ekte posteringer logges (0053), så en dato som bare er dry-run-kjørt blir
+ * IKKE blokkert. Feiler loggen (mangler service-nøkkel e.l.) lar vi kjøringen
+ * gå videre – da er Tripletex' egen validering siste skanse.
+ */
+async function findPostedVoucher(
+  isoDate: string,
+): Promise<{ voucherId: number | null } | null> {
+  try {
+    const sb = createServiceClient();
+    const { data } = await sb
+      .from("tripletex_voucher_log")
+      .select("voucher_id")
+      .eq("voucher_date", isoDate)
+      .maybeSingle();
+    if (!data) return null;
+    return { voucherId: (data.voucher_id as number | null) ?? null };
+  } catch {
+    return null;
+  }
+}
+
+/** Loggfør en ekte postering (idempotent på datoen). */
+async function recordPostedVoucher(
+  isoDate: string,
+  voucherId: number,
+  plan: DailyVoucherPlan,
+): Promise<void> {
+  const amountGross = plan.postings
+    .filter((p) => p.amountGross > 0)
+    .reduce((s, p) => s + p.amountGross, 0);
+  try {
+    const sb = createServiceClient();
+    await sb
+      .from("tripletex_voucher_log")
+      .upsert(
+        {
+          voucher_date: isoDate,
+          voucher_id: voucherId,
+          amount_gross: amountGross,
+          sales_count: plan.count,
+        },
+        { onConflict: "voucher_date" },
+      );
+  } catch {
+    // Loggskriving er best-effort; posteringen er allerede gjennomført.
+  }
+}
+
+/**
  * Post (eller dry-run) dagsbilaget for en dato. Poster kun når
  * TRIPLETEX_POSTING_ENABLED=true; ellers bygges bilaget og returneres uten å
- * sende noe (trygt å kjøre før kontoplan er bekreftet).
+ * sende noe (trygt å kjøre før kontoplan er bekreftet). Duplikatsperren hindrer
+ * at samme dag posteres to ganger.
  */
 export async function postDailyVoucher(isoDate: string): Promise<PostResult> {
   const plan = await buildDailyVoucherPlan(isoDate);
   if (plan.count === 0 || plan.postings.length === 0) {
     return { status: "skipped", reason: "Ingen salg denne dagen", plan };
+  }
+
+  // Duplikatsperre: allerede postet? (Kun ekte posteringer logges.)
+  const already = await findPostedVoucher(isoDate);
+  if (already) {
+    return { status: "already_posted", voucherId: already.voucherId, plan };
   }
 
   // Løs opp konto-id-er og bygg Tripletex-bilagskropp.
@@ -125,5 +184,6 @@ export async function postDailyVoucher(isoDate: string): Promise<PostResult> {
   );
   const voucherId = created?.value?.id;
   if (!voucherId) throw new Error("Tripletex ga ikke noe bilags-id tilbake.");
+  await recordPostedVoucher(isoDate, voucherId, plan);
   return { status: "posted", voucherId, plan };
 }
