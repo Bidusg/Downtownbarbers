@@ -35,16 +35,29 @@ const DAY_NAMES = [
 ];
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
+const DEFAULT_OPEN = "09:00";
+const DEFAULT_CLOSE = "21:00";
+
 export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {
   const [s, setS] = useState<SiteSettings>(initial);
   const [msg, setMsg] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  // Rask utfylling: felles fra/til som kan settes på flere dager samtidig.
+  const [bulk, setBulk] = useState({ open: DEFAULT_OPEN, close: DEFAULT_CLOSE });
 
   function set<K extends keyof SiteSettings>(k: K, v: SiteSettings[K]) {
     setS((prev) => ({ ...prev, [k]: v }));
   }
   function updateDay(dow: number, next: DayHours) {
     setS((prev) => ({ ...prev, hours: { ...prev.hours, [String(dow)]: next } }));
+  }
+  /** Sett samme tider på flere dager samtidig (rask utfylling). */
+  function applyToDays(dows: number[], next: DayHours) {
+    setS((prev) => {
+      const hours = { ...prev.hours };
+      for (const d of dows) hours[String(d)] = next;
+      return { ...prev, hours };
+    });
   }
 
   function save() {
@@ -104,11 +117,48 @@ export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {
         <div className="mb-4">
           <h2 className="font-display text-lg font-bold">Åpningstider</h2>
           <p className="mt-1 text-xs text-muted">
-            Styrer både forsiden og hva kunder kan booke. «Stengt» = ingen
-            ledige timer den dagen. Barbernes turnus klippes automatisk til
+            Styrer både forsiden og hva kunder kan booke. Dager merket «Stengt»
+            har ingen ledige timer. Barbernes turnus klippes automatisk til
             disse tidene.
           </p>
         </div>
+
+        {/* Rask utfylling: sett samme tider på mange dager i ett grep. */}
+        <div className="mb-5 flex flex-wrap items-end gap-3 border border-line-2 bg-canvas/60 p-3">
+          <label className="flex flex-col gap-1 text-xs font-semibold tracking-wide text-muted uppercase">
+            Fra
+            <input
+              type="time"
+              value={bulk.open}
+              onChange={(e) => setBulk((b) => ({ ...b, open: e.target.value }))}
+              className={input + " w-32"}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs font-semibold tracking-wide text-muted uppercase">
+            Til
+            <input
+              type="time"
+              value={bulk.close}
+              onChange={(e) => setBulk((b) => ({ ...b, close: e.target.value }))}
+              className={input + " w-32"}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => applyToDays([1, 2, 3, 4, 5], { open: bulk.open, close: bulk.close })}
+            className="border border-line-2 px-3 py-2.5 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
+          >
+            Bruk på man–fre
+          </button>
+          <button
+            type="button"
+            onClick={() => applyToDays([0, 1, 2, 3, 4, 5, 6], { open: bulk.open, close: bulk.close })}
+            className="border border-line-2 px-3 py-2.5 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
+          >
+            Bruk på alle dager
+          </button>
+        </div>
+
         <div className="space-y-2">
           {DAY_ORDER.map((dow) => {
             const h = s.hours?.[String(dow)] ?? null;
@@ -116,36 +166,58 @@ export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {
             return (
               <div key={dow} className="flex flex-wrap items-center gap-2">
                 <span className="w-24 text-sm text-fg">{DAY_NAMES[dow]}</span>
-                <input
-                  type="time"
-                  disabled={closed}
-                  value={h?.open ?? "09:00"}
-                  onChange={(e) =>
-                    updateDay(dow, { open: e.target.value, close: h?.close ?? "21:00" })
-                  }
-                  className={input + " w-32 disabled:opacity-40"}
-                />
-                <span className="text-muted">–</span>
-                <input
-                  type="time"
-                  disabled={closed}
-                  value={h?.close ?? "21:00"}
-                  onChange={(e) =>
-                    updateDay(dow, { open: h?.open ?? "09:00", close: e.target.value })
-                  }
-                  className={input + " w-32 disabled:opacity-40"}
-                />
-                <label className="ml-2 flex items-center gap-1.5 text-sm text-muted">
-                  <input
-                    type="checkbox"
-                    checked={closed}
-                    onChange={(e) =>
-                      updateDay(dow, e.target.checked ? null : { open: "09:00", close: "21:00" })
+                {/* Tydelig av/på-bryter i stedet for en «Stengt»-avkrysning. */}
+                <div className="flex overflow-hidden border border-line-2 text-sm">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateDay(dow, { open: bulk.open, close: bulk.close })
                     }
-                    className="accent-[#F47721]"
-                  />
-                  Stengt
-                </label>
+                    className={
+                      "px-3 py-1.5 font-semibold transition-colors " +
+                      (!closed
+                        ? "bg-accent text-accent-fg"
+                        : "bg-canvas text-muted hover:text-fg")
+                    }
+                  >
+                    Åpen
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateDay(dow, null)}
+                    className={
+                      "px-3 py-1.5 font-semibold transition-colors " +
+                      (closed
+                        ? "bg-fg text-canvas"
+                        : "bg-canvas text-muted hover:text-fg")
+                    }
+                  >
+                    Stengt
+                  </button>
+                </div>
+                {closed ? (
+                  <span className="text-sm text-muted">Ingen ledige timer</span>
+                ) : (
+                  <>
+                    <input
+                      type="time"
+                      value={h.open}
+                      onChange={(e) =>
+                        updateDay(dow, { open: e.target.value, close: h.close })
+                      }
+                      className={input + " w-32"}
+                    />
+                    <span className="text-muted">–</span>
+                    <input
+                      type="time"
+                      value={h.close}
+                      onChange={(e) =>
+                        updateDay(dow, { open: h.open, close: e.target.value })
+                      }
+                      className={input + " w-32"}
+                    />
+                  </>
+                )}
               </div>
             );
           })}
