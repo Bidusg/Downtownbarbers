@@ -161,7 +161,7 @@ export default async function AdminRapporter({
 
       {/* Nøkkeltall */}
       <div className="grid gap-4 sm:grid-cols-4">
-        <StatTile label="Omsetning" value={nok(brk.total)} sub="fra kassen" />
+        <StatTile label="Omsetning" value={nok(brk.total)} sub="inkl. Zettle" />
         <StatTile label="Antall salg" value={String(brk.saleCount)} />
         <StatTile label="Snitt per salg" value={nok(brk.avg)} />
         <StatTile label={`Herav MVA (${vat.rate}%)`} value={nok(vat.total.vat)} />
@@ -237,6 +237,12 @@ export default async function AdminRapporter({
               ))}
             </div>
           )}
+          {cat.productExternal > 0 && (
+            <p className="mt-6 border-t border-line pt-4 text-sm text-muted">
+              Varesalg via Zettle (ikke fordelt på kategori):{" "}
+              <span className="font-medium text-fg">{nok(cat.productExternal)}</span>
+            </p>
+          )}
         </div>
       </div>
 
@@ -255,7 +261,8 @@ export default async function AdminRapporter({
             </thead>
             <tbody>
               {[
-                { label: "Kassesalg", v: vat.services },
+                { label: "Tjenester (kasse)", v: vat.services },
+                { label: "Varesalg (Zettle)", v: vat.external },
               ].map((row) => (
                 <tr key={row.label} className="border-b border-line">
                   <td className="px-6 py-3 text-fg-soft">{row.label}</td>

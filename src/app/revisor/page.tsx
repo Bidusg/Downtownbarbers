@@ -133,7 +133,7 @@ export default async function RevisorHome({
         <h2 className="font-display text-lg font-bold">SAF-T & regnskapseksport</h2>
         <p className="mt-1 text-sm text-muted">
           SAF-T Financial (Regnskap) v1.30 for valgt periode — standard kontoplan,
-          MVA-kode og balanserte dagsbilag fra kassesalg.
+          MVA-kode og balanserte dagsbilag fra kassesalg + Zettle.
         </p>
         <form method="get" action="/revisor/eksport/saft" className="mt-4 flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-xs text-muted">
@@ -147,6 +147,9 @@ export default async function RevisorHome({
           <button type="submit" className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover">
             Last ned SAF-T (XML)
           </button>
+          <a href={`/revisor/eksport/xlsx?from=${saftFrom}&to=${saftTo}`} className="border border-line-2 px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft">
+            Salg denne måned (Excel)
+          </a>
           <a href="/revisor/eksport" className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg">
             Alle salg (CSV)
           </a>

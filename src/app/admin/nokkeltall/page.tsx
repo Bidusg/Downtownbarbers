@@ -83,7 +83,7 @@ export default async function AdminNokkeltall({
 
       {/* Nøkkeltall-fliser */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <StatTile label="Omsetning" value={nok(k.revenue)} sub="fra kassen" />
+        <StatTile label="Omsetning" value={nok(k.revenue)} sub="inkl. Zettle" />
         <StatTile label="Snitt per salg" value={nok(k.avgSale)} />
         <StatTile label="Rebooking" value={`${k.rebooking.pct} %`} sub="kom tilbake" />
         <StatTile

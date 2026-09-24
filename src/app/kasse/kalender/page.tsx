@@ -1,6 +1,6 @@
 import { requireRole } from "@/lib/auth";
 import { getDayAgenda, getBarbers, getServices } from "@/lib/shop-queries";
-import { getShopAccess } from "@/lib/shop-settings";
+import { getShopContext } from "@/lib/shop-settings";
 import { DayCalendar } from "@/components/kasse/DayCalendar";
 
 export const dynamic = "force-dynamic";
@@ -21,14 +21,16 @@ export default async function KalenderPage({
   const sp = await searchParams;
   const date = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : osloToday();
 
-  const [rawAgenda, barbers, services, access] = await Promise.all([
+  const [rawAgenda, barbers, services, shop] = await Promise.all([
     getDayAgenda(date),
     getBarbers(),
     getServices(),
-    getShopAccess(),
+    getShopContext(),
   ]);
   // Shop ser ikke telefonnummer – fjernes server-side (kun admin ser alt).
   const agenda = rawAgenda.map((b) => ({ ...b, phone: null }));
+  // Dra-for-lengde styres av shop-flagg (eier/admin omgår).
+  const canResize = shop.canBypass || shop.flags.drag_for_length_enabled;
 
   return (
     <main className="mx-auto max-w-6xl p-6">
@@ -38,7 +40,7 @@ export default async function KalenderPage({
         agenda={agenda}
         barbers={barbers}
         services={services}
-        canDiscount={access.canDiscount}
+        canResize={canResize}
       />
     </main>
   );

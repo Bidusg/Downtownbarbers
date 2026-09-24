@@ -19,7 +19,6 @@ export type AdminStaff = {
   employee_number: string | null;
   full_name: string;
   title: string | null;
-  level: string | null;
   bio: string | null;
   photo_url: string | null;
   contract_url: string | null;
@@ -28,6 +27,7 @@ export type AdminStaff = {
   profile_id: string | null;
   email: string | null;
   postnummer: string | null;
+  level_id: string | null;
 };
 
 export type AdminBooking = {
@@ -51,6 +51,7 @@ export type AdminProduct = {
   active: boolean;
   is_gift_card: boolean;
   image_url: string | null;
+  barcode: string | null;
 };
 
 export async function getProductsAdmin(): Promise<AdminProduct[]> {
@@ -58,7 +59,7 @@ export async function getProductsAdmin(): Promise<AdminProduct[]> {
     const sb = await createClient();
     const { data } = await sb
       .from("products")
-      .select("id, name, description, price_nok, stock, active, is_gift_card, image_url")
+      .select("id, name, description, price_nok, stock, active, is_gift_card, image_url, barcode")
       .order("name");
     return (data as AdminProduct[]) ?? [];
   } catch {
@@ -115,7 +116,7 @@ export async function getStaffAdmin(): Promise<AdminStaff[]> {
     const { data } = await sb
       .from("staff")
       .select(
-        "id, employee_number, full_name, title, level, bio, photo_url, contract_url, active, email, postnummer, profile_id, pin_hash",
+        "id, employee_number, full_name, title, bio, photo_url, contract_url, active, email, postnummer, profile_id, pin_hash, level_id",
       )
       .order("employee_number");
     return (data ?? []).map((r) => {
