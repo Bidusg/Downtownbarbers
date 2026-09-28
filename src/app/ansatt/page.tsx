@@ -105,7 +105,7 @@ export default async function AnsattDashboard() {
               {hasTarget ? (
                 <>
                   <div className="mt-4 mb-3 flex items-end justify-between">
-                    <span className="font-display text-6xl font-bold text-fg">
+                    <span className="font-display text-5xl font-bold text-fg sm:text-6xl">
                       {goalPct} %
                     </span>
                     <span className="pb-2 text-lg text-muted">av målet ditt</span>

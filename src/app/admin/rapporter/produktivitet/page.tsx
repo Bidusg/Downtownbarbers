@@ -218,6 +218,7 @@ export default async function AdminProduktivitet({
           {noShow.perBarber.length === 0 ? (
             <p className="px-6 py-8 text-sm text-muted">Ingen fullførte/ikke-møtt-timer i perioden.</p>
           ) : (
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <tbody>
                 {noShow.perBarber.map((b) => (
@@ -230,6 +231,7 @@ export default async function AdminProduktivitet({
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
 
@@ -240,6 +242,7 @@ export default async function AdminProduktivitet({
           {noShow.repeatCustomers.length === 0 ? (
             <p className="px-6 py-8 text-sm text-muted">Ingen kunder med gjentatte no-show i perioden.</p>
           ) : (
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <tbody>
                 {noShow.repeatCustomers.map((c) => (
@@ -250,6 +253,7 @@ export default async function AdminProduktivitet({
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>

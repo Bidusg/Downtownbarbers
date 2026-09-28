@@ -77,6 +77,7 @@ export default async function AdminKasseoppgjor() {
             Ingen salg registrert i dag enda.
           </p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <tbody>
               {byMethod.map((m) => (
@@ -92,6 +93,7 @@ export default async function AdminKasseoppgjor() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </Card>
 

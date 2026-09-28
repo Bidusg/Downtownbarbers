@@ -100,14 +100,14 @@ export default async function KasseKunde({
           rewardDue={loyalty.rewardDue}
         />
 
-        <div className="mb-6 grid grid-cols-3 gap-3">
-          <div className="border border-line bg-surface p-4">
+        <div className="mb-6 grid grid-cols-3 gap-2 sm:gap-3">
+          <div className="border border-line bg-surface p-3 sm:p-4">
             <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">
               Besøk
             </p>
             <p className="mt-1 font-display text-xl font-bold">{c.visits}</p>
           </div>
-          <div className="border border-line bg-surface p-4">
+          <div className="border border-line bg-surface p-3 sm:p-4">
             <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">
               Sist
             </p>
@@ -115,7 +115,7 @@ export default async function KasseKunde({
               {last ? fmt(last.start_at).split(",")[0] : "—"}
             </p>
           </div>
-          <div className="border border-line bg-surface p-4">
+          <div className="border border-line bg-surface p-3 sm:p-4">
             <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">
               Ikke møtt
             </p>

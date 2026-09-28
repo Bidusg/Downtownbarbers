@@ -100,7 +100,7 @@ export default async function KasseDashboard() {
             Dagens fremdrift
           </p>
           <div className="mt-4 mb-3 flex items-end justify-between">
-            <span className="font-display text-6xl font-bold text-fg">{pct} %</span>
+            <span className="font-display text-5xl font-bold text-fg sm:text-6xl">{pct} %</span>
             <span className="pb-2 text-lg text-muted">
               {today.customersServed} av {today.customersTarget} kunder
             </span>
