@@ -248,6 +248,21 @@ function GroupedNav({
     setHoverKey(null);
   }, []);
 
+  // Hover-intent: ikke lukk med en gang musen forlater raden – gi litt tid til
+  // å nå ned i panelet (unngår at menyen «forsvinner» mens man beveger musen).
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelClose = useCallback(() => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  }, []);
+  const scheduleClose = useCallback(() => {
+    cancelClose();
+    closeTimer.current = setTimeout(close, 220);
+  }, [cancelClose, close]);
+  useEffect(() => () => cancelClose(), [cancelClose]);
+
   // Escape + klikk utenfor lukker.
   useEffect(() => {
     if (open === null) return;
@@ -269,7 +284,8 @@ function GroupedNav({
     <div
       ref={wrapRef}
       className="relative hidden lg:block"
-      onMouseLeave={close}
+      onMouseLeave={scheduleClose}
+      onMouseEnter={cancelClose}
     >
       <div ref={railRef} className="bo-navrail relative flex items-center gap-1">
         <span className="bo-pill" style={style} aria-hidden />
@@ -337,7 +353,9 @@ function GroupedNav({
       {open !== null && (
         <div
           key={open}
-          className="bo-mega absolute left-0 top-full z-40 mt-2 w-[min(52rem,80vw)] overflow-hidden rounded-2xl border border-line-2 bg-surface p-2"
+          onMouseEnter={cancelClose}
+          onMouseLeave={scheduleClose}
+          className="bo-mega absolute left-0 top-full z-40 mt-2 w-[min(52rem,80vw)] overflow-visible rounded-2xl border border-line-2 bg-surface p-2 before:absolute before:-top-2 before:left-0 before:right-0 before:h-2 before:content-['']"
           role="menu"
         >
           <div className="mb-1 flex items-center gap-2 px-3 pt-2">

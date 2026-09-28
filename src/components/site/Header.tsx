@@ -119,6 +119,18 @@ export function Header({
             <span className="hidden sm:inline">{phone}</span>
           </a>
           <Link
+            href="/logg-inn"
+            className={
+              "hidden items-center gap-1.5 text-[13px] font-medium transition-colors sm:inline-flex " +
+              navText
+            }
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" />
+            </svg>
+            Logg inn
+          </Link>
+          <Link
             href="/booking"
             className="shine-btn hidden bg-accent-soft px-5 py-2.5 text-[13px] font-semibold text-[#211E1A] transition-transform hover:-translate-y-0.5 sm:inline-block"
           >
@@ -178,6 +190,13 @@ export function Header({
               className="mt-3 bg-accent-soft px-5 py-3 text-center text-sm font-semibold text-[#211E1A]"
             >
               Bestill time
+            </Link>
+            <Link
+              href="/logg-inn"
+              onClick={() => setOpen(false)}
+              className="mt-2 border border-line-2 px-5 py-3 text-center text-sm font-semibold text-fg"
+            >
+              Logg inn
             </Link>
             <a
               href={telHref}

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createBooking } from "@/app/booking/actions";
-import { getAvailableSlots } from "@/app/booking/availability-actions";
+import { getAvailableSlotsRange } from "@/app/booking/availability-actions";
 import { isValidEmail, isValidNorwegianPhone } from "@/lib/validate";
 import { eventLinks } from "@/lib/calendar-links";
 import { Button } from "@/components/ui/Button";
@@ -75,7 +75,7 @@ export function BookingWizard({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [slots, setSlots] = useState<string[]>([]);
+  const [slotsByDate, setSlotsByDate] = useState<Record<string, string[]>>({});
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slotsError, setSlotsError] = useState(false);
 
@@ -129,16 +129,18 @@ export function BookingWizard({
     return service?.price ?? "";
   }, [service, barber, barberLevels, levelPrices]);
 
-  // Hent ledige tider når dato/barber/tjeneste er valgt
+  // Hent ledige tider for HELE perioden i ETT kall når barber + tjeneste er valgt
+  // (i stedet for ett kall per dag). Da vises tidene med én gang man bytter dag.
   useEffect(() => {
     let active = true;
-    if (step === 2 && date && barber && service) {
+    if (step === 2 && barber && service && openDays.length > 0) {
+      const from = openDays[0].iso;
+      const to = openDays[openDays.length - 1].iso;
       setLoadingSlots(true);
       setSlotsError(false);
-      setTime("");
-      getAvailableSlots(barber.name, service.name, date).then((res) => {
+      getAvailableSlotsRange(barber.name, service.name, from, to).then((res) => {
         if (active) {
-          setSlots(res.slots);
+          setSlotsByDate(res.byDate);
           setSlotsError(!!res.error);
           setLoadingSlots(false);
         }
@@ -147,7 +149,7 @@ export function BookingWizard({
     return () => {
       active = false;
     };
-  }, [step, date, barber, service]);
+  }, [step, barber, service, openDays]);
 
   const emailOk = isValidEmail(email);
   const phoneOk = isValidNorwegianPhone(phone);
@@ -345,79 +347,102 @@ export function BookingWizard({
         )}
 
         {step === 2 && (
-          <div className="space-y-5">
-            <div>
-              <label className="mb-2 block text-xs font-semibold tracking-wide text-muted uppercase">
-                Velg dag
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <label className="block text-xs font-semibold tracking-wide text-muted uppercase">
+                Velg tid {service ? `· ${service.duration}` : ""}
               </label>
-              {openDays.length === 0 ? (
-                <p className="text-sm text-muted">
-                  Ingen åpne dager tilgjengelig akkurat nå.
-                </p>
-              ) : (
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              <span className="text-[11px] text-muted">
+                Én kolonne per dag – trykk på et klokkeslett
+              </span>
+            </div>
+
+            {openDays.length === 0 ? (
+              <p className="text-sm text-muted">
+                Ingen åpne dager tilgjengelig akkurat nå.
+              </p>
+            ) : loadingSlots ? (
+              <p className="text-sm text-muted">Henter ledige tider …</p>
+            ) : slotsError ? (
+              <p className="text-sm text-danger">
+                Kunne ikke hente ledige tider akkurat nå. Prøv igjen om litt,
+                eller last inn siden på nytt.
+              </p>
+            ) : (
+              <div className="-mx-1 overflow-x-auto pb-2">
+                <div className="flex min-w-max gap-2 px-1">
                   {openDays.map((d) => {
-                    const selected = date === d.iso;
+                    const dayTimes = slotsByDate[d.iso] ?? [];
+                    const isSelectedDay = date === d.iso;
                     return (
-                      <button
+                      <div
                         key={d.iso}
-                        onClick={() => setDate(d.iso)}
                         className={
-                          "flex flex-col items-center border py-2.5 transition-colors " +
-                          (selected
-                            ? "border-accent-soft bg-accent-soft/10 text-fg"
-                            : "border-line text-muted hover:border-line-2 hover:text-fg")
+                          "flex w-[76px] shrink-0 flex-col overflow-hidden rounded-md border transition-colors " +
+                          (isSelectedDay
+                            ? "border-accent-soft"
+                            : "border-line")
                         }
                       >
-                        <span className="text-[11px] font-semibold tracking-wide uppercase">
-                          {d.weekday}
-                        </span>
-                        <span className="font-display text-lg font-bold text-fg">
-                          {d.dayNum}
-                        </span>
-                        <span className="text-[11px]">{d.month}</span>
-                      </button>
+                        <div
+                          className={
+                            "flex flex-col items-center border-b px-1 py-2 " +
+                            (isSelectedDay
+                              ? "border-accent-soft/40 bg-accent-soft/10"
+                              : "border-line bg-surface-2")
+                          }
+                        >
+                          <span className="text-[10px] font-semibold tracking-wide text-muted uppercase">
+                            {d.weekday}
+                          </span>
+                          <span className="font-display text-base font-bold text-fg">
+                            {d.dayNum}
+                          </span>
+                          <span className="text-[10px] text-muted">{d.month}</span>
+                        </div>
+                        <div className="flex flex-col gap-1 p-1">
+                          {dayTimes.length === 0 ? (
+                            <span className="px-1 py-3 text-center text-[11px] text-muted">
+                              –
+                            </span>
+                          ) : (
+                            dayTimes.map((t) => {
+                              const active = date === d.iso && time === t;
+                              return (
+                                <button
+                                  key={t}
+                                  onClick={() => {
+                                    setDate(d.iso);
+                                    setTime(t);
+                                  }}
+                                  className={
+                                    "rounded py-1.5 text-[13px] transition-colors " +
+                                    (active
+                                      ? "bg-accent-soft/20 font-semibold text-fg"
+                                      : "text-muted hover:bg-surface-2 hover:text-fg")
+                                  }
+                                >
+                                  {t}
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
-              )}
-            </div>
-            <div>
-              <label className="mb-2 block text-xs font-semibold tracking-wide text-muted uppercase">
-                Ledige tider {service ? `· ${service.duration}` : ""}
-              </label>
-              {!date ? (
-                <p className="text-sm text-muted">Velg en dag først.</p>
-              ) : loadingSlots ? (
-                <p className="text-sm text-muted">Henter ledige tider …</p>
-              ) : slotsError ? (
-                <p className="text-sm text-danger">
-                  Kunne ikke hente ledige tider akkurat nå. Prøv igjen om litt,
-                  eller velg en annen dato.
-                </p>
-              ) : slots.length === 0 ? (
+              </div>
+            )}
+            {!loadingSlots &&
+              !slotsError &&
+              openDays.length > 0 &&
+              openDays.every((d) => (slotsByDate[d.iso] ?? []).length === 0) && (
                 <p className="text-sm text-muted">
-                  Ingen ledige tider denne dagen (stengt eller fullt). Prøv en annen dato.
+                  Ingen ledige tider i perioden (stengt eller fullt). Prøv en
+                  annen barber eller tjeneste.
                 </p>
-              ) : (
-                <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-                  {slots.map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setTime(t)}
-                      className={
-                        "border py-2 text-sm transition-colors " +
-                        (time === t
-                          ? "border-accent-soft bg-accent-soft/10 text-fg"
-                          : "border-line text-muted hover:border-line-2 hover:text-fg")
-                      }
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
               )}
-            </div>
           </div>
         )}
 

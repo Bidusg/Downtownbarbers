@@ -508,6 +508,97 @@ export function StaffManager({
   const levelName = (id: string | null) =>
     id ? (levels.find((l) => l.id === id)?.name ?? null) : null;
 
+  const activeStaff = staff.filter((s) => s.active);
+  const inactiveStaff = staff.filter((s) => !s.active);
+
+  const renderRow = (s: AdminStaff) => (
+    <tr key={s.id} className="border-t border-line">
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center bg-surface-2 font-display text-sm font-bold text-fg">
+            {s.full_name.charAt(0)}
+          </span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-fg">{s.full_name}</span>
+              <button
+                onClick={() => setEditing(s)}
+                className="text-xs text-accent-soft hover:underline"
+              >
+                Rediger
+              </button>
+            </div>
+            <span
+              className={
+                "block text-xs " + (s.email ? "text-muted" : "text-danger")
+              }
+            >
+              {s.email ?? "Mangler e-post"}
+            </span>
+          </div>
+        </div>
+      </td>
+      <td className="px-4 py-3 text-muted">{s.employee_number ?? "—"}</td>
+      <td className="px-4 py-3 text-muted">{s.title ?? "—"}</td>
+      <td className="px-4 py-3">
+        {levelName(s.level_id) ? (
+          <span className="rounded-full bg-accent-soft/15 px-2 py-0.5 text-[10px] font-semibold text-accent-soft">
+            {levelName(s.level_id)}
+          </span>
+        ) : (
+          <span className="text-xs text-muted">—</span>
+        )}
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex flex-col gap-0.5">
+          {s.contract_url && (
+            <a href={s.contract_url} target="_blank" className="text-xs text-danger hover:underline">
+              Åpne (offentlig)
+            </a>
+          )}
+          <a href={`/admin/ansattdokumenter?staff=${s.id}`} className="text-xs text-accent-soft hover:underline">
+            Dokumenter
+          </a>
+        </div>
+      </td>
+      <td className="px-4 py-3">
+        <LoginCell id={s.id} hasLogin={s.profile_id != null} email={s.email} />
+      </td>
+      <td className="px-4 py-3">
+        <PinCell id={s.id} hasPin={s.has_pin} />
+      </td>
+      <td className="px-4 py-3">
+        <PostnummerCell id={s.id} postnummer={s.postnummer} />
+      </td>
+      <td className="px-4 py-3">
+        <button
+          onClick={() => start(() => toggleStaff(s.id, !s.active))}
+          disabled={pending}
+          className={
+            "rounded-full px-2.5 py-0.5 text-xs font-semibold " +
+            (s.active ? "bg-accent-soft/15 text-accent-soft" : "bg-surface-2 text-muted")
+          }
+        >
+          {s.active ? "Aktiv" : "Inaktiv"}
+        </button>
+      </td>
+    </tr>
+  );
+
+  const headRow = (
+    <tr>
+      <th className="px-4 py-3">Ansatt</th>
+      <th className="px-4 py-3">Ansattnr</th>
+      <th className="px-4 py-3">Tittel</th>
+      <th className="px-4 py-3">Nivå</th>
+      <th className="px-4 py-3">Kontrakt</th>
+      <th className="px-4 py-3">Innlogging</th>
+      <th className="px-4 py-3">Stemplings-PIN</th>
+      <th className="px-4 py-3">Postnummer</th>
+      <th className="px-4 py-3">Status</th>
+    </tr>
+  );
+
   return (
     <div className="space-y-6">
       {editing && (
@@ -520,7 +611,10 @@ export function StaffManager({
         />
       )}
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted">{staff.length} ansatte</p>
+        <p className="text-sm text-muted">
+          {activeStaff.length} aktive ansatte
+          {inactiveStaff.length > 0 && ` · ${inactiveStaff.length} inaktive`}
+        </p>
         <button
           onClick={() => setOpen((o) => !o)}
           className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
@@ -573,14 +667,14 @@ export function StaffManager({
             </tr>
           </thead>
           <tbody>
-            {staff.length === 0 && (
+            {activeStaff.length === 0 && (
               <tr>
                 <td colSpan={9} className="px-4 py-8 text-center text-muted">
-                  Ingen ansatte enda – koble til Supabase eller legg til den første.
+                  Ingen aktive ansatte – legg til den første.
                 </td>
               </tr>
             )}
-            {staff.map((s) => (
+            {activeStaff.map((s) => (
               <tr key={s.id} className="border-t border-line">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
@@ -661,6 +755,23 @@ export function StaffManager({
           </tbody>
         </table>
       </div>
+
+      {inactiveStaff.length > 0 && (
+        <details className="border border-line bg-surface">
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-fg-soft hover:text-fg">
+            Inaktive ansatte ({inactiveStaff.length})
+            <span className="ml-2 text-xs font-normal text-muted">— klikk for å vise</span>
+          </summary>
+          <div className="overflow-x-auto border-t border-line">
+            <table className="w-full text-sm">
+              <thead className="bg-surface-2 text-left text-xs uppercase tracking-wide text-muted">
+                {headRow}
+              </thead>
+              <tbody>{inactiveStaff.map(renderRow)}</tbody>
+            </table>
+          </div>
+        </details>
+      )}
     </div>
   );
 }
