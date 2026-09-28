@@ -284,7 +284,7 @@ function GroupedNav({
   return (
     <div
       ref={wrapRef}
-      className="relative hidden xl:block"
+      className="relative hidden lg:block"
       onMouseLeave={scheduleClose}
       onMouseEnter={cancelClose}
     >
@@ -605,7 +605,7 @@ export function Topbar({
 
           {/* Desktop-nav */}
           {nav.kind === "grouped" ? (
-            <div className="hidden flex-1 xl:flex">
+            <div className="hidden flex-1 lg:flex">
               <GroupedNav
                 dashboard={nav.dashboard}
                 groups={nav.groups}
@@ -637,7 +637,7 @@ export function Topbar({
                 type="button"
                 onClick={openPalette}
                 aria-label="Søk (Cmd/Ctrl+K)"
-                className="bo-search hidden items-center gap-2 rounded-lg border border-line-2 px-3 py-2 text-xs text-muted transition-all hover:text-fg xl:flex"
+                className="bo-search hidden items-center gap-2 rounded-lg border border-line-2 px-3 py-2 text-xs text-muted transition-all hover:text-fg lg:flex"
               >
                 <Icon name="search" className="h-3.5 w-3.5" />
                 <span>Søk</span>
@@ -652,7 +652,7 @@ export function Topbar({
                 type="button"
                 onClick={openPalette}
                 aria-label="Søk"
-                className="bo-search flex h-9 w-9 items-center justify-center rounded-lg border border-line-2 text-muted hover:text-fg xl:hidden"
+                className="bo-search flex h-9 w-9 items-center justify-center rounded-lg border border-line-2 text-muted hover:text-fg lg:hidden"
               >
                 <Icon name="search" className="h-4 w-4" />
               </button>
@@ -676,7 +676,7 @@ export function Topbar({
               aria-expanded={mobileOpen}
               className={
                 "bo-burger flex h-10 w-10 flex-col items-center justify-center gap-1.5 rounded-lg " +
-                (nav.kind === "grouped" ? "xl:hidden" : "md:hidden")
+                (nav.kind === "grouped" ? "lg:hidden" : "md:hidden")
               }
             >
               <span

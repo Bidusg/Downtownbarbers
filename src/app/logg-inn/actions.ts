@@ -1,9 +1,31 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getUserRole, homeForRole } from "@/lib/auth";
 import { sendPortalLinkEmail } from "@/lib/email";
+
+/**
+ * Basis-URL for lenker i e-post. Bygges fra den faktiske forespørselen
+ * (vertsnavnet kunden er inne på) slik at lenken alltid peker til samme
+ * domene de bruker nå – ikke et hardkodet domene som kanskje ikke er lansert.
+ * Faller tilbake til NEXT_PUBLIC_SITE_URL hvis header mangler.
+ */
+async function requestBaseUrl(): Promise<string> {
+  try {
+    const h = await headers();
+    const host = h.get("x-forwarded-host") ?? h.get("host");
+    const proto = h.get("x-forwarded-proto") ?? "https";
+    if (host) return `${proto}://${host}`;
+  } catch {
+    // ignorer – bruk fallback
+  }
+  return (
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
+    "https://www.downtownbarbers.no"
+  );
+}
 
 export type LoginState = { error?: string };
 
@@ -30,9 +52,7 @@ export async function requestPortalLink(
       p_email: email,
     });
     if (token) {
-      const base =
-        process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-        "https://www.downtownbarbers.no";
+      const base = await requestBaseUrl();
       await sendPortalLinkEmail({
         to: email,
         portalUrl: `${base}/min-side/${token}`,

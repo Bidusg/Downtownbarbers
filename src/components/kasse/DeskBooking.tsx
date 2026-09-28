@@ -26,6 +26,7 @@ export function DeskBooking({
   bookingId,
   prefill,
   variant = "primary",
+  triggerClassName,
 }: {
   services: ShopService[];
   barbers: ShopBarber[];
@@ -34,12 +35,14 @@ export function DeskBooking({
   bookingId?: string;
   prefill?: Prefill;
   variant?: "primary" | "small";
+  triggerClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const btn =
-    variant === "small"
+    triggerClassName ??
+    (variant === "small"
       ? "rounded-md border border-line-2 px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
-      : "rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90";
+      : "rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90");
 
   return (
     <>

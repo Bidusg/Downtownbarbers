@@ -38,7 +38,13 @@ type SelectedCustomer = { id: string; name: string };
  * telefonnr og knytter salget til en eksisterende kunde. Registreres atomisk
  * via record_walkin_sale.
  */
-export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
+export function QuickSale({
+  barbers,
+  triggerClassName,
+}: {
+  barbers: ShopBarber[];
+  triggerClassName?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [pending, start] = useTransition();
@@ -294,7 +300,10 @@ export function QuickSale({ barbers }: { barbers: ShopBarber[] }) {
     <>
       <button
         onClick={openModal}
-        className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
+        className={
+          triggerClassName ??
+          "rounded-md border border-line px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
+        }
       >
         Hurtigsalg
       </button>

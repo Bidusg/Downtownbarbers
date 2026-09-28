@@ -66,30 +66,24 @@ export default async function KasseDashboard() {
           </span>
         )}
         <NoticeBanner notices={notices} />
-        <div className="flex flex-wrap items-center gap-3">
+        {/* Primær-handlinger – store trykkflater for iPad. Kalender og Kunder
+            ligger i toppmenyen, så de gjentas ikke her. */}
+        <div className="grid grid-cols-2 gap-3">
           <DeskBooking
             services={services}
             barbers={barbers}
             label="+ Ny booking"
+            triggerClassName="flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-5 text-base font-semibold text-accent-fg transition-opacity hover:opacity-90 active:opacity-80"
           />
-          <QuickSale barbers={barbers} />
-          <Link
-            href="/kasse/kalender"
-            className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
-          >
-            Dagskalender →
-          </Link>
-          <Link
-            href="/kasse/kunder"
-            className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
-          >
-            Kunder →
-          </Link>
+          <QuickSale
+            barbers={barbers}
+            triggerClassName="flex w-full items-center justify-center gap-2 rounded-xl border border-line-2 bg-surface px-6 py-5 text-base font-semibold text-fg transition-colors hover:border-accent-soft active:bg-surface-2"
+          />
         </div>
 
         <Link
           href="/kasse/stempling"
-          className="flex items-center justify-between rounded-lg border border-line bg-accent px-6 py-4 text-accent-fg transition-opacity hover:opacity-90"
+          className="flex items-center justify-between rounded-xl border border-line bg-accent px-6 py-5 text-accent-fg transition-opacity hover:opacity-90 active:opacity-80"
         >
           <span className="font-display text-lg font-bold">Stemplingsur — vakt / pause</span>
           <span className="text-sm opacity-80">Åpne →</span>

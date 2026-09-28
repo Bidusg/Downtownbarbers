@@ -505,6 +505,13 @@ body {
   border-color: oklch(var(--accent-soft) / 0.6);
   box-shadow: 0 0 0 3px oklch(var(--accent-soft) / 0.12);
 }
+/* Ingen hard oransje ramme på søk – bruk en diskret glød i stedet. */
+.bo-search:focus,
+.bo-search:focus-visible {
+  outline: none;
+  border-color: oklch(var(--accent-soft) / 0.6);
+  box-shadow: 0 0 0 3px oklch(var(--accent-soft) / 0.12);
+}
 
 /* Avatar-ring som pulserer helt diskret. */
 .bo-avatar {
