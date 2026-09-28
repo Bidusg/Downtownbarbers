@@ -57,7 +57,7 @@ export function StemplingKiosk({ staff }: { staff: BoardStaff[] }) {
             <button
               key={s.id}
               onClick={() => setActive(s)}
-              className="flex flex-col items-center gap-3 border border-line bg-surface p-6 text-center transition-colors hover:border-accent-soft"
+              className="flex flex-col items-center gap-3 rounded-xl border border-line bg-surface p-6 text-center transition-colors hover:border-accent-soft active:bg-surface-2"
             >
               <span className="flex h-20 w-20 items-center justify-center bg-surface-2 font-display text-3xl font-bold text-fg">
                 {s.photo_url ? (
@@ -153,7 +153,7 @@ function PinPanel({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm border border-line bg-canvas p-6 shadow-2xl"
+        className="w-full max-w-sm rounded-2xl border border-line bg-canvas p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -187,21 +187,21 @@ function PinPanel({
                   key={d}
                   onClick={() => press(d)}
                   disabled={pending}
-                  className="border border-line-2 bg-surface py-4 font-display text-xl text-fg hover:border-accent-soft disabled:opacity-40"
+                  className="rounded-xl border border-line-2 bg-surface py-5 font-display text-2xl text-fg hover:border-accent-soft active:bg-surface-2 disabled:opacity-40"
                 >
                   {d}
                 </button>
               ))}
               <button
                 onClick={() => setPin(pin.slice(0, -1))}
-                className="border border-line-2 bg-surface py-4 text-sm text-muted hover:text-fg"
+                className="rounded-xl border border-line-2 bg-surface py-5 text-base text-muted hover:text-fg active:bg-surface-2"
               >
                 ←
               </button>
               <button
                 onClick={() => press("0")}
                 disabled={pending}
-                className="border border-line-2 bg-surface py-4 font-display text-xl text-fg hover:border-accent-soft disabled:opacity-40"
+                className="rounded-xl border border-line-2 bg-surface py-5 font-display text-2xl text-fg hover:border-accent-soft active:bg-surface-2 disabled:opacity-40"
               >
                 0
               </button>
@@ -264,7 +264,7 @@ function ActionBtn({
     <button
       onClick={onClick}
       disabled={pending}
-      className={"py-4 text-center font-semibold transition-colors disabled:opacity-40 " + cls}
+      className={"rounded-xl py-4 text-center font-semibold transition-colors disabled:opacity-40 " + cls}
     >
       {pending ? "…" : label}
     </button>

@@ -47,23 +47,23 @@ export function CustomerTable({
 
   return (
     <div>
-      <form method="get" action={basePath} className="mb-4 flex gap-2">
+      <form method="get" action={basePath} className="mb-4 flex flex-wrap gap-2">
         <input
           name="q"
           defaultValue={q}
           placeholder="Søk på navn, e-post eller telefon…"
-          className="w-full max-w-sm border border-line bg-surface px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
+          className="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2.5 text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none sm:max-w-sm sm:flex-none sm:w-80"
         />
         <button
           type="submit"
-          className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
+          className="rounded-md bg-accent px-5 py-2.5 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
         >
           Søk
         </button>
         {q && (
           <a
             href={basePath}
-            className="flex items-center px-3 text-sm text-muted hover:text-fg"
+            className="flex items-center px-3 py-2.5 text-sm text-muted hover:text-fg"
           >
             Nullstill
           </a>
@@ -164,12 +164,12 @@ export function CustomerTable({
           {page > 1 ? (
             <a
               href={pageHref(basePath, q, page - 1)}
-              className="border border-line px-3 py-1.5 text-fg hover:border-accent-soft"
+              className="rounded-md border border-line px-4 py-2.5 text-fg hover:border-accent-soft"
             >
               ← Forrige
             </a>
           ) : (
-            <span className="border border-line px-3 py-1.5 opacity-40">
+            <span className="rounded-md border border-line px-4 py-2.5 opacity-40">
               ← Forrige
             </span>
           )}
@@ -179,12 +179,12 @@ export function CustomerTable({
           {page < totalPages ? (
             <a
               href={pageHref(basePath, q, page + 1)}
-              className="border border-line px-3 py-1.5 text-fg hover:border-accent-soft"
+              className="rounded-md border border-line px-4 py-2.5 text-fg hover:border-accent-soft"
             >
               Neste →
             </a>
           ) : (
-            <span className="border border-line px-3 py-1.5 opacity-40">
+            <span className="rounded-md border border-line px-4 py-2.5 opacity-40">
               Neste →
             </span>
           )}
