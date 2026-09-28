@@ -9,7 +9,7 @@ export function LogoutButton() {
     <button
       onClick={() => startTransition(() => signOut())}
       disabled={pending}
-      className="border border-line-2 px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg disabled:opacity-40"
+      className="whitespace-nowrap rounded-md border border-line-2 px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg disabled:opacity-40"
     >
       {pending ? "Logger ut …" : "Logg ut"}
     </button>

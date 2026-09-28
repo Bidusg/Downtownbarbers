@@ -11,6 +11,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogoutButton } from "@/components/admin/LogoutButton";
+import { LogoMark } from "@/components/site/LogoMark";
 import { OPEN_COMMAND_PALETTE_EVENT } from "@/components/admin/CommandPalette";
 
 /* =====================================================================
@@ -201,7 +202,7 @@ function FlatNav({ links, path }: { links: BoLink[]; path: string }) {
             onBlur={() => setHoverKey(null)}
             aria-current={active ? "page" : undefined}
             className={
-              "bo-navbtn relative rounded-md px-2.5 py-1.5 text-[13px] font-medium sm:px-3 " +
+              "bo-navbtn relative rounded-md px-2.5 py-1.5 text-[13px] font-medium whitespace-nowrap sm:px-3 " +
               (active ? "text-fg" : "text-muted hover:text-fg")
             }
           >
@@ -283,7 +284,7 @@ function GroupedNav({
   return (
     <div
       ref={wrapRef}
-      className="relative hidden lg:block"
+      className="relative hidden xl:block"
       onMouseLeave={scheduleClose}
       onMouseEnter={cancelClose}
     >
@@ -299,7 +300,7 @@ function GroupedNav({
           }}
           onClick={onNavigate}
           className={
-            "bo-navbtn relative z-10 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium " +
+            "bo-navbtn relative z-10 flex items-center gap-2 whitespace-nowrap rounded-lg px-2.5 py-2 text-sm font-medium " +
             (dashActive ? "text-fg" : "text-muted hover:text-fg")
           }
         >
@@ -323,7 +324,7 @@ function GroupedNav({
               onFocus={() => setHoverKey(`g${i}`)}
               onClick={() => setOpen(isOpen ? null : i)}
               className={
-                "bo-navbtn relative z-10 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium " +
+                "bo-navbtn relative z-10 flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-2 text-sm font-medium " +
                 (isOpen || groupActive ? "text-fg" : "text-muted hover:text-fg")
               }
             >
@@ -584,9 +585,13 @@ export function Topbar({
     window.dispatchEvent(new Event(OPEN_COMMAND_PALETTE_EVENT));
 
   const brand = (
-    <Link href={homeHref} className="bo-badge flex shrink-0 items-baseline gap-2">
-      <span className="font-display text-lg font-bold text-fg">Downtown</span>
-      <span className="text-[9px] font-semibold uppercase tracking-[0.3em] text-accent-soft">
+    <Link
+      href={homeHref}
+      aria-label={`Downtown Barbers – ${role}`}
+      className="bo-badge flex shrink-0 items-center gap-2.5"
+    >
+      <LogoMark className="h-8 text-fg" />
+      <span className="hidden rounded bg-surface-2 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-accent-soft sm:inline">
         {role}
       </span>
     </Link>
@@ -600,7 +605,7 @@ export function Topbar({
 
           {/* Desktop-nav */}
           {nav.kind === "grouped" ? (
-            <div className="hidden flex-1 lg:flex">
+            <div className="hidden flex-1 xl:flex">
               <GroupedNav
                 dashboard={nav.dashboard}
                 groups={nav.groups}
@@ -632,7 +637,7 @@ export function Topbar({
                 type="button"
                 onClick={openPalette}
                 aria-label="Søk (Cmd/Ctrl+K)"
-                className="bo-search hidden items-center gap-2 rounded-lg border border-line-2 px-3 py-2 text-xs text-muted transition-all hover:text-fg lg:flex"
+                className="bo-search hidden items-center gap-2 rounded-lg border border-line-2 px-3 py-2 text-xs text-muted transition-all hover:text-fg xl:flex"
               >
                 <Icon name="search" className="h-3.5 w-3.5" />
                 <span>Søk</span>
@@ -647,7 +652,7 @@ export function Topbar({
                 type="button"
                 onClick={openPalette}
                 aria-label="Søk"
-                className="bo-search flex h-9 w-9 items-center justify-center rounded-lg border border-line-2 text-muted hover:text-fg lg:hidden"
+                className="bo-search flex h-9 w-9 items-center justify-center rounded-lg border border-line-2 text-muted hover:text-fg xl:hidden"
               >
                 <Icon name="search" className="h-4 w-4" />
               </button>
@@ -671,7 +676,7 @@ export function Topbar({
               aria-expanded={mobileOpen}
               className={
                 "bo-burger flex h-10 w-10 flex-col items-center justify-center gap-1.5 rounded-lg " +
-                (nav.kind === "grouped" ? "lg:hidden" : "md:hidden")
+                (nav.kind === "grouped" ? "xl:hidden" : "md:hidden")
               }
             >
               <span

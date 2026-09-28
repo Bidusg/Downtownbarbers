@@ -323,6 +323,34 @@ export async function sendPasswordResetEmail(opts: {
 }
 
 /**
+ * Passordløs kunde-innlogging: sender lenken til «Min side». Kalles kun når
+ * e-posten matcher en eksisterende kunde; server svarer alltid nøytralt.
+ */
+export async function sendPortalLinkEmail(opts: {
+  to: string;
+  portalUrl: string;
+}): Promise<boolean> {
+  const cta = `
+    <div style="margin:28px 0">
+      <a href="${opts.portalUrl}"
+         style="display:inline-block;background:#F47721;color:#211E1A;text-decoration:none;font-weight:bold;padding:12px 22px">
+        Åpne Min side
+      </a>
+    </div>
+    <p style="color:#8a817a;font-size:13px;line-height:1.6;margin:0">
+      Lenken er personlig – ikke del den. Ba du ikke om denne, kan du trygt se
+      bort fra e-posten.
+    </p>`;
+  const html = shell(
+    "Din lenke til Min side",
+    "Her er lenken til din side hos Downtown Barbers – der ser du timene dine, kjøpshistorikk og medlemsnivå. Klikk på knappen nedenfor.",
+    [],
+    cta,
+  );
+  return sendEmail(opts.to, "Din lenke til Min side – Downtown Barbers", html);
+}
+
+/**
  * Lønnslipp til ansatt. Sender en pen varsel-e-post og – når `attachment`
  * finnes – legger lønnslippen ved som en passordbeskyttet ZIP der
  * **passordet er postnummeret** til den ansatte.

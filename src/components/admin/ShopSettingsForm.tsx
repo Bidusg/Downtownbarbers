@@ -144,16 +144,13 @@ export function ShopSettingsForm({ flags }: { flags: ShopFlags }) {
         />
       </Row>
 
-      <Row
-        title="Dra-for-lengde i kalender"
-        desc="La kasse dra en booking for å endre lengde. Funksjonen bygges senere – bryteren er klar."
-        badge="Kommer"
-      >
-        <Toggle
-          name="drag_for_length_enabled"
-          defaultChecked={flags.drag_for_length_enabled}
-        />
-      </Row>
+      {/* «Dra-for-lengde» er ikke bygget enda – skjult fra UI, men verdien
+          beholdes så lagring ikke nullstiller flagget. */}
+      <input
+        type="hidden"
+        name="drag_for_length_enabled"
+        value={flags.drag_for_length_enabled ? "on" : ""}
+      />
 
       <div className="mt-6 flex items-center gap-3">
         <button
