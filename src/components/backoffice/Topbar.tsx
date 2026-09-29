@@ -136,6 +136,13 @@ const GROUP_ICON: Record<string, string> = {
   Innhold: "innhold",
 };
 
+// Kortere etiketter KUN i topp-raden (dropdown/palett beholder fullt navn), så
+// alle gruppene får plass på laptop-bredde uten at noe skyves utenfor skjermen.
+const GROUP_SHORT: Record<string, string> = {
+  "Butikk & lager": "Butikk",
+  "Kunder & marked": "Kunder",
+};
+
 /* ---------- Glidende indikator (måler barn i en rail) ----------
  * `signal` er en verdi som endres når layouten kan ha endret seg (path,
  * antall lenker) slik at vi måler på nytt. */
@@ -184,6 +191,7 @@ function FlatNav({ links, path }: { links: BoLink[]; path: string }) {
   );
 
   return (
+    <div className="bo-navscroll min-w-0 w-full overflow-x-auto">
     <div
       ref={railRef}
       className="bo-navrail relative flex items-center gap-1 sm:gap-2"
@@ -210,6 +218,7 @@ function FlatNav({ links, path }: { links: BoLink[]; path: string }) {
           </Link>
         );
       })}
+    </div>
     </div>
   );
 }
@@ -284,10 +293,13 @@ function GroupedNav({
   return (
     <div
       ref={wrapRef}
-      className="relative hidden lg:block"
+      className="relative hidden min-w-0 w-full lg:block"
       onMouseLeave={scheduleClose}
       onMouseEnter={cancelClose}
     >
+      {/* Egen scroll-bane: hvis raden likevel skulle bli for bred, glir den her
+          i stedet for å skyve høyre klynge (Logg ut) utenfor skjermen. */}
+      <div className="bo-navscroll min-w-0 overflow-x-auto">
       <div ref={railRef} className="bo-navrail relative flex items-center gap-1">
         <span className="bo-pill" style={style} aria-hidden />
 
@@ -332,7 +344,7 @@ function GroupedNav({
                 name={GROUP_ICON[g.label] ?? "innhold"}
                 className="h-4 w-4 text-accent-soft"
               />
-              {g.label}
+              {GROUP_SHORT[g.label] ?? g.label}
               <svg
                 viewBox="0 0 24 24"
                 className={
@@ -349,6 +361,7 @@ function GroupedNav({
             </button>
           );
         })}
+      </div>
       </div>
 
       {open !== null && (
@@ -591,7 +604,7 @@ export function Topbar({
       className="bo-badge flex shrink-0 items-center gap-2.5"
     >
       <LogoMark className="h-8 text-fg" />
-      <span className="hidden rounded bg-surface-2 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-accent-soft sm:inline">
+      <span className="hidden rounded bg-surface-2 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-accent-soft xl:inline">
         {role}
       </span>
     </Link>
@@ -605,7 +618,7 @@ export function Topbar({
 
           {/* Desktop-nav */}
           {nav.kind === "grouped" ? (
-            <div className="hidden flex-1 lg:flex">
+            <div className="hidden min-w-0 flex-1 lg:flex">
               <GroupedNav
                 dashboard={nav.dashboard}
                 groups={nav.groups}
@@ -613,21 +626,21 @@ export function Topbar({
               />
             </div>
           ) : (
-            <div className="hidden flex-1 lg:flex">
+            <div className="hidden min-w-0 flex-1 lg:flex">
               <FlatNav links={nav.links} path={path} />
             </div>
           )}
 
           {/* For flat-nav på nettbrett vises den også på mindre skjerm. */}
           {nav.kind === "flat" && (
-            <div className="hidden flex-1 md:flex lg:hidden">
+            <div className="hidden min-w-0 flex-1 md:flex lg:hidden">
               <FlatNav links={nav.links} path={path} />
             </div>
           )}
 
-          <div className="ml-auto flex items-center gap-2 sm:gap-3">
+          <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
             {badge && (
-              <span className="hidden rounded-full bg-accent-soft/15 px-3 py-1 text-xs font-semibold text-accent-soft sm:inline">
+              <span className="hidden rounded-full bg-accent-soft/15 px-3 py-1 text-xs font-semibold text-accent-soft xl:inline">
                 {badge}
               </span>
             )}
@@ -637,7 +650,7 @@ export function Topbar({
                 type="button"
                 onClick={openPalette}
                 aria-label="Søk (Cmd/Ctrl+K)"
-                className="bo-search hidden items-center gap-2 rounded-lg border border-line-2 px-3 py-2 text-xs text-muted transition-all hover:text-fg lg:flex"
+                className="bo-search hidden items-center gap-2 rounded-lg border border-line-2 px-3 py-2 text-xs text-muted transition-all hover:text-fg xl:flex"
               >
                 <Icon name="search" className="h-3.5 w-3.5" />
                 <span>Søk</span>
@@ -652,14 +665,14 @@ export function Topbar({
                 type="button"
                 onClick={openPalette}
                 aria-label="Søk"
-                className="bo-search flex h-9 w-9 items-center justify-center rounded-lg border border-line-2 text-muted hover:text-fg lg:hidden"
+                className="bo-search flex h-9 w-9 items-center justify-center rounded-lg border border-line-2 text-muted hover:text-fg xl:hidden"
               >
                 <Icon name="search" className="h-4 w-4" />
               </button>
             )}
 
             {initial && (
-              <div className="bo-avatar hidden h-9 w-9 items-center justify-center rounded-full bg-accent font-display text-sm font-bold text-accent-fg sm:flex" title={email ?? role}>
+              <div className="bo-avatar hidden h-9 w-9 items-center justify-center rounded-full bg-accent font-display text-sm font-bold text-accent-fg xl:flex" title={email ?? role}>
                 {initial}
               </div>
             )}

@@ -11,7 +11,7 @@ export default async function RevisorLayout({
   await requireRole(["revisor", "admin"]);
 
   return (
-    <div className="min-h-screen bg-canvas text-fg">
+    <div className="min-h-screen overflow-x-clip bg-canvas text-fg">
       <Topbar role="Revisor" homeHref="/revisor" nav={revisorNav} />
       <main className="px-4 py-8 sm:px-6">
         <PageTransition>{children}</PageTransition>

@@ -15,7 +15,7 @@ export default async function AnsattLayout({
   const link = await getMyStaffLink();
 
   return (
-    <div className="min-h-screen bg-canvas text-fg">
+    <div className="min-h-screen overflow-x-clip bg-canvas text-fg">
       <Topbar
         role="Ansatt"
         homeHref="/ansatt"

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getUserRole, isAdminRole } from "@/lib/auth";
+import { postDailyVoucher } from "@/lib/tripletex/voucher";
 import {
   getExpectedByMethodForDate,
   getDailyReconciliation,
@@ -37,7 +38,7 @@ export async function createSettlement(formData: FormData) {
     data: { user },
   } = await sb.auth.getUser();
 
-  await sb.from("cash_settlements").insert({
+  const { error } = await sb.from("cash_settlements").insert({
     settle_date,
     total_nok: counted_cash + counted_card + counted_vipps,
     counted_cash,
@@ -50,6 +51,21 @@ export async function createSettlement(formData: FormData) {
     opened_by: user?.id ?? null,
   });
   revalidatePath("/admin/kasseoppgjor");
+
+  // Dagsoppgjør → Tripletex: når kasseoppgjøret registreres ved stengetid,
+  // sendes dagens bilag som UBOKFØRT UTKAST med det samme (henger sammen med
+  // kasseoppgjøret). postDailyVoucher er trygg å kalle her:
+  //   • TRIPLETEX_POSTING_ENABLED=false → kun tørrkjøring, ingenting sendes.
+  //   • Duplikatsperre på datoen → natt-cronen (backup) poster ikke på nytt.
+  // Feiler Tripletex, skal det ALDRI velte selve kasseoppgjøret – vi svelger
+  // feilen her; natt-cronen tar dagen som sikkerhetsnett.
+  if (!error) {
+    try {
+      await postDailyVoucher(settle_date);
+    } catch {
+      // Bevisst stille: kasseoppgjøret er allerede lagret. Natt-cron er backup.
+    }
+  }
 }
 
 export async function deleteSettlement(id: string) {

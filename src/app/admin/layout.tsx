@@ -20,7 +20,7 @@ export default async function AdminLayout({
   const notices = await getActiveNotices("admin");
 
   return (
-    <div className="min-h-screen bg-canvas text-fg">
+    <div className="min-h-screen overflow-x-clip bg-canvas text-fg">
       <Topbar
         role="Admin"
         homeHref="/admin"

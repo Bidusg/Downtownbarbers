@@ -327,6 +327,16 @@ body {
   opacity: 1;
 }
 
+/* Nav-banen kan gli vannrett hvis den blir for bred (mange grupper på smal
+   laptop), men uten synlig scrollbar – så Logg ut-klyngen aldri skyves ut. */
+.bo-navscroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.bo-navscroll::-webkit-scrollbar {
+  display: none;
+}
+
 /* Glidende aktiv/hover-pill i nav. Posisjon settes via CSS-variabler. */
 .bo-navrail {
   position: relative;
