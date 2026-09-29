@@ -74,15 +74,32 @@ export async function tripletexFetch<T = unknown>(
   return (await res.json()) as T;
 }
 
-/** Enkel tilkoblingstest: henter innlogget selskap. Returnerer ok/feil. */
+/**
+ * Enkel tilkoblingstest: verifiserer sesjonen via /token/session/>whoAmI
+ * (den offisielle «hvem er jeg»-ruten) og henter selskapsnavnet fra
+ * companyId. Returnerer ok/feil.
+ */
 export async function tripletexPing(): Promise<
   { ok: true; company: string } | { ok: false; error: string }
 > {
   try {
-    const json = await tripletexFetch<{ value?: { name?: string } }>(
-      "/company/>",
-    );
-    return { ok: true, company: json?.value?.name ?? "(ukjent)" };
+    const who = await tripletexFetch<{
+      value?: { companyId?: number; employeeId?: number };
+    }>("/token/session/>whoAmI");
+    const companyId = who?.value?.companyId;
+    let company = "(tilkoblet)";
+    if (companyId) {
+      company = `selskap #${companyId}`;
+      try {
+        const c = await tripletexFetch<{ value?: { name?: string } }>(
+          `/company/${companyId}`,
+        );
+        if (c?.value?.name) company = c.value.name;
+      } catch {
+        // behold selskap-id hvis navneoppslag feiler
+      }
+    }
+    return { ok: true, company };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
