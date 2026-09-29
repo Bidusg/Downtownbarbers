@@ -108,6 +108,10 @@ export function TripletexCard({
             {res.plan && (
               <p className="mt-2 text-xs text-muted">
                 {res.plan.count} salg · {res.plan.balanced ? "balanserer ✓" : "balanserer IKKE ✗"}
+                {" · mva-modell: "}
+                {res.plan.vatMode === "account"
+                  ? "brutto (Tripletex regner mva)"
+                  : "eksplisitt 2700"}
               </p>
             )}
           </div>

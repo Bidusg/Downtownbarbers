@@ -10,7 +10,7 @@
 // Konto refereres i Tripletex med intern id, ikke kontonummer. Vi slår derfor
 // opp id-en per kontonummer ved kjøring (ulik i test/prod) og cacher den.
 
-import { deriveIncomeLedger } from "@/lib/accounting";
+import { deriveIncomeLedger, type VatMode } from "@/lib/accounting";
 import { createServiceClient } from "@/lib/supabase/service";
 import { TRIPLETEX } from "./config";
 import { tripletexFetch } from "./client";
@@ -57,6 +57,8 @@ export type DailyVoucherPlan = {
   /** Antall salg som ligger til grunn. */
   count: number;
   balanced: boolean;
+  /** Hvilken mva-modell posteringene er bygd etter. */
+  vatMode: VatMode;
 };
 
 /** Bygg bilagsplanen for en dato (uten å kontakte Tripletex). */
@@ -82,6 +84,7 @@ export async function buildDailyVoucherPlan(
     postings,
     count: ledger.count,
     balanced: ledger.balanced,
+    vatMode: ledger.vatMode,
   };
 }
 

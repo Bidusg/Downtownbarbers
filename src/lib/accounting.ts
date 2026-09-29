@@ -41,8 +41,24 @@ const PRODUCT_SALES_ACCOUNT = {
 };
 const VAT_ACCOUNT = { account: "2700", name: "Utgående mva (25 %)" };
 
+/**
+ * Mva-modell for salgs-posteringene:
+ *  - "explicit": netto til salgskonto (3000/3001) + egen utgående-mva-linje
+ *    (2700). Krever at salgskontoene IKKE har automatisk mva-kode i Tripletex.
+ *  - "account": brutto til salgskonto, ingen egen 2700-linje. Tripletex regner
+ *    ut mva selv via kontoens mva-kode. Krever at salgskontoene HAR riktig
+ *    mva-kode (25 %) i Tripletex.
+ * Regnskapsfører (Kumar) velger modell; styres av env TRIPLETEX_VAT_MODE.
+ */
+export type VatMode = "explicit" | "account";
+
+export function defaultVatMode(): VatMode {
+  return process.env.TRIPLETEX_VAT_MODE === "account" ? "account" : "explicit";
+}
+
 export type IncomeLedger = {
   lines: LedgerLine[];
+  vatMode: VatMode;
   inkl: number;
   eks: number;
   mva: number;
@@ -96,6 +112,7 @@ async function revenueSplitByKind(
 export async function deriveIncomeLedger(
   startIso: string,
   endIso: string,
+  vatMode: VatMode = defaultVatMode(),
 ): Promise<IncomeLedger> {
   const [rep, split] = await Promise.all([
     getPeriodReport(startIso, endIso),
@@ -128,18 +145,34 @@ export async function deriveIncomeLedger(
   const productEks = base > 0 ? Math.round((eks * split.product) / base) : 0;
   const serviceEks = eks - productEks;
 
+  // Brutto-fordeling (inkl. mva) – brukes i "account"-modus der Tripletex selv
+  // regner ut mva. Summen treffer totalDebit eksakt (varen avrundes, tjenesten
+  // tar resten).
+  const productGross = base > 0 ? Math.round((totalDebit * split.product) / base) : 0;
+  const serviceGross = totalDebit - productGross;
+
   const creditLines: LedgerLine[] = [];
-  if (serviceEks !== 0)
-    creditLines.push({ ...SERVICE_SALES_ACCOUNT, debit: 0, credit: serviceEks });
-  if (productEks !== 0)
-    creditLines.push({ ...PRODUCT_SALES_ACCOUNT, debit: 0, credit: productEks });
-  if (mva !== 0) creditLines.push({ ...VAT_ACCOUNT, debit: 0, credit: mva });
+  if (vatMode === "account") {
+    // Brutto til salgskonto; Tripletex regner mva via kontoens mva-kode.
+    if (serviceGross !== 0)
+      creditLines.push({ ...SERVICE_SALES_ACCOUNT, debit: 0, credit: serviceGross });
+    if (productGross !== 0)
+      creditLines.push({ ...PRODUCT_SALES_ACCOUNT, debit: 0, credit: productGross });
+  } else {
+    // Netto til salgskonto + eksplisitt utgående mva til 2700.
+    if (serviceEks !== 0)
+      creditLines.push({ ...SERVICE_SALES_ACCOUNT, debit: 0, credit: serviceEks });
+    if (productEks !== 0)
+      creditLines.push({ ...PRODUCT_SALES_ACCOUNT, debit: 0, credit: productEks });
+    if (mva !== 0) creditLines.push({ ...VAT_ACCOUNT, debit: 0, credit: mva });
+  }
 
   const lines: LedgerLine[] = [...debitLines, ...creditLines];
-  const totalCredit = serviceEks + productEks + mva;
+  const totalCredit = creditLines.reduce((s, l) => s + l.credit, 0);
 
   return {
     lines,
+    vatMode,
     inkl: totalDebit,
     eks,
     mva,
