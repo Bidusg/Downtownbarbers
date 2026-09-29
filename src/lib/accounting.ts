@@ -18,42 +18,50 @@ export type LedgerLine = {
   credit: number;
 };
 
-// Foreløpig kontoplan (inntektssiden) – NS 4102-basert. Må bekreftes.
+// Kontoplan (inntektssiden) – bekreftet av regnskapsfører Kumar (Alt Innen AS)
+// og samstemt med Fixit-kontoplanen for Downtown Barbers:
+//   Betaling: 1520 Bankkort (kort), 1521 Vipps, 1522 Gavekort, 1900 Kontanter.
+//   Salg:     3001 Behandlinger (tjenester), 3020 Varesalg (varer) – mva-kode 3.
+// VIKTIG (Kumar): IKKE bruk 1920, og IKKE post egen mva-konto (2700). Tripletex
+// regner mva selv via mva-kode 3 på salgskontoene → vi kjører "account"-modus.
 const METHOD_ACCOUNT: Record<string, { account: string; name: string }> = {
   kontant: { account: "1900", name: "Kontanter" },
   cash: { account: "1900", name: "Kontanter" },
-  kort: { account: "1920", name: "Bankinnskudd (kort)" },
-  card: { account: "1920", name: "Bankinnskudd (kort)" },
-  vipps: { account: "1921", name: "Bankinnskudd (Vipps)" },
+  kort: { account: "1520", name: "Bankkort" },
+  card: { account: "1520", name: "Bankkort" },
+  vipps: { account: "1521", name: "Vipps" },
+  gavekort: { account: "1522", name: "Gavekort" },
+  giftcard: { account: "1522", name: "Gavekort" },
 };
 const OTHER_ACCOUNT = { account: "1990", name: "Uspesifisert oppgjør" };
 
-// Salgsinntekt splittes på tjenester vs. varesalg. Kontonumrene kan overstyres
-// via env (Kumar bekrefter de endelige – 3000/3001 er foreløpige). Uten
-// varelinjer havner alt på tjeneste-kontoen, akkurat som før splitten.
+// Salgsinntekt splittes på tjenester (behandlinger) vs. varesalg. Kontonumrene
+// følger Fixit-kontoplanen (3001 behandlinger, 3020 varesalg) og kan overstyres
+// via env. Uten varelinjer havner alt på behandlings-kontoen, som før splitten.
 const SERVICE_SALES_ACCOUNT = {
-  account: process.env.TRIPLETEX_ACCOUNT_SERVICE || "3000",
-  name: "Salgsinntekt tjenester, avgiftspliktig",
+  account: process.env.TRIPLETEX_ACCOUNT_SERVICE || "3001",
+  name: "Behandlinger (avgiftspliktig)",
 };
 const PRODUCT_SALES_ACCOUNT = {
-  account: process.env.TRIPLETEX_ACCOUNT_PRODUCT || "3001",
-  name: "Salgsinntekt varer, avgiftspliktig",
+  account: process.env.TRIPLETEX_ACCOUNT_PRODUCT || "3020",
+  name: "Varesalg (avgiftspliktig)",
 };
+// Kun brukt i "explicit"-modus (ikke Kumars valg). Beholdt som fallback.
 const VAT_ACCOUNT = { account: "2700", name: "Utgående mva (25 %)" };
 
 /**
  * Mva-modell for salgs-posteringene:
- *  - "explicit": netto til salgskonto (3000/3001) + egen utgående-mva-linje
- *    (2700). Krever at salgskontoene IKKE har automatisk mva-kode i Tripletex.
- *  - "account": brutto til salgskonto, ingen egen 2700-linje. Tripletex regner
- *    ut mva selv via kontoens mva-kode. Krever at salgskontoene HAR riktig
- *    mva-kode (25 %) i Tripletex.
- * Regnskapsfører (Kumar) velger modell; styres av env TRIPLETEX_VAT_MODE.
+ *  - "account" (STANDARD, Kumars valg): brutto til salgskonto, INGEN egen
+ *    2700-linje. Tripletex regner ut mva selv via kontoens mva-kode (kode 3 =
+ *    25 % på 3001/3002/3020). Dette er slik Downtown Barbers skal kjøre.
+ *  - "explicit": netto til salgskonto + egen utgående-mva-linje (2700). Kun hvis
+ *    salgskontoene IKKE har automatisk mva-kode. Kan tvinges via env.
+ * Standard er "account"; env TRIPLETEX_VAT_MODE=explicit overstyrer.
  */
 export type VatMode = "explicit" | "account";
 
 export function defaultVatMode(): VatMode {
-  return process.env.TRIPLETEX_VAT_MODE === "account" ? "account" : "explicit";
+  return process.env.TRIPLETEX_VAT_MODE === "explicit" ? "explicit" : "account";
 }
 
 export type IncomeLedger = {
