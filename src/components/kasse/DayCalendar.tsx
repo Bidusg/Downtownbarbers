@@ -6,6 +6,7 @@ import type { AgendaBooking, ShopBarber, ShopService } from "@/lib/shop-queries"
 import { colorAt } from "@/lib/colors";
 import { Avatar } from "@/components/ui/Avatar";
 import { DeskBooking } from "@/components/kasse/DeskBooking";
+import { QuickSale } from "@/components/kasse/QuickSale";
 import { BookingDetailModal } from "@/components/kasse/BookingDetailModal";
 import {
   blockTime,
@@ -235,6 +236,7 @@ export function DayCalendar({
               Blokker / pause
             </button>
           )}
+          <QuickSale barbers={barbers} />
           <DeskBooking services={services} barbers={barbers} label="+ Ny booking" />
         </div>
       </div>
