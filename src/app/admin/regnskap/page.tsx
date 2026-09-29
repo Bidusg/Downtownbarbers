@@ -2,7 +2,7 @@ import { StatTile } from "@/components/ui/StatTile";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { RevenueChart } from "@/components/admin/RevenueChart";
 import { getRevenueSeries, getRevenueSummary } from "@/lib/dashboard-queries";
-import { deriveIncomeLedger } from "@/lib/accounting";
+import { deriveIncomeLedger, accountPlan } from "@/lib/accounting";
 import { osloMonthRange } from "@/lib/period";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +23,7 @@ export default async function AdminRegnskap({
     deriveIncomeLedger(mnd.fromIso, mnd.toIso),
   ]);
   const maxBarber = Math.max(1, ...sum.perBarber.map((b) => b.nok));
+  const plan = accountPlan();
 
   const tab = (key: "days" | "months", label: string) => (
     <a
@@ -132,15 +133,65 @@ export default async function AdminRegnskap({
           </table>
         </div>
         <p className="border-t border-line px-6 py-3 text-xs text-muted">
-          Foreløpig, avledet oppstilling av inntektssiden — omsetning omregnet til konto/mva.{" "}
-          <strong className="text-fg">Ikke kvalitetssikret regnskap.</strong> Kontoplan og
-          mva-koder må bekreftes av regnskapsfører. Bilagsrekke, kostnader og full SAF-T kommer
-          i neste fase (se REGNSKAPSMODUL-PLAN.md). {ledger.count} salg · eks. mva{" "}
-          {nok(ledger.eks)} · mva {nok(ledger.mva)}
+          Avledet oppstilling av inntektssiden — omsetning omregnet til konto/mva etter
+          kontoplanen under. Selve bokføringen skjer i <strong className="text-fg">Tripletex</strong>:
+          dagsoppgjøret sendes dit som ubokført utkast ved kasseoppgjør, og revisor bokfører der.
+          {" "}{ledger.count} salg · eks. mva {nok(ledger.eks)} · mva {nok(ledger.mva)}
           {ledger.productEks > 0
             ? ` · tjenester ${nok(ledger.serviceEks)} · varer ${nok(ledger.productEks)}`
             : ""}
           .
+        </p>
+      </div>
+
+      {/* Kontoplan — Fixit-stil oversikt over hvilke kontoer systemet konterer på.
+          Samme kilde som dagsbilaget, så den er alltid i takt. */}
+      <div className="border border-line bg-surface">
+        <div className="border-b border-line px-6 py-4">
+          <h2 className="font-display text-lg font-bold">Kontoplan</h2>
+          <p className="text-xs text-muted">
+            Slik konteres salget mot Tripletex.{" "}
+            {plan.vatMode === "account"
+              ? "Mva regnes av Tripletex via mva-kode 3 på salgskontoene."
+              : "Mva føres eksplisitt til konto 2700."}
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-line text-left text-xs text-muted">
+                <th className="px-6 py-3 font-medium">Konto</th>
+                <th className="px-6 py-3 font-medium">Navn</th>
+                <th className="px-6 py-3 font-medium">Type</th>
+                <th className="px-6 py-3 font-medium">Mva-kode</th>
+              </tr>
+            </thead>
+            <tbody>
+              {plan.rows.map((r) => (
+                <tr key={r.account} className="border-b border-line last:border-0">
+                  <td className="px-6 py-3 tabular-nums text-fg-soft">{r.account}</td>
+                  <td className="px-6 py-3">{r.name}</td>
+                  <td className="px-6 py-3">
+                    <span
+                      className={
+                        "rounded px-2 py-0.5 text-[11px] font-semibold " +
+                        (r.kind === "salg"
+                          ? "bg-accent-soft/15 text-accent-soft"
+                          : "bg-surface-2 text-muted")
+                      }
+                    >
+                      {r.kind === "salg" ? "Salg" : "Betaling"}
+                    </span>
+                  </td>
+                  <td className="px-6 py-3 tabular-nums text-muted">{r.vatCode ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="border-t border-line px-6 py-3 text-xs text-muted">
+          Bekreftet av regnskapsfører. Kontoene 3001/3002/3020 må ha mva-kode 3 (25 %) satt
+          i Tripletex — det styrer Tripletex, ikke kassa.
         </p>
       </div>
 
