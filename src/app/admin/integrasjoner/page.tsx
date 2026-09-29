@@ -3,6 +3,8 @@ import { config } from "@/lib/config";
 import { getSmsConfigAdmin } from "@/lib/sms";
 import { getReviewConfigAdmin } from "@/lib/reviews";
 import { SmsConfigForm } from "@/components/admin/SmsConfigForm";
+import { TripletexCard } from "@/components/admin/TripletexCard";
+import { TRIPLETEX, tripletexConfigured } from "@/lib/tripletex/config";
 import { PageHeader } from "@/components/ui/PageHeader";
 
 export const dynamic = "force-dynamic";
@@ -119,6 +121,13 @@ export default async function AdminIntegrasjoner() {
             : "SUPABASE_SERVICE_ROLE_KEY mangler i Vercel — webhooks/cron/SMS vil ikke virke."}
         </IntegrationCard>
       </div>
+
+      {/* Tripletex – test + bilagsforhåndsvisning */}
+      <TripletexCard
+        configured={tripletexConfigured()}
+        postingEnabled={TRIPLETEX.postingEnabled}
+        env={TRIPLETEX.env}
+      />
 
       {/* SMS-konfig */}
       <div className="border border-line bg-surface p-6">

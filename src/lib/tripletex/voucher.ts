@@ -1,4 +1,6 @@
-// Bygger og poster et daglig bilag (dagsoppgjør) til Tripletex.
+// Bygger et daglig bilag (dagsoppgjør) og oppretter det som UBOKFØRT UTKAST
+// i Tripletex (sendToLedger=false). Ingenting bokføres automatisk – revisor
+// ser over og bokfører selv. Det er et bevisst valg for Downtown Barbers.
 //
 // Kilden er den samme avledede hovedboka vi allerede regner ut
 // (deriveIncomeLedger): debet per betalingsmåte (kundens innbetaling inkl.
@@ -87,7 +89,13 @@ export type PostResult =
   | { status: "skipped"; reason: string; plan: DailyVoucherPlan }
   | { status: "already_posted"; voucherId: number | null; plan: DailyVoucherPlan }
   | { status: "dry_run"; plan: DailyVoucherPlan; body: unknown }
-  | { status: "posted"; voucherId: number; plan: DailyVoucherPlan };
+  | {
+      status: "draft_created";
+      voucherId: number;
+      /** Alltid true: bilaget er et ubokført utkast, ikke bokført. */
+      draft: true;
+      plan: DailyVoucherPlan;
+    };
 
 /**
  * Duplikatsperre: har vi allerede postet et ekte dagsbilag for denne datoen?
@@ -178,12 +186,16 @@ export async function postDailyVoucher(isoDate: string): Promise<PostResult> {
     return { status: "dry_run", plan, body };
   }
 
+  // VIKTIG: sendToLedger=false → bilaget opprettes som UBOKFØRT UTKAST i
+  // Tripletex. Ingenting bokføres automatisk – revisor ser over og bokfører
+  // selv. Dette er et bevisst valg (Downtown Barbers vil aldri auto-bokføre).
+  // Krever «Avansert bilag»-tilgang på API-nøkkelen.
   const created = await tripletexFetch<{ value?: { id?: number } }>(
-    "/ledger/voucher",
+    "/ledger/voucher?sendToLedger=false",
     { method: "POST", body: JSON.stringify(body) },
   );
   const voucherId = created?.value?.id;
   if (!voucherId) throw new Error("Tripletex ga ikke noe bilags-id tilbake.");
   await recordPostedVoucher(isoDate, voucherId, plan);
-  return { status: "posted", voucherId, plan };
+  return { status: "draft_created", voucherId, draft: true, plan };
 }
