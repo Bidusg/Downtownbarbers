@@ -110,3 +110,109 @@ export async function probeFinancialData(
 
   return { dateFrom: from, dateTo: to, account, balanceSheet, posting, voucher, vatType };
 }
+
+/*
+ * TYPEDE HENTERE (Fase 2)
+ *   Hver henter bygger stien med de EKSAKT bekreftede feltene mot ekte
+ *   Tripletex-data (se datakontrakten i sync.ts/dokumentasjon) og løper
+ *   alle sider via txGetAll. Rå typer – ingen omregning her; sign-logikk
+ *   og avrunding ligger i report.ts.
+ * ===================================================================== */
+
+/** En momskode slik Tripletex eksponerer den på en konto. */
+export type TxVatType = {
+  id: number;
+  name?: string;
+  percentage?: number;
+};
+
+/** Konto i kontoplanen (/ledger/account). */
+export type TxAccount = {
+  id: number;
+  number?: string | number;
+  name?: string;
+  type?: string;
+  vatType?: TxVatType | null;
+  ledgerType?: string | null;
+  isBankAccount?: boolean | null;
+};
+
+/** En rad i saldobalansen (/balanceSheet). Kontoen er ekspandert inline. */
+export type TxBalanceRow = {
+  account: {
+    id?: number;
+    number?: string | number;
+    name?: string;
+    type?: string;
+  };
+  balanceIn?: number;
+  balanceChange?: number;
+  balanceOut?: number;
+  startDate?: string;
+  endDate?: string;
+};
+
+/** Et bilag (/ledger/voucher). voucherType er ekspandert til { name }. */
+export type TxVoucher = {
+  id: number;
+  number?: number | null;
+  tempNumber?: number | null;
+  date?: string;
+  description?: string | null;
+  voucherType?: { name?: string } | null;
+  year?: number | null;
+};
+
+/** En postering/hovedbokslinje (/ledger/posting). */
+export type TxPosting = {
+  id: number;
+  date?: string;
+  amount?: number;
+  description?: string | null;
+  account?: { number?: string | number; name?: string } | null;
+  voucher?: { id?: number; number?: number | null } | null;
+};
+
+/** Hele kontoplanen (aktive kontoer). */
+export function fetchAccounts(): Promise<TxAccount[]> {
+  return txGetAll<TxAccount>(
+    "/ledger/account?isActive=true&count=1000&fields=id,number,name,type,vatType(id,name,percentage),ledgerType,isBankAccount",
+  );
+}
+
+/** Saldobalanse for et datointervall (periode-endring + inn/ut-balanse). */
+export function fetchBalanceSheet(
+  dateFrom: string,
+  dateTo: string,
+): Promise<TxBalanceRow[]> {
+  return txGetAll<TxBalanceRow>(
+    `/balanceSheet?dateFrom=${dateFrom}&dateTo=${dateTo}&count=1000&fields=*,account(number,name,type)`,
+  );
+}
+
+/** Bilag for et datointervall. */
+export function fetchVouchers(
+  dateFrom: string,
+  dateTo: string,
+): Promise<TxVoucher[]> {
+  return txGetAll<TxVoucher>(
+    `/ledger/voucher?dateFrom=${dateFrom}&dateTo=${dateTo}&count=1000&fields=id,number,tempNumber,date,description,voucherType(name),year`,
+  );
+}
+
+/** Posteringer (hovedbokslinjer) for et datointervall. */
+export function fetchPostings(
+  dateFrom: string,
+  dateTo: string,
+): Promise<TxPosting[]> {
+  return txGetAll<TxPosting>(
+    `/ledger/posting?dateFrom=${dateFrom}&dateTo=${dateTo}&count=1000&fields=id,date,amount,description,account(number,name),voucher(id,number)`,
+  );
+}
+
+/** Alle momstyper. */
+export function fetchVatTypes(): Promise<TxVatType[]> {
+  return txGetAll<TxVatType>(
+    "/ledger/vatType?count=1000&fields=id,name,percentage",
+  );
+}

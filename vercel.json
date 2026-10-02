@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/tripletex",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/tripletex-sync",
+      "schedule": "0 3 * * *"
     }
   ]
 }
