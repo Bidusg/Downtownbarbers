@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export async function createAbsence(formData: FormData) {
+  await requireRole(["admin"]);
   const sb = await createClient();
   const staff_id = String(formData.get("staff_id") ?? "");
   const from_date = String(formData.get("from_date") ?? "");
@@ -20,6 +21,7 @@ export async function createAbsence(formData: FormData) {
 }
 
 export async function deleteAbsence(id: string) {
+  await requireRole(["admin"]);
   const sb = await createClient();
   await sb.from("absences").delete().eq("id", id);
   revalidatePath("/admin/fravaer");

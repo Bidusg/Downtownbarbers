@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { capturePayment } from "@/lib/vipps";
+import { config } from "@/lib/config";
 
 // Server-til-server: mark_booking_paid er låst til service-role (0041),
 // så webhooken kaller den med den privilegerte klienten – aldri anon.
@@ -19,6 +20,11 @@ export async function GET(req: NextRequest) {
   const isMock = req.nextUrl.searchParams.get("mock") === "1";
 
   if (isMock && reference) {
+    // Mock-snarveien markerer betalt uten ekte Vipps-verifisering, så den må
+    // KUN virke når appen faktisk kjører i mock-modus.
+    if (config.vipps.mode !== "mock") {
+      return new NextResponse("Not found", { status: 404 });
+    }
     await markPaid(reference);
     const url = new URL("/booking/bekreftelse", req.url);
     url.searchParams.set("ref", reference);

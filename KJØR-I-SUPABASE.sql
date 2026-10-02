@@ -4286,3 +4286,129 @@ begin
     add constraint site_images_section_check
     check (section in ('hero', 'gallery', 'about', 'banner'));
 end $$;
+
+-- ============================================================
+-- Migrasjoner 0066–0069 (lagt til aggregatet)
+-- ============================================================
+
+-- =====================================================================
+-- 0053 – TRIPLETEX BILAGSLOGG (duplikatsperre)
+--
+--   Loggfører hvilke dagsbilag som FAKTISK er postet til Tripletex, med
+--   bilags-id-en Tripletex ga tilbake. Primærnøkkel på datoen gjør at samme
+--   dag ikke kan postes to ganger: cron-jobben sjekker loggen før den poster,
+--   og en unik dato hindrer dobbeltføring selv ved samtidig kjøring.
+--
+--   Kun ekte posteringer logges (ikke dry-run), så loggen aldri blokkerer en
+--   dato som ennå ikke er sendt inn. Skrives av service-rollen (cron/route);
+--   admin kan lese for revisjon/oversikt.
+--
+--   Idempotent.
+-- =====================================================================
+
+create table if not exists tripletex_voucher_log (
+  voucher_date  date primary key,
+  voucher_id    bigint,
+  amount_gross  numeric,
+  sales_count   integer,
+  posted_at     timestamptz not null default now()
+);
+
+alter table tripletex_voucher_log enable row level security;
+
+-- Service-rollen (cron) omgår RLS. Admin kan lese loggen.
+drop policy if exists tripletex_voucher_log_admin_read on tripletex_voucher_log;
+create policy tripletex_voucher_log_admin_read on tripletex_voucher_log
+  for select using (is_admin());
+
+-- =====================================================================
+-- 0067 – FIKS PIN-LAGRING (pgcrypto / gen_salt)
+--
+--   Feil i admin ved «Sett PIN»:
+--     "Kunne ikke lagre PIN: function gen_salt(unknown) does not exist"
+--
+--   Årsak: set_staff_pin bruker crypt()/gen_salt() fra pgcrypto. På Supabase
+--   ligger pgcrypto i schemaet "extensions", ikke "public". Funksjonen fant
+--   dem derfor ikke. 0018 fikset dette, men er tydeligvis ikke kjørt i dette
+--   Supabase-prosjektet – så vi sikrer det her på nytt (idempotent).
+--
+--   Kjør denne i Supabase (SQL-editor) og PIN-lagring virker.
+-- =====================================================================
+
+-- 1) Sørg for at pgcrypto er installert (uansett hvilket schema det havner i).
+create extension if not exists pgcrypto;
+
+-- 2) Legg "extensions" på søkestien til funksjonene som bruker crypt/gen_salt,
+--    slik at de finner funksjonene uansett schema.
+do $$
+begin
+  if exists (select 1 from pg_proc where proname = 'set_staff_pin') then
+    execute 'alter function set_staff_pin(uuid, text) set search_path = public, extensions';
+  end if;
+  if exists (select 1 from pg_proc where proname = 'verify_pin_status') then
+    execute 'alter function verify_pin_status(uuid, text) set search_path = public, extensions';
+  end if;
+  if exists (select 1 from pg_proc where proname = 'record_shift_event') then
+    execute 'alter function record_shift_event(uuid, text, text) set search_path = public, extensions';
+  end if;
+end $$;
+
+-- =====================================================================
+-- 0068 – LEDIGE TIDER FOR EN PERIODE (én RPC for mange dager)
+--
+--   available_slots(barber, service, dato) gir tider for ÉN dag. Booking-
+--   veiviseren trengte da ett kall per dag → tregt og «henter …» hver gang
+--   man byttet dag. Denne funksjonen returnerer ledige tider for HELE
+--   perioden i ETT kall (gjenbruker den eksisterende dag-logikken), slik at
+--   tidene kan vises som kolonner per dag uten venting.
+--
+--   Idempotent.
+-- =====================================================================
+
+create or replace function available_slots_range(
+  p_barber text, p_service text, p_from date, p_to date
+) returns table(slot_date date, slot_time text)
+language plpgsql security definer set search_path = public, extensions as $$
+declare
+  d date := p_from;
+begin
+  -- Sikkerhetsgrense: maks ~60 dager per kall.
+  if p_to < p_from or p_to - p_from > 60 then
+    return;
+  end if;
+  while d <= p_to loop
+    return query
+      select d, unnest(available_slots(p_barber, p_service, d));
+    d := d + 1;
+  end loop;
+end $$;
+
+grant execute on function available_slots_range(text, text, date, date)
+  to anon, authenticated;
+
+-- =====================================================================
+-- 0069 – KUNDE-INNLOGGING (passordløs magisk lenke)
+--
+--   Kunder logger inn ved å skrive e-posten sin og få tilsendt en lenke
+--   til «Min side». Hver kunde har allerede en portal_token (0022). Denne
+--   funksjonen slår opp token ut fra e-post, slik at server-koden kan sende
+--   lenken. SECURITY DEFINER + kun kalt server-side; svaret vises aldri til
+--   klienten (server svarer alltid nøytralt), så vi lekker ikke om en
+--   e-post finnes.
+--
+--   Idempotent.
+-- =====================================================================
+
+create or replace function portal_token_for_email(p_email text)
+returns uuid
+language sql security definer set search_path = public as $$
+  select c.portal_token
+  from customers c
+  where p_email is not null
+    and trim(p_email) <> ''
+    and lower(trim(c.email)) = lower(trim(p_email))
+  order by c.created_at asc
+  limit 1;
+$$;
+
+grant execute on function portal_token_for_email(text) to anon, authenticated;

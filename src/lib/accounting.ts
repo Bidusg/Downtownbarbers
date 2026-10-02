@@ -64,6 +64,50 @@ export function defaultVatMode(): VatMode {
   return process.env.TRIPLETEX_VAT_MODE === "explicit" ? "explicit" : "account";
 }
 
+/** Én rad i kontoplan-oversikten (Fixit-stil visning for revisor/admin). */
+export type AccountPlanRow = {
+  account: string;
+  name: string;
+  /** "betaling" = hvor pengene lander, "salg" = inntektskonto. */
+  kind: "betaling" | "salg";
+  /** Mva-kode i Tripletex (kun salgskontoer i account-modus). */
+  vatCode?: string;
+};
+
+/**
+ * Kontoplanen systemet konterer etter – samme kilde som dagsbilaget bruker, så
+ * oversikten kan aldri komme i utakt med de faktiske posteringene. Speiler
+ * Fixit sin Kontoplan-fane. I "account"-modus har salgskontoene mva-kode 3
+ * (Tripletex regner mva selv); i "explicit" føres mva eksplisitt til 2700.
+ */
+export function accountPlan(vatMode: VatMode = defaultVatMode()): {
+  rows: AccountPlanRow[];
+  vatMode: VatMode;
+} {
+  const rows: AccountPlanRow[] = [
+    { account: "1900", name: "Kontanter", kind: "betaling" },
+    { account: METHOD_ACCOUNT.kort.account, name: METHOD_ACCOUNT.kort.name, kind: "betaling" },
+    { account: METHOD_ACCOUNT.vipps.account, name: METHOD_ACCOUNT.vipps.name, kind: "betaling" },
+    { account: METHOD_ACCOUNT.gavekort.account, name: METHOD_ACCOUNT.gavekort.name, kind: "betaling" },
+    {
+      account: SERVICE_SALES_ACCOUNT.account,
+      name: SERVICE_SALES_ACCOUNT.name,
+      kind: "salg",
+      vatCode: vatMode === "account" ? "3" : undefined,
+    },
+    {
+      account: PRODUCT_SALES_ACCOUNT.account,
+      name: PRODUCT_SALES_ACCOUNT.name,
+      kind: "salg",
+      vatCode: vatMode === "account" ? "3" : undefined,
+    },
+  ];
+  if (vatMode === "explicit") {
+    rows.push({ account: VAT_ACCOUNT.account, name: VAT_ACCOUNT.name, kind: "salg" });
+  }
+  return { rows, vatMode };
+}
+
 export type IncomeLedger = {
   lines: LedgerLine[];
   vatMode: VatMode;

@@ -323,6 +323,7 @@ export async function updateStaff(
 }
 
 export async function toggleStaff(id: string, active: boolean) {
+  await requireRole(["admin"]);
   const sb = await createClient();
   await sb.from("staff").update({ active }).eq("id", id);
   revalidatePath("/admin/ansatte");

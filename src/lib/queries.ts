@@ -116,14 +116,7 @@ export type PublicProduct = {
   is_gift_card: boolean;
 };
 
-const mockProducts: PublicProduct[] = [
-  { id: "m1", name: "Matt Pomade", description: "Sterkt hold, matt finish. 100 ml.", price_nok: 249, image_url: null, is_gift_card: false },
-  { id: "m2", name: "Skjeggolje", description: "Pleiende olje for mykt skjegg. 30 ml.", price_nok: 199, image_url: null, is_gift_card: false },
-  { id: "m3", name: "Rensende Shampoo", description: "Daglig shampoo. 250 ml.", price_nok: 179, image_url: null, is_gift_card: false },
-  { id: "m4", name: "Gavekort 500 kr", description: "Digitalt gavekort.", price_nok: 500, image_url: null, is_gift_card: true },
-];
-
-/** Produkter fra Supabase (aktive), fallback til mock. */
+/** Produkter fra Supabase (aktive). Tom liste hvis ingen/feil. */
 export async function getPublicProducts(): Promise<PublicProduct[]> {
   try {
     const sb = await createClient();
@@ -135,9 +128,9 @@ export async function getPublicProducts(): Promise<PublicProduct[]> {
       .order("name");
     if (data && data.length) return data as PublicProduct[];
   } catch {
-    // fallback under
+    // tom liste under
   }
-  return mockProducts;
+  return [];
 }
 
 /** Grupperer tjenester etter kategori (rekkefølge bevart). */
