@@ -81,7 +81,7 @@ export default async function AnsattDokumenter() {
     <main className="mx-auto max-w-3xl space-y-8 p-6">
       <PageHeader
         title="Mine dokumenter"
-        description="Kontrakt, lønnslipper og andre dokumenter – kun synlig for deg og ledelsen."
+        description="Kontrakt, lønnsoversikter og andre dokumenter – kun synlig for deg og ledelsen."
       />
 
       {!link.linked ? (
@@ -123,10 +123,10 @@ export default async function AnsattDokumenter() {
           {/* Lønnslipper */}
           <section>
             <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted uppercase">
-              Lønnslipper
+              Lønnsoversikt (foreløpig)
             </h2>
             {payslips.length === 0 ? (
-              <EmptyState text="Ingen lønnslipper enda." />
+              <EmptyState text="Ingen lønnsoversikter enda." />
             ) : (
               <ul className="divide-y divide-line border border-line bg-surface">
                 {payslips.map((d) => {

@@ -40,12 +40,11 @@ export async function getGoLiveChecklist(): Promise<{
   const vippsMode = config.vipps.mode;
 
   // Parallelle oppslag (degraderer til trygge defaults ved feil).
-  const [sms, review, anchor, contractsPublic, saftSet] = await Promise.all([
+  const [sms, review, anchor, contractsPublic] = await Promise.all([
     getSmsConfigAdmin().catch(() => null),
     getReviewConfigAdmin().catch(() => null),
     getTurnusAnchor().catch(() => null),
     countPublicContracts(),
-    saftCompanySet(),
   ]);
 
   const isVercelDomain = siteUrl.includes(".vercel.app");
@@ -75,10 +74,10 @@ export async function getGoLiveChecklist(): Promise<{
           status: resendKey && emailFrom ? "ok" : resendKey ? "blocked" : "blocked",
           detail:
             resendKey && emailFrom
-              ? "Utsending klar (bekreftelser, påminnelser, lønnslipp, innlogging)."
+              ? "Utsending klar (bekreftelser, påminnelser, lønnsoversikt, innlogging)."
               : resendKey
                 ? "RESEND_API_KEY satt, men EMAIL_FROM mangler — krever verifisert avsenderdomene."
-                : "RESEND_API_KEY + EMAIL_FROM mangler. Hele ansatt-e-postløpet (brukeropprettelse, passord-reset, lønnslipp) er blokkert til dette er på plass.",
+                : "RESEND_API_KEY + EMAIL_FROM mangler. Hele ansatt-e-postløpet (brukeropprettelse, passord-reset, lønnsoversikt) er blokkert til dette er på plass.",
           hint:
             resendKey && emailFrom
               ? undefined
@@ -151,16 +150,6 @@ export async function getGoLiveChecklist(): Promise<{
           owner: "Kidus",
         },
         {
-          key: "saft_company",
-          label: "SAF-T firmafelt",
-          status: saftSet ? "ok" : "action",
-          detail: saftSet
-            ? "Firmafelt for SAF-T er satt."
-            : "Bruker standard/fallback firmafelt (org.nr, adresse).",
-          hint: saftSet ? undefined : "Sett settings-nøkkelen saft_company (org.nr, adresse, postnr) før offisiell SAF-T-innsending.",
-          owner: "Kidus",
-        },
-        {
           key: "turnus_anchor",
           label: "Turnus A/B-anker",
           status: anchor ? "ok" : "info",
@@ -211,21 +200,5 @@ async function countPublicContracts(): Promise<number> {
     return count ?? 0;
   } catch {
     return 0;
-  }
-}
-
-/** Er SAF-T firmafelt satt i settings ('saft_company' med org.nr)? */
-async function saftCompanySet(): Promise<boolean> {
-  try {
-    const sb = await createClient();
-    const { data } = await sb
-      .from("settings")
-      .select("value")
-      .eq("key", "saft_company")
-      .maybeSingle();
-    const v = (data?.value ?? null) as { orgnr?: string } | null;
-    return Boolean(v && has(v.orgnr));
-  } catch {
-    return false;
   }
 }

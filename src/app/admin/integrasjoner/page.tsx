@@ -96,7 +96,7 @@ export default async function AdminIntegrasjoner() {
         >
           {resendSet
             ? emailFromSet
-              ? "Sender bekreftelser, påminnelser og lønnslipper."
+              ? "Sender bekreftelser, påminnelser og lønnsoversikter."
               : "RESEND_API_KEY er satt, men EMAIL_FROM mangler (må verifiseres for domenet)."
             : "Sett RESEND_API_KEY + EMAIL_FROM i Vercel."}
         </IntegrationCard>

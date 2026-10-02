@@ -14,6 +14,7 @@ export type BookingInput = {
   phone: string;
   source?: string; // "Hvordan hørte du om oss?" (valgfritt)
   price?: string; // vises i e-post
+  marketingConsent?: boolean; // markedsføringssamtykke (valgfritt opt-in)
 };
 
 export async function createBooking(
@@ -72,6 +73,25 @@ export async function createBooking(
         p_booking: bookingId,
       });
       if (pToken) portalUrl = `${base}/min-side/${pToken}`;
+
+      // Markedsføringssamtykke (opt-in): settes kun når kunden har huket av.
+      // Må ALDRI blokkere bookingen – egen try/catch så verken RPC-feil eller
+      // en uventet exception kan velte den allerede lagrede bookingen.
+      if (input.marketingConsent === true) {
+        try {
+          const { error: consentError } = await sb.rpc(
+            "set_marketing_consent_for_booking",
+            { p_booking: bookingId },
+          );
+          if (consentError)
+            console.error(
+              "set_marketing_consent_for_booking feilet:",
+              consentError.message,
+            );
+        } catch (e) {
+          console.error("set_marketing_consent_for_booking kastet:", e);
+        }
+      }
     }
 
     // E-postbekreftelse (hopper stille over hvis RESEND_API_KEY mangler)

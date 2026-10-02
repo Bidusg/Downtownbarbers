@@ -79,12 +79,6 @@ export default async function RevisorRapport({
             >
               CSV
             </a>
-            <a
-              href={`/revisor/eksport/saft?from=${p.fromDate}&to=${p.toDate}`}
-              className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
-            >
-              SAF-T (XML)
-            </a>
           </>
         }
       />
@@ -216,8 +210,7 @@ export default async function RevisorRapport({
 
       <p className="text-xs text-muted">
         Mva er beregnet med standard sats ({Math.round(PAYROLL.MVA * 100)} %) fra
-        salg registrert inkl. mva. For offisiell innsending, kjør SAF-T-filen
-        gjennom Skatteetatens validator.
+        salg registrert inkl. mva.
       </p>
     </div>
   );

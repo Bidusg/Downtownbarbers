@@ -126,7 +126,7 @@ export async function generatePayslips(
       const { error: dbError } = await sb.from("staff_documents").insert({
         staff_id: row.staffId,
         category: "lonnslipp",
-        name: `Lønnslipp ${monthName} ${year}`,
+        name: `Lønnsoversikt (foreløpig) ${monthName} ${year}`,
         path,
         period,
         size_bytes: buf.byteLength,

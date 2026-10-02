@@ -70,7 +70,7 @@ export function GeneratePayslipsButton({
       >
         {pending
           ? "Genererer…"
-          : `Generer og send lønnsslipper for ${monthLabel}`}
+          : `Generer og send lønnsoversikter for ${monthLabel}`}
       </button>
       {msg && (
         <div className="space-y-1">
@@ -79,7 +79,7 @@ export function GeneratePayslipsButton({
           </p>
           {msg.ok && typeof msg.emailed === "number" && (
             <p className="text-sm text-muted">
-              {msg.emailed} fikk lønnslippen på e-post
+              {msg.emailed} fikk lønnsoversikten på e-post
               {msg.missing?.length
                 ? ` – ${msg.missing.length} mangler postnummer og fikk kun varsel.`
                 : "."}
@@ -88,7 +88,7 @@ export function GeneratePayslipsButton({
           {msg.ok && msg.missing?.length ? (
             <p className="text-xs text-muted">
               Mangler postnummer: {msg.missing.join(", ")}. Legg det inn under
-              Ansatte for å sende vedlagt lønnslipp neste gang.
+              Ansatte for å sende vedlagt lønnsoversikt neste gang.
             </p>
           ) : null}
         </div>

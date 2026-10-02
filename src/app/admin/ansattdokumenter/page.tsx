@@ -24,7 +24,7 @@ const GROUPS: { key: DocCategory; label: string; hint: string }[] = [
   { key: "kontrakt", label: "Kontrakt", hint: "Ansettelseskontrakter og tillegg." },
   {
     key: "lonnslipp",
-    label: "Lønnslipper",
+    label: "Lønnsoversikt",
     hint: "Genereres av revisor – kun visning her.",
   },
   { key: "annet", label: "Andre dokumenter", hint: "Øvrige vedlegg." },
@@ -87,7 +87,7 @@ export default async function AdminAnsattdokumenter({
     <div className="mx-auto max-w-4xl space-y-8">
       <PageHeader
         title="Ansattdokumenter"
-        description="Dokumenter per ansatt — kontrakter og andre vedlegg. Filene lagres privat, og åpnes via tidsbegrensede signerte lenker. Lønnslipper genereres av revisor og vises her, men lastes ikke opp av admin."
+        description="Dokumenter per ansatt — kontrakter og andre vedlegg. Filene lagres privat, og åpnes via tidsbegrensede signerte lenker. Lønnsoversikter genereres av revisor og vises her, men lastes ikke opp av admin."
       />
 
       <ContractMigrationButton />

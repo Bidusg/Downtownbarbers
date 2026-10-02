@@ -4,8 +4,8 @@
 // til en konto-oppstilling (debet/kredit) etter enkle konteringsregler. Den
 // lager IKKE et uforanderlig bilagsspor og er IKKE kvalitetssikret regnskap.
 // Kontoplan og mva-koder må bekreftes av regnskapsfører før offisiell bruk.
-// Persistente bilag, kostnader og full SAF-T kommer i senere faser
-// (se REGNSKAPSMODUL-PLAN.md).
+// Tripletex er regnskapssystemet (master); denne oppstillingen er kun en
+// avledet inntektsoversikt (se REGNSKAPSMODUL-PLAN.md).
 
 import { PAYROLL } from "@/lib/ops-queries";
 import { getPeriodReport } from "@/lib/dashboard-queries";

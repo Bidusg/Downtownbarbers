@@ -67,7 +67,7 @@ export function StaffDocUploader({ staffId }: { staffId: string }) {
           {pending ? "Laster opp…" : "Last opp"}
         </button>
         <span className="text-xs text-muted">
-          Lagres privat. Maks 4 MB. Lønnslipp genereres av revisor.
+          Lagres privat. Maks 4 MB. Lønnsoversikt genereres av revisor.
         </span>
       </div>
 

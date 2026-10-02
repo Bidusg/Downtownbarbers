@@ -40,7 +40,7 @@ export default async function RevisorLonnslipper({
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <PageHeader
-        title="Lønnsslipper"
+        title="Lønnsoversikt (foreløpig)"
         description={`Grunnlønn ${kr(PAYROLL.BASE_NOK)} + ${Math.round(
           PAYROLL.RATE * 100,
         )} % provisjon av omsetning (eks. mva) over ${kr(
@@ -188,7 +188,7 @@ export default async function RevisorLonnslipper({
       <div className="space-y-4 border border-line bg-surface p-6">
         <div>
           <h2 className="font-display text-lg font-bold">
-            Generer lønnsslipper
+            Generer lønnsoversikter
           </h2>
           <p className="mt-1 text-sm text-muted">
             Lager én PDF per aktiv ansatt for {monthLabel} {year} og legger den i

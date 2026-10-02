@@ -369,10 +369,10 @@ export async function sendPayslipEmail(opts: {
 }): Promise<boolean> {
   const hasAttachment = !!opts.attachment;
   const intro = hasAttachment
-    ? `Hei ${opts.name.split(" ")[0] || "der"}, lønnslippen din for ${escapeHtml(
+    ? `Hei ${opts.name.split(" ")[0] || "der"}, lønnsoversikten din for ${escapeHtml(
         opts.monthLabel,
       )} er klar. Den ligger vedlagt som en passordbeskyttet ZIP-fil.`
-    : `Hei ${opts.name.split(" ")[0] || "der"}, lønnslippen din for ${escapeHtml(
+    : `Hei ${opts.name.split(" ")[0] || "der"}, lønnsoversikten din for ${escapeHtml(
         opts.monthLabel,
       )} er klar. Du finner den i ansattportalen.`;
 
@@ -387,7 +387,7 @@ export async function sendPayslipEmail(opts: {
     <div style="margin:28px 0">
       <a href="${opts.portalUrl}"
          style="display:inline-block;background:#F47721;color:#211E1A;text-decoration:none;font-weight:bold;padding:12px 22px">
-        Se lønnslippen i portalen
+        Se lønnsoversikten i portalen
       </a>
     </div>
     <p style="color:#8a817a;font-size:13px;line-height:1.6;margin:0">
@@ -395,13 +395,13 @@ export async function sendPayslipEmail(opts: {
     </p>`;
 
   const html = shell(
-    `Lønnslipp for ${escapeHtml(opts.monthLabel)}`,
+    `Lønnsoversikt (foreløpig) for ${escapeHtml(opts.monthLabel)}`,
     intro,
     [],
     cta,
   );
 
-  const subject = `Lønnslipp for ${opts.monthLabel} – Downtown Barbers`;
+  const subject = `Lønnsoversikt (foreløpig) for ${opts.monthLabel} – Downtown Barbers`;
 
   // Uten vedlegg: gjenbruk den vanlige lav-nivå senderen.
   if (!opts.attachment) {

@@ -67,6 +67,7 @@ export function BookingWizard({
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [source, setSource] = useState("");
+  const [marketingConsent, setMarketingConsent] = useState(false);
   const [done, setDone] = useState(false);
   const [confirmLinks, setConfirmLinks] = useState<{
     portalUrl?: string;
@@ -172,6 +173,7 @@ export function BookingWizard({
       email,
       phone,
       source,
+      marketingConsent,
       price: priceLabel,
     });
     setPending(false);
@@ -508,6 +510,18 @@ export function BookingWizard({
                 <option value="Annet">Annet</option>
               </select>
             </div>
+            <label className="flex cursor-pointer items-start gap-2.5 text-sm text-muted">
+              <input
+                type="checkbox"
+                checked={marketingConsent}
+                onChange={(e) => setMarketingConsent(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-accent-soft"
+              />
+              <span>
+                Ja, jeg vil motta tilbud og nyheter fra Downtown Barbers på
+                e-post/SMS <span className="text-muted">(valgfritt)</span>
+              </span>
+            </label>
             {error && <p className="text-sm text-danger">{error}</p>}
             {!pending && (!name.trim() || !emailOk || !phoneOk) && (
               <p className="text-xs text-muted">
