@@ -56,7 +56,6 @@ export async function GET(req: Request) {
     const addRow = (label: string, x: { gross: number; net: number; vat: number }) =>
       lines.push([cell(label), cell(x.gross), cell(x.net), cell(x.vat)].join(";"));
     addRow("Tjenester (kasse)", v.services);
-    addRow("Varesalg (Zettle)", v.external);
     addRow("Totalt", v.total);
     return csvResponse(`downtown_mva_${suffix}`, lines);
   }
@@ -83,7 +82,6 @@ export async function GET(req: Request) {
     lines.push(["Post", "Beløp (kr)"].map(cell).join(";"));
     lines.push([cell("Omsetning totalt (inkl. mva)"), cell(kr(b.total))].join(";"));
     lines.push([cell("  herav kasse"), cell(kr(b.internal))].join(";"));
-    lines.push([cell("  herav Zettle"), cell(kr(b.external))].join(";"));
     lines.push([cell(`Netto eks. mva (${v.rate}%)`), cell(v.total.net)].join(";"));
     lines.push([cell(`MVA ${v.rate}%`), cell(v.total.vat)].join(";"));
     lines.push([cell("Antall salg"), cell(b.saleCount)].join(";"));

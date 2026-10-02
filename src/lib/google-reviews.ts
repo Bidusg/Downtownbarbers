@@ -1,5 +1,5 @@
 /**
- * Google-anmeldelser via Places API (New). Config-styrt som Vipps/Zettle:
+ * Google-anmeldelser via Places API (New). Config-styrt som Vipps:
  * uten GOOGLE_PLACES_API_KEY + GOOGLE_PLACES_ID henter vi ingenting og
  * komponenten skjuler seg selv. Go-live = fyll inn .env, redeploy.
  *
