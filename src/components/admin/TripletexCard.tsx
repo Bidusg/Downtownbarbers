@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { testTripletex, type TripletexTestResult } from "@/app/admin/integrasjoner/tripletex-actions";
+import {
+  testTripletex,
+  probeTripletexData,
+  type TripletexTestResult,
+} from "@/app/admin/integrasjoner/tripletex-actions";
 
 export function TripletexCard({
   configured,
@@ -15,6 +19,8 @@ export function TripletexCard({
   const [res, setRes] = useState<TripletexTestResult | null>(null);
   const [date, setDate] = useState("");
   const [pending, start] = useTransition();
+  const [probe, setProbe] = useState<string | null>(null);
+  const [probePending, startProbe] = useTransition();
 
   const mode = !configured
     ? { text: "Ikke satt", cls: "bg-surface-2 text-muted" }
@@ -51,7 +57,33 @@ export function TripletexCard({
         >
           {pending ? "Tester …" : "Test tilkobling"}
         </button>
+        <button
+          type="button"
+          disabled={probePending}
+          onClick={() =>
+            startProbe(async () => {
+              const r = await probeTripletexData();
+              setProbe(JSON.stringify(r, null, 2));
+            })
+          }
+          className="rounded-md border border-line-2 px-4 py-2 text-sm font-semibold text-fg hover:bg-surface-2 disabled:opacity-40"
+          title="Henter små rå-utsnitt fra regnskaps-endepunktene for å bekrefte dataformen (leser kun)"
+        >
+          {probePending ? "Henter …" : "Hent regnskapsdata (diagnostikk)"}
+        </button>
       </div>
+
+      {probe !== null && (
+        <div className="mt-3">
+          <p className="mb-1 text-xs text-muted">
+            Diagnostikk – rå svar fra Tripletex (kontoplan, saldobalanse, hovedbok,
+            bilag, mva). Brukes for å bekrefte dataformen før synken bygges.
+          </p>
+          <pre className="max-h-96 overflow-auto rounded-md border border-line bg-canvas p-3 text-[11px] leading-relaxed text-fg">
+            {probe}
+          </pre>
+        </div>
+      )}
 
       {res && (
         <div className="mt-4 space-y-3 text-sm">

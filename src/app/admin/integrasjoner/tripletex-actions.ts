@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth";
 import { tripletexPing } from "@/lib/tripletex/client";
 import { tripletexConfigured } from "@/lib/tripletex/config";
 import { buildDailyVoucherPlan, type DailyVoucherPlan } from "@/lib/tripletex/voucher";
+import { probeFinancialData, type TripletexProbe } from "@/lib/tripletex/read";
 
 function osloYesterday(): string {
   const todayOslo = new Date().toLocaleDateString("en-CA", {
@@ -45,4 +46,24 @@ export async function testTripletex(date?: string): Promise<TripletexTestResult>
   }
 
   return { date: d, connection, plan, planError };
+}
+
+/**
+ * Diagnostikk (Fase 1 av regnskapsimport): henter små rå-utsnitt fra Tripletex
+ * sine regnskaps-endepunkter (kontoplan, saldobalanse, hovedbok, bilag, mva) så
+ * vi kan bekrefte den eksakte dataformen før vi bygger synken. Leser kun –
+ * oppretter/endrer ingenting. Admin-only.
+ */
+export async function probeTripletexData(
+  dateFrom?: string,
+  dateTo?: string,
+): Promise<{ configured: boolean; probe: TripletexProbe | null; error?: string }> {
+  await requireRole(["admin"]);
+  if (!tripletexConfigured()) return { configured: false, probe: null };
+  try {
+    const probe = await probeFinancialData(dateFrom, dateTo);
+    return { configured: true, probe };
+  } catch (e) {
+    return { configured: true, probe: null, error: e instanceof Error ? e.message : String(e) };
+  }
 }
