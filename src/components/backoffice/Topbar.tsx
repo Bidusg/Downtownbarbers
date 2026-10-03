@@ -98,6 +98,14 @@ function Icon({ name, className }: { name: string; className?: string }) {
           <path d="M4 19V5m0 14h16M8 15l3-4 3 2 4-6" />
         </svg>
       );
+    case "mal":
+      return (
+        <svg {...p}>
+          <circle cx="12" cy="12" r="8" />
+          <circle cx="12" cy="12" r="4" />
+          <circle cx="12" cy="12" r="0.6" />
+        </svg>
+      );
     case "innhold":
       return (
         <svg {...p}>
@@ -133,6 +141,7 @@ const GROUP_ICON: Record<string, string> = {
   "Butikk & lager": "butikk",
   "Kunder & marked": "kunder",
   Økonomi: "okonomi",
+  "Mål & rapporter": "mal",
   Innhold: "innhold",
 };
 
@@ -141,6 +150,7 @@ const GROUP_ICON: Record<string, string> = {
 const GROUP_SHORT: Record<string, string> = {
   "Butikk & lager": "Butikk",
   "Kunder & marked": "Kunder",
+  "Mål & rapporter": "Mål",
 };
 
 /* ---------- Glidende indikator (måler barn i en rail) ----------

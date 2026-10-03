@@ -89,19 +89,29 @@ export const adminGroups: AdminNavGroup[] = [
         description: "KPI-er og trender",
       },
       {
-        label: "Rapporter",
-        href: "/admin/rapporter",
-        description: "Eksport og grunndata",
-      },
-      {
-        label: "Produktivitet",
-        href: "/admin/rapporter/produktivitet",
-        description: "Per barber, no-show, turnus",
-      },
-      {
         label: "Omsetning",
         href: "/admin/omsetning",
         description: "Salg per periode",
+      },
+      {
+        label: "Regnskap",
+        href: "/admin/regnskap",
+        description: "Resultat, mva og kontoplan fra Tripletex",
+      },
+      {
+        label: "Bilag",
+        href: "/admin/bilag",
+        description: "Fakturaer og bilag til revisor",
+      },
+    ],
+  },
+  {
+    label: "Mål & rapporter",
+    items: [
+      {
+        label: "Budsjett",
+        href: "/admin/budsjett",
+        description: "Planlagte tall",
       },
       {
         label: "Måloppnåelse",
@@ -109,19 +119,14 @@ export const adminGroups: AdminNavGroup[] = [
         description: "Faktisk mot mål",
       },
       {
-        label: "Budsjett",
-        href: "/admin/budsjett",
-        description: "Planlagte tall",
+        label: "Produktivitet",
+        href: "/admin/rapporter/produktivitet",
+        description: "Per barber, no-show, turnus",
       },
       {
-        label: "Regnskap",
-        href: "/admin/regnskap",
-        description: "Bilag og hovedbok",
-      },
-      {
-        label: "Bilag",
-        href: "/admin/bilag",
-        description: "Fakturaer og bilag til revisor",
+        label: "Rapporter",
+        href: "/admin/rapporter",
+        description: "Eksport og grunndata",
       },
     ],
   },
