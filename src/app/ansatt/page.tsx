@@ -1,5 +1,8 @@
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Card } from "@/components/ui/Card";
+import { StatTile } from "@/components/ui/StatTile";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { requireRole, getUserRole } from "@/lib/auth";
 import { getMyAgenda } from "@/lib/ansatt-queries";
 import { getGoalProgress } from "@/lib/analytics-queries";
@@ -60,76 +63,79 @@ export default async function AnsattDashboard() {
         <PageHeader title="Min side" />
         <NoticeBanner notices={notices} />
         {/* MIN TIMEPLAN */}
-        <section className="border border-line bg-surface p-6">
-          <h2 className="mb-4 font-display text-lg font-bold">Min timeplan</h2>
-          {!agenda.linked ? (
-            <p className="text-sm text-muted">
-              Kontoen din ({me?.email}) er ikke koblet til en ansattprofil enda.
-              Be admin sette e-posten din på din ansatt-rad, så dukker timene
-              dine og tallene dine opp her.
-            </p>
-          ) : agenda.bookings.length === 0 ? (
-            <p className="text-sm text-muted">Ingen kommende timer akkurat nå.</p>
-          ) : (
-            <div className="space-y-5">
-              {Array.from(byDay.entries()).map(([day, list]) => (
-                <div key={day}>
-                  <p className="mb-2 text-xs font-semibold tracking-wide text-accent-soft uppercase">
-                    {day}
-                  </p>
-                  <ul className="divide-y divide-line">
-                    {list.map((b) => (
-                      <li key={b.id} className="flex items-center gap-4 py-3">
-                        <span className="font-display text-sm font-bold text-fg">
-                          {fmtTime(b.start_at)}
-                        </span>
-                        <span className="flex-1 text-sm text-fg">{b.customer}</span>
-                        <span className="text-sm text-muted">{b.service}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+        <Card padded={false}>
+          <div className="p-6">
+            <h2 className="mb-4 font-display text-lg font-bold">Min timeplan</h2>
+            {!agenda.linked ? (
+              <p className="text-sm text-muted">
+                Kontoen din ({me?.email}) er ikke koblet til en ansattprofil
+                enda. Be admin sette e-posten din på din ansatt-rad, så dukker
+                timene dine og tallene dine opp her.
+              </p>
+            ) : agenda.bookings.length === 0 ? (
+              <EmptyState description="Ingen kommende timer akkurat nå." />
+            ) : (
+              <div className="space-y-5">
+                {Array.from(byDay.entries()).map(([day, list]) => (
+                  <div key={day}>
+                    <p className="mb-2 text-xs font-semibold tracking-wide text-accent-soft uppercase">
+                      {day}
+                    </p>
+                    <ul className="divide-y divide-line">
+                      {list.map((b) => (
+                        <li key={b.id} className="flex items-center gap-4 py-3">
+                          <span className="font-display text-sm font-bold text-fg">
+                            {fmtTime(b.start_at)}
+                          </span>
+                          <span className="flex-1 text-sm text-fg">
+                            {b.customer}
+                          </span>
+                          <span className="text-sm text-muted">{b.service}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </Card>
 
         {/* Personlige tall – kun når kontoen er koblet til en barber-profil */}
         {agenda.linked && (
           <>
             {/* Månedsmål – ekte tall fra budsjett vs. omsetning, 0–100 % UTEN kroner */}
-            <section className="border border-line bg-surface p-8">
-              <p className="text-[10px] font-semibold tracking-[0.2em] text-muted uppercase">
-                Ditt månedsmål
-              </p>
-              {hasTarget ? (
-                <>
-                  <div className="mt-4 mb-3 flex items-end justify-between">
-                    <span className="font-display text-5xl font-bold text-fg sm:text-6xl">
-                      {goalPct} %
-                    </span>
-                    <span className="pb-2 text-lg text-muted">av målet ditt</span>
-                  </div>
-                  <ProgressBar value={goalPct} />
-                </>
-              ) : (
-                <p className="mt-4 text-sm text-muted">
-                  Ingen mål satt for denne måneden enda. Be admin sette et
-                  omsetningsmål for deg under Budsjett, så vises fremdriften din
-                  her.
+            <Card padded={false}>
+              <div className="p-8">
+                <p className="text-[10px] font-semibold tracking-[0.2em] text-muted uppercase">
+                  Ditt månedsmål
                 </p>
-              )}
-            </section>
+                {hasTarget ? (
+                  <>
+                    <div className="mt-4 mb-3 flex items-end justify-between">
+                      <span className="font-display text-5xl font-bold text-fg sm:text-6xl">
+                        {goalPct} %
+                      </span>
+                      <span className="pb-2 text-lg text-muted">
+                        av målet ditt
+                      </span>
+                    </div>
+                    <ProgressBar value={goalPct} />
+                  </>
+                ) : (
+                  <EmptyState
+                    className="mt-4"
+                    description="Ingen mål satt for denne måneden enda. Be admin sette et omsetningsmål for deg under Budsjett, så vises fremdriften din her."
+                  />
+                )}
+              </div>
+            </Card>
 
-            <div className="border border-line bg-surface p-6">
-              <p className="text-[10px] font-semibold tracking-[0.2em] text-muted uppercase">
-                Kommende timer
-              </p>
-              <p className="mt-3 font-display text-4xl font-bold">
-                {agenda.bookings.length}
-              </p>
-              <p className="mt-1 text-xs text-muted">registrerte bookinger</p>
-            </div>
+            <StatTile
+              label="Kommende timer"
+              value={`${agenda.bookings.length}`}
+              sub="registrerte bookinger"
+            />
 
             <p className="text-center text-xs text-muted">
               Du ser kun ditt eget – aldri kolleger, omsetning eller budsjett.

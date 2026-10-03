@@ -12,6 +12,7 @@ import {
 import { DeskBooking } from "@/components/kasse/DeskBooking";
 import { PaymentControls } from "@/components/kasse/PaymentControls";
 import { Avatar } from "@/components/ui/Avatar";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 function ReceiptButton({ b }: { b: TodayBooking }) {
   const [pending, start] = useTransition();
@@ -274,7 +275,7 @@ export function ShopBookingList({
   barbers: ShopBarber[];
 }) {
   if (bookings.length === 0) {
-    return <p className="py-4 text-sm text-muted">Ingen timer i dag.</p>;
+    return <EmptyState description="Ingen timer i dag." />;
   }
   return (
     <ul className="divide-y divide-line">

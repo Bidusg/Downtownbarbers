@@ -10,6 +10,7 @@ import {
   type ShiftStatus,
 } from "@/app/kasse/stempling/actions";
 import { getStaffWeek, type KioskDay } from "@/app/kasse/kiosk-actions";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 type BoardStaff = ClockStaff & { status: ShiftStatus; workedMinutes: number };
 
@@ -121,9 +122,10 @@ export function KioskLanding({ staff }: { staff: BoardStaff[] }) {
           Ansatte
         </p>
         {staff.length === 0 ? (
-          <p className="py-8 text-center text-muted">
-            Ingen aktive ansatte. Legg til ansatte i admin.
-          </p>
+          <EmptyState
+            title="Ingen aktive ansatte"
+            description="Legg til ansatte i admin."
+          />
         ) : (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
             {staff.map((s) => {

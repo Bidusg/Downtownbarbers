@@ -4,6 +4,10 @@ import {
   getMyShiftEvents,
 } from "@/lib/ansatt-queries";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Card } from "@/components/ui/Card";
+import { StatTile } from "@/components/ui/StatTile";
+import { Table, TBody, Tr, Td } from "@/components/ui/Table";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -108,29 +112,16 @@ export default async function AnsattTimer() {
       />
 
       {!link.linked ? (
-        <div className="border border-line bg-surface px-4 py-8 text-center text-sm text-muted">
-          Kontoen din er ikke koblet til en ansattprofil enda. Be admin sette
-          e-posten din på din ansatt-rad, så vises timene dine her.
-        </div>
+        <EmptyState description="Kontoen din er ikke koblet til en ansattprofil enda. Be admin sette e-posten din på din ansatt-rad, så vises timene dine her." />
       ) : (
         <>
           <div className="grid gap-5 sm:grid-cols-2">
-            <div className="border border-line bg-surface p-6">
-              <p className="text-[10px] font-semibold tracking-[0.2em] text-muted uppercase">
-                Totalt siste 4 uker
-              </p>
-              <p className="mt-3 font-display text-4xl font-bold">
-                {fmtHm(totalMinutes)}
-              </p>
-            </div>
-            <div className="border border-line bg-surface p-6">
-              <p className="text-[10px] font-semibold tracking-[0.2em] text-muted uppercase">
-                Per uke
-              </p>
+            <StatTile label="Totalt siste 4 uker" value={fmtHm(totalMinutes)} />
+            <Card title="Per uke">
               {weeks.length === 0 ? (
-                <p className="mt-3 text-sm text-muted">Ingen registrerte timer.</p>
+                <p className="text-sm text-muted">Ingen registrerte timer.</p>
               ) : (
-                <ul className="mt-3 space-y-1 text-sm">
+                <ul className="space-y-1 text-sm">
                   {weeks.map(([k, mins]) => (
                     <li key={k} className="flex justify-between">
                       <span className="text-muted">{k.replace("-U", " · uke ")}</span>
@@ -141,7 +132,7 @@ export default async function AnsattTimer() {
                   ))}
                 </ul>
               )}
-            </div>
+            </Card>
           </div>
 
           <section>
@@ -149,23 +140,22 @@ export default async function AnsattTimer() {
               Per dag
             </h2>
             {days.length === 0 ? (
-              <div className="border border-line bg-surface px-4 py-6 text-center text-sm text-muted">
-                Ingen stemplede timer i perioden.
-              </div>
+              <EmptyState description="Ingen stemplede timer i perioden." />
             ) : (
-              <ul className="divide-y divide-line border border-line bg-surface">
-                {days.map((d) => (
-                  <li
-                    key={d.day}
-                    className="flex items-center justify-between px-4 py-3 text-sm"
-                  >
-                    <span className="text-fg">{fmtDay(d.day)}</span>
-                    <span className="font-display font-bold text-fg">
-                      {fmtHm(d.worked_minutes)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <Card padded={false}>
+                <Table>
+                  <TBody>
+                    {days.map((d) => (
+                      <Tr key={d.day}>
+                        <Td className="text-fg">{fmtDay(d.day)}</Td>
+                        <Td align="right" className="font-display font-bold text-fg">
+                          {fmtHm(d.worked_minutes)}
+                        </Td>
+                      </Tr>
+                    ))}
+                  </TBody>
+                </Table>
+              </Card>
             )}
           </section>
 
@@ -174,28 +164,27 @@ export default async function AnsattTimer() {
               Stemplingslogg
             </h2>
             {events.length === 0 ? (
-              <div className="border border-line bg-surface px-4 py-6 text-center text-sm text-muted">
-                Ingen stemplinger i perioden.
-              </div>
+              <EmptyState description="Ingen stemplinger i perioden." />
             ) : (
-              <ul className="divide-y divide-line border border-line bg-surface">
-                {events.map((e) => (
-                  <li
-                    key={e.id}
-                    className="flex items-center gap-4 px-4 py-2.5 text-sm"
-                  >
-                    <span className="w-40 text-muted">
-                      {fmtDayTs(e.created_at)}
-                    </span>
-                    <span className="font-display font-bold text-fg">
-                      {fmtTime(e.created_at)}
-                    </span>
-                    <span className="ml-auto text-muted">
-                      {EVENT_LABEL[e.event_type] ?? e.event_type}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <Card padded={false}>
+                <Table>
+                  <TBody>
+                    {events.map((e) => (
+                      <Tr key={e.id}>
+                        <Td muted className="w-40">
+                          {fmtDayTs(e.created_at)}
+                        </Td>
+                        <Td className="font-display font-bold text-fg">
+                          {fmtTime(e.created_at)}
+                        </Td>
+                        <Td align="right" muted>
+                          {EVENT_LABEL[e.event_type] ?? e.event_type}
+                        </Td>
+                      </Tr>
+                    ))}
+                  </TBody>
+                </Table>
+              </Card>
             )}
             <p className="mt-2 text-[11px] text-muted">
               Timene regnes ut fra inn-/utstempling. En glemt utstempling klippes

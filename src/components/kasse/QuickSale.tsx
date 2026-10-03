@@ -19,6 +19,7 @@ import {
   type MemberCampaignOffer,
 } from "@/app/kasse/actions";
 import { BarcodeScanner } from "@/components/ui/BarcodeScanner";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { CouponPicker, couponDiscount } from "@/components/kasse/CouponPicker";
 
 const PAYMENTS = ["Kontant", "Kort", "Vipps"];
@@ -456,7 +457,7 @@ export function QuickSale({
                     </div>
                   )}
                   {products.length === 0 ? (
-                    <p className="text-sm text-muted">Ingen varer tilgjengelig.</p>
+                    <EmptyState description="Ingen varer tilgjengelig." />
                   ) : (
                     <div className="space-y-1">
                       {products.map((p) => {
@@ -615,9 +616,7 @@ export function QuickSale({
                   {!allow?.friendFamilyEnabled &&
                     !allow?.discountAllowed &&
                     offers.length === 0 && (
-                      <p className="text-sm text-muted">
-                        Ingen rabatt tilgjengelig. Gå videre til betaling.
-                      </p>
+                      <EmptyState description="Ingen rabatt tilgjengelig. Gå videre til betaling." />
                     )}
 
                   <CouponPicker

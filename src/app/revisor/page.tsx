@@ -1,4 +1,5 @@
 import { StatTile } from "@/components/ui/StatTile";
+import { Card } from "@/components/ui/Card";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { RevenueChart } from "@/components/admin/RevenueChart";
 import {
@@ -75,7 +76,7 @@ export default async function RevisorHome({
         <StatTile label="Snitt per salg" value={nok(sum.avgPerSale)} />
       </div>
 
-      <div className="border border-line bg-surface">
+      <Card padded={false}>
         <div className="flex items-center gap-1 border-b border-line px-4">
           {tab("days", "Siste 14 dager")}
           {tab("months", "Siste 12 måneder")}
@@ -86,10 +87,10 @@ export default async function RevisorHome({
             Klikk et punkt i grafen for å bore ned i en {period === "months" ? "måned" : "dag"}.
           </p>
         </div>
-      </div>
+      </Card>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <div className="border border-line bg-surface p-6">
+        <Card>
           <h2 className="mb-5 font-display text-lg font-bold">Omsetning per barber</h2>
           {sum.perBarber.length === 0 ? (
             <p className="text-sm text-muted">Ingen salg registrert denne måneden.</p>
@@ -105,9 +106,9 @@ export default async function RevisorHome({
               ))}
             </div>
           )}
-        </div>
+        </Card>
 
-        <div className="border border-line bg-surface p-6">
+        <Card>
           <h2 className="mb-5 font-display text-lg font-bold">Per betalingsmåte</h2>
           <p className="mb-4 text-xs text-muted">Denne måneden</p>
           {monthDetail.byMethod.length === 0 ? (
@@ -125,11 +126,11 @@ export default async function RevisorHome({
               ))}
             </ul>
           )}
-        </div>
+        </Card>
       </div>
 
       {/* Regnskapseksport */}
-      <div className="border border-line bg-surface p-6">
+      <Card>
         <h2 className="font-display text-lg font-bold">Regnskapseksport</h2>
         <p className="mt-1 text-sm text-muted">
           Last ned salgsdata for regnskapsføring. Tripletex er regnskapssystemet
@@ -143,7 +144,7 @@ export default async function RevisorHome({
             Alle salg (CSV)
           </a>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

@@ -3,6 +3,11 @@
 import { useState } from "react";
 import type { Voucher } from "@/lib/vouchers-queries";
 import { voucherSignedUrl } from "@/app/admin/bilag/actions";
+import { Card } from "@/components/ui/Card";
+import { Table, THead, TBody, Tr, Th, Td } from "@/components/ui/Table";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 const KIND_LABELS: Record<Voucher["kind"], string> = {
   faktura: "Faktura",
@@ -48,68 +53,61 @@ export function VoucherList({ vouchers }: { vouchers: Voucher[] }) {
   }
 
   if (vouchers.length === 0) {
-    return (
-      <div className="border border-line bg-surface">
-        <p className="px-6 py-8 text-sm text-muted">Ingen bilag enda.</p>
-      </div>
-    );
+    return <EmptyState description="Ingen bilag enda." />;
   }
 
   return (
-    <div className="border border-line bg-surface">
+    <Card padded={false}>
       {error && (
         <div className="border-b border-danger/30 bg-danger/5 px-6 py-3 text-sm text-danger">
           {error}
         </div>
       )}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-line text-left text-xs text-muted">
-              <th className="px-6 py-3 font-medium">Dato</th>
-              <th className="px-4 py-3 font-medium">Tittel</th>
-              <th className="px-4 py-3 font-medium">Leverandør</th>
-              <th className="px-4 py-3 font-medium">Type</th>
-              <th className="px-4 py-3 text-right font-medium">Beløp</th>
-              <th className="px-4 py-3 text-right font-medium">Mva</th>
-              <th className="px-4 py-3 text-right font-medium">Handling</th>
-            </tr>
-          </thead>
-          <tbody>
-            {vouchers.map((v) => (
-              <tr key={v.id} className="border-b border-line last:border-0">
-                <td className="px-6 py-3 whitespace-nowrap text-muted">
-                  {fmtDate(v.voucherDate)}
-                </td>
-                <td className="px-4 py-3 text-fg">{v.title}</td>
-                <td className="px-4 py-3 text-muted">{v.supplier || "—"}</td>
-                <td className="px-4 py-3 text-muted">
-                  <span className="rounded bg-surface-2 px-2 py-0.5 text-[11px] text-muted">
-                    {KIND_LABELS[v.kind]}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums text-muted">
-                  {fmtMoney(v.amountNok)}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums text-muted">
-                  {fmtMoney(v.vatNok)}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center justify-end">
-                    <button
-                      type="button"
-                      onClick={() => onDownload(v.id)}
-                      className="border border-line-2 bg-surface-2 px-3 py-1 text-xs text-fg transition-opacity hover:opacity-90"
-                    >
-                      Last ned
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+      <Table>
+        <THead>
+          <Tr head>
+            <Th>Dato</Th>
+            <Th>Tittel</Th>
+            <Th>Leverandør</Th>
+            <Th>Type</Th>
+            <Th align="right">Beløp</Th>
+            <Th align="right">Mva</Th>
+            <Th align="right">Handling</Th>
+          </Tr>
+        </THead>
+        <TBody>
+          {vouchers.map((v) => (
+            <Tr key={v.id}>
+              <Td muted className="whitespace-nowrap">
+                {fmtDate(v.voucherDate)}
+              </Td>
+              <Td className="text-fg">{v.title}</Td>
+              <Td muted>{v.supplier || "—"}</Td>
+              <Td muted>
+                <Badge tone="neutral">{KIND_LABELS[v.kind]}</Badge>
+              </Td>
+              <Td align="right" nums muted>
+                {fmtMoney(v.amountNok)}
+              </Td>
+              <Td align="right" nums muted>
+                {fmtMoney(v.vatNok)}
+              </Td>
+              <Td>
+                <div className="flex items-center justify-end">
+                  <Button
+                    type="button"
+                    variant="subtle"
+                    onClick={() => onDownload(v.id)}
+                    className="px-3 py-1 text-xs"
+                  >
+                    Last ned
+                  </Button>
+                </div>
+              </Td>
+            </Tr>
+          ))}
+        </TBody>
+      </Table>
+    </Card>
   );
 }

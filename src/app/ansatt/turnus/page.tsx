@@ -1,6 +1,9 @@
 import { getMyStaffLink, getMyTurnus, getMyUpcomingShifts } from "@/lib/ansatt-queries";
 import { getTurnusAnchor } from "@/lib/ops-queries";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -66,13 +69,13 @@ export default async function AnsattTurnus() {
   const WeekColumn = ({ p, label }: { p: 1 | 2; label: string }) => {
     const isNow = (p === 1 ? 1 : 2) === currentParity;
     return (
-      <div className="border border-line bg-surface">
+      <Card padded={false}>
         <div className="flex items-center justify-between border-b border-line px-4 py-3">
           <h2 className="font-display text-sm font-bold text-fg">{label}</h2>
           {isNow && (
-            <span className="rounded-full bg-accent-soft/15 px-2 py-0.5 text-[10px] font-semibold text-accent-soft uppercase">
+            <Badge tone="accent" className="uppercase">
               Denne uken
-            </span>
+            </Badge>
           )}
         </div>
         <ul className="divide-y divide-line">
@@ -86,7 +89,7 @@ export default async function AnsattTurnus() {
             </li>
           ))}
         </ul>
-      </div>
+      </Card>
     );
   };
 
@@ -102,15 +105,9 @@ export default async function AnsattTurnus() {
       </div>
 
       {!link.linked ? (
-        <div className="border border-line bg-surface px-4 py-8 text-center text-sm text-muted">
-          Kontoen din er ikke koblet til en ansattprofil enda. Be admin sette
-          e-posten din på din ansatt-rad, så vises turnusen din her.
-        </div>
+        <EmptyState description="Kontoen din er ikke koblet til en ansattprofil enda. Be admin sette e-posten din på din ansatt-rad, så vises turnusen din her." />
       ) : turnus.length === 0 ? (
-        <div className="border border-line bg-surface px-4 py-8 text-center text-sm text-muted">
-          Ingen turnus er satt opp for deg enda. Be admin legge inn ukeplanen din
-          under Timelister.
-        </div>
+        <EmptyState description="Ingen turnus er satt opp for deg enda. Be admin legge inn ukeplanen din under Timelister." />
       ) : (
         <div className="grid gap-5 sm:grid-cols-2">
           <WeekColumn p={1} label="Uke A" />
@@ -123,26 +120,26 @@ export default async function AnsattTurnus() {
           Kommende vakter (neste 3 uker)
         </h2>
         {upcoming.length === 0 ? (
-          <div className="border border-line bg-surface px-4 py-8 text-center text-sm text-muted">
-            Ingen planlagte vakter de neste tre ukene.
-          </div>
+          <EmptyState description="Ingen planlagte vakter de neste tre ukene." />
         ) : (
-          <ul className="divide-y divide-line border border-line bg-surface">
-            {upcoming.map((s, i) => (
-              <li
-                key={`${s.work_date}-${i}`}
-                className="flex items-center gap-4 px-4 py-3 text-sm"
-              >
-                <span className="w-44 text-fg">{fmtDay(s.work_date)}</span>
-                <span className="font-display font-bold text-fg">
-                  {s.start_time}–{s.end_time}
-                </span>
-                <span className="ml-auto rounded-full bg-accent-soft/10 px-2 py-0.5 text-[10px] font-semibold text-accent-soft uppercase">
-                  {s.week_parity === 1 ? "Uke A" : "Uke B"}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <Card padded={false}>
+            <ul className="divide-y divide-line">
+              {upcoming.map((s, i) => (
+                <li
+                  key={`${s.work_date}-${i}`}
+                  className="flex items-center gap-4 px-4 py-3 text-sm"
+                >
+                  <span className="w-44 text-fg">{fmtDay(s.work_date)}</span>
+                  <span className="font-display font-bold text-fg">
+                    {s.start_time}–{s.end_time}
+                  </span>
+                  <Badge tone="accent" className="ml-auto uppercase">
+                    {s.week_parity === 1 ? "Uke A" : "Uke B"}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          </Card>
         )}
         <p className="mt-2 text-[11px] text-muted">
           Utledet av turnusen din. Heldags fravær og registrert ferie er trukket

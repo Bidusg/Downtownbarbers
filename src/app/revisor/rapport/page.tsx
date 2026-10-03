@@ -1,6 +1,8 @@
 import { requireRole } from "@/lib/auth";
 import { StatTile } from "@/components/ui/StatTile";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { PAYROLL } from "@/lib/ops-queries";
 import { resolvePeriod } from "@/lib/period";
 import { getPeriodReport } from "@/lib/dashboard-queries";
@@ -84,7 +86,7 @@ export default async function RevisorRapport({
       />
 
       {/* Velger */}
-      <div className="border border-line bg-surface">
+      <Card padded={false}>
         <div className="flex items-center gap-1 border-b border-line px-4">
           {typeTab("kvartal", "Kvartal")}
           {typeTab("halvaar", "Halvår")}
@@ -125,7 +127,7 @@ export default async function RevisorRapport({
             </div>
           )}
         </div>
-      </div>
+      </Card>
 
       <h2 className="font-display text-xl font-bold">{p.label}</h2>
 
@@ -140,7 +142,7 @@ export default async function RevisorRapport({
       </div>
 
       {/* Per måned */}
-      <div className="border border-line bg-surface">
+      <Card padded={false}>
         <div className="border-b border-line px-6 py-4">
           <h2 className="font-display text-lg font-bold">Omsetning per måned</h2>
         </div>
@@ -164,14 +166,14 @@ export default async function RevisorRapport({
             );
           })}
         </ul>
-      </div>
+      </Card>
 
       {/* Per barber + per betalingsmåte */}
       <div className="grid gap-6 md:grid-cols-2">
-        <div className="border border-line bg-surface p-6">
+        <Card>
           <h2 className="mb-5 font-display text-lg font-bold">Per barber</h2>
           {rep.byBarber.length === 0 ? (
-            <p className="text-sm text-muted">Ingen salg i perioden.</p>
+            <EmptyState description="Ingen salg i perioden." />
           ) : (
             <div className="space-y-4">
               {rep.byBarber.map((b) => (
@@ -190,11 +192,11 @@ export default async function RevisorRapport({
               ))}
             </div>
           )}
-        </div>
-        <div className="border border-line bg-surface p-6">
+        </Card>
+        <Card>
           <h2 className="mb-5 font-display text-lg font-bold">Per betalingsmåte</h2>
           {rep.byMethod.length === 0 ? (
-            <p className="text-sm text-muted">—</p>
+            <EmptyState description="—" />
           ) : (
             <ul className="space-y-2 text-sm">
               {rep.byMethod.map((m) => (
@@ -205,7 +207,7 @@ export default async function RevisorRapport({
               ))}
             </ul>
           )}
-        </div>
+        </Card>
       </div>
 
       <p className="text-xs text-muted">

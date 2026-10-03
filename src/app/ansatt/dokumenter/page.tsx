@@ -6,6 +6,8 @@ import {
 import { DocumentUploadForm } from "@/components/ansatt/DocumentUploadForm";
 import { DeleteDocumentButton } from "@/components/ansatt/DeleteDocumentButton";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -60,14 +62,6 @@ function DownloadLink({ doc }: { doc: StaffDocumentWithUrl }) {
   );
 }
 
-function EmptyState({ text }: { text: string }) {
-  return (
-    <div className="border border-line bg-surface px-4 py-6 text-center text-sm text-muted">
-      {text}
-    </div>
-  );
-}
-
 export default async function AnsattDokumenter() {
   const [link, docs] = await Promise.all([getMyStaffLink(), getMyDocuments()]);
 
@@ -85,10 +79,7 @@ export default async function AnsattDokumenter() {
       />
 
       {!link.linked ? (
-        <div className="border border-line bg-surface px-4 py-8 text-center text-sm text-muted">
-          Kontoen din er ikke koblet til en ansattprofil enda. Be admin sette
-          e-posten din på din ansatt-rad, så vises dokumentene dine her.
-        </div>
+        <EmptyState description="Kontoen din er ikke koblet til en ansattprofil enda. Be admin sette e-posten din på din ansatt-rad, så vises dokumentene dine her." />
       ) : (
         <>
           {/* Kontrakt */}
@@ -97,9 +88,10 @@ export default async function AnsattDokumenter() {
               Kontrakt
             </h2>
             {contracts.length === 0 ? (
-              <EmptyState text="Ingen kontrakt lastet opp." />
+              <EmptyState description="Ingen kontrakt lastet opp." />
             ) : (
-              <ul className="divide-y divide-line border border-line bg-surface">
+              <Card padded={false}>
+                <ul className="divide-y divide-line">
                 {contracts.map((d) => (
                   <li
                     key={d.id}
@@ -116,7 +108,8 @@ export default async function AnsattDokumenter() {
                     </span>
                   </li>
                 ))}
-              </ul>
+                </ul>
+              </Card>
             )}
           </section>
 
@@ -126,9 +119,10 @@ export default async function AnsattDokumenter() {
               Lønnsoversikt (foreløpig)
             </h2>
             {payslips.length === 0 ? (
-              <EmptyState text="Ingen lønnsoversikter enda." />
+              <EmptyState description="Ingen lønnsoversikter enda." />
             ) : (
-              <ul className="divide-y divide-line border border-line bg-surface">
+              <Card padded={false}>
+                <ul className="divide-y divide-line">
                 {payslips.map((d) => {
                   const period = fmtPeriod(d.period);
                   return (
@@ -151,7 +145,8 @@ export default async function AnsattDokumenter() {
                     </li>
                   );
                 })}
-              </ul>
+                </ul>
+              </Card>
             )}
           </section>
 
@@ -161,14 +156,15 @@ export default async function AnsattDokumenter() {
               Andre dokumenter
             </h2>
 
-            <div className="mb-4 border border-line bg-surface p-5">
+            <Card className="mb-4">
               <DocumentUploadForm />
-            </div>
+            </Card>
 
             {others.length === 0 ? (
-              <EmptyState text="Ingen andre dokumenter." />
+              <EmptyState description="Ingen andre dokumenter." />
             ) : (
-              <ul className="divide-y divide-line border border-line bg-surface">
+              <Card padded={false}>
+                <ul className="divide-y divide-line">
                 {others.map((d) => (
                   <li
                     key={d.id}
@@ -186,7 +182,8 @@ export default async function AnsattDokumenter() {
                     </span>
                   </li>
                 ))}
-              </ul>
+                </ul>
+              </Card>
             )}
           </section>
         </>

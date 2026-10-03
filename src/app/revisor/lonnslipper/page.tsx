@@ -1,6 +1,18 @@
 import { requireRole } from "@/lib/auth";
 import { StatTile } from "@/components/ui/StatTile";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Card } from "@/components/ui/Card";
+import {
+  Table,
+  THead,
+  TBody,
+  Tr,
+  Th,
+  Td,
+  TableEmpty,
+} from "@/components/ui/Table";
+import { Field, Select } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
 import { PAYROLL } from "@/lib/ops-queries";
 import { getPayrollForMonth } from "@/lib/payroll-slips";
 import { GeneratePayslipsButton } from "@/components/revisor/GeneratePayslipsButton";
@@ -10,9 +22,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const kr = (n: number) => Math.round(n).toLocaleString("nb-NO") + " kr";
-
-const inputCls =
-  "border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft";
 
 const MONTHS = [
   "Januar", "Februar", "Mars", "April", "Mai", "Juni",
@@ -53,40 +62,27 @@ export default async function RevisorLonnslipper({
         method="get"
         className="flex flex-wrap items-end gap-3 border border-line bg-surface p-4"
       >
-        <label className="text-xs text-muted">
-          Måned
-          <select
-            name="month"
-            defaultValue={month}
-            className={`mt-1 block ${inputCls}`}
-          >
+        <Field label="Måned">
+          <Select name="month" defaultValue={month}>
             {MONTHS.map((m, i) => (
               <option key={m} value={i + 1}>
                 {m}
               </option>
             ))}
-          </select>
-        </label>
-        <label className="text-xs text-muted">
-          År
-          <select
-            name="year"
-            defaultValue={year}
-            className={`mt-1 block ${inputCls}`}
-          >
+          </Select>
+        </Field>
+        <Field label="År">
+          <Select name="year" defaultValue={year}>
             {years.map((y) => (
               <option key={y} value={y}>
                 {y}
               </option>
             ))}
-          </select>
-        </label>
-        <button
-          type="submit"
-          className="bg-surface-2 px-4 py-2 text-sm font-semibold text-fg hover:bg-line"
-        >
+          </Select>
+        </Field>
+        <Button type="submit" variant="subtle" className="px-4 py-2 text-sm">
           Vis
-        </button>
+        </Button>
       </form>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -108,104 +104,104 @@ export default async function RevisorLonnslipper({
       </div>
 
       {/* Forhåndsvisning */}
-      <div className="overflow-x-auto border border-line">
-        <table className="w-full min-w-[820px] text-sm">
-          <thead className="bg-surface-2 text-left text-xs tracking-wide text-muted uppercase">
-            <tr>
-              <th className="px-4 py-3">Ansatt</th>
-              <th className="px-4 py-3 text-right">Grunnlønn</th>
-              <th className="px-4 py-3 text-right">Omsetning inkl.</th>
-              <th className="px-4 py-3 text-right">Netto eks. mva</th>
-              <th className="px-4 py-3 text-right">Prov.grunnlag</th>
-              <th className="px-4 py-3 text-right">Provisjon</th>
-              <th className="px-4 py-3 text-right">Sum utbetalt</th>
-            </tr>
-          </thead>
-          <tbody>
+      <Card padded={false}>
+        <Table className="min-w-[820px]">
+          <THead>
+            <Tr head>
+              <Th>Ansatt</Th>
+              <Th align="right">Grunnlønn</Th>
+              <Th align="right">Omsetning inkl.</Th>
+              <Th align="right">Netto eks. mva</Th>
+              <Th align="right">Prov.grunnlag</Th>
+              <Th align="right">Provisjon</Th>
+              <Th align="right">Sum utbetalt</Th>
+            </Tr>
+          </THead>
+          <TBody>
             {rows.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-muted">
-                  Ingen aktive ansatte funnet for perioden.
-                </td>
-              </tr>
+              <TableEmpty colSpan={7}>
+                Ingen aktive ansatte funnet for perioden.
+              </TableEmpty>
             )}
             {rows.map((r) => (
-              <tr key={r.staffId} className="border-t border-line">
-                <td className="px-4 py-3 font-medium text-fg">
+              <Tr key={r.staffId}>
+                <Td className="font-medium text-fg">
                   {r.name}
                   <span className="ml-2 text-xs text-muted">
                     {r.title ?? "Barber"}
                   </span>
-                </td>
-                <td className="px-4 py-3 text-right text-muted">
+                </Td>
+                <Td align="right" nums muted>
                   {kr(r.baseNok)}
-                </td>
-                <td className="px-4 py-3 text-right text-muted">
+                </Td>
+                <Td align="right" nums muted>
                   {kr(r.grossNok)}
-                </td>
-                <td className="px-4 py-3 text-right text-muted">
+                </Td>
+                <Td align="right" nums muted>
                   {kr(r.netNok)}
-                </td>
-                <td className="px-4 py-3 text-right text-muted">
+                </Td>
+                <Td align="right" nums muted>
                   {kr(r.commissionBaseNok)}
-                </td>
-                <td className="px-4 py-3 text-right text-accent-soft">
+                </Td>
+                <Td align="right" nums className="text-accent-soft">
                   {kr(r.commissionNok)}
-                </td>
-                <td className="px-4 py-3 text-right font-display font-bold text-fg">
+                </Td>
+                <Td align="right" nums className="font-display font-bold text-fg">
                   {kr(r.totalNok)}
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             ))}
-          </tbody>
+          </TBody>
           {rows.length > 0 && (
             <tfoot>
               <tr className="border-t border-line-2 bg-surface-2 font-semibold">
-                <td className="px-4 py-3 text-fg">Sum</td>
-                <td className="px-4 py-3 text-right text-muted">
+                <Td className="text-fg">Sum</Td>
+                <Td align="right" nums muted>
                   {kr(rows.reduce((s, r) => s + r.baseNok, 0))}
-                </td>
-                <td className="px-4 py-3 text-right text-muted">
+                </Td>
+                <Td align="right" nums muted>
                   {kr(totalGross)}
-                </td>
-                <td className="px-4 py-3 text-right text-muted">
+                </Td>
+                <Td align="right" nums muted>
                   {kr(rows.reduce((s, r) => s + r.netNok, 0))}
-                </td>
-                <td className="px-4 py-3"></td>
-                <td className="px-4 py-3 text-right text-accent-soft">
+                </Td>
+                <Td></Td>
+                <Td align="right" nums className="text-accent-soft">
                   {kr(rows.reduce((s, r) => s + r.commissionNok, 0))}
-                </td>
-                <td className="px-4 py-3 text-right font-display text-fg">
+                </Td>
+                <Td align="right" nums className="font-display text-fg">
                   {kr(totalPay)}
-                </td>
+                </Td>
               </tr>
             </tfoot>
           )}
-        </table>
-      </div>
+        </Table>
+      </Card>
 
       {/* Generer + send */}
-      <div className="space-y-4 border border-line bg-surface p-6">
-        <div>
-          <h2 className="font-display text-lg font-bold">
-            Generer lønnsoversikter
-          </h2>
-          <p className="mt-1 text-sm text-muted">
-            Lager én PDF per aktiv ansatt for {monthLabel} {year} og legger den i
-            ansattens private dokumentmappe. Ansatte uten omsetning får en
-            oversikt med kun grunnlønn. Kan kjøres på nytt – eksisterende
-            lønnsoversikt for måneden erstattes.
-          </p>
+      <Card>
+        <div className="space-y-4">
+          <div>
+            <h2 className="font-display text-lg font-bold">
+              Generer lønnsoversikter
+            </h2>
+            <p className="mt-1 text-sm text-muted">
+              Lager én PDF per aktiv ansatt for {monthLabel} {year} og legger den
+              i ansattens private dokumentmappe. Ansatte uten omsetning får en
+              oversikt med kun grunnlønn. Kan kjøres på nytt – eksisterende
+              lønnsoversikt for måneden erstattes.
+            </p>
+          </div>
+          <GeneratePayslipsButton
+            year={year}
+            month={month}
+            monthLabel={monthLabel}
+            staffCount={rows.length}
+          />
         </div>
-        <GeneratePayslipsButton
-          year={year}
-          month={month}
-          monthLabel={monthLabel}
-          staffCount={rows.length}
-        />
-      </div>
+      </Card>
 
-      <div className="border border-line bg-surface p-5 text-sm text-muted">
+      <Card className="text-sm text-muted">
         <p className="mb-2 font-semibold text-fg">Slik regnes lønnen</p>
         <p className="font-display text-fg">
           lønn = {kr(PAYROLL.BASE_NOK)} +{" "}
@@ -213,12 +209,12 @@ export default async function RevisorLonnslipper({
           mva − {kr(PAYROLL.THRESHOLD_NOK)})
         </p>
         <p className="mt-3">
-          Bruttosum (inkl. mva) per ansatt hentes via en sikret database-rutine.
+          Bruttosum (inkl. mva) per ansatt hentes via en sikret systemrutine.
           Eks. mva regnes som beløp ÷{" "}
           {(1 + PAYROLL.MVA).toString().replace(".", ",")} ({Math.round(PAYROLL.MVA * 100)} %
           mva). Lønnsoversikten er foreløpig og inkluderer ikke skattetrekk.
         </p>
-      </div>
+      </Card>
     </div>
   );
 }

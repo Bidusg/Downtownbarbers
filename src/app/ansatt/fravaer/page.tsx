@@ -8,6 +8,9 @@ import {
 import { LeaveRequestForm } from "@/components/ansatt/LeaveRequestForm";
 import { WithdrawLeaveButton } from "@/components/ansatt/WithdrawLeaveButton";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Card } from "@/components/ui/Card";
+import { Badge, type BadgeTone } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -23,13 +26,10 @@ function fmtDate(iso: string) {
   }
 }
 
-const STATUS: Record<LeaveStatus, { label: string; cls: string }> = {
-  pending: {
-    label: "Til behandling",
-    cls: "bg-accent-soft/15 text-accent-soft",
-  },
-  approved: { label: "Godkjent", cls: "bg-accent-soft/15 text-accent-soft" },
-  declined: { label: "Avslått", cls: "bg-danger/10 text-danger" },
+const STATUS: Record<LeaveStatus, { label: string; tone: BadgeTone }> = {
+  pending: { label: "Til behandling", tone: "warning" },
+  approved: { label: "Godkjent", tone: "success" },
+  declined: { label: "Avslått", tone: "danger" },
 };
 
 const KIND: Record<string, string> = {
@@ -61,16 +61,13 @@ export default async function AnsattFravaer() {
       />
 
       {!link.linked ? (
-        <div className="border border-line bg-surface px-4 py-8 text-center text-sm text-muted">
-          Kontoen din er ikke koblet til en ansattprofil enda. Be admin sette
-          e-posten din på din ansatt-rad, så vises fraværet ditt her.
-        </div>
+        <EmptyState description="Kontoen din er ikke koblet til en ansattprofil enda. Be admin sette e-posten din på din ansatt-rad, så vises fraværet ditt her." />
       ) : (
         <>
           {/* Søk fri */}
-          <section className="border border-line bg-surface p-5">
+          <Card>
             <LeaveRequestForm />
-          </section>
+          </Card>
 
           {/* Mine søknader */}
           <section>
@@ -78,9 +75,7 @@ export default async function AnsattFravaer() {
               Mine søknader
             </h2>
             {requests.length === 0 ? (
-              <div className="border border-line bg-surface px-4 py-6 text-center text-sm text-muted">
-                Ingen søknader sendt.
-              </div>
+              <EmptyState description="Ingen søknader sendt." />
             ) : (
               <ul className="divide-y divide-line border border-line bg-surface">
                 {requests.map((r) => {
@@ -99,14 +94,12 @@ export default async function AnsattFravaer() {
                       <span className="text-muted">
                         {KIND[r.kind] ?? r.kind}
                       </span>
-                      <span
-                        className={
-                          "ml-auto rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide " +
-                          st.cls
-                        }
+                      <Badge
+                        tone={st.tone}
+                        className="ml-auto uppercase tracking-wide"
                       >
                         {st.label}
-                      </span>
+                      </Badge>
                       {r.status === "pending" && (
                         <WithdrawLeaveButton id={r.id} />
                       )}
@@ -128,9 +121,7 @@ export default async function AnsattFravaer() {
               Registrert fravær
             </h2>
             {absences.length === 0 && offExceptions.length === 0 ? (
-              <div className="border border-line bg-surface px-4 py-6 text-center text-sm text-muted">
-                Ingen kommende fravær registrert.
-              </div>
+              <EmptyState description="Ingen kommende fravær registrert." />
             ) : (
               <ul className="divide-y divide-line border border-line bg-surface">
                 {absences.map((a) => (
@@ -144,9 +135,9 @@ export default async function AnsattFravaer() {
                         ? ` – ${fmtDate(a.to_date)}`
                         : ""}
                     </span>
-                    <span className="rounded bg-danger/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-danger">
+                    <Badge tone="danger" className="uppercase tracking-wide">
                       Fravær
-                    </span>
+                    </Badge>
                     {a.reason && (
                       <span className="text-xs text-muted">{a.reason}</span>
                     )}
@@ -160,9 +151,9 @@ export default async function AnsattFravaer() {
                       className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-sm"
                     >
                       <span className="text-fg">{fmtDate(e.date)}</span>
-                      <span className="rounded bg-danger/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-danger">
+                      <Badge tone="danger" className="uppercase tracking-wide">
                         {full ? "Fri hele dagen" : "Fri"}
-                      </span>
+                      </Badge>
                       {!full && e.start_time && e.end_time && (
                         <span className="font-display text-muted">
                           {e.start_time}–{e.end_time}

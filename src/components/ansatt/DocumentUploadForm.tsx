@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { uploadMyDocument } from "@/app/ansatt/dokumenter/actions";
+import { Button } from "@/components/ui/Button";
 
 export function DocumentUploadForm() {
   const [open, setOpen] = useState(false);
@@ -15,15 +16,16 @@ export function DocumentUploadForm() {
         <p className="text-sm text-muted">
           Trenger du å dele et dokument? Last opp – kun du og ledelsen ser det.
         </p>
-        <button
+        <Button
+          variant="primary"
           onClick={() => {
             setOpen((o) => !o);
             setMsg(null);
           }}
-          className="shrink-0 bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
+          className="shrink-0 px-4 py-2 text-sm"
         >
           {open ? "Lukk" : "+ Last opp"}
-        </button>
+        </Button>
       </div>
 
       {open && (
@@ -53,13 +55,14 @@ export function DocumentUploadForm() {
             />
           </label>
 
-          <button
+          <Button
             type="submit"
+            variant="primary"
             disabled={pending}
-            className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-40"
+            className="px-4 py-2 text-sm"
           >
             {pending ? "Laster opp …" : "Last opp dokument"}
-          </button>
+          </Button>
         </form>
       )}
 

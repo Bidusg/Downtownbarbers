@@ -8,6 +8,7 @@ import {
   type ClockStaff,
   type ShiftStatus,
 } from "@/app/kasse/stempling/actions";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 type BoardStaff = ClockStaff & { status: ShiftStatus; workedMinutes: number };
 
@@ -47,9 +48,11 @@ export function StemplingKiosk({ staff }: { staff: BoardStaff[] }) {
     <>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
         {staff.length === 0 && (
-          <p className="col-span-full py-12 text-center text-muted">
-            Ingen aktive ansatte. Legg til ansatte i admin.
-          </p>
+          <EmptyState
+            className="col-span-full"
+            title="Ingen aktive ansatte"
+            description="Legg til ansatte i admin."
+          />
         )}
         {staff.map((s) => {
           const m = statusMeta[s.status];
