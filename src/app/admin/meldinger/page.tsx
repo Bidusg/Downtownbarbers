@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input, Select, Field } from "@/components/ui/Input";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { createNotice, toggleNotice, deleteNotice } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -159,13 +160,12 @@ export default async function AdminMeldinger() {
                       </Button>
                     </form>
                     <form action={deleteNotice.bind(null, n.id)}>
-                      <Button
-                        variant="danger"
-                        type="submit"
-                        className="px-3 py-1.5 text-xs"
-                      >
-                        Slett
-                      </Button>
+                      <ConfirmButton
+                        submit
+                        label="Slett"
+                        question="Slette meldingen?"
+                        confirmLabel="Ja, slett"
+                      />
                     </form>
                   </div>
                 </div>

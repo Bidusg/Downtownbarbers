@@ -9,6 +9,7 @@ import { Table, THead, TBody, Tr, Th, Td } from "@/components/ui/Table";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input, Field } from "@/components/ui/Input";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { uploadDocument, deleteDocument, downloadDocument } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -191,12 +192,12 @@ export default async function AdminDokumenter({
                         </button>
                       </form>
                       <form action={deleteDocument.bind(null, d.id)}>
-                        <button
-                          type="submit"
-                          className="border border-danger/30 bg-danger/5 px-3 py-1 text-xs text-danger transition-opacity hover:opacity-90"
-                        >
-                          Slett
-                        </button>
+                        <ConfirmButton
+                          submit
+                          label="Slett"
+                          question={`Slette «${d.name}»?`}
+                          confirmLabel="Ja, slett"
+                        />
                       </form>
                     </div>
                   </Td>

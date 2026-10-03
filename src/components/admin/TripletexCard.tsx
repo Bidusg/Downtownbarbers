@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import {
   testTripletex,
-  probeTripletexData,
   type TripletexTestResult,
 } from "@/app/admin/integrasjoner/tripletex-actions";
 import { Input } from "@/components/ui/Input";
@@ -23,8 +22,6 @@ export function TripletexCard({
   const [res, setRes] = useState<TripletexTestResult | null>(null);
   const [date, setDate] = useState("");
   const [pending, start] = useTransition();
-  const [probe, setProbe] = useState<string | null>(null);
-  const [probePending, startProbe] = useTransition();
 
   const mode = !configured
     ? { text: "Ikke satt", tone: "neutral" as const }
@@ -62,34 +59,7 @@ export function TripletexCard({
         >
           {pending ? "Tester …" : "Test tilkobling"}
         </Button>
-        <Button
-          variant="subtle"
-          type="button"
-          disabled={probePending}
-          onClick={() =>
-            startProbe(async () => {
-              const r = await probeTripletexData();
-              setProbe(JSON.stringify(r, null, 2));
-            })
-          }
-          className="rounded-md px-4 py-2 text-sm"
-          title="Henter små rå-utsnitt fra regnskaps-endepunktene for å bekrefte dataformen (leser kun)"
-        >
-          {probePending ? "Henter …" : "Hent regnskapsdata (diagnostikk)"}
-        </Button>
       </div>
-
-      {probe !== null && (
-        <div className="mt-3">
-          <p className="mb-1 text-xs text-muted">
-            Diagnostikk – rå svar fra Tripletex (kontoplan, saldobalanse, hovedbok,
-            bilag, mva). Brukes for å bekrefte dataformen før synken bygges.
-          </p>
-          <pre className="max-h-96 overflow-auto rounded-md border border-line bg-canvas p-3 text-[11px] leading-relaxed text-fg">
-            {probe}
-          </pre>
-        </div>
-      )}
 
       {res && (
         <div className="mt-4 space-y-3 text-sm">
