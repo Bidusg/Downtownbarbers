@@ -9,6 +9,45 @@ import { TRIPLETEX, tripletexConfigured } from "./config";
 
 type CachedSession = { token: string; expiresAt: number };
 let cached: CachedSession | null = null;
+// Delt «under opprettelse»-løfte. Synken fyrer av flere Tripletex-kall samtidig
+// (Promise.all), og på kald cache ville hver enkelt ellers POSTe
+// createFromRefreshToken parallelt – det avviser Tripletex med 409
+// RevisionException (optimistisk låsing, kode 8000). Vi deler derfor ÉN
+// token-opprettelse mellom alle samtidige kallere.
+let inflight: Promise<string> | null = null;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/** POST createFromRefreshToken med bounded retry på 409 (RevisionException). */
+async function createSessionToken(): Promise<string> {
+  const url = `${TRIPLETEX.baseUrl}/token/session/:createFromRefreshToken`;
+  let lastErr = "";
+  // Opptil 3 forsøk: 409-konflikt på session-ressursen er forbigående.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        refreshToken: TRIPLETEX.apiToken,
+        ttlSeconds: TRIPLETEX.sessionTtlSeconds,
+      }),
+    });
+    if (res.ok) {
+      const json = (await res.json()) as { value?: { token?: string } };
+      const token = json?.value?.token;
+      if (!token) throw new Error("Tripletex ga ikke noe session-token.");
+      return token;
+    }
+    const body = await res.text().catch(() => "");
+    lastErr = `Tripletex session-token feilet (${res.status}): ${body.slice(0, 300)}`;
+    // Kun 409 (RevisionException / låsekonflikt) er verdt å prøve på nytt.
+    if (res.status !== 409 || attempt === 2) break;
+    await sleep(300 * (attempt + 1));
+  }
+  throw new Error(lastErr || "Tripletex session-token feilet.");
+}
 
 /** Hent (eller gjenbruk) et gyldig session-token. */
 async function getSessionToken(): Promise<string> {
@@ -18,29 +57,24 @@ async function getSessionToken(): Promise<string> {
   const now = Date.now();
   if (cached && cached.expiresAt > now + 60_000) return cached.token;
 
-  const url = `${TRIPLETEX.baseUrl}/token/session/:createFromRefreshToken`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      refreshToken: TRIPLETEX.apiToken,
-      ttlSeconds: TRIPLETEX.sessionTtlSeconds,
-    }),
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(
-      `Tripletex session-token feilet (${res.status}): ${body.slice(0, 300)}`,
-    );
-  }
-  const json = (await res.json()) as { value?: { token?: string } };
-  const token = json?.value?.token;
-  if (!token) throw new Error("Tripletex ga ikke noe session-token.");
-  cached = {
-    token,
-    expiresAt: now + TRIPLETEX.sessionTtlSeconds * 1000,
-  };
-  return token;
+  // Del samtidig token-opprettelse: første kaller starter, resten venter på
+  // samme løfte i stedet for å POSTe parallelt.
+  if (inflight) return inflight;
+
+  inflight = (async () => {
+    try {
+      const token = await createSessionToken();
+      cached = {
+        token,
+        expiresAt: Date.now() + TRIPLETEX.sessionTtlSeconds * 1000,
+      };
+      return token;
+    } finally {
+      inflight = null;
+    }
+  })();
+
+  return inflight;
 }
 
 function authHeader(sessionToken: string): string {
