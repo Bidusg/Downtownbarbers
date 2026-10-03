@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { todayShop as mockShop } from "@/lib/data/mock";
+import { FIXIT_CUTOVER, getFixitDailyTotals } from "@/lib/fixit-history";
 
 export type TodayBooking = {
   id: string;
@@ -188,6 +189,42 @@ export async function getPeriodReport(
   }
 }
 
+/**
+ * Blandet omsetning per dag i [startKey, endKey] (yyyy-mm-dd, inklusive):
+ * Fixit-historikk t.o.m. FIXIT_CUTOVER, ekte kassesalg etter. Slik telles
+ * ingenting dobbelt i overgangen. Map: dag-nøkkel (yyyy-mm-dd) → kr.
+ */
+async function blendedDailyTotals(
+  sb: Awaited<ReturnType<typeof createClient>>,
+  startKey: string,
+  endKey: string,
+): Promise<Map<string, number>> {
+  const startIso = new Date(startKey + "T00:00:00Z").toISOString();
+  const endExcl = new Date(endKey + "T00:00:00Z");
+  endExcl.setUTCDate(endExcl.getUTCDate() + 1);
+  const live = new Map<string, number>();
+  try {
+    const { data } = await sb
+      .from("sales")
+      .select("total_nok, sold_at")
+      .gte("sold_at", startIso)
+      .lt("sold_at", endExcl.toISOString());
+    for (const s of data ?? []) {
+      const k = osloDayKey(s.sold_at as string);
+      live.set(k, (live.get(k) ?? 0) + (Number(s.total_nok) || 0));
+    }
+  } catch {
+    /* ekte salg degraderer til tomt */
+  }
+  const fixit = await getFixitDailyTotals(sb, startKey, endKey);
+  const out = new Map<string, number>();
+  for (const k of new Set<string>([...live.keys(), ...fixit.keys()])) {
+    // Skille: t.o.m. cutover = Fixit-historikk, etter = ekte kassesalg.
+    out.set(k, k <= FIXIT_CUTOVER ? (fixit.get(k) ?? 0) : (live.get(k) ?? 0));
+  }
+  return out;
+}
+
 /** Omsetningsserie: siste 14 dager (period="days") eller 12 mnd (period="months"). */
 export async function getRevenueSeries(
   period: "days" | "months",
@@ -216,21 +253,17 @@ export async function getRevenueSeries(
   }
   try {
     const sb = await createClient();
-    const startKey = buckets[0].key;
-    const startIso =
-      period === "days"
-        ? new Date(startKey + "T00:00:00Z").toISOString()
-        : new Date(startKey + "-01T00:00:00Z").toISOString();
-    const { data } = await sb
-      .from("sales")
-      .select("total_nok, sold_at")
-      .gte("sold_at", startIso);
+    const todayKey = new Date().toLocaleDateString("en-CA", {
+      timeZone: "Europe/Oslo",
+    });
+    const startDayKey =
+      period === "days" ? buckets[0].key : `${buckets[0].key}-01`;
+    // Blandet per dag (Fixit-historikk + ekte salg), så bøttet til dag/måned.
+    const daily = await blendedDailyTotals(sb, startDayKey, todayKey);
     const sums = new Map<string, number>(buckets.map((b) => [b.key, 0]));
-    for (const s of data ?? []) {
-      const key =
-        period === "days" ? osloDayKey(s.sold_at) : osloMonthKey(s.sold_at);
-      if (sums.has(key))
-        sums.set(key, (sums.get(key) ?? 0) + (Number(s.total_nok) || 0));
+    for (const [dayKey, nok] of daily) {
+      const bk = period === "days" ? dayKey : dayKey.slice(0, 7);
+      if (sums.has(bk)) sums.set(bk, (sums.get(bk) ?? 0) + nok);
     }
     return buckets.map((b) => ({
       key: b.key,
