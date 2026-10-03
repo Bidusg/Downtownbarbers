@@ -16,6 +16,64 @@ export const dynamic = "force-dynamic";
 
 const nok = (n: number) => n.toLocaleString("nb-NO") + " kr";
 
+/** Liten utfoldbar chevron (roterer når <details> er åpen). */
+function Chevron() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-3.5 w-3.5 shrink-0 text-muted transition-transform group-open:rotate-90"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden
+    >
+      <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/**
+ * Én sammendragslinje i resultatregnskapet: hovedpost + totalbeløp, som kan
+ * foldes ut for å vise kontoene bak. Holder siden kort som standard.
+ */
+function StatementGroup({
+  label,
+  total,
+  rows,
+}: {
+  label: string;
+  total: number;
+  rows: { number: number | null; name: string; amount: number }[];
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <details className="group">
+      <summary className="flex cursor-pointer list-none items-center justify-between px-6 py-3 hover:bg-surface-2">
+        <span className="flex items-center gap-2 text-sm font-medium">
+          <Chevron />
+          {label}
+          <span className="text-xs text-muted">({rows.length})</span>
+        </span>
+        <span className="tabular-nums text-sm">{nok(total)}</span>
+      </summary>
+      <div className="bg-surface-2/40">
+        {rows.map((r) => (
+          <div
+            key={`${r.number}-${r.name}`}
+            className="flex items-center justify-between py-2 pr-6 pl-12 text-sm text-muted"
+          >
+            <span>
+              <span className="tabular-nums text-fg-soft">{r.number ?? "—"}</span>{" "}
+              {r.name || "—"}
+            </span>
+            <span className="tabular-nums">{nok(r.amount)}</span>
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 /** Formater siste synk-tidspunkt til «Sist synket: …» (Oslo-tid), ellers null. */
 function formatLastSync(
   ls: { finished_at: string | null; status: string | null } | null,
@@ -64,6 +122,35 @@ export default async function AdminRegnskap({
         (b.balance_in ?? 0) !== 0,
     )
     .map((b) => b.account_number);
+
+  // Gruppér resultatlinjene til en kompakt oppstilling på hovedposter.
+  // Detaljene (kontoene bak) kan foldes ut per linje, så siden er kort som standard.
+  const incomeRows = resultat.rows.filter((r) => r.kind === "INCOME");
+  const costRows = resultat.rows.filter((r) => r.kind === "COST");
+  const inRange = (n: number | null, min: number, max: number) =>
+    n != null && n >= min && n <= max;
+  const costGroups = [
+    { label: "Varekostnad", min: 4000, max: 4999 },
+    { label: "Lønn og personal", min: 5000, max: 5999 },
+    { label: "Andre driftskostnader", min: 6000, max: 7999 },
+  ]
+    .map((g) => {
+      const rows = costRows.filter((r) => inRange(r.number, g.min, g.max));
+      return { label: g.label, rows, total: rows.reduce((a, r) => a + r.amount, 0) };
+    })
+    .filter((g) => g.rows.length > 0);
+  // Fang opp evt. kostnadslinjer utenfor 4000–7999 så ingen beløp forsvinner.
+  const groupedRows = new Set(costGroups.flatMap((g) => g.rows));
+  const otherCost = costRows.filter((r) => !groupedRows.has(r));
+  if (otherCost.length > 0) {
+    costGroups.push({
+      label: "Andre kostnader",
+      rows: otherCost,
+      total: otherCost.reduce((a, r) => a + r.amount, 0),
+    });
+  }
+  const hasFinans =
+    resultat.finansinntekter !== 0 || resultat.finanskostnader !== 0;
 
   const tab = (key: "days" | "months", label: string) => (
     <a
@@ -131,108 +218,74 @@ export default async function AdminRegnskap({
               <StatTile label="Utgående mva" value={nok(resultat.utgaaendeMva)} sub="perioden" />
             </div>
 
-            {/* Resultatoppstilling: drift → finans → resultat før skatt */}
+            {/* Kompakt resultatregnskap: hovedposter med utfoldbare kontoer */}
             <div className="border border-line bg-surface">
               <div className="border-b border-line px-6 py-4">
-                <h3 className="font-display text-lg font-bold">Resultatoppstilling</h3>
+                <h3 className="font-display text-lg font-bold">Resultatregnskap</h3>
                 <p className="text-xs text-muted">
-                  Driftsresultat, finansposter og resultat før skatt (hittil i år).
+                  Hittil i år ({year}). Klikk en linje for å se kontoene bak.
                 </p>
               </div>
-              <div className="px-6 py-4">
-                <dl className="space-y-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <dt className="text-muted">Driftsresultat</dt>
-                    <dd className="tabular-nums">{nok(resultat.driftsresultat)}</dd>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <dt className="text-muted">+ Finansinntekter</dt>
-                    <dd className="tabular-nums">{nok(resultat.finansinntekter)}</dd>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <dt className="text-muted">− Finanskostnader</dt>
-                    <dd className="tabular-nums">{nok(resultat.finanskostnader)}</dd>
-                  </div>
-                  <div className="flex items-center justify-between border-t border-line pt-2 font-semibold">
-                    <dt>Resultat før skatt</dt>
-                    <dd className="tabular-nums">{nok(resultat.resultatForSkatt)}</dd>
-                  </div>
-                </dl>
-                <p className="mt-3 text-xs text-muted">
-                  Skatt (kontoklasse 83) er ikke trukket fra. Resultat før skatt =
-                  driftsresultat + netto finans ({nok(resultat.nettoFinans)}).
-                </p>
+              <div className="divide-y divide-line">
+                <StatementGroup
+                  label="Inntekter"
+                  total={resultat.omsetning}
+                  rows={incomeRows}
+                />
+                {costGroups.map((g) => (
+                  <StatementGroup
+                    key={g.label}
+                    label={g.label}
+                    total={g.total}
+                    rows={g.rows}
+                  />
+                ))}
+                <div className="flex items-center justify-between px-6 py-3 font-semibold">
+                  <span>Driftsresultat</span>
+                  <span className="tabular-nums">{nok(resultat.driftsresultat)}</span>
+                </div>
+                {hasFinans && (
+                  <>
+                    <div className="flex items-center justify-between px-6 py-2 text-sm text-muted">
+                      <span>+ Finansinntekter</span>
+                      <span className="tabular-nums">{nok(resultat.finansinntekter)}</span>
+                    </div>
+                    <div className="flex items-center justify-between px-6 py-2 text-sm text-muted">
+                      <span>− Finanskostnader</span>
+                      <span className="tabular-nums">{nok(resultat.finanskostnader)}</span>
+                    </div>
+                  </>
+                )}
+                <div className="flex items-center justify-between bg-surface-2/40 px-6 py-3 font-semibold">
+                  <span>Resultat før skatt</span>
+                  <span className="tabular-nums">{nok(resultat.resultatForSkatt)}</span>
+                </div>
+              </div>
+              <div className="border-t border-line px-6 py-3 text-xs text-muted">
+                Beløp uten fortegn. Skatt (kontoklasse 83) er ikke trukket fra.
+                Utgående mva i perioden: {nok(resultat.utgaaendeMva)}.
               </div>
             </div>
 
-            {/* Resultat per konto */}
-            <div className="border border-line bg-surface">
-              <div className="border-b border-line px-6 py-4">
-                <h3 className="font-display text-lg font-bold">Resultat per konto</h3>
-                <p className="text-xs text-muted">
-                  Inntekts-, kostnads- og finanskontoer, beløp vist positivt.
-                </p>
+            {/* Full kontoplan – sammenfoldet, åpnes ved behov */}
+            <details className="group">
+              <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-semibold text-fg hover:text-accent-soft">
+                <Chevron />
+                Vis full kontoplan
+              </summary>
+              <div className="mt-3">
+                <KontoplanTable
+                  accounts={kontoplan.map((k) => ({
+                    tripletex_id: k.tripletex_id,
+                    number: k.number,
+                    name: k.name,
+                    type: k.type,
+                    ledger_type: k.ledger_type,
+                  }))}
+                  movementNumbers={movementNumbers}
+                />
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-line text-left text-xs text-muted">
-                      <th className="px-6 py-3 font-medium">Konto</th>
-                      <th className="px-6 py-3 font-medium">Navn</th>
-                      <th className="px-6 py-3 font-medium">Type</th>
-                      <th className="px-6 py-3 text-right font-medium">Beløp</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {resultat.rows.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="px-6 py-8 text-center text-muted">
-                          Ingen resultatlinjer i perioden.
-                        </td>
-                      </tr>
-                    ) : (
-                      resultat.rows.map((r) => (
-                        <tr key={`${r.number}-${r.name}`} className="border-b border-line last:border-0">
-                          <td className="px-6 py-3 tabular-nums text-fg-soft">{r.number ?? "—"}</td>
-                          <td className="px-6 py-3">{r.name || "—"}</td>
-                          <td className="px-6 py-3">
-                            <span
-                              className={
-                                "rounded px-2 py-0.5 text-[11px] font-semibold " +
-                                (r.kind === "INCOME" || r.kind === "FINANS_INCOME"
-                                  ? "bg-accent-soft/15 text-accent-soft"
-                                  : "bg-surface-2 text-muted")
-                              }
-                            >
-                              {r.kind === "INCOME"
-                                ? "Inntekt"
-                                : r.kind === "COST"
-                                  ? "Kostnad"
-                                  : r.kind === "FINANS_INCOME"
-                                    ? "Finansinntekt"
-                                    : "Finanskostnad"}
-                            </span>
-                          </td>
-                          <td className="px-6 py-3 text-right tabular-nums">{nok(r.amount)}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Kontoplan fra Tripletex – kun kontoer med bevegelse som standard */}
-            <KontoplanTable
-              accounts={kontoplan.map((k) => ({
-                tripletex_id: k.tripletex_id,
-                number: k.number,
-                name: k.name,
-                type: k.type,
-                ledger_type: k.ledger_type,
-              }))}
-              movementNumbers={movementNumbers}
-            />
+            </details>
           </>
         )}
       </section>
