@@ -1,6 +1,8 @@
 import { StatTile } from "@/components/ui/StatTile";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { getGoalProgress } from "@/lib/analytics-queries";
 
 export const dynamic = "force-dynamic";
@@ -59,17 +61,21 @@ export default async function AdminMaloppnaelse({
       />
 
       {!hasTargets && (
-        <div className="flex items-start gap-3 border border-accent-soft/30 bg-accent-soft/5 px-4 py-3 text-sm">
-          <span className="mt-0.5 text-accent-soft">●</span>
-          <p className="text-muted">
-            <strong className="text-fg">Ingen budsjett satt for denne måneden.</strong>{" "}
-            Sett omsetningsmål per barber under{" "}
-            <a href={`/admin/budsjett?year=${year}&month=${month}`} className="text-accent-soft hover:underline">
-              Budsjett
-            </a>
-            , så vises måloppnåelsen her.
-          </p>
-        </div>
+        <EmptyState
+          title="Ingen budsjett satt for denne måneden"
+          description={
+            <>
+              Sett omsetningsmål per barber under{" "}
+              <a
+                href={`/admin/budsjett?year=${year}&month=${month}`}
+                className="text-accent-soft hover:underline"
+              >
+                Budsjett
+              </a>
+              , så vises måloppnåelsen her.
+            </>
+          }
+        />
       )}
 
       {/* Salong-nivå */}
@@ -79,16 +85,16 @@ export default async function AdminMaloppnaelse({
         <StatTile label="Måloppnåelse" value={`${g.salonPct} %`} />
       </div>
 
-      <div className="border border-line bg-surface p-6">
+      <Card>
         <div className="mb-2 flex items-end justify-between">
           <h2 className="font-display text-lg font-bold">Salong totalt</h2>
           <span className={"font-display text-2xl font-bold " + pctTone(g.salonPct)}>{g.salonPct} %</span>
         </div>
         <ProgressBar value={g.salonPct} caption={`${nok(g.salonActual)} / ${nok(g.salonTarget)}`} />
-      </div>
+      </Card>
 
       {/* Per barber */}
-      <div className="border border-line bg-surface p-6">
+      <Card>
         <h2 className="mb-5 font-display text-lg font-bold">Per barber</h2>
         {g.rows.length === 0 ? (
           <p className="text-sm text-muted">Ingen aktive barberer.</p>
@@ -109,11 +115,11 @@ export default async function AdminMaloppnaelse({
             ))}
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Kundeantall-mål (fra daily_targets) */}
       {g.customerTarget > 0 && (
-        <div className="border border-line bg-surface p-6">
+        <Card>
           <div className="mb-2 flex items-end justify-between">
             <div>
               <h2 className="font-display text-lg font-bold">Kundeantall</h2>
@@ -124,7 +130,7 @@ export default async function AdminMaloppnaelse({
             </span>
           </div>
           <ProgressBar value={custPct} />
-        </div>
+        </Card>
       )}
     </div>
   );

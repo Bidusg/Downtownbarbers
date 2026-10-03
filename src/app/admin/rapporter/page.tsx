@@ -1,5 +1,11 @@
 import { StatTile } from "@/components/ui/StatTile";
 import { ProgressBar } from "@/components/ui/ProgressBar";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Table, THead, TBody, Tr, Th, Td, TableEmpty } from "@/components/ui/Table";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Field, Input } from "@/components/ui/Input";
 import { RevenueChart } from "@/components/admin/RevenueChart";
 import {
   resolveRange,
@@ -86,31 +92,29 @@ export default async function AdminRapporter({
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-bold">Rapporter</h1>
-          <p className="mt-1 text-sm text-muted">
-            Periode: <span className="text-fg">{r.label}</span>
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <a
-            href={`/admin/rapporter/produktivitet?from=${r.from}&to=${r.to}`}
-            className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
-          >
-            Produktivitet per barber →
-          </a>
-          <a
-            href="/admin/rapporter/grunndata"
-            className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
-          >
-            Eksporter alt (grunndata) ↓
-          </a>
-        </div>
-      </div>
+      <PageHeader
+        title="Rapporter"
+        description={`Periode: ${r.label}`}
+        actions={
+          <>
+            <a
+              href={`/admin/rapporter/produktivitet?from=${r.from}&to=${r.to}`}
+              className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
+            >
+              Produktivitet per barber →
+            </a>
+            <a
+              href="/admin/rapporter/grunndata"
+              className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
+            >
+              Eksporter alt (grunndata) ↓
+            </a>
+          </>
+        }
+      />
 
       {/* Periodevelger */}
-      <div className="border border-line bg-surface p-5">
+      <Card>
         <div className="mb-4 flex flex-wrap gap-2">
           {presets().map((p) => {
             const active = p.from === r.from && p.to === r.to;
@@ -132,32 +136,17 @@ export default async function AdminRapporter({
         </div>
         <form method="get" className="flex flex-wrap items-end gap-3">
           <input type="hidden" name="g" value={g} />
-          <label className="flex flex-col gap-1 text-xs text-muted">
-            Fra
-            <input
-              type="date"
-              name="from"
-              defaultValue={r.from}
-              className="border border-line bg-canvas px-3 py-2 text-sm text-fg"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-muted">
-            Til
-            <input
-              type="date"
-              name="to"
-              defaultValue={r.to}
-              className="border border-line bg-canvas px-3 py-2 text-sm text-fg"
-            />
-          </label>
-          <button
-            type="submit"
-            className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90"
-          >
+          <Field label="Fra">
+            <Input type="date" name="from" defaultValue={r.from} />
+          </Field>
+          <Field label="Til">
+            <Input type="date" name="to" defaultValue={r.to} />
+          </Field>
+          <Button type="submit" className="px-4 py-2 text-sm">
             Oppdater
-          </button>
+          </Button>
         </form>
-      </div>
+      </Card>
 
       {/* Nøkkeltall */}
       <div className="grid gap-4 sm:grid-cols-4">
@@ -168,7 +157,7 @@ export default async function AdminRapporter({
       </div>
 
       {/* Omsetning over tid */}
-      <div className="border border-line bg-surface">
+      <Card padded={false}>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-6 py-4">
           <h2 className="font-display text-lg font-bold">Omsetning over tid</h2>
           {csvBtn(eksport("omsetning", `&g=${g}`))}
@@ -191,19 +180,19 @@ export default async function AdminRapporter({
         </div>
         <div className="p-6">
           {buckets.every((b) => b.nok === 0) ? (
-            <p className="py-8 text-center text-sm text-muted">Ingen omsetning i perioden.</p>
+            <EmptyState description="Ingen omsetning i perioden." />
           ) : (
             <RevenueChart data={chartData} />
           )}
         </div>
-      </div>
+      </Card>
 
       {/* Per barber */}
-      <div className="border border-line bg-surface">
+      <Card padded={false}>
         {sectionHead("Omsetning per barber", eksport("barber"))}
         <div className="p-6">
           {brk.byBarber.length === 0 ? (
-            <p className="text-sm text-muted">Ingen salg i perioden.</p>
+            <EmptyState description="Ingen salg i perioden." />
           ) : (
             <div className="space-y-5">
               {brk.byBarber.map((b) => (
@@ -217,14 +206,14 @@ export default async function AdminRapporter({
             </div>
           )}
         </div>
-      </div>
+      </Card>
 
       {/* Per behandlingskategori */}
-      <div className="border border-line bg-surface">
+      <Card padded={false}>
         {sectionHead("Omsetning per behandlingskategori", eksport("kategori"))}
         <div className="p-6">
           {cat.rows.length === 0 ? (
-            <p className="text-sm text-muted">Ingen behandlingssalg i perioden.</p>
+            <EmptyState description="Ingen behandlingssalg i perioden." />
           ) : (
             <div className="space-y-5">
               {cat.rows.map((c) => (
@@ -238,78 +227,74 @@ export default async function AdminRapporter({
             </div>
           )}
         </div>
-      </div>
+      </Card>
 
       {/* MVA */}
-      <div className="border border-line bg-surface">
+      <Card padded={false}>
         {sectionHead("MVA-oppsummering", eksport("mva"))}
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-line text-left text-xs text-muted">
-                <th className="px-6 py-3 font-medium">Grunnlag</th>
-                <th className="px-6 py-3 text-right font-medium">Brutto</th>
-                <th className="px-6 py-3 text-right font-medium">Netto eks. mva</th>
-                <th className="px-6 py-3 text-right font-medium">MVA {vat.rate}%</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                { label: "Tjenester (kasse)", v: vat.services },
-              ].map((row) => (
-                <tr key={row.label} className="border-b border-line">
-                  <td className="px-6 py-3 text-fg-soft">{row.label}</td>
-                  <td className="px-6 py-3 text-right tabular-nums">{nok(row.v.gross)}</td>
-                  <td className="px-6 py-3 text-right tabular-nums">{nok(row.v.net)}</td>
-                  <td className="px-6 py-3 text-right tabular-nums">{nok(row.v.vat)}</td>
-                </tr>
-              ))}
-              <tr className="font-semibold">
-                <td className="px-6 py-3">Totalt</td>
-                <td className="px-6 py-3 text-right tabular-nums">{nok(vat.total.gross)}</td>
-                <td className="px-6 py-3 text-right tabular-nums">{nok(vat.total.net)}</td>
-                <td className="px-6 py-3 text-right tabular-nums">{nok(vat.total.vat)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+        <Table>
+          <THead>
+            <Tr head>
+              <Th>Grunnlag</Th>
+              <Th align="right">Brutto</Th>
+              <Th align="right">Netto eks. mva</Th>
+              <Th align="right">MVA {vat.rate}%</Th>
+            </Tr>
+          </THead>
+          <TBody>
+            {[
+              { label: "Tjenester (kasse)", v: vat.services },
+            ].map((row) => (
+              <Tr key={row.label}>
+                <Td className="text-fg-soft">{row.label}</Td>
+                <Td align="right" nums>{nok(row.v.gross)}</Td>
+                <Td align="right" nums>{nok(row.v.net)}</Td>
+                <Td align="right" nums>{nok(row.v.vat)}</Td>
+              </Tr>
+            ))}
+            <Tr className="font-semibold">
+              <Td>Totalt</Td>
+              <Td align="right" nums>{nok(vat.total.gross)}</Td>
+              <Td align="right" nums>{nok(vat.total.net)}</Td>
+              <Td align="right" nums>{nok(vat.total.vat)}</Td>
+            </Tr>
+          </TBody>
+        </Table>
+      </Card>
 
       {/* Hyllevarmere */}
-      <div className="border border-line bg-surface">
+      <Card padded={false}>
         {sectionHead("Hyllevarmere (tregt varelager)", eksport("hyllevarmere"))}
-        {slow.length === 0 ? (
-          <p className="px-6 py-8 text-sm text-muted">Ingen aktive produkter registrert.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-line text-left text-xs text-muted">
-                  <th className="px-6 py-3 font-medium">Produkt</th>
-                  <th className="px-6 py-3 text-right font-medium">På lager</th>
-                  <th className="px-6 py-3 text-right font-medium">Solgt i perioden</th>
-                  <th className="px-6 py-3 text-right font-medium">Pris</th>
-                </tr>
-              </thead>
-              <tbody>
-                {slow.map((p) => (
-                  <tr key={p.name} className="border-b border-line last:border-0">
-                    <td className="px-6 py-3">{p.name}</td>
-                    <td className="px-6 py-3 text-right tabular-nums">{p.stock}</td>
-                    <td className={"px-6 py-3 text-right tabular-nums " + (p.sold === 0 ? "text-accent-soft" : "text-fg-soft")}>
-                      {p.sold}
-                    </td>
-                    <td className="px-6 py-3 text-right tabular-nums">{nok(p.price)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+        <Table>
+          <THead>
+            <Tr head>
+              <Th>Produkt</Th>
+              <Th align="right">På lager</Th>
+              <Th align="right">Solgt i perioden</Th>
+              <Th align="right">Pris</Th>
+            </Tr>
+          </THead>
+          <TBody>
+            {slow.length === 0 ? (
+              <TableEmpty colSpan={4}>Ingen aktive produkter registrert.</TableEmpty>
+            ) : (
+              slow.map((p) => (
+                <Tr key={p.name}>
+                  <Td>{p.name}</Td>
+                  <Td align="right" nums>{p.stock}</Td>
+                  <Td align="right" nums className={p.sold === 0 ? "text-accent-soft" : "text-fg-soft"}>
+                    {p.sold}
+                  </Td>
+                  <Td align="right" nums>{nok(p.price)}</Td>
+                </Tr>
+              ))
+            )}
+          </TBody>
+        </Table>
+      </Card>
 
       {/* Gjenbesøk */}
-      <div className="border border-line bg-surface">
+      <Card padded={false}>
         <div className="border-b border-line px-6 py-4">
           <h2 className="font-display text-lg font-bold">Gjenbesøk</h2>
         </div>
@@ -335,38 +320,36 @@ export default async function AdminRapporter({
             ))}
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Gullkunder */}
-      <div className="border border-line bg-surface">
+      <Card padded={false}>
         {sectionHead("Gullkunder (topp 20)", eksport("gullkunder"))}
-        {top.length === 0 ? (
-          <p className="px-6 py-8 text-sm text-muted">Ingen kunderegistrerte salg i perioden.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-line text-left text-xs text-muted">
-                  <th className="px-6 py-3 font-medium">#</th>
-                  <th className="px-6 py-3 font-medium">Kunde</th>
-                  <th className="px-6 py-3 text-right font-medium">Besøk</th>
-                  <th className="px-6 py-3 text-right font-medium">Omsetning</th>
-                </tr>
-              </thead>
-              <tbody>
-                {top.map((c, i) => (
-                  <tr key={`${c.name}-${i}`} className="border-b border-line last:border-0">
-                    <td className="px-6 py-3 tabular-nums text-muted">{i + 1}</td>
-                    <td className="px-6 py-3">{c.name}</td>
-                    <td className="px-6 py-3 text-right tabular-nums">{c.visits}</td>
-                    <td className="px-6 py-3 text-right font-medium tabular-nums">{nok(c.spend)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+        <Table>
+          <THead>
+            <Tr head>
+              <Th>#</Th>
+              <Th>Kunde</Th>
+              <Th align="right">Besøk</Th>
+              <Th align="right">Omsetning</Th>
+            </Tr>
+          </THead>
+          <TBody>
+            {top.length === 0 ? (
+              <TableEmpty colSpan={4}>Ingen kunderegistrerte salg i perioden.</TableEmpty>
+            ) : (
+              top.map((c, i) => (
+                <Tr key={`${c.name}-${i}`}>
+                  <Td nums muted>{i + 1}</Td>
+                  <Td>{c.name}</Td>
+                  <Td align="right" nums>{c.visits}</Td>
+                  <Td align="right" nums className="font-medium">{nok(c.spend)}</Td>
+                </Tr>
+              ))
+            )}
+          </TBody>
+        </Table>
+      </Card>
     </div>
   );
 }

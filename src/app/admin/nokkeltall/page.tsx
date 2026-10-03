@@ -1,5 +1,10 @@
 import { StatTile } from "@/components/ui/StatTile";
 import { ProgressBar } from "@/components/ui/ProgressBar";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
 import { resolveRange } from "@/lib/report-queries";
 import { getKpiOverview } from "@/lib/kpi-queries";
 
@@ -38,15 +43,13 @@ export default async function AdminNokkeltall({
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <div>
-        <h1 className="font-display text-2xl font-bold">Nøkkeltall</h1>
-        <p className="mt-1 text-sm text-muted">
-          Periode: <span className="text-fg">{r.label}</span>
-        </p>
-      </div>
+      <PageHeader
+        title="Nøkkeltall"
+        description={`Periode: ${r.label}`}
+      />
 
       {/* Periodevelger */}
-      <div className="border border-line bg-surface p-5">
+      <Card>
         <div className="mb-4 flex flex-wrap gap-2">
           {presets().map((p) => {
             const active = p.from === r.from && p.to === r.to;
@@ -69,17 +72,17 @@ export default async function AdminNokkeltall({
         <form method="get" className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-xs text-muted">
             Fra
-            <input type="date" name="from" defaultValue={r.from} className="border border-line bg-canvas px-3 py-2 text-sm text-fg" />
+            <Input type="date" name="from" defaultValue={r.from} />
           </label>
           <label className="flex flex-col gap-1 text-xs text-muted">
             Til
-            <input type="date" name="to" defaultValue={r.to} className="border border-line bg-canvas px-3 py-2 text-sm text-fg" />
+            <Input type="date" name="to" defaultValue={r.to} />
           </label>
-          <button type="submit" className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90">
+          <Button type="submit" className="px-4 py-2 text-sm">
             Oppdater
-          </button>
+          </Button>
         </form>
-      </div>
+      </Card>
 
       {/* Nøkkeltall-fliser */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -95,7 +98,7 @@ export default async function AdminNokkeltall({
       </div>
 
       {/* Timeutnyttelse */}
-      <div className="border border-line bg-surface">
+      <Card padded={false}>
         <div className="border-b border-line px-6 py-4">
           <h2 className="font-display text-lg font-bold">Timeutnyttelse</h2>
           <p className="mt-1 text-xs text-muted">
@@ -124,25 +127,27 @@ export default async function AdminNokkeltall({
             Produktivitet-rapporten.
           </p>
         </div>
-      </div>
+      </Card>
 
       {/* Rebooking */}
-      <div className="border border-line bg-surface p-6">
-        <h2 className="mb-2 font-display text-lg font-bold">Rebooking</h2>
-        <div className="mb-3 flex items-end justify-between">
-          <span className="font-display text-3xl font-bold text-fg">{k.rebooking.pct} %</span>
-          <span className="text-sm text-muted">
-            {k.rebooking.rebooked} av {k.rebooking.visitCustomers} kunder
-          </span>
+      <Card padded={false}>
+        <div className="p-6">
+          <h2 className="mb-2 font-display text-lg font-bold">Rebooking</h2>
+          <div className="mb-3 flex items-end justify-between">
+            <span className="font-display text-3xl font-bold text-fg">{k.rebooking.pct} %</span>
+            <span className="text-sm text-muted">
+              {k.rebooking.rebooked} av {k.rebooking.visitCustomers} kunder
+            </span>
+          </div>
+          <ProgressBar value={k.rebooking.pct} />
+          <p className="mt-4 text-xs text-muted">
+            Andel kunder med fullført time i perioden som booket en ny time etterpå.
+          </p>
         </div>
-        <ProgressBar value={k.rebooking.pct} />
-        <p className="mt-4 text-xs text-muted">
-          Andel kunder med fullført time i perioden som booket en ny time etterpå.
-        </p>
-      </div>
+      </Card>
 
       {/* Anbefaling / kundekilde */}
-      <div className="border border-line bg-surface">
+      <Card padded={false}>
         <div className="border-b border-line px-6 py-4">
           <h2 className="font-display text-lg font-bold">Anbefaling &amp; kundekilde</h2>
           <p className="mt-1 text-xs text-muted">
@@ -151,14 +156,10 @@ export default async function AdminNokkeltall({
         </div>
         <div className="p-6">
           {k.referral.withSource === 0 ? (
-            <div className="flex items-start gap-3 text-sm">
-              <span className="mt-0.5 text-accent-soft">●</span>
-              <p className="text-muted">
-                <strong className="text-fg">Fylles framover.</strong> Kilde samles inn fra
-                «Hvordan hørte du om oss?» i booking. Tallet blir meningsfullt når nye kunder
-                har svart.
-              </p>
-            </div>
+            <EmptyState
+              title="Fylles framover."
+              description="Kilde samles inn fra «Hvordan hørte du om oss?» i booking. Tallet blir meningsfullt når nye kunder har svart."
+            />
           ) : (
             <>
               <div className="mb-5 flex items-end justify-between">
@@ -182,7 +183,7 @@ export default async function AdminNokkeltall({
             </>
           )}
         </div>
-      </div>
+      </Card>
     </div>
   );
 }
