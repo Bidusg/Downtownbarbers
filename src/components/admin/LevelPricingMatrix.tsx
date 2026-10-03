@@ -3,6 +3,8 @@
 import { Fragment, useState, useTransition } from "react";
 import type { StaffLevel, PriceService } from "@/lib/levels-queries";
 import { saveLevelPrices } from "@/app/admin/nivaer/actions";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 
 export function LevelPricingMatrix({
   levels,
@@ -46,7 +48,7 @@ export function LevelPricingMatrix({
       }
       className="space-y-4"
     >
-      <div className="overflow-x-auto border border-line">
+      <Card padded={false} className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-surface-2 text-left text-xs tracking-wide text-muted uppercase">
             <tr>
@@ -105,16 +107,12 @@ export function LevelPricingMatrix({
             ))}
           </tbody>
         </table>
-      </div>
+      </Card>
 
       <div className="flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={pending}
-          className="bg-accent px-5 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-40"
-        >
+        <Button type="submit" disabled={pending} className="px-5 py-2 text-sm">
           {pending ? "Lagrer …" : "Lagre priser"}
-        </button>
+        </Button>
         {msg && (
           <span className={"text-sm " + (err ? "text-danger" : "text-muted")}>
             {msg}

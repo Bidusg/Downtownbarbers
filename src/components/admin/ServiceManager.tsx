@@ -10,6 +10,18 @@ import {
   deleteService,
 } from "@/app/admin/tjenester/actions";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Input, Select } from "@/components/ui/Input";
+import {
+  Table,
+  THead,
+  TBody,
+  Tr,
+  Th,
+  Td,
+  TableEmpty,
+} from "@/components/ui/Table";
 
 function ServiceForm({
   categories,
@@ -21,69 +33,62 @@ function ServiceForm({
   onDone: () => void;
 }) {
   return (
-    <form
-      action={async (fd) => {
-        if (service) await updateService(service.id, fd);
-        else await createService(fd);
-        onDone();
-      }}
-      className="grid gap-3 border border-line bg-surface p-5 sm:grid-cols-2"
-    >
-      <input
-        name="name"
-        placeholder="Navn"
-        required
-        defaultValue={service?.name ?? ""}
-        className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft"
-      />
-      <select
-        name="category_id"
-        defaultValue={service?.category_id ?? ""}
-        className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft"
+    <Card>
+      <form
+        action={async (fd) => {
+          if (service) await updateService(service.id, fd);
+          else await createService(fd);
+          onDone();
+        }}
+        className="grid gap-3 sm:grid-cols-2"
       >
-        {categories.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name}
-          </option>
-        ))}
-      </select>
-      <input
-        name="price_nok"
-        type="number"
-        placeholder="Pris (kr)"
-        required
-        defaultValue={service?.price_nok ?? ""}
-        className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft"
-      />
-      <input
-        name="duration_min"
-        type="number"
-        placeholder="Varighet (min)"
-        defaultValue={service?.duration_min ?? 30}
-        className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft"
-      />
-      <input
-        name="description"
-        placeholder="Beskrivelse"
-        defaultValue={service?.description ?? ""}
-        className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft sm:col-span-2"
-      />
-      <div className="flex gap-2 sm:col-span-2">
-        <button
-          type="submit"
-          className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
-        >
-          {service ? "Lagre endringer" : "Lagre tjeneste"}
-        </button>
-        <button
-          type="button"
-          onClick={onDone}
-          className="px-4 py-2 text-sm text-muted hover:text-fg"
-        >
-          Avbryt
-        </button>
-      </div>
-    </form>
+        <Input
+          name="name"
+          placeholder="Navn"
+          required
+          defaultValue={service?.name ?? ""}
+        />
+        <Select name="category_id" defaultValue={service?.category_id ?? ""}>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </Select>
+        <Input
+          name="price_nok"
+          type="number"
+          placeholder="Pris (kr)"
+          required
+          defaultValue={service?.price_nok ?? ""}
+        />
+        <Input
+          name="duration_min"
+          type="number"
+          placeholder="Varighet (min)"
+          defaultValue={service?.duration_min ?? 30}
+        />
+        <Input
+          name="description"
+          placeholder="Beskrivelse"
+          defaultValue={service?.description ?? ""}
+          className="sm:col-span-2"
+        />
+        <div className="flex gap-2 sm:col-span-2">
+          <Button type="submit" variant="primary" className="px-4 py-2 text-sm">
+            {service ? "Lagre endringer" : "Lagre tjeneste"}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onDone}
+            className="px-4 py-2 text-sm"
+          >
+            Avbryt
+          </Button>
+        </div>
+      </form>
+    </Card>
   );
 }
 
@@ -113,15 +118,16 @@ export function ServiceManager({
             </a>
           </span>
         </p>
-        <button
+        <Button
+          variant="primary"
           onClick={() => {
             setCreating((o) => !o);
             setEditId(null);
           }}
-          className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
+          className="px-4 py-2 text-sm"
         >
           {creating ? "Lukk" : "+ Ny tjeneste"}
-        </button>
+        </Button>
       </div>
 
       {creating && (
@@ -131,57 +137,53 @@ export function ServiceManager({
         />
       )}
 
-      <div className="overflow-x-auto border border-line">
-        <table className="w-full text-sm">
-          <thead className="bg-surface-2 text-left text-xs tracking-wide text-muted uppercase">
-            <tr>
-              <th className="px-4 py-3">Tjeneste</th>
-              <th className="px-4 py-3">Kategori</th>
-              <th className="px-4 py-3">Pris</th>
-              <th className="px-4 py-3">Varighet</th>
-              <th className="px-4 py-3">Populær (90d)</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Bookbar på nett</th>
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody>
+      <Card padded={false}>
+        <Table>
+          <THead>
+            <Tr head className="bg-surface-2 uppercase tracking-wide">
+              <Th>Tjeneste</Th>
+              <Th>Kategori</Th>
+              <Th>Pris</Th>
+              <Th>Varighet</Th>
+              <Th>Populær (90d)</Th>
+              <Th>Status</Th>
+              <Th>Bookbar på nett</Th>
+              <Th></Th>
+            </Tr>
+          </THead>
+          <TBody>
             {services.length === 0 && (
-              <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-muted">
-                  Ingen tjenester enda – legg til den første, eller koble til Supabase.
-                </td>
-              </tr>
+              <TableEmpty colSpan={8}>
+                Ingen tjenester enda – legg til den første, eller koble til Supabase.
+              </TableEmpty>
             )}
             {services.map((s) =>
               editId === s.id ? (
-                <tr key={s.id} className="border-t border-line">
-                  <td colSpan={8} className="p-4">
+                <Tr key={s.id}>
+                  <Td colSpan={8} className="p-4">
                     <ServiceForm
                       categories={categories}
                       service={s}
                       onDone={() => setEditId(null)}
                     />
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ) : (
                 <Fragment key={s.id}>
-                <tr className="border-t border-line align-top">
-                  <td className="px-4 py-3">
+                <Tr className="align-top">
+                  <Td>
                     <span className="font-medium text-fg">{s.name}</span>
                     {s.description && (
                       <span className="block text-xs text-muted">
                         {s.description}
                       </span>
                     )}
-                  </td>
-                  <td className="px-4 py-3 text-muted">{s.categoryName}</td>
-                  <td className="px-4 py-3 font-display">{s.price_nok} kr</td>
-                  <td className="px-4 py-3 text-muted">{s.duration_min} min</td>
-                  <td className="px-4 py-3 text-muted">
-                    {popularity[s.id] ?? 0}
-                  </td>
-                  <td className="px-4 py-3">
+                  </Td>
+                  <Td muted>{s.categoryName}</Td>
+                  <Td className="font-display">{s.price_nok} kr</Td>
+                  <Td muted>{s.duration_min} min</Td>
+                  <Td muted>{popularity[s.id] ?? 0}</Td>
+                  <Td>
                     <button
                       onClick={() => start(() => toggleService(s.id, !s.active))}
                       disabled={pending}
@@ -194,8 +196,8 @@ export function ServiceManager({
                     >
                       {s.active ? "Aktiv" : "Skjult"}
                     </button>
-                  </td>
-                  <td className="px-4 py-3">
+                  </Td>
+                  <Td>
                     <button
                       onClick={() =>
                         start(() =>
@@ -212,17 +214,18 @@ export function ServiceManager({
                     >
                       {s.online_bookable ? "På nett" : "Av"}
                     </button>
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    <button
+                  </Td>
+                  <Td align="right" className="whitespace-nowrap">
+                    <Button
+                      variant="link"
                       onClick={() => {
                         setEditId(s.id);
                         setCreating(false);
                       }}
-                      className="text-xs text-accent-soft hover:underline"
+                      className="text-xs"
                     >
                       Rediger
-                    </button>
+                    </Button>
                     <span className="mx-2 text-line-2">·</span>
                     <ConfirmButton
                       label="Slett"
@@ -231,14 +234,14 @@ export function ServiceManager({
                       disabled={pending}
                       onConfirm={() => deleteService(s.id)}
                     />
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
                 </Fragment>
               ),
             )}
-          </tbody>
-        </table>
-      </div>
+          </TBody>
+        </Table>
+      </Card>
     </div>
   );
 }

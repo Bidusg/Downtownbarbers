@@ -10,9 +10,11 @@ import {
 } from "@/app/admin/gavekort/actions";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { BarcodeScanner } from "@/components/ui/BarcodeScanner";
-
-const inputCls =
-  "border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft";
+import { Card } from "@/components/ui/Card";
+import { Table, THead, TBody, Tr, Th, Td, TableEmpty } from "@/components/ui/Table";
+import { Input, Field } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 
 const kr = (n: number) => n.toLocaleString("nb-NO") + " kr";
 
@@ -42,15 +44,16 @@ function GiftBarcodeCell({ id, barcode }: { id: string; barcode: string | null }
         <span className={barcode ? "font-mono text-xs text-fg" : "text-xs text-muted"}>
           {barcode || "—"}
         </span>
-        <button
+        <Button
+          variant="link"
+          className="text-xs"
           onClick={() => {
             setOpen(true);
             setMsg(null);
           }}
-          className="text-xs text-accent-soft hover:underline"
         >
           {barcode ? "Endre" : "Koble"}
-        </button>
+        </Button>
       </div>
     );
   }
@@ -89,71 +92,60 @@ export function GiftCardManager({ cards }: { cards: GiftCard[] }) {
         <p className="text-sm text-muted">
           {cards.length} gavekort · utestående saldo {kr(outstanding)}
         </p>
-        <button
-          onClick={() => setOpen((o) => !o)}
-          className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
-        >
+        <Button className="px-4 py-2 text-sm" onClick={() => setOpen((o) => !o)}>
           {open ? "Lukk" : "+ Nytt gavekort"}
-        </button>
+        </Button>
       </div>
 
       {open && (
-        <form
-          action={async (fd) => {
-            await createGiftCard(fd);
-            setOpen(false);
-          }}
-          className="grid gap-3 border border-line bg-surface p-5 sm:grid-cols-3"
-        >
-          <input name="initial_nok" type="number" min={1} placeholder="Beløp (kr)" required className={inputCls} />
-          <input name="code" placeholder="Kode (auto hvis tom)" className={inputCls} />
-          <input name="barcode" placeholder="Strekkode (valgfritt)" className={inputCls} />
-          <label className="text-xs text-muted">
-            Utløper (valgfritt)
-            <input name="expires_at" type="date" className={`mt-1 block w-full ${inputCls}`} />
-          </label>
-          <button
-            type="submit"
-            className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover sm:col-span-3"
+        <Card>
+          <form
+            action={async (fd) => {
+              await createGiftCard(fd);
+              setOpen(false);
+            }}
+            className="grid gap-3 sm:grid-cols-3"
           >
-            Utsted gavekort
-          </button>
-        </form>
+            <Input name="initial_nok" type="number" min={1} placeholder="Beløp (kr)" required />
+            <Input name="code" placeholder="Kode (auto hvis tom)" />
+            <Input name="barcode" placeholder="Strekkode (valgfritt)" />
+            <Field label="Utløper (valgfritt)">
+              <Input name="expires_at" type="date" />
+            </Field>
+            <Button type="submit" className="px-4 py-2 text-sm sm:col-span-3">
+              Utsted gavekort
+            </Button>
+          </form>
+        </Card>
       )}
 
-      <div className="overflow-x-auto border border-line">
-        <table className="w-full text-sm">
-          <thead className="bg-surface-2 text-left text-xs tracking-wide text-muted uppercase">
-            <tr>
-              <th className="px-4 py-3">Kode</th>
-              <th className="px-4 py-3">Strekkode</th>
-              <th className="px-4 py-3">Opprinnelig</th>
-              <th className="px-4 py-3">Saldo</th>
-              <th className="px-4 py-3">Utløper</th>
-              <th className="px-4 py-3">Innløs</th>
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody>
+      <Card padded={false}>
+        <Table>
+          <THead>
+            <Tr head>
+              <Th>Kode</Th>
+              <Th>Strekkode</Th>
+              <Th>Opprinnelig</Th>
+              <Th>Saldo</Th>
+              <Th>Utløper</Th>
+              <Th>Innløs</Th>
+              <Th></Th>
+            </Tr>
+          </THead>
+          <TBody>
             {cards.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-muted">
-                  Ingen gavekort enda.
-                </td>
-              </tr>
+              <TableEmpty colSpan={7}>Ingen gavekort enda.</TableEmpty>
             )}
             {cards.map((c) => {
               const used = Number(c.balance_nok) <= 0;
               return (
-                <tr key={c.id} className="border-t border-line">
-                  <td className="px-4 py-3 font-display font-medium text-fg">
-                    {c.code}
-                  </td>
-                  <td className="px-4 py-3">
+                <Tr key={c.id}>
+                  <Td className="font-display font-medium text-fg">{c.code}</Td>
+                  <Td>
                     <GiftBarcodeCell id={c.id} barcode={c.barcode} />
-                  </td>
-                  <td className="px-4 py-3 text-muted">{kr(c.initial_nok)}</td>
-                  <td className="px-4 py-3">
+                  </Td>
+                  <Td muted>{kr(c.initial_nok)}</Td>
+                  <Td>
                     <span
                       className={
                         used ? "text-muted" : "font-semibold text-accent-soft"
@@ -161,22 +153,22 @@ export function GiftCardManager({ cards }: { cards: GiftCard[] }) {
                     >
                       {kr(c.balance_nok)}
                     </span>
-                  </td>
-                  <td className="px-4 py-3 text-muted">{no(c.expires_at)}</td>
-                  <td className="px-4 py-3">
+                  </Td>
+                  <Td muted>{no(c.expires_at)}</Td>
+                  <Td>
                     {used ? (
-                      <span className="text-xs text-muted">Brukt opp</span>
+                      <Badge tone="neutral">Brukt opp</Badge>
                     ) : (
                       <form action={redeemGiftCard} className="flex items-center gap-2">
                         <input type="hidden" name="id" value={c.id} />
-                        <input
+                        <Input
                           name="amount"
                           type="number"
                           min={1}
                           max={Number(c.balance_nok)}
                           placeholder="kr"
                           required
-                          className="w-20 border border-line-2 bg-canvas px-2 py-1 text-sm outline-none focus:border-accent-soft"
+                          className="w-20"
                         />
                         <button
                           type="submit"
@@ -186,8 +178,8 @@ export function GiftCardManager({ cards }: { cards: GiftCard[] }) {
                         </button>
                       </form>
                     )}
-                  </td>
-                  <td className="px-4 py-3 text-right">
+                  </Td>
+                  <Td align="right">
                     <ConfirmButton
                       label="Slett"
                       question={`Slette gavekort ${c.code}?`}
@@ -196,13 +188,13 @@ export function GiftCardManager({ cards }: { cards: GiftCard[] }) {
                       disabled={pending}
                       onConfirm={() => deleteGiftCard(c.id)}
                     />
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               );
             })}
-          </tbody>
-        </table>
-      </div>
+          </TBody>
+        </Table>
+      </Card>
     </div>
   );
 }

@@ -1,6 +1,10 @@
 import { StatTile } from "@/components/ui/StatTile";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { Input, Select, Field } from "@/components/ui/Input";
+import { Table, THead, TBody, Tr, Th, Td, TableEmpty } from "@/components/ui/Table";
 import { getInventory, getStockMovements } from "@/lib/inventory-queries";
 import { StockScanAdjust } from "@/components/admin/StockScanAdjust";
 import { adjustStockAction, setStockAction, setThresholdAction } from "./actions";
@@ -68,31 +72,27 @@ export default async function AdminLager() {
           Registrer varemottak / justering
         </summary>
         <form action={adjustStockAction} className="grid gap-3 border-t border-line p-6 sm:grid-cols-2">
-          <label className="flex flex-col gap-1 text-xs text-muted">
-            Produkt
-            <select name="productId" required className="border border-line-2 bg-canvas px-3 py-2 text-sm text-fg">
+          <Field label="Produkt">
+            <Select name="productId" required>
               {items.map((i) => (
                 <option key={i.id} value={i.id}>{i.name} (på lager: {i.stock})</option>
               ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-muted">
-            Antall (bruk minus for uttak)
-            <input name="delta" type="number" defaultValue={1} required className="border border-line-2 bg-canvas px-3 py-2 text-sm text-fg" />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-muted">
-            Årsak
-            <select name="reason" className="border border-line-2 bg-canvas px-3 py-2 text-sm text-fg">
+            </Select>
+          </Field>
+          <Field label="Antall (bruk minus for uttak)">
+            <Input name="delta" type="number" defaultValue={1} required />
+          </Field>
+          <Field label="Årsak">
+            <Select name="reason">
               <option value="varemottak">Varemottak</option>
               <option value="svinn">Svinn</option>
               <option value="telling">Opptelling</option>
               <option value="justering">Justering</option>
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-muted">
-            Notat (valgfritt)
-            <input name="note" type="text" className="border border-line-2 bg-canvas px-3 py-2 text-sm text-fg" />
-          </label>
+            </Select>
+          </Field>
+          <Field label="Notat (valgfritt)">
+            <Input name="note" type="text" />
+          </Field>
           <Button type="submit" className="px-4 py-2 text-sm sm:col-span-2">
             Registrer
           </Button>
@@ -119,104 +119,100 @@ export default async function AdminLager() {
       )}
 
       {/* Full beholdning */}
-      <div className="border border-line bg-surface">
+      <Card padded={false}>
         <div className="border-b border-line px-6 py-4">
           <h2 className="font-display text-lg font-bold">Beholdning</h2>
         </div>
-        {items.length === 0 ? (
-          <p className="px-6 py-8 text-sm text-muted">Ingen produkter registrert.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-line text-left text-xs text-muted">
-                  <th className="px-6 py-3 font-medium">Produkt</th>
-                  <th className="px-4 py-3 font-medium">På lager</th>
-                  <th className="px-4 py-3 font-medium">Sett til</th>
-                  <th className="px-4 py-3 font-medium">Terskel</th>
-                  <th className="px-4 py-3 text-right font-medium">Verdi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((i) => (
-                  <tr key={i.id} className="border-b border-line last:border-0 align-middle">
-                    <td className="px-6 py-3">
-                      <span className={i.active ? "text-fg" : "text-muted line-through"}>{i.name}</span>
-                      {i.lowStock && (
-                        <span className="ml-2 bg-accent-soft/15 px-2 py-0.5 text-[10px] font-semibold text-accent-soft">
-                          lavt
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        <Quick id={i.id} delta={-1} label="−" />
-                        <span className="w-10 text-center font-display text-base font-bold tabular-nums">{i.stock}</span>
-                        <Quick id={i.id} delta={1} label="+" />
-                        <Quick id={i.id} delta={10} label="+10" />
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <form action={setStockAction} className="flex items-center gap-1">
-                        <input type="hidden" name="productId" value={i.id} />
-                        <input name="target" type="number" min={0} defaultValue={i.stock} className="w-16 border border-line-2 bg-canvas px-2 py-1 text-sm text-fg" />
-                        <button type="submit" className="border border-line-2 px-2 py-1 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-fg">OK</button>
-                      </form>
-                    </td>
-                    <td className="px-4 py-3">
-                      <form action={setThresholdAction} className="flex items-center gap-1">
-                        <input type="hidden" name="productId" value={i.id} />
-                        <input name="threshold" type="number" min={0} defaultValue={i.threshold} className="w-14 border border-line-2 bg-canvas px-2 py-1 text-sm text-fg" />
-                        <button type="submit" className="border border-line-2 px-2 py-1 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-fg">Lagre</button>
-                      </form>
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums">{nok(i.value)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+        <Table>
+          <THead>
+            <Tr head>
+              <Th>Produkt</Th>
+              <Th>På lager</Th>
+              <Th>Sett til</Th>
+              <Th>Terskel</Th>
+              <Th align="right">Verdi</Th>
+            </Tr>
+          </THead>
+          <TBody>
+            {items.length === 0 ? (
+              <TableEmpty colSpan={5}>Ingen produkter registrert.</TableEmpty>
+            ) : (
+              items.map((i) => (
+                <Tr key={i.id} className="align-middle">
+                  <Td>
+                    <span className={i.active ? "text-fg" : "text-muted line-through"}>{i.name}</span>
+                    {i.lowStock && (
+                      <Badge tone="warning" className="ml-2">
+                        lavt
+                      </Badge>
+                    )}
+                  </Td>
+                  <Td>
+                    <div className="flex items-center gap-1.5">
+                      <Quick id={i.id} delta={-1} label="−" />
+                      <span className="w-10 text-center font-display text-base font-bold tabular-nums">{i.stock}</span>
+                      <Quick id={i.id} delta={1} label="+" />
+                      <Quick id={i.id} delta={10} label="+10" />
+                    </div>
+                  </Td>
+                  <Td>
+                    <form action={setStockAction} className="flex items-center gap-1">
+                      <input type="hidden" name="productId" value={i.id} />
+                      <input name="target" type="number" min={0} defaultValue={i.stock} className="w-16 border border-line-2 bg-canvas px-2 py-1 text-sm text-fg" />
+                      <button type="submit" className="border border-line-2 px-2 py-1 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-fg">OK</button>
+                    </form>
+                  </Td>
+                  <Td>
+                    <form action={setThresholdAction} className="flex items-center gap-1">
+                      <input type="hidden" name="productId" value={i.id} />
+                      <input name="threshold" type="number" min={0} defaultValue={i.threshold} className="w-14 border border-line-2 bg-canvas px-2 py-1 text-sm text-fg" />
+                      <button type="submit" className="border border-line-2 px-2 py-1 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-fg">Lagre</button>
+                    </form>
+                  </Td>
+                  <Td align="right" nums>{nok(i.value)}</Td>
+                </Tr>
+              ))
+            )}
+          </TBody>
+        </Table>
+      </Card>
 
       {/* Bevegelseslogg */}
-      <div className="border border-line bg-surface">
+      <Card padded={false}>
         <div className="border-b border-line px-6 py-4">
           <h2 className="font-display text-lg font-bold">Bevegelseslogg</h2>
         </div>
-        {movements.length === 0 ? (
-          <p className="px-6 py-8 text-sm text-muted">Ingen registrerte bevegelser enda.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-line text-left text-xs text-muted">
-                  <th className="px-6 py-3 font-medium">Tid</th>
-                  <th className="px-4 py-3 font-medium">Produkt</th>
-                  <th className="px-4 py-3 font-medium">Endring</th>
-                  <th className="px-4 py-3 font-medium">Årsak</th>
-                  <th className="px-4 py-3 font-medium">Nytt lager</th>
-                  <th className="px-4 py-3 font-medium">Notat</th>
-                </tr>
-              </thead>
-              <tbody>
-                {movements.map((m) => (
-                  <tr key={m.id} className="border-b border-line last:border-0">
-                    <td className="px-6 py-3 whitespace-nowrap text-muted">{fmt(m.at)}</td>
-                    <td className="px-4 py-3">{m.productName}</td>
-                    <td className={"px-4 py-3 font-semibold tabular-nums " + (m.delta < 0 ? "text-danger" : "text-accent-soft")}>
-                      {m.delta > 0 ? `+${m.delta}` : m.delta}
-                    </td>
-                    <td className="px-4 py-3 text-muted">{REASON_LABEL[m.reason] ?? m.reason}</td>
-                    <td className="px-4 py-3 tabular-nums">{m.newStock ?? "—"}</td>
-                    <td className="px-4 py-3 text-muted">{m.note ?? ""}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+        <Table>
+          <THead>
+            <Tr head>
+              <Th>Tid</Th>
+              <Th>Produkt</Th>
+              <Th>Endring</Th>
+              <Th>Årsak</Th>
+              <Th>Nytt lager</Th>
+              <Th>Notat</Th>
+            </Tr>
+          </THead>
+          <TBody>
+            {movements.length === 0 ? (
+              <TableEmpty colSpan={6}>Ingen registrerte bevegelser enda.</TableEmpty>
+            ) : (
+              movements.map((m) => (
+                <Tr key={m.id}>
+                  <Td muted className="whitespace-nowrap">{fmt(m.at)}</Td>
+                  <Td>{m.productName}</Td>
+                  <Td nums className={"font-semibold " + (m.delta < 0 ? "text-danger" : "text-accent-soft")}>
+                    {m.delta > 0 ? `+${m.delta}` : m.delta}
+                  </Td>
+                  <Td muted>{REASON_LABEL[m.reason] ?? m.reason}</Td>
+                  <Td nums>{m.newStock ?? "—"}</Td>
+                  <Td muted>{m.note ?? ""}</Td>
+                </Tr>
+              ))
+            )}
+          </TBody>
+        </Table>
+      </Card>
     </div>
   );
 }
