@@ -3,9 +3,42 @@
  * ellers hopper den stille over (så booking fungerer uansett).
  * EMAIL_FROM settes når eget domene er verifisert; faller ellers tilbake
  * til Resend sin testavsender.
+ *
+ * Alle e-poster bruker én felles «premium»-mal (pageWrap): Downtown Barbers-
+ * logo i toppen, mørk merkevare-bakgrunn, og en bunn med veibeskrivelse
+ * (Google Maps), ringeknapp og sosiale lenker. Malen er bygget tabell-basert
+ * med inline-stiler slik at den rendrer likt i Gmail, Apple Mail og Outlook.
  */
 
+import { salon } from "@/lib/data/salon";
+
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
+
+/* ---- Merkevare-paletten (speiler nettsiden) ---------------------------- */
+const C = {
+  bg: "#1b1714", // dyp espresso (ytre bakgrunn)
+  card: "#221f1b", // kort
+  cream: "#F8F5EF",
+  soft: "#cfc7bf",
+  muted: "#9b9289",
+  line: "#3a342d",
+  accent: "#F47721",
+  ink: "#211E1A",
+};
+
+function siteUrl(): string {
+  return (
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
+    "https://downtownbarbers.no"
+  );
+}
+
+/** Google Maps-veibeskrivelse bygget fra adressen. */
+const MAPS_URL = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+  salon.address,
+)}`;
+/** tel:-lenke (kun sifre og +). */
+const TEL = salon.phone.replace(/[^\d+]/g, "");
 
 function fromAddress() {
   return (
@@ -33,31 +66,161 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
   }
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/* ---- Felles bunn: veibeskrivelse + ring + sosiale lenker --------------- */
+function footerHtml(): string {
+  return `
+      <tr><td style="padding:4px 32px 0">
+        <div style="height:1px;background:${C.line};margin:26px 0 0;font-size:0;line-height:0">&nbsp;</div>
+      </td></tr>
+      <tr><td align="center" style="padding:22px 32px 2px">
+        <table role="presentation" cellpadding="0" cellspacing="0" align="center"><tr>
+          <td style="padding:0 5px">
+            <a href="${MAPS_URL}" style="display:inline-block;border:1px solid ${C.line};color:${C.cream};text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:13px;padding:11px 18px">Veibeskrivelse</a>
+          </td>
+          <td style="padding:0 5px">
+            <a href="tel:${TEL}" style="display:inline-block;border:1px solid ${C.line};color:${C.cream};text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:13px;padding:11px 18px">Ring oss</a>
+          </td>
+        </tr></table>
+      </td></tr>
+      <tr><td align="center" style="padding:16px 32px 2px">
+        <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:${C.soft};line-height:1.6">
+          <a href="${MAPS_URL}" style="color:${C.soft};text-decoration:none">${escapeHtml(salon.address)}</a>
+          &nbsp;·&nbsp;
+          <a href="tel:${TEL}" style="color:${C.soft};text-decoration:none">${escapeHtml(salon.phone)}</a>
+        </p>
+      </td></tr>
+      <tr><td align="center" style="padding:10px 32px 32px">
+        <a href="${salon.social.instagram}" style="color:${C.accent};text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:.06em">Instagram</a>
+        <span style="color:${C.line}">&nbsp;&nbsp;·&nbsp;&nbsp;</span>
+        <a href="${salon.social.facebook}" style="color:${C.accent};text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:.06em">Facebook</a>
+      </td></tr>`;
+}
+
+/**
+ * Ytre ramme for alle e-poster: logo-topp, innhold, premium-bunn.
+ * `inner` er ferdig HTML som legges inn i kort-kroppen.
+ */
+function pageWrap(inner: string): string {
+  const site = siteUrl();
+  return `<!DOCTYPE html>
+<html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"></head>
+<body style="margin:0;padding:0;background:${C.bg};-webkit-text-size-adjust:100%">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.bg}">
+    <tr><td align="center" style="padding:30px 14px">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:100%;background:${C.card};border:1px solid ${C.line}">
+        <tr><td align="center" style="padding:38px 32px 0">
+          <a href="${site}" style="text-decoration:none">
+            <img src="${site}/downtown-logo-email.png" width="168" alt="Downtown Barbers" style="display:block;width:168px;max-width:58%;height:auto;border:0;outline:none;text-decoration:none">
+          </a>
+        </td></tr>
+        <tr><td style="padding:0 32px">
+          <div style="height:1px;background:${C.line};margin:22px 0 0;font-size:0;line-height:0">&nbsp;</div>
+        </td></tr>
+        <tr><td style="padding:28px 32px 10px">
+          ${inner}
+        </td></tr>
+${footerHtml()}
+      </table>
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:100%">
+        <tr><td align="center" style="padding:16px 14px 6px;font-family:Arial,Helvetica,sans-serif;color:${C.muted};font-size:11px;line-height:1.6">
+          © ${new Date().getFullYear()} Downtown Barbers · ${escapeHtml(salon.address)}
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+}
+
+/* ---- Barber-blokk: bilde (eller initialer) + navn + tittel ------------- */
+type BarberInfo = { name: string; title?: string; photoUrl?: string };
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "DB";
+  const first = parts[0][0] ?? "";
+  const last = parts.length > 1 ? parts[parts.length - 1][0] ?? "" : "";
+  return (first + last).toUpperCase();
+}
+
+function barberBlock(b: BarberInfo): string {
+  const avatar = b.photoUrl
+    ? `<img src="${escapeHtml(b.photoUrl)}" width="64" height="64" alt="${escapeHtml(
+        b.name,
+      )}" style="display:block;width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid ${C.accent}">`
+    : `<table role="presentation" width="64" height="64" cellpadding="0" cellspacing="0" style="width:64px;height:64px">
+         <tr><td align="center" valign="middle" style="width:64px;height:64px;background:${C.accent};border-radius:50%;color:${C.ink};font-family:Georgia,serif;font-size:22px;font-weight:bold">${initials(
+           b.name,
+         )}</td></tr>
+       </table>`;
+  const title = b.title
+    ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:${C.muted};margin-top:3px">${escapeHtml(
+        b.title,
+      )}</div>`
+    : "";
+  return `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:22px 0 2px;background:${C.bg};border:1px solid ${C.line}">
+      <tr>
+        <td width="64" style="padding:16px 18px;width:64px;vertical-align:middle">${avatar}</td>
+        <td style="padding:16px 18px 16px 0;vertical-align:middle">
+          <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:${C.accent}">Din barber</div>
+          <div style="font-family:Georgia,serif;font-size:18px;color:${C.cream};margin-top:4px">${escapeHtml(
+            b.name,
+          )}</div>
+          ${title}
+        </td>
+      </tr>
+    </table>`;
+}
+
+/** Primær-CTA-knapp (bulletproof, tabell-fri er greit for våre klienter). */
+function ctaButton(href: string, label: string): string {
+  return `
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:26px 0 6px"><tr>
+      <td style="background:${C.accent}">
+        <a href="${href}" style="display:inline-block;background:${C.accent};color:${C.ink};text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-weight:bold;font-size:15px;padding:14px 26px;letter-spacing:.01em">${label}</a>
+      </td>
+    </tr></table>`;
+}
+
+/**
+ * Standardmal: overskrift, intro, detalj-tabell, valgfri CTA/barber-blokk.
+ * Beholder den positive signaturen (heading, intro, rows, ctaHtml) så alle
+ * eksisterende kallsteder fortsetter å fungere; `opts` er additivt.
+ */
 function shell(
   heading: string,
   intro: string,
   rows: [string, string][],
   ctaHtml = "",
+  opts: { barber?: BarberInfo } = {},
 ): string {
   const tr = rows
     .map(
       ([k, v]) =>
-        `<tr><td style="padding:8px 0;color:#8a817a">${k}</td><td style="padding:8px 0;text-align:right">${v}</td></tr>`,
+        `<tr>
+           <td style="padding:12px 0;border-bottom:1px solid ${C.line};color:${C.muted};font-family:Arial,Helvetica,sans-serif;font-size:13px;vertical-align:top">${k}</td>
+           <td style="padding:12px 0;border-bottom:1px solid ${C.line};text-align:right;color:${C.cream};font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;vertical-align:top">${v}</td>
+         </tr>`,
     )
     .join("");
-  return `
-    <div style="font-family:Georgia,serif;background:#211E1A;color:#F8F5EF;padding:40px 24px">
-      <div style="max-width:520px;margin:0 auto">
-        <p style="letter-spacing:.3em;text-transform:uppercase;color:#F47721;font-size:11px;margin:0 0 8px">
-          Downtown Barbers
-        </p>
-        <h1 style="font-size:26px;margin:0 0 20px">${heading}</h1>
-        <p style="color:#cfc7bf;line-height:1.6">${intro}</p>
-        <table style="width:100%;border-collapse:collapse;margin:20px 0">${tr}</table>
-        ${ctaHtml}
-        <p style="color:#8a817a;font-size:13px">Osterhaus' gate 10, 0183 Oslo · +47 463 58 764</p>
-      </div>
-    </div>`;
+  const table = rows.length
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:22px 0 2px;border-collapse:collapse">${tr}</table>`
+    : "";
+  const barber = opts.barber ? barberBlock(opts.barber) : "";
+  return pageWrap(`
+    <h1 style="font-family:Georgia,'Times New Roman',serif;font-size:25px;line-height:1.28;margin:0 0 14px;color:${C.cream}">${heading}</h1>
+    <p style="font-family:Arial,Helvetica,sans-serif;color:${C.soft};line-height:1.7;font-size:15px;margin:0">${intro}</p>
+    ${barber}
+    ${table}
+    ${ctaHtml}`);
 }
 
 export async function sendBookingConfirmation(opts: {
@@ -70,35 +233,45 @@ export async function sendBookingConfirmation(opts: {
   price: string;
   cancelUrl?: string;
   portalUrl?: string;
+  /** Valgfritt: barberens tittel + bilde-URL (vises i barber-blokken). */
+  barberTitle?: string;
+  barberPhotoUrl?: string;
 }): Promise<void> {
   const portalLink = opts.portalUrl
-    ? `<p style="margin:0 0 8px">
+    ? `<p style="margin:18px 0 8px">
          <a href="${opts.portalUrl}"
-            style="color:#F47721;font-size:14px;font-weight:600;text-decoration:none">
+            style="color:${C.accent};font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:600;text-decoration:none">
            Se din side og klippekort →
          </a>
        </p>`
     : "";
   const cancelLink = opts.cancelUrl
-    ? `<p style="margin:0 0 24px">
+    ? `<p style="margin:0 0 6px">
          <a href="${opts.cancelUrl}"
-            style="color:#8a817a;font-size:13px;text-decoration:underline">
+            style="color:${C.muted};font-family:Arial,Helvetica,sans-serif;font-size:13px;text-decoration:underline">
            Kan du ikke likevel? Avbestill timen her
          </a>
        </p>`
     : "";
   const cta = portalLink + cancelLink;
+  const rows: [string, string][] = [
+    ["Tjeneste", escapeHtml(opts.service)],
+    ["Dato", escapeHtml(opts.date)],
+    ["Tid", escapeHtml(opts.time)],
+  ];
+  if (opts.price) rows.push(["Pris", escapeHtml(opts.price)]);
   const html = shell(
-    "Timen din er bekreftet 💈",
-    `Hei ${opts.name.split(" ")[0]}, vi gleder oss til å se deg. Her er detaljene:`,
-    [
-      ["Tjeneste", opts.service],
-      ["Barber", opts.barber],
-      ["Dato", opts.date],
-      ["Tid", opts.time],
-      ["Pris", opts.price],
-    ],
+    "Timen din er bekreftet",
+    `Hei ${escapeHtml(opts.name.split(" ")[0])}, vi gleder oss til å se deg. Her er detaljene:`,
+    rows,
     cta,
+    {
+      barber: {
+        name: opts.barber,
+        title: opts.barberTitle,
+        photoUrl: opts.barberPhotoUrl,
+      },
+    },
   );
   await sendEmail(
     opts.to,
@@ -122,24 +295,24 @@ export async function sendReceiptEmail(opts: {
   payments?: { method: string; amount: number }[];
 }): Promise<void> {
   const rows: [string, string][] = [
-    ["Tjeneste", opts.service],
-    ["Barber", opts.barber],
-    ["Dato", opts.date],
+    ["Tjeneste", escapeHtml(opts.service)],
+    ["Barber", escapeHtml(opts.barber)],
+    ["Dato", escapeHtml(opts.date)],
   ];
   if (opts.discount && opts.discount > 0) {
     rows.push(["Rabatt", `−${Math.round(opts.discount)} kr`]);
   }
-  rows.push(["Betalt", opts.price]);
+  rows.push(["Betalt", escapeHtml(opts.price)]);
   const paymentLine =
     opts.payments && opts.payments.length > 0
       ? opts.payments
           .map((p) => `${p.method} ${Math.round(p.amount)} kr`)
           .join(" · ")
       : opts.paymentMethod;
-  if (paymentLine) rows.push(["Betalingsmåte", paymentLine]);
+  if (paymentLine) rows.push(["Betalingsmåte", escapeHtml(paymentLine)]);
   const html = shell(
-    "Kvittering 🧾",
-    `Hei ${opts.name.split(" ")[0] || "der"}, takk for besøket! Her er kvitteringen din:`,
+    "Kvittering",
+    `Hei ${escapeHtml(opts.name.split(" ")[0] || "der")}, takk for besøket! Her er kvitteringen din:`,
     rows,
   );
   await sendEmail(opts.to, "Kvittering – Downtown Barbers", html);
@@ -154,42 +327,26 @@ export async function sendNoShowEmail(opts: {
   date: string;
   fee?: string; // f.eks. "150 kr" – utelates hvis ikke satt
 }): Promise<boolean> {
-  const site =
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-    "https://downtownbarbers.no";
+  const site = siteUrl();
   const rows: [string, string][] = [
-    ["Tjeneste", opts.service],
-    ["Barber", opts.barber],
-    ["Dato", opts.date],
+    ["Tjeneste", escapeHtml(opts.service)],
+    ["Barber", escapeHtml(opts.barber)],
+    ["Dato", escapeHtml(opts.date)],
   ];
-  if (opts.fee) rows.push(["Gebyr", opts.fee]);
+  if (opts.fee) rows.push(["Gebyr", escapeHtml(opts.fee)]);
   const feeLine = opts.fee
-    ? ` For uteblitte timer belastes et gebyr på ${opts.fee}, som gjøres opp ved neste besøk.`
+    ? ` For uteblitte timer belastes et gebyr på ${escapeHtml(
+        opts.fee,
+      )}, som gjøres opp ved neste besøk.`
     : "";
-  const tr = rows
-    .map(
-      ([k, v]) =>
-        `<tr><td style="padding:8px 0;color:#8a817a">${k}</td><td style="padding:8px 0;text-align:right">${v}</td></tr>`,
-    )
-    .join("");
-  const html = `
-    <div style="font-family:Georgia,serif;background:#211E1A;color:#F8F5EF;padding:40px 24px">
-      <div style="max-width:520px;margin:0 auto">
-        <p style="letter-spacing:.3em;text-transform:uppercase;color:#F47721;font-size:11px;margin:0 0 8px">
-          Downtown Barbers
-        </p>
-        <h1 style="font-size:24px;margin:0 0 18px">Vi savnet deg i dag</h1>
-        <p style="color:#cfc7bf;line-height:1.7">Hei ${opts.name.split(" ")[0] || "der"}, det ser ut til at du ikke rakk timen din hos oss.${feeLine} Ingen fare – book gjerne en ny tid når det passer.</p>
-        <table style="width:100%;border-collapse:collapse;margin:20px 0">${tr}</table>
-        <div style="margin:28px 0">
-          <a href="${site}/booking"
-             style="display:inline-block;background:#F47721;color:#211E1A;text-decoration:none;font-weight:bold;padding:12px 22px">
-            Book ny time
-          </a>
-        </div>
-        <p style="color:#8a817a;font-size:13px">Osterhaus' gate 10, 0183 Oslo · +47 463 58 764</p>
-      </div>
-    </div>`;
+  const html = shell(
+    "Vi savnet deg i dag",
+    `Hei ${escapeHtml(
+      opts.name.split(" ")[0] || "der",
+    )}, det ser ut til at du ikke rakk timen din hos oss.${feeLine} Ingen fare – book gjerne en ny tid når det passer.`,
+    rows,
+    ctaButton(`${site}/booking`, "Book ny time"),
+  );
   return sendEmail(opts.to, "Du gikk glipp av timen din – Downtown Barbers", html);
 }
 
@@ -200,30 +357,34 @@ export async function sendBookingReminderEmail(opts: {
   barber: string;
   date: string;
   time: string;
+  /** Valgfritt: barberens tittel + bilde-URL (vises i barber-blokken). */
+  barberTitle?: string;
+  barberPhotoUrl?: string;
 }): Promise<boolean> {
   const html = shell(
-    "Påminnelse om timen din ⏰",
-    `Hei ${opts.name.split(" ")[0]}, dette er en vennlig påminnelse om timen din i morgen. Trenger du å endre? Ring oss gjerne.`,
+    "Påminnelse om timen din",
+    `Hei ${escapeHtml(
+      opts.name.split(" ")[0],
+    )}, dette er en vennlig påminnelse om timen din i morgen. Trenger du å endre? Ring oss gjerne.`,
     [
-      ["Tjeneste", opts.service],
-      ["Barber", opts.barber],
-      ["Dato", opts.date],
-      ["Tid", opts.time],
+      ["Tjeneste", escapeHtml(opts.service)],
+      ["Dato", escapeHtml(opts.date)],
+      ["Tid", escapeHtml(opts.time)],
     ],
+    "",
+    {
+      barber: {
+        name: opts.barber,
+        title: opts.barberTitle,
+        photoUrl: opts.barberPhotoUrl,
+      },
+    },
   );
   return sendEmail(
     opts.to,
     "Påminnelse: timen din hos Downtown Barbers",
     html,
   );
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 
 /** AI-oppfølging: vennlig «book ny time»-e-post med CTA-knapp. */
@@ -233,26 +394,13 @@ export async function sendFollowupEmail(opts: {
   subject: string;
   intro: string;
 }): Promise<boolean> {
-  const site =
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-    "https://downtownbarbers.no";
-  const html = `
-    <div style="font-family:Georgia,serif;background:#211E1A;color:#F8F5EF;padding:40px 24px">
-      <div style="max-width:520px;margin:0 auto">
-        <p style="letter-spacing:.3em;text-transform:uppercase;color:#F47721;font-size:11px;margin:0 0 8px">
-          Downtown Barbers
-        </p>
-        <h1 style="font-size:24px;margin:0 0 18px">${escapeHtml(opts.subject)}</h1>
-        <p style="color:#cfc7bf;line-height:1.7">${escapeHtml(opts.intro)}</p>
-        <div style="margin:28px 0">
-          <a href="${site}/booking"
-             style="display:inline-block;background:#F47721;color:#211E1A;text-decoration:none;font-weight:bold;padding:12px 22px">
-            Bestill ny time
-          </a>
-        </div>
-        <p style="color:#8a817a;font-size:13px">Osterhaus' gate 10, 0183 Oslo · +47 463 58 764</p>
-      </div>
-    </div>`;
+  const site = siteUrl();
+  const html = shell(
+    escapeHtml(opts.subject),
+    escapeHtml(opts.intro),
+    [],
+    ctaButton(`${site}/booking`, "Bestill ny time"),
+  );
   return sendEmail(opts.to, opts.subject, html);
 }
 
@@ -268,19 +416,16 @@ export async function sendStaffCredentialsEmail(opts: {
   loginUrl: string;
 }): Promise<boolean> {
   const cta = `
-    <div style="margin:28px 0">
-      <a href="${opts.loginUrl}"
-         style="display:inline-block;background:#F47721;color:#211E1A;text-decoration:none;font-weight:bold;padding:12px 22px">
-        Logg inn på ansattportalen
-      </a>
-    </div>
-    <p style="color:#8a817a;font-size:13px;line-height:1.6;margin:0 0 4px">
+    ${ctaButton(opts.loginUrl, "Logg inn på ansattportalen")}
+    <p style="color:${C.muted};font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;margin:16px 0 4px">
       Av sikkerhetshensyn bør du bytte passord ved første innlogging: velg
       «Glemt passord?» på innloggingssiden for å sette ditt eget.
     </p>`;
   const html = shell(
-    "Velkommen til ansattportalen 💈",
-    `Hei ${opts.name.split(" ")[0] || "der"}, du har fått tilgang til ansattportalen hos Downtown Barbers. Logg inn med brukernavnet og det midlertidige passordet nedenfor.`,
+    "Velkommen til ansattportalen",
+    `Hei ${escapeHtml(
+      opts.name.split(" ")[0] || "der",
+    )}, du har fått tilgang til ansattportalen hos Downtown Barbers. Logg inn med brukernavnet og det midlertidige passordet nedenfor.`,
     [
       ["Brukernavn (e-post)", escapeHtml(opts.email)],
       ["Midlertidig passord", escapeHtml(opts.tempPassword)],
@@ -303,13 +448,8 @@ export async function sendPasswordResetEmail(opts: {
   resetUrl: string;
 }): Promise<boolean> {
   const cta = `
-    <div style="margin:28px 0">
-      <a href="${opts.resetUrl}"
-         style="display:inline-block;background:#F47721;color:#211E1A;text-decoration:none;font-weight:bold;padding:12px 22px">
-        Sett nytt passord
-      </a>
-    </div>
-    <p style="color:#8a817a;font-size:13px;line-height:1.6;margin:0">
+    ${ctaButton(opts.resetUrl, "Sett nytt passord")}
+    <p style="color:${C.muted};font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;margin:16px 0 0">
       Lenken er gyldig en begrenset periode. Har du ikke bedt om å tilbakestille
       passordet ditt, kan du trygt se bort fra denne e-posten.
     </p>`;
@@ -331,13 +471,8 @@ export async function sendPortalLinkEmail(opts: {
   portalUrl: string;
 }): Promise<boolean> {
   const cta = `
-    <div style="margin:28px 0">
-      <a href="${opts.portalUrl}"
-         style="display:inline-block;background:#F47721;color:#211E1A;text-decoration:none;font-weight:bold;padding:12px 22px">
-        Åpne Min side
-      </a>
-    </div>
-    <p style="color:#8a817a;font-size:13px;line-height:1.6;margin:0">
+    ${ctaButton(opts.portalUrl, "Åpne Min side")}
+    <p style="color:${C.muted};font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;margin:16px 0 0">
       Lenken er personlig – ikke del den. Ba du ikke om denne, kan du trygt se
       bort fra e-posten.
     </p>`;
@@ -369,28 +504,27 @@ export async function sendPayslipEmail(opts: {
 }): Promise<boolean> {
   const hasAttachment = !!opts.attachment;
   const intro = hasAttachment
-    ? `Hei ${opts.name.split(" ")[0] || "der"}, lønnsoversikten din for ${escapeHtml(
+    ? `Hei ${escapeHtml(
+        opts.name.split(" ")[0] || "der",
+      )}, lønnsoversikten din for ${escapeHtml(
         opts.monthLabel,
       )} er klar. Den ligger vedlagt som en passordbeskyttet ZIP-fil.`
-    : `Hei ${opts.name.split(" ")[0] || "der"}, lønnsoversikten din for ${escapeHtml(
+    : `Hei ${escapeHtml(
+        opts.name.split(" ")[0] || "der",
+      )}, lønnsoversikten din for ${escapeHtml(
         opts.monthLabel,
       )} er klar. Du finner den i ansattportalen.`;
 
   const passwordNote = hasAttachment
-    ? `<p style="color:#cfc7bf;line-height:1.7;margin:0 0 8px">
-         For å åpne ZIP-filen bruker du <strong>postnummeret ditt</strong> som passord.
+    ? `<p style="color:${C.soft};font-family:Arial,Helvetica,sans-serif;line-height:1.7;font-size:15px;margin:18px 0 0">
+         For å åpne ZIP-filen bruker du <strong style="color:${C.cream}">postnummeret ditt</strong> som passord.
        </p>`
     : "";
 
   const cta = `
     ${passwordNote}
-    <div style="margin:28px 0">
-      <a href="${opts.portalUrl}"
-         style="display:inline-block;background:#F47721;color:#211E1A;text-decoration:none;font-weight:bold;padding:12px 22px">
-        Se lønnsoversikten i portalen
-      </a>
-    </div>
-    <p style="color:#8a817a;font-size:13px;line-height:1.6;margin:0">
+    ${ctaButton(opts.portalUrl, "Se lønnsoversikten i portalen")}
+    <p style="color:${C.muted};font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;margin:16px 0 0">
       Har du spørsmål om lønnen, ta kontakt med salongen.
     </p>`;
 
@@ -447,35 +581,26 @@ export async function sendMarketingEmail(opts: {
   body: string;
   unsubscribeUrl: string;
 }): Promise<boolean> {
-  const esc = (s: string) =>
-    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const site = siteUrl();
   const paragraphs = opts.body
     .split(/\n{2,}/)
     .map(
       (p) =>
-        `<p style="color:#cfc7bf;line-height:1.7;margin:0 0 16px">${esc(p).replace(/\n/g, "<br>")}</p>`,
+        `<p style="color:${C.soft};font-family:Arial,Helvetica,sans-serif;line-height:1.7;font-size:15px;margin:0 0 16px">${escapeHtml(
+          p,
+        ).replace(/\n/g, "<br>")}</p>`,
     )
     .join("");
-  const html = `
-    <div style="font-family:Georgia,serif;background:#211E1A;color:#F8F5EF;padding:40px 24px">
-      <div style="max-width:520px;margin:0 auto">
-        <p style="letter-spacing:.3em;text-transform:uppercase;color:#F47721;font-size:11px;margin:0 0 12px">
-          Downtown Barbers
-        </p>
-        <h1 style="font-size:24px;margin:0 0 20px">${esc(opts.subject)}</h1>
-        ${paragraphs}
-        <p style="margin:28px 0 0">
-          <a href="https://downtownbarbers.no/booking"
-             style="display:inline-block;background:#F47721;color:#211E1A;font-weight:bold;
-                    text-decoration:none;padding:12px 22px;font-size:14px">Bestill time</a>
-        </p>
-        <hr style="border:none;border-top:1px solid #3a352f;margin:28px 0 14px">
-        <p style="color:#8a817a;font-size:12px;margin:0 0 6px">Osterhaus' gate 10, 0183 Oslo · +47 463 58 764</p>
-        <p style="color:#8a817a;font-size:12px;margin:0">
-          Du får denne e-posten fordi du har sagt ja til tilbud fra oss.
-          <a href="${opts.unsubscribeUrl}" style="color:#8a817a;text-decoration:underline">Meld deg av</a>.
-        </p>
-      </div>
-    </div>`;
-  return sendEmail(opts.to, opts.subject, html);
+  const inner = `
+    <h1 style="font-family:Georgia,'Times New Roman',serif;font-size:25px;line-height:1.28;margin:0 0 18px;color:${C.cream}">${escapeHtml(
+      opts.subject,
+    )}</h1>
+    ${paragraphs}
+    ${ctaButton(`${site}/booking`, "Bestill time")}
+    <div style="height:1px;background:${C.line};margin:26px 0 14px;font-size:0;line-height:0">&nbsp;</div>
+    <p style="color:${C.muted};font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;margin:0">
+      Du får denne e-posten fordi du har sagt ja til tilbud fra oss.
+      <a href="${opts.unsubscribeUrl}" style="color:${C.muted};text-decoration:underline">Meld deg av</a>.
+    </p>`;
+  return sendEmail(opts.to, opts.subject, pageWrap(inner));
 }

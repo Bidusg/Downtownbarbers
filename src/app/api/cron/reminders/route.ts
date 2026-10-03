@@ -65,6 +65,29 @@ export async function GET(req: NextRequest) {
       barber_name: string | null;
     }[];
 
+    // Barber-bilder/titler til e-posten: hentes én gang (offentlig lesbart).
+    // Degraderer stille til initialer hvis oppslaget feiler.
+    const barberInfo = new Map<string, { photoUrl?: string; title?: string }>();
+    try {
+      const { data: staff } = await sb
+        .from("staff")
+        .select("full_name, photo_url, title")
+        .eq("active", true);
+      for (const s of (staff ?? []) as {
+        full_name: string | null;
+        photo_url: string | null;
+        title: string | null;
+      }[]) {
+        if (s.full_name)
+          barberInfo.set(s.full_name, {
+            photoUrl: s.photo_url ?? undefined,
+            title: s.title ?? undefined,
+          });
+      }
+    } catch {
+      /* ignorer – barber-blokken viser initialer uten bilde */
+    }
+
     let emailed = 0;
     let texted = 0;
 
@@ -73,6 +96,7 @@ export async function GET(req: NextRequest) {
       const time = fmtTime(b.start_at);
       const service = b.service_name ?? "time";
       const barber = b.barber_name ?? "oss";
+      const info = b.barber_name ? barberInfo.get(b.barber_name) : undefined;
 
       if (b.email) {
         const ok = await sendBookingReminderEmail({
@@ -82,6 +106,8 @@ export async function GET(req: NextRequest) {
           barber,
           date,
           time,
+          barberPhotoUrl: info?.photoUrl,
+          barberTitle: info?.title,
         });
         if (ok) emailed++;
       }

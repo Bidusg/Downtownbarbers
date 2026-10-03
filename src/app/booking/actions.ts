@@ -94,6 +94,24 @@ export async function createBooking(
       }
     }
 
+    // Barberens bilde + tittel til e-posten (offentlig lesbart). Må ALDRI
+    // kunne velte bookingen – egen try/catch, degraderer til initialer.
+    let barberPhotoUrl: string | undefined;
+    let barberTitle: string | undefined;
+    try {
+      const { data: st } = await sb
+        .from("staff")
+        .select("photo_url, title")
+        .eq("full_name", input.barberName)
+        .eq("active", true)
+        .limit(1)
+        .maybeSingle();
+      barberPhotoUrl = (st?.photo_url as string | null) ?? undefined;
+      barberTitle = (st?.title as string | null) ?? undefined;
+    } catch {
+      /* ignorer – barber-blokken viser initialer uten bilde */
+    }
+
     // E-postbekreftelse (hopper stille over hvis RESEND_API_KEY mangler)
     await sendBookingConfirmation({
       to: input.email.trim(),
@@ -105,6 +123,8 @@ export async function createBooking(
       price: input.price ?? "",
       cancelUrl,
       portalUrl,
+      barberPhotoUrl,
+      barberTitle,
     });
 
     return {
