@@ -22,10 +22,11 @@ function PinIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+// Rekkefølge følger hvor seksjonene ligger på forsiden (topp → bunn).
 const nav = [
-  { label: "Tjenester", href: "/#tjenester" },
   { label: "Håndverket", href: "/#handverket" },
   { label: "Galleri", href: "/#galleri" },
+  { label: "Tjenester", href: "/#tjenester" },
   { label: "Team", href: "/#team" },
   { label: "Butikk", href: "/butikk" },
   { label: "Kontakt", href: "/#kontakt" },

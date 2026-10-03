@@ -11,7 +11,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "Downtown Barbers | Oslo",
   description:
-    "Der presisjon møter stil. Freshe klipper, skarpe fades og ekspert grooming — midt i hjertet av Oslo.",
+    "Barbershop i Osterhaus' gate, Oslo. Skarpe fades, skjegg og klassisk barbering — walk-in eller book på sekunder.",
   keywords: ["barbershop", "oslo", "hårklipp", "fade", "skjegg", "grooming"],
 };
 

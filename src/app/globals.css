@@ -258,6 +258,115 @@ body {
 }
 
 /* =====================================================================
+ * CINEMATIC — mørk/filmatisk skall for de offentlige sidene.
+ *   Pinner et dypt espresso-tema (uavhengig av system-tema) og legger til
+ *   film-korn, vignett, kinetisk tekst-maske og premium-knapper. Brukes ved
+ *   å wrappe sideinnholdet i <div class="cine">. GSAP/Lenis gir bevegelsen.
+ * ===================================================================== */
+.cine {
+  --canvas: 13% 0.012 44;
+  --surface: 16.5% 0.012 44;
+  --surface-2: 20% 0.013 44;
+
+  --fg: 95% 0.008 85;
+  --fg-soft: 88% 0.011 85;
+  --muted: 63% 0.016 70;
+
+  --line: 26% 0.012 46;
+  --line-2: 34% 0.014 50;
+
+  --accent: 95% 0.008 85;
+  --accent-hover: 88% 0.012 82;
+  --accent-soft: 70% 0.174 48;
+  --accent-fg: 13% 0.012 44;
+
+  background: oklch(var(--canvas));
+  color: oklch(var(--fg));
+  position: relative;
+}
+
+/* Fint film-korn over hele flaten – gir dybde og «analog» premium-følelse. */
+.cine-grain::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.045;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+/* Vignett rundt filmatiske seksjoner. */
+.cine-vignette::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 90% at 50% 40%, transparent 45%, rgba(0, 0, 0, 0.55) 100%);
+}
+
+/* Kinetisk tekst: hver linje/ord ligger i en maske og stiger opp (GSAP). */
+.split-mask {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+}
+.split-word {
+  display: inline-block;
+  will-change: transform;
+}
+
+/* Premium accent-knapp: fyll som vokser fra bunn + skinn-sveip. */
+.cine-btn {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
+}
+.cine-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 40px -20px oklch(var(--accent-soft) / 0.9);
+}
+.cine-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transform: translateX(-130%);
+}
+.cine-btn:hover::after {
+  animation: shine 0.9s ease;
+}
+
+/* Tynn accent-hårlinje som "tegner seg" inn (brukes som seksjon-skille). */
+.hairline {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, oklch(var(--accent-soft) / 0.7), transparent);
+  transform: scaleX(0);
+  transform-origin: center;
+}
+
+/* Marquee-bånd (uendelig horisontal tekst). */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.marquee-track {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: marquee 32s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cine-grain::before,
+  .marquee-track { animation: none !important; }
+  .split-word { transform: none !important; }
+  .hairline { transform: scaleX(1) !important; }
+}
+
+/* =====================================================================
  * BACK-OFFICE-SKALL — animert topbar delt av admin/revisor/ansatt/kasse.
  * Alt er scopet med .bo-* og respekterer prefers-reduced-motion nederst.
  * ===================================================================== */

@@ -79,6 +79,9 @@ export function BookingWizard({
   const [slotsByDate, setSlotsByDate] = useState<Record<string, string[]>>({});
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slotsError, setSlotsError] = useState(false);
+  // Hvilken dag som vises i tid-steget (selve valget settes først når man
+  // trykker et klokkeslett → date + time).
+  const [viewDay, setViewDay] = useState("");
 
   // Neste åpne dager som klikkbare chips (hopper over stengte ukedager).
   const openDays = useMemo(() => {
@@ -151,6 +154,23 @@ export function BookingWizard({
       active = false;
     };
   }, [step, barber, service, openDays]);
+
+  // Vis kun hele og halve timer (09:00, 09:30 …) – enklere valg for kunden.
+  const halfHourSlots = (iso: string): string[] =>
+    (slotsByDate[iso] ?? []).filter((t) => {
+      const m = t.slice(3, 5);
+      return m === "00" || m === "30";
+    });
+
+  // Hold «vist dag» på en dag som faktisk har ledige tider.
+  useEffect(() => {
+    if (step !== 2) return;
+    const hasSlots = (iso: string) => halfHourSlots(iso).length > 0;
+    if (viewDay && hasSlots(viewDay)) return;
+    const firstWithSlots = openDays.find((d) => hasSlots(d.iso));
+    setViewDay(firstWithSlots?.iso ?? openDays[0]?.iso ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, slotsByDate, openDays]);
 
   const emailOk = isValidEmail(email);
   const phoneOk = isValidNorwegianPhone(phone);
@@ -349,13 +369,13 @@ export function BookingWizard({
         )}
 
         {step === 2 && (
-          <div className="space-y-3">
+          <div className="space-y-5">
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
               <label className="block text-xs font-semibold tracking-wide text-muted uppercase">
-                Velg tid {service ? `· ${service.duration}` : ""}
+                Velg dag og tid {service ? `· ${service.duration}` : ""}
               </label>
               <span className="text-[11px] text-muted">
-                Én kolonne per dag – trykk på et klokkeslett
+                Velg dag, så klokkeslett
               </span>
             </div>
 
@@ -370,81 +390,84 @@ export function BookingWizard({
                 Kunne ikke hente ledige tider akkurat nå. Prøv igjen om litt,
                 eller last inn siden på nytt.
               </p>
+            ) : openDays.every((d) => halfHourSlots(d.iso).length === 0) ? (
+              <p className="text-sm text-muted">
+                Ingen ledige tider i perioden (stengt eller fullt). Prøv en
+                annen barber eller tjeneste.
+              </p>
             ) : (
-              <div className="-mx-1 overflow-x-auto pb-2">
-                <div className="flex min-w-max gap-2 px-1">
-                  {openDays.map((d) => {
-                    const dayTimes = slotsByDate[d.iso] ?? [];
-                    const isSelectedDay = date === d.iso;
-                    return (
-                      <div
-                        key={d.iso}
-                        className={
-                          "flex w-[76px] shrink-0 flex-col overflow-hidden rounded-md border transition-colors " +
-                          (isSelectedDay
-                            ? "border-accent-soft"
-                            : "border-line")
-                        }
-                      >
-                        <div
+              <>
+                {/* Dag-velger (horisontal) */}
+                <div className="-mx-1 overflow-x-auto pb-1">
+                  <div className="flex min-w-max gap-2 px-1">
+                    {openDays.map((d) => {
+                      const count = halfHourSlots(d.iso).length;
+                      const isView = viewDay === d.iso;
+                      const empty = count === 0;
+                      return (
+                        <button
+                          key={d.iso}
+                          onClick={() => !empty && setViewDay(d.iso)}
+                          disabled={empty}
                           className={
-                            "flex flex-col items-center border-b px-1 py-2 " +
-                            (isSelectedDay
-                              ? "border-accent-soft/40 bg-accent-soft/10"
-                              : "border-line bg-surface-2")
+                            "flex w-[62px] shrink-0 flex-col items-center rounded-md border px-1 py-2 transition-colors " +
+                            (isView
+                              ? "border-accent-soft bg-accent-soft/10"
+                              : empty
+                                ? "border-line opacity-35"
+                                : "border-line hover:border-line-2")
                           }
                         >
                           <span className="text-[10px] font-semibold tracking-wide text-muted uppercase">
                             {d.weekday}
                           </span>
-                          <span className="font-display text-base font-bold text-fg">
+                          <span className="font-display text-lg font-bold text-fg">
                             {d.dayNum}
                           </span>
                           <span className="text-[10px] text-muted">{d.month}</span>
-                        </div>
-                        <div className="flex flex-col gap-1 p-1">
-                          {dayTimes.length === 0 ? (
-                            <span className="px-1 py-3 text-center text-[11px] text-muted">
-                              –
-                            </span>
-                          ) : (
-                            dayTimes.map((t) => {
-                              const active = date === d.iso && time === t;
-                              return (
-                                <button
-                                  key={t}
-                                  onClick={() => {
-                                    setDate(d.iso);
-                                    setTime(t);
-                                  }}
-                                  className={
-                                    "rounded py-1.5 text-[13px] transition-colors " +
-                                    (active
-                                      ? "bg-accent-soft/20 font-semibold text-fg"
-                                      : "text-muted hover:bg-surface-2 hover:text-fg")
-                                  }
-                                >
-                                  {t}
-                                </button>
-                              );
-                            })
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+
+                {/* Tider for valgt dag – kompakt rutenett (hele + halve timer) */}
+                {(() => {
+                  const times = halfHourSlots(viewDay);
+                  if (times.length === 0) {
+                    return (
+                      <p className="text-sm text-muted">
+                        Ingen ledige tider denne dagen – velg en annen.
+                      </p>
+                    );
+                  }
+                  return (
+                    <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                      {times.map((t) => {
+                        const active = date === viewDay && time === t;
+                        return (
+                          <button
+                            key={t}
+                            onClick={() => {
+                              setDate(viewDay);
+                              setTime(t);
+                            }}
+                            className={
+                              "rounded-md border py-2 text-sm tabular-nums transition-colors " +
+                              (active
+                                ? "border-accent-soft bg-accent-soft/15 font-semibold text-fg"
+                                : "border-line text-fg-soft hover:border-accent-soft hover:text-fg")
+                            }
+                          >
+                            {t}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </>
             )}
-            {!loadingSlots &&
-              !slotsError &&
-              openDays.length > 0 &&
-              openDays.every((d) => (slotsByDate[d.iso] ?? []).length === 0) && (
-                <p className="text-sm text-muted">
-                  Ingen ledige tider i perioden (stengt eller fullt). Prøv en
-                  annen barber eller tjeneste.
-                </p>
-              )}
           </div>
         )}
 

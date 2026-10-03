@@ -73,15 +73,16 @@ export type SiteSettings = {
 
 const fallback: SiteSettings = {
   name: salon.name,
-  slogan: salon.slogan,
+  slogan: "Skarpe linjer. Ingen snarveier.",
   established: String(salon.established),
-  hero_title: "Klipp skarpt.",
-  hero_italic: "Se enda skarpere ut.",
-  intro: salon.intro,
+  hero_title: "Sett deg ned.",
+  hero_italic: "Reis deg skarpere.",
+  intro:
+    "Barbershop i Osterhaus' gate. Walk-in når det passer – timebestilling når du vil være sikker på plassen.",
   about_text:
-    "Premium håndverk midt i Oslo sentrum. Presis, erfaren, rolig – vi tar hånd om detaljene før du rekker å spørre, i stolen som i speilet.",
-  cta_title: "Klar for en skarpere fade?",
-  cta_text: "Velg tjeneste, barber og tid på sekunder.",
+    "Vi åpnet i 2018 med én idé: en barbershop der klippen faktisk sitter og praten går av seg selv. Erfarne barberere, skarpe verktøy og tid nok til å gjøre det ordentlig – midt i Oslo.",
+  cta_title: "Klar for stolen?",
+  cta_text: "Velg tjeneste, barber og tid – booket på under ett minutt.",
   phone: salon.phone,
   address: salon.address,
   email: null,

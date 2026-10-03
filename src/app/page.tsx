@@ -1,10 +1,17 @@
 import type { CSSProperties } from "react";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
-import { Reveal } from "@/components/site/Reveal";
 import { ScrollProgress } from "@/components/site/ScrollProgress";
 import { HeroCarousel, type Slide } from "@/components/site/HeroCarousel";
 import { GoogleReviews } from "@/components/site/GoogleReviews";
+import {
+  SmoothScroll,
+  Parallax,
+  SplitReveal,
+  FadeUp,
+  Hairline,
+  ScaleIn,
+} from "@/components/site/motion/CineFx";
 import {
   getPublicServices,
   getPublicBarbers,
@@ -17,7 +24,7 @@ import { getPublicReviewsSummary } from "@/lib/reviews";
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] font-semibold tracking-[0.3em] text-accent-soft uppercase">
+    <p className="text-[10px] font-semibold tracking-[0.34em] text-accent-soft uppercase">
       {children}
     </p>
   );
@@ -59,19 +66,30 @@ const gallery = [
 const craft = [
   {
     img: "/img/portrait-fade.jpg",
-    title: "Presist kutt",
-    text: "Definerte linjer og en myk, ren overgang.",
+    title: "Faden",
+    text: "Hud til topp i én ren overgang. Ingen kanter som skurrer.",
   },
   {
     img: "/img/hot-towel.jpg",
     title: "Det varme håndkleet",
-    text: "Ritualet som gjør barberingen til en pause.",
+    text: "Fem minutter der ingenting haster. Så barberkniven.",
   },
   {
     img: "/img/powder.jpg",
     title: "Finishen",
-    text: "Tekstur og hold som sitter hele dagen.",
+    text: "Tekstur og hold som sitter – fra stolen til siste øl.",
   },
+];
+
+// Marquee-ord som ruller under hero (premium «band»).
+const marqueeWords = [
+  "Skin fade",
+  "Skjeggtrim",
+  "Hot towel",
+  "Barberkniv",
+  "Herreklipp",
+  "Line-up",
+  "Walk-ins",
 ];
 
 export default async function Home({
@@ -117,357 +135,372 @@ export default async function Home({
     ["--color-accent-soft"]: s.accent_hex,
   } as CSSProperties;
 
+  const ratingLabel =
+    omdomme.blendedCount > 0
+      ? `${omdomme.blendedRating.toFixed(1).replace(".", ",")} / 5`
+      : s.show_rating
+        ? `${s.rating_value.toString().replace(".", ",")} / 5`
+        : null;
+  const ratingCount =
+    omdomme.blendedCount > 0 ? omdomme.blendedCount : s.rating_count;
+
   return (
-    <div id="top" className="bg-canvas text-fg" style={accentStyle}>
-      <ScrollProgress />
-      <Header overlay phone={s.phone} address={s.address} />
+    <SmoothScroll>
+      <div
+        id="top"
+        className="cine cine-grain bg-canvas text-fg"
+        style={accentStyle}
+      >
+        <ScrollProgress />
+        <Header overlay phone={s.phone} address={s.address} />
 
-      {/* ===================== HERO ===================== */}
-      <section className="relative flex min-h-[92vh] items-end overflow-hidden">
-        <HeroCarousel slides={heroSlidesFinal} poster="/media/hero/poster.jpg" />
-        {/* Overlays for lesbarhet */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/60" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-transparent to-transparent" />
-
-        <div className="relative mx-auto w-full max-w-6xl px-5 pt-40 pb-20 sm:pb-28">
-          <p
-            className="rise text-[11px] font-semibold tracking-[0.35em] text-accent-soft uppercase"
-            style={rise(100)}
-          >
-            Oslo · Siden {s.established}
-          </p>
-          <h1 className="mt-5 font-display text-6xl leading-[0.88] font-bold tracking-tight text-white sm:text-8xl">
-            <span className="rise block" style={rise(220)}>
-              Downtown
-            </span>
-            <span
-              className="rise block text-accent-soft italic"
-              style={rise(360)}
-            >
-              Barbers
-            </span>
-          </h1>
-          <p
-            className="rise mt-6 max-w-xl font-display text-xl text-white/90 sm:text-2xl"
-            style={rise(520)}
-          >
-            {s.hero_title} {s.hero_italic}
-          </p>
-          <p className="rise mt-4 max-w-lg text-white/60" style={rise(640)}>
-            {s.intro}
-          </p>
-          <div
-            className="rise mt-9 flex flex-wrap items-center gap-4"
-            style={rise(760)}
-          >
-            <a
-              href="/booking"
-              className="shine-btn bg-accent-soft px-8 py-3.5 text-base font-semibold text-[#211E1A] transition-transform hover:-translate-y-0.5"
-            >
-              Bestill time
-            </a>
-            <a
-              href="#handverket"
-              className="border border-white/30 px-8 py-3.5 text-base font-semibold text-white transition-colors hover:border-white hover:bg-white/10"
-            >
-              Se håndverket
-            </a>
-            {omdomme.blendedCount > 0 ? (
-              <div className="flex flex-col gap-0.5">
-                <span className="text-sm text-white/80">
-                  ★ {omdomme.blendedRating.toFixed(1).replace(".", ",")} (
-                  {omdomme.blendedCount} vurderinger)
-                </span>
-                <span className="text-[11px] text-white/50">
-                  {omdomme.sources
-                    .filter((src) => src.count > 0)
-                    .map((src, i) => (
-                      <span key={src.key}>
-                        {i > 0 && " · "}
-                        {src.url ? (
-                          <a
-                            href={src.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hover:text-white/80"
-                          >
-                            {src.label} {src.rating.toFixed(1).replace(".", ",")}
-                          </a>
-                        ) : (
-                          <>
-                            {src.label} {src.rating.toFixed(1).replace(".", ",")}
-                          </>
-                        )}
-                      </span>
-                    ))}
-                </span>
-              </div>
-            ) : (
-              s.show_rating && (
-                <span className="text-sm text-white/70">
-                  ★ {s.rating_value.toString().replace(".", ",")} ({s.rating_count}{" "}
-                  vurderinger)
-                </span>
-              )
-            )}
+        {/* ===================== HERO ===================== */}
+        <section className="cine-vignette relative flex min-h-screen items-end overflow-hidden">
+          <div className="absolute inset-0">
+            <ScaleIn className="h-full w-full" from={1.2} to={1.04}>
+              <HeroCarousel slides={heroSlidesFinal} poster="/media/hero/poster.jpg" />
+            </ScaleIn>
           </div>
-        </div>
+          {/* Overlays for lesbarhet / filmatisk dybde */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/70" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-transparent to-transparent" />
 
-        {/* Scroll-hint */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center">
-          <div className="bob flex flex-col items-center gap-1.5 text-white/60">
-            <span className="text-[9px] tracking-[0.3em] uppercase">Scroll</span>
-            <span aria-hidden>↓</span>
-          </div>
-        </div>
-      </section>
-
-      {/* ===================== OM OSS ===================== */}
-      <section className="border-b border-line bg-surface-2">
-        <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-20 md:grid-cols-2 md:py-28">
-          <Reveal variant="left">
-            <Label>Om oss</Label>
-            <p className="mt-6 font-display text-2xl leading-snug sm:text-3xl">
-              {s.about_text}
+          <div className="relative mx-auto w-full max-w-6xl px-5 pt-44 pb-24 sm:pb-32">
+            <p
+              className="rise text-[11px] font-semibold tracking-[0.4em] text-accent-soft uppercase"
+              style={rise(100)}
+            >
+              Oslo · Osterhaus&apos; gate 10 · Siden {s.established}
             </p>
-            <a
-              href="/booking"
-              className="mt-8 inline-flex items-center gap-2 text-sm font-semibold text-accent-soft transition-colors hover:text-fg"
-            >
-              Bestill din time
-              <span aria-hidden>→</span>
-            </a>
-          </Reveal>
-          <Reveal variant="right" delay={120}>
-            <div className="img-zoom relative aspect-[4/3] overflow-hidden">
-              <img
-                src={aboutImg}
-                alt="Barber som renser nakkelinjen hos Downtown Barbers"
-                loading="lazy"
-                className="h-full w-full object-cover"
-              />
-              <span className="absolute bottom-4 left-4 text-[10px] font-semibold tracking-[0.3em] text-white/90 uppercase drop-shadow">
-                Downtown Barbers · Oslo
+            <h1 className="mt-6 font-display text-[18vw] leading-[0.82] font-bold tracking-[-0.02em] text-white sm:text-[11rem]">
+              <span className="rise block" style={rise(220)}>
+                Downtown
               </span>
-            </div>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ===================== HÅNDVERKET ===================== */}
-      <section id="handverket" className="border-b border-line">
-        <div className="mx-auto max-w-6xl px-5 py-20 md:py-28">
-          <Reveal>
-            <Label>Håndverket</Label>
-            <h2 className="mt-4 max-w-2xl font-display text-3xl font-bold sm:text-5xl">
-              Detaljene du kjenner igjen når du reiser deg fra stolen.
-            </h2>
-          </Reveal>
-          <div className="mt-14 grid gap-6 md:grid-cols-3">
-            {craftFinal.map((c, i) => (
-              <Reveal key={c.img} delay={i * 120} variant="up">
-                <figure className="group">
-                  <div className="img-zoom relative aspect-[3/4] overflow-hidden">
-                    <img
-                      src={c.img}
-                      alt={c.title}
-                      loading="lazy"
-                      className="h-full w-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-70" />
-                    <figcaption className="absolute right-5 bottom-5 left-5">
-                      <p className="font-display text-xl font-bold text-white">
-                        {c.title}
-                      </p>
-                      <p className="mt-1 text-sm text-white/75">{c.text}</p>
-                    </figcaption>
-                  </div>
-                </figure>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ===================== GALLERI ===================== */}
-      <section id="galleri" className="border-b border-line bg-surface-2">
-        <div className="mx-auto max-w-6xl px-5 py-20 md:py-28">
-          <Reveal>
-            <Label>Galleri</Label>
-            <h2 className="mt-4 font-display text-3xl font-bold sm:text-4xl">
-              Fra stolen
-            </h2>
-          </Reveal>
-          <div className="mt-12 gap-5 columns-1 sm:columns-2">
-            {galleryFinal.map((g, i) => (
-              <Reveal
-                key={g.src}
-                delay={(i % 2) * 90}
-                className="mb-5 block break-inside-avoid"
+              <span
+                className="rise block italic text-accent-soft"
+                style={rise(360)}
               >
-                <div className="img-zoom overflow-hidden">
-                  <img
-                    src={g.src}
-                    alt={g.alt}
-                    loading="lazy"
-                    className="w-full object-cover"
-                  />
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ===================== NEON-BANNER (parallax) ===================== */}
-      <section className="relative flex min-h-[70vh] items-center justify-center overflow-hidden border-b border-line">
-        <img
-          src={bannerImg}
-          alt="Downtown Barbers neonskilt"
-          loading="lazy"
-          className="absolute inset-0 h-full w-full object-cover object-top"
-        />
-        <div className="absolute inset-0 bg-black/65" />
-        <Reveal variant="scale" className="relative px-5 text-center">
-          <p className="text-[11px] font-semibold tracking-[0.35em] text-accent-soft uppercase">
-            Downtown Barbers · Oslo
-          </p>
-          <p className="mx-auto mt-5 max-w-3xl font-display text-3xl leading-tight font-bold text-white sm:text-5xl">
-            {s.slogan}
-          </p>
-        </Reveal>
-      </section>
-
-      {/* ===================== TJENESTER ===================== */}
-      <section id="tjenester" className="border-b border-line">
-        <div className="mx-auto max-w-6xl px-5 py-20 md:py-28">
-          <Reveal>
-            <Label>Tjenester</Label>
-            <h2 className="mt-4 font-display text-3xl font-bold sm:text-4xl">
-              Prisliste
-            </h2>
-          </Reveal>
-          <div className="mt-12 grid gap-6 md:grid-cols-3">
-            {serviceCategories.map((cat, ci) => (
-              <Reveal key={cat.name} delay={ci * 100}>
-                <div className="h-full border border-line bg-surface p-7 transition-all duration-300 hover:-translate-y-1 hover:border-accent-soft">
-                  <h3 className="mb-5 text-sm font-semibold tracking-wide text-fg uppercase">
-                    {cat.name}
-                  </h3>
-                  <ul className="space-y-5">
-                    {cat.services.map((sv) => (
-                      <li
-                        key={sv.name}
-                        className="border-b border-line pb-5 last:border-0"
-                      >
-                        <div className="flex items-baseline justify-between gap-4">
-                          <span className="font-medium text-fg">{sv.name}</span>
-                          <span className="font-display text-sm whitespace-nowrap text-accent-soft">
-                            {sv.price}
-                          </span>
-                        </div>
-                        <p className="mt-1.5 text-sm text-muted">
-                          {sv.description}
-                        </p>
-                        <p className="mt-1 text-xs text-muted">{sv.duration}</p>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ===================== ANMELDELSER ===================== */}
-      {/* Skjuler seg selv til GOOGLE_PLACES_API_KEY + GOOGLE_PLACES_ID er satt. */}
-      <GoogleReviews />
-
-      {/* ===================== CTA ===================== */}
-      <section className="border-b border-line bg-accent text-accent-fg">
-        <div className="mx-auto max-w-6xl px-5 py-24 text-center md:py-32">
-          <Reveal>
-            <h2 className="mx-auto max-w-2xl font-display text-4xl leading-tight font-bold sm:text-6xl">
-              {s.cta_title}
-            </h2>
-            <p className="mx-auto mt-5 max-w-md text-base opacity-80">
-              {s.cta_text}
-            </p>
-            <a
-              href="/booking"
-              className="shine-btn mt-10 inline-block bg-accent-soft px-9 py-4 text-sm font-semibold tracking-wide text-[#211E1A] uppercase transition-transform hover:-translate-y-0.5"
+                Barbers
+              </span>
+            </h1>
+            <p
+              className="rise mt-8 max-w-xl font-display text-2xl leading-snug text-white/95 sm:text-3xl"
+              style={rise(520)}
             >
-              Bestill time nå
-            </a>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ===================== TEAM ===================== */}
-      <section id="team" className="border-b border-line bg-surface-2">
-        <div className="mx-auto max-w-6xl px-5 py-20 md:py-28">
-          <Reveal>
-            <Label>Teamet</Label>
-            <h2 className="mt-4 font-display text-3xl font-bold sm:text-4xl">
-              Håndverkerne
-            </h2>
-          </Reveal>
-          <div className="mt-12 grid grid-cols-2 gap-8 sm:grid-cols-3 md:grid-cols-6">
-            {team.map((m, i) => (
-              <Reveal key={m.name} delay={i * 70} variant="scale">
-                <div className="group text-center">
-                  <div className="mx-auto flex aspect-square w-full items-center justify-center rounded-full bg-surface font-display text-3xl font-bold text-fg ring-1 ring-line transition-all duration-300 group-hover:text-accent-soft group-hover:ring-accent-soft">
-                    {m.name.charAt(0)}
-                  </div>
-                  <p className="mt-3 font-medium text-fg">{m.name}</p>
-                  <p className="text-xs text-muted">{m.title}</p>
+              {s.hero_title}{" "}
+              <span className="italic text-accent-soft">{s.hero_italic}</span>
+            </p>
+            <p className="rise mt-5 max-w-lg text-white/65" style={rise(640)}>
+              {s.intro}
+            </p>
+            <div
+              className="rise mt-10 flex flex-wrap items-center gap-4"
+              style={rise(760)}
+            >
+              <a
+                href="/booking"
+                className="cine-btn bg-accent-soft px-9 py-4 text-base font-semibold text-[#211E1A]"
+              >
+                Bestill time
+              </a>
+              <a
+                href="#handverket"
+                className="border border-white/25 px-9 py-4 text-base font-semibold text-white transition-colors hover:border-white hover:bg-white/10"
+              >
+                Se håndverket
+              </a>
+              {ratingLabel && (
+                <div className="flex flex-col gap-0.5 pl-1">
+                  <span className="text-sm text-white/85">
+                    <span className="text-accent-soft">★</span> {ratingLabel}
+                  </span>
+                  <span className="text-[11px] text-white/45">
+                    {ratingCount} vurderinger
+                  </span>
                 </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ===================== ÅPNINGSTIDER + KONTAKT ===================== */}
-      <section id="apningstider" className="border-b border-line">
-        <div className="mx-auto grid max-w-6xl gap-14 px-5 py-20 md:grid-cols-2 md:py-28">
-          <Reveal>
-            <Label>Åpningstider</Label>
-            <ul className="mt-8 space-y-3.5">
-              {s.opening_hours.map((o) => (
-                <li
-                  key={o.day}
-                  className="flex justify-between border-b border-line pb-3.5 text-sm"
-                >
-                  <span className="text-fg">{o.day}</span>
-                  <span className="text-muted">{o.hours}</span>
-                </li>
-              ))}
-            </ul>
-          </Reveal>
-          <Reveal delay={120} id="kontakt">
-            <Label>Kontakt</Label>
-            <div className="mt-8 space-y-3 text-fg">
-              <p>{s.address}</p>
-              <p>
-                <a href={`tel:${s.phone}`} className="hover:text-accent-soft">
-                  {s.phone}
-                </a>
-              </p>
-              {s.email && (
-                <p>
-                  <a href={`mailto:${s.email}`} className="hover:text-accent-soft">
-                    {s.email}
-                  </a>
-                </p>
               )}
             </div>
-          </Reveal>
-        </div>
-      </section>
+          </div>
 
-      <Footer />
-    </div>
+          {/* Scroll-hint */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-7 flex justify-center">
+            <div className="bob flex flex-col items-center gap-1.5 text-white/55">
+              <span className="text-[9px] tracking-[0.35em] uppercase">Scroll</span>
+              <span aria-hidden>↓</span>
+            </div>
+          </div>
+        </section>
+
+        {/* ===================== MARQUEE-BÅND ===================== */}
+        <div className="overflow-hidden border-y border-line bg-surface-2 py-5">
+          <div className="marquee-track">
+            {[0, 1].map((rep) => (
+              <div key={rep} className="flex items-center" aria-hidden={rep === 1}>
+                {marqueeWords.map((w) => (
+                  <span key={w} className="flex items-center">
+                    <span className="px-8 font-display text-2xl italic text-fg-soft sm:text-3xl">
+                      {w}
+                    </span>
+                    <span className="text-accent-soft">✦</span>
+                  </span>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ===================== OM OSS ===================== */}
+        <section className="border-b border-line">
+          <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-24 md:grid-cols-2 md:py-36">
+            <FadeUp>
+              <Label>Om oss</Label>
+              <p className="mt-7 font-display text-3xl leading-[1.15] sm:text-4xl">
+                {s.about_text}
+              </p>
+              <a
+                href="/booking"
+                className="group mt-9 inline-flex items-center gap-2 text-sm font-semibold text-accent-soft transition-colors hover:text-fg"
+              >
+                Bestill din time
+                <span aria-hidden className="transition-transform group-hover:translate-x-1">
+                  →
+                </span>
+              </a>
+            </FadeUp>
+            <FadeUp delay={0.1}>
+              <div className="relative aspect-[4/5] overflow-hidden">
+                <Parallax className="absolute inset-x-0 -top-[12%] h-[124%]" amount={10}>
+                  <img
+                    src={aboutImg}
+                    alt="Barber som renser nakkelinjen hos Downtown Barbers"
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                  />
+                </Parallax>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                <span className="absolute bottom-5 left-5 text-[10px] font-semibold tracking-[0.34em] text-white/90 uppercase">
+                  Osterhaus&apos; gate 10 · Oslo
+                </span>
+              </div>
+            </FadeUp>
+          </div>
+        </section>
+
+        {/* ===================== HÅNDVERKET ===================== */}
+        <section id="handverket" className="border-b border-line">
+          <div className="mx-auto max-w-6xl px-5 py-24 md:py-36">
+            <Label>Håndverket</Label>
+            <SplitReveal
+              as="h2"
+              text="Det du kjenner idet du reiser deg fra stolen."
+              className="mt-5 max-w-3xl font-display text-4xl font-bold leading-[1.05] sm:text-6xl"
+            />
+            <Hairline className="mt-10" />
+            <div className="mt-14 grid gap-6 md:grid-cols-3">
+              {craftFinal.map((c, i) => (
+                <FadeUp key={c.img} delay={i * 0.08}>
+                  <figure className="group relative aspect-[3/4] overflow-hidden">
+                    <Parallax className="absolute inset-x-0 -top-[10%] h-[120%]" amount={8}>
+                      <img
+                        src={c.img}
+                        alt={c.title}
+                        loading="lazy"
+                        className="h-full w-full object-cover transition-transform duration-[1.2s] ease-out group-hover:scale-105"
+                      />
+                    </Parallax>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+                    <figcaption className="absolute right-6 bottom-6 left-6">
+                      <p className="font-display text-2xl font-bold text-white">
+                        {c.title}
+                      </p>
+                      <p className="mt-1.5 text-sm text-white/75">{c.text}</p>
+                    </figcaption>
+                  </figure>
+                </FadeUp>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ===================== GALLERI ===================== */}
+        <section id="galleri" className="border-b border-line bg-surface">
+          <div className="mx-auto max-w-6xl px-5 py-24 md:py-36">
+            <Label>Galleri</Label>
+            <SplitReveal
+              as="h2"
+              text="Fra stolen"
+              className="mt-4 font-display text-4xl font-bold sm:text-5xl"
+            />
+            <div className="mt-12 gap-5 columns-1 sm:columns-2">
+              {galleryFinal.map((g) => (
+                <FadeUp key={g.src} className="mb-5 block break-inside-avoid">
+                  <div className="overflow-hidden">
+                    <ScaleIn from={1.14} to={1}>
+                      <img
+                        src={g.src}
+                        alt={g.alt}
+                        loading="lazy"
+                        className="w-full object-cover"
+                      />
+                    </ScaleIn>
+                  </div>
+                </FadeUp>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ===================== BANNER (parallax) ===================== */}
+        <section className="cine-vignette relative flex min-h-[80vh] items-center justify-center overflow-hidden border-b border-line">
+          <Parallax className="absolute inset-x-0 -top-[15%] h-[130%]" amount={16}>
+            <img
+              src={bannerImg}
+              alt="Downtown Barbers neonskilt"
+              loading="lazy"
+              className="h-full w-full object-cover object-center"
+            />
+          </Parallax>
+          <div className="absolute inset-0 bg-black/70" />
+          <FadeUp className="relative px-5 text-center" blur>
+            <p className="text-[11px] font-semibold tracking-[0.4em] text-accent-soft uppercase">
+              Downtown Barbers · Oslo
+            </p>
+            <p className="mx-auto mt-6 max-w-4xl font-display text-4xl leading-[1.05] font-bold text-white sm:text-6xl">
+              {s.slogan}
+            </p>
+          </FadeUp>
+        </section>
+
+        {/* ===================== TJENESTER ===================== */}
+        <section id="tjenester" className="border-b border-line">
+          <div className="mx-auto max-w-6xl px-5 py-24 md:py-36">
+            <Label>Tjenester</Label>
+            <SplitReveal
+              as="h2"
+              text="Prisliste"
+              className="mt-4 font-display text-4xl font-bold sm:text-5xl"
+            />
+            <div className="mt-12 grid gap-6 md:grid-cols-3">
+              {serviceCategories.map((cat, ci) => (
+                <FadeUp key={cat.name} delay={ci * 0.08}>
+                  <div className="h-full border border-line bg-surface p-8 transition-all duration-500 hover:-translate-y-1.5 hover:border-accent-soft">
+                    <h3 className="mb-6 text-sm font-semibold tracking-[0.12em] text-fg uppercase">
+                      {cat.name}
+                    </h3>
+                    <ul className="space-y-5">
+                      {cat.services.map((sv) => (
+                        <li
+                          key={sv.name}
+                          className="border-b border-line pb-5 last:border-0"
+                        >
+                          <div className="flex items-baseline justify-between gap-4">
+                            <span className="font-medium text-fg">{sv.name}</span>
+                            <span className="font-display text-sm whitespace-nowrap text-accent-soft">
+                              {sv.price}
+                            </span>
+                          </div>
+                          <p className="mt-1.5 text-sm text-muted">
+                            {sv.description}
+                          </p>
+                          <p className="mt-1 text-xs text-muted">{sv.duration}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </FadeUp>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ===================== ANMELDELSER ===================== */}
+        <GoogleReviews />
+
+        {/* ===================== CTA (cream «intermisjon») ===================== */}
+        <section className="border-b border-line bg-accent text-accent-fg">
+          <div className="mx-auto max-w-6xl px-5 py-28 text-center md:py-40">
+            <FadeUp>
+              <h2 className="mx-auto max-w-3xl font-display text-5xl leading-[1.02] font-bold sm:text-7xl">
+                {s.cta_title}
+              </h2>
+              <p className="mx-auto mt-6 max-w-md text-base opacity-75">
+                {s.cta_text}
+              </p>
+              <a
+                href="/booking"
+                className="cine-btn mt-11 inline-block bg-[#211E1A] px-10 py-4 text-sm font-semibold tracking-[0.1em] text-[#F8F5EF] uppercase"
+              >
+                Bestill time nå
+              </a>
+            </FadeUp>
+          </div>
+        </section>
+
+        {/* ===================== TEAM ===================== */}
+        <section id="team" className="border-b border-line bg-surface">
+          <div className="mx-auto max-w-6xl px-5 py-24 md:py-36">
+            <Label>Teamet</Label>
+            <SplitReveal
+              as="h2"
+              text="Håndverkerne"
+              className="mt-4 font-display text-4xl font-bold sm:text-5xl"
+            />
+            <div className="mt-14 grid grid-cols-2 gap-8 sm:grid-cols-3 md:grid-cols-6">
+              {team.map((m, i) => (
+                <FadeUp key={m.name} delay={i * 0.05}>
+                  <div className="group text-center">
+                    <div className="mx-auto flex aspect-square w-full items-center justify-center rounded-full bg-surface-2 font-display text-3xl font-bold text-fg ring-1 ring-line transition-all duration-500 group-hover:-translate-y-1 group-hover:text-accent-soft group-hover:ring-accent-soft">
+                      {m.name.charAt(0)}
+                    </div>
+                    <p className="mt-3 font-medium text-fg">{m.name}</p>
+                    <p className="text-xs text-muted">{m.title}</p>
+                  </div>
+                </FadeUp>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ===================== ÅPNINGSTIDER + KONTAKT ===================== */}
+        <section id="apningstider" className="border-b border-line">
+          <div className="mx-auto grid max-w-6xl gap-14 px-5 py-24 md:grid-cols-2 md:py-36">
+            <FadeUp>
+              <Label>Åpningstider</Label>
+              <ul className="mt-8 space-y-3.5">
+                {s.opening_hours.map((o) => (
+                  <li
+                    key={o.day}
+                    className="flex justify-between border-b border-line pb-3.5 text-sm"
+                  >
+                    <span className="text-fg">{o.day}</span>
+                    <span className="text-muted">{o.hours}</span>
+                  </li>
+                ))}
+              </ul>
+            </FadeUp>
+            <FadeUp delay={0.1} id="kontakt">
+              <Label>Kontakt</Label>
+              <div className="mt-8 space-y-3 text-fg">
+                <p>{s.address}</p>
+                <p>
+                  <a href={`tel:${s.phone}`} className="hover:text-accent-soft">
+                    {s.phone}
+                  </a>
+                </p>
+                {s.email && (
+                  <p>
+                    <a href={`mailto:${s.email}`} className="hover:text-accent-soft">
+                      {s.email}
+                    </a>
+                  </p>
+                )}
+              </div>
+            </FadeUp>
+          </div>
+        </section>
+
+        <Footer />
+      </div>
+    </SmoothScroll>
   );
 }
