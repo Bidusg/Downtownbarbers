@@ -1,6 +1,16 @@
 import { getDueFollowups } from "@/lib/followups";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import {
+  Table,
+  THead,
+  TBody,
+  Tr,
+  Th,
+  Td,
+  TableEmpty,
+} from "@/components/ui/Table";
 import { sendFollowupsNow } from "./actions";
 
 function fmtDate(iso: string) {
@@ -48,41 +58,35 @@ export default async function AdminOppfolging() {
         </form>
       )}
 
-      <div className="overflow-x-auto border border-line">
-        <table className="w-full text-sm">
-          <thead className="bg-surface-2 text-left text-xs tracking-wide text-muted uppercase">
-            <tr>
-              <th className="px-4 py-3">Kunde</th>
-              <th className="px-4 py-3">E-post</th>
-              <th className="px-4 py-3">Siste tjeneste</th>
-              <th className="px-4 py-3">Sist besøk</th>
-              <th className="px-4 py-3">Uker siden</th>
-            </tr>
-          </thead>
-          <tbody>
+      <Card padded={false}>
+        <Table>
+          <THead>
+            <Tr head className="bg-surface-2 tracking-wide uppercase">
+              <Th>Kunde</Th>
+              <Th>E-post</Th>
+              <Th>Siste tjeneste</Th>
+              <Th>Sist besøk</Th>
+              <Th>Uker siden</Th>
+            </Tr>
+          </THead>
+          <TBody>
             {due.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted">
-                  Ingen kunder er klare for oppfølging akkurat nå. 👍
-                </td>
-              </tr>
+              <TableEmpty colSpan={5}>
+                Ingen kunder er klare for oppfølging akkurat nå. 👍
+              </TableEmpty>
             )}
             {due.map((c) => (
-              <tr key={c.customer_id} className="border-t border-line">
-                <td className="px-4 py-3 font-medium text-fg">{c.full_name}</td>
-                <td className="px-4 py-3 text-muted">{c.email ?? "—"}</td>
-                <td className="px-4 py-3 text-muted">
-                  {c.last_service ?? "—"}
-                </td>
-                <td className="px-4 py-3 text-muted">
-                  {fmtDate(c.last_visit)}
-                </td>
-                <td className="px-4 py-3 font-display">{c.weeks_since}</td>
-              </tr>
+              <Tr key={c.customer_id}>
+                <Td className="font-medium text-fg">{c.full_name}</Td>
+                <Td muted>{c.email ?? "—"}</Td>
+                <Td muted>{c.last_service ?? "—"}</Td>
+                <Td muted>{fmtDate(c.last_visit)}</Td>
+                <Td className="font-display">{c.weeks_since}</Td>
+              </Tr>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TBody>
+        </Table>
+      </Card>
     </div>
   );
 }

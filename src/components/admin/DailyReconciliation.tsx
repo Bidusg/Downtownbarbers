@@ -3,6 +3,10 @@
 import { useState, useTransition } from "react";
 import type { DailyReconRow } from "@/lib/ops-queries";
 import { moreReconciliation } from "@/app/admin/kasseoppgjor/actions";
+import { Card } from "@/components/ui/Card";
+import { Table, THead, TBody, Tr, Th, Td, TableEmpty } from "@/components/ui/Table";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 
 const kr = (n: number) => Math.round(n).toLocaleString("nb-NO") + " kr";
 const signedKr = (n: number) =>
@@ -90,24 +94,22 @@ export function DailyReconciliation({
         </div>
       </div>
 
-      <div className="overflow-x-auto border border-line">
-        <table className="w-full text-sm">
-          <thead className="bg-surface-2 text-left text-xs tracking-wide text-muted uppercase">
-            <tr>
-              <th className="px-4 py-3">Dato</th>
-              <th className="px-4 py-3 text-right">Forventet</th>
-              <th className="px-4 py-3 text-right">Talt</th>
-              <th className="px-4 py-3 text-right">Avvik</th>
-              <th className="px-4 py-3">Status</th>
-            </tr>
-          </thead>
-          <tbody>
+      <Card padded={false}>
+        <Table>
+          <THead>
+            <Tr head className="bg-surface-2 tracking-wide uppercase">
+              <Th>Dato</Th>
+              <Th align="right">Forventet</Th>
+              <Th align="right">Talt</Th>
+              <Th align="right">Avvik</Th>
+              <Th>Status</Th>
+            </Tr>
+          </THead>
+          <TBody>
             {rows.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted">
-                  Ingen salg eller oppgjør i perioden.
-                </td>
-              </tr>
+              <TableEmpty colSpan={5}>
+                Ingen salg eller oppgjør i perioden.
+              </TableEmpty>
             )}
             {rows.map((r) => {
               const exp = total(r.expected);
@@ -116,56 +118,52 @@ export function DailyReconciliation({
                 r.expected.card,
               )} · Vipps ${kr(r.expected.vipps)}`;
               return (
-                <tr key={r.date} className="border-t border-line align-top">
-                  <td className="px-4 py-3 font-medium text-fg">
+                <Tr key={r.date} className="align-top">
+                  <Td className="font-medium text-fg">
                     {no(r.date)}
                     {r.note && (
                       <span className="block text-xs text-muted">{r.note}</span>
                     )}
-                  </td>
-                  <td
-                    className="px-4 py-3 text-right text-muted"
-                    title={methodTitle}
-                  >
+                  </Td>
+                  <Td align="right" muted nums title={methodTitle}>
                     {kr(exp)}
-                  </td>
-                  <td className="px-4 py-3 text-right font-display text-accent-soft">
+                  </Td>
+                  <Td align="right" nums className="font-display text-accent-soft">
                     {cnt == null ? "—" : kr(cnt)}
-                  </td>
-                  <td className="px-4 py-3 text-right">
+                  </Td>
+                  <Td align="right">
                     {cnt == null ? (
                       <span className="text-xs text-muted">—</span>
                     ) : (
                       <Avvik diff={cnt - exp} />
                     )}
-                  </td>
-                  <td className="px-4 py-3">
+                  </Td>
+                  <Td>
                     {r.settled ? (
-                      <span className="text-xs font-semibold text-accent-soft">
-                        Avstemt
-                      </span>
+                      <Badge tone="success">Avstemt</Badge>
                     ) : (
-                      <span className="text-xs text-muted">Ikke avstemt</span>
+                      <Badge tone="neutral">Ikke avstemt</Badge>
                     )}
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               );
             })}
-          </tbody>
-        </table>
-      </div>
+          </TBody>
+        </Table>
+      </Card>
 
       <div className="mt-3 flex items-center justify-center">
         {done ? (
           <span className="text-xs text-muted">Ingen eldre dager med aktivitet.</span>
         ) : (
-          <button
+          <Button
+            variant="subtle"
             onClick={loadOlder}
             disabled={pending}
-            className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg disabled:opacity-50"
+            className="px-4 py-2 text-sm"
           >
             {pending ? "Laster …" : "Vis eldre"}
-          </button>
+          </Button>
         )}
       </div>
     </div>

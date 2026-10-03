@@ -2,14 +2,15 @@ import { requireRole } from "@/lib/auth";
 import { getGoLiveChecklist, type CheckStatus } from "@/lib/go-live";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
+import { Badge, type BadgeTone } from "@/components/ui/Badge";
 
 export const dynamic = "force-dynamic";
 
-const STATUS: Record<CheckStatus, { label: string; cls: string; dot: string }> = {
-  ok: { label: "Klar", cls: "bg-accent-soft/15 text-accent-soft", dot: "bg-accent-soft" },
-  action: { label: "Handling", cls: "bg-surface-2 text-fg", dot: "bg-fg" },
-  blocked: { label: "Blokkert", cls: "bg-danger/10 text-danger", dot: "bg-danger" },
-  info: { label: "Info", cls: "bg-surface-2 text-muted", dot: "bg-muted" },
+const STATUS: Record<CheckStatus, { label: string; tone: BadgeTone; dot: string }> = {
+  ok: { label: "Klar", tone: "success", dot: "bg-accent-soft" },
+  action: { label: "Handling", tone: "warning", dot: "bg-fg" },
+  blocked: { label: "Blokkert", tone: "danger", dot: "bg-danger" },
+  info: { label: "Info", tone: "neutral", dot: "bg-muted" },
 };
 
 export default async function AdminGoLive() {
@@ -45,7 +46,7 @@ export default async function AdminGoLive() {
       </Card>
 
       {groups.map((g) => (
-        <div key={g.title} className="border border-line bg-surface">
+        <Card key={g.title} padded={false}>
           <h2 className="border-b border-line px-6 py-4 font-display text-lg font-bold">
             {g.title}
           </h2>
@@ -58,9 +59,9 @@ export default async function AdminGoLive() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-fg">{c.label}</span>
-                      <span className={"rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide " + s.cls}>
+                      <Badge tone={s.tone} className="uppercase tracking-wide">
                         {s.label}
-                      </span>
+                      </Badge>
                       {c.owner && (
                         <span className="text-[10px] text-muted">· {c.owner}</span>
                       )}
@@ -74,7 +75,7 @@ export default async function AdminGoLive() {
               );
             })}
           </div>
-        </div>
+        </Card>
       ))}
     </div>
   );

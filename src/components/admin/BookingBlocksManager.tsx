@@ -7,6 +7,10 @@ import {
   deleteBookingBlock,
 } from "@/app/admin/timelister/actions";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
+import { Table, THead, TBody, Tr, Th, Td } from "@/components/ui/Table";
 
 const inputCls =
   "border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft";
@@ -38,15 +42,16 @@ export function BookingBlocksManager({ blocks }: { blocks: BookingBlock[] }) {
         <p className="text-sm text-muted">
           {blocks.length} kommende blokkering{blocks.length === 1 ? "" : "er"}
         </p>
-        <button
+        <Button
+          variant="primary"
           onClick={() => {
             setOpen((o) => !o);
             setMsg(null);
           }}
-          className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
+          className="px-4 py-2 text-sm"
         >
           {open ? "Lukk" : "+ Ny blokkering"}
-        </button>
+        </Button>
       </div>
 
       {open && (
@@ -95,19 +100,19 @@ export function BookingBlocksManager({ blocks }: { blocks: BookingBlock[] }) {
               </>
             )}
           </div>
-          <input
+          <Input
             name="reason"
             placeholder="Grunn (valgfritt) – f.eks. helligdag, arrangement"
-            className={`w-full ${inputCls}`}
           />
           <div className="flex items-center gap-3">
-            <button
+            <Button
               type="submit"
+              variant="primary"
               disabled={pending}
-              className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-40"
+              className="px-4 py-2 text-sm"
             >
               {pending ? "Lagrer …" : "Blokker"}
-            </button>
+            </Button>
             {msg && (
               <span className={"text-sm " + (err ? "text-danger" : "text-muted")}>
                 {msg}
@@ -118,27 +123,27 @@ export function BookingBlocksManager({ blocks }: { blocks: BookingBlock[] }) {
       )}
 
       {blocks.length > 0 && (
-        <div className="overflow-x-auto border border-line">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-2 text-left text-xs tracking-wide text-muted uppercase">
-              <tr>
-                <th className="px-4 py-3">Dato</th>
-                <th className="px-4 py-3">Tid</th>
-                <th className="px-4 py-3">Grunn</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody>
+        <Card padded={false}>
+          <Table>
+            <THead>
+              <Tr head className="bg-surface-2 tracking-wide uppercase">
+                <Th>Dato</Th>
+                <Th>Tid</Th>
+                <Th>Grunn</Th>
+                <Th></Th>
+              </Tr>
+            </THead>
+            <TBody>
               {blocks.map((b) => (
-                <tr key={b.id} className="border-t border-line">
-                  <td className="px-4 py-3 text-fg">{fmtDate(b.date)}</td>
-                  <td className="px-4 py-3 text-muted">
+                <Tr key={b.id}>
+                  <Td className="text-fg">{fmtDate(b.date)}</Td>
+                  <Td muted>
                     {b.start_time && b.end_time
                       ? `${b.start_time}–${b.end_time}`
                       : "Hele dagen"}
-                  </td>
-                  <td className="px-4 py-3 text-muted">{b.reason ?? "—"}</td>
-                  <td className="px-4 py-3 text-right">
+                  </Td>
+                  <Td muted>{b.reason ?? "—"}</Td>
+                  <Td align="right">
                     <ConfirmButton
                       label="Fjern"
                       confirmLabel="Ja, fjern"
@@ -146,12 +151,12 @@ export function BookingBlocksManager({ blocks }: { blocks: BookingBlock[] }) {
                       disabled={delPending}
                       onConfirm={() => startDel(() => deleteBookingBlock(b.id))}
                     />
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TBody>
+          </Table>
+        </Card>
       )}
     </div>
   );

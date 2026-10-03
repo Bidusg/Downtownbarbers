@@ -9,10 +9,12 @@ import {
   copyTurnusWeek,
 } from "@/app/admin/timelister/actions";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Input, Select } from "@/components/ui/Input";
+import { Badge } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { parityLabel, parityOptions } from "@/lib/turnus";
-
-const inputCls =
-  "border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft";
 
 const WEEKDAYS = [
   "Søndag", "Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag",
@@ -64,94 +66,96 @@ export function StaffHoursManager({
         <div className="flex flex-wrap items-center gap-2">
           {weeks === 2 && (
             <>
-              <button
+              <Button
+                variant="subtle"
                 onClick={() => copy(1, 2)}
                 disabled={pending}
-                className="border border-line-2 px-3 py-2 text-xs font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg disabled:opacity-40"
+                className="px-3 py-2 text-xs"
               >
                 Kopier A → B
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="subtle"
                 onClick={() => copy(2, 1)}
                 disabled={pending}
-                className="border border-line-2 px-3 py-2 text-xs font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg disabled:opacity-40"
+                className="px-3 py-2 text-xs"
               >
                 Kopier B → A
-              </button>
+              </Button>
             </>
           )}
-          <button
+          <Button
             onClick={() => setOpen((o) => !o)}
-            className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
+            className="px-4 py-2 text-sm"
           >
             {open ? "Lukk" : "+ Ny vakt"}
-          </button>
+          </Button>
         </div>
       </div>
 
       {open && (
-        <form
-          action={async (fd) => {
-            await createStaffHour(fd);
-            setOpen(false);
-          }}
-          className="grid gap-3 border border-line bg-surface p-5 sm:grid-cols-2 lg:grid-cols-4"
-        >
-          <select name="staff_id" required className={inputCls} defaultValue="">
-            <option value="" disabled>
-              Velg ansatt …
-            </option>
-            {staff.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.full_name}
+        <Card>
+          <form
+            action={async (fd) => {
+              await createStaffHour(fd);
+              setOpen(false);
+            }}
+            className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+          >
+            <Select name="staff_id" required defaultValue="">
+              <option value="" disabled>
+                Velg ansatt …
               </option>
-            ))}
-          </select>
-          <select name="weekday" required className={inputCls} defaultValue="">
-            <option value="" disabled>
-              Ukedag …
-            </option>
-            {ORDER.map((w) => (
-              <option key={w} value={w}>
-                {WEEKDAYS[w]}
-              </option>
-            ))}
-          </select>
-          <select name="week_parity" className={inputCls} defaultValue="0">
-            <option value="0">Hver uke</option>
-            {weeks > 1 &&
-              indices.map((i) => (
-                <option key={i} value={i}>
-                  {parityLabel(i)}
+              {staff.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.full_name}
                 </option>
               ))}
-          </select>
-          <label className="text-xs text-muted">
-            Fra
-            <input name="start_time" type="time" required className={`mt-1 block w-full ${inputCls}`} defaultValue="09:00" />
-          </label>
-          <label className="text-xs text-muted">
-            Til
-            <input name="end_time" type="time" required className={`mt-1 block w-full ${inputCls}`} defaultValue="19:00" />
-          </label>
-          <button
-            type="submit"
-            className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover sm:col-span-2 lg:col-span-4"
-          >
-            Legg til vakt
-          </button>
-        </form>
+            </Select>
+            <Select name="weekday" required defaultValue="">
+              <option value="" disabled>
+                Ukedag …
+              </option>
+              {ORDER.map((w) => (
+                <option key={w} value={w}>
+                  {WEEKDAYS[w]}
+                </option>
+              ))}
+            </Select>
+            <Select name="week_parity" defaultValue="0">
+              <option value="0">Hver uke</option>
+              {weeks > 1 &&
+                indices.map((i) => (
+                  <option key={i} value={i}>
+                    {parityLabel(i)}
+                  </option>
+                ))}
+            </Select>
+            <label className="text-xs text-muted">
+              Fra
+              <Input name="start_time" type="time" required className="mt-1 block w-full" defaultValue="09:00" />
+            </label>
+            <label className="text-xs text-muted">
+              Til
+              <Input name="end_time" type="time" required className="mt-1 block w-full" defaultValue="19:00" />
+            </label>
+            <Button
+              type="submit"
+              className="px-4 py-2 text-sm sm:col-span-2 lg:col-span-4"
+            >
+              Legg til vakt
+            </Button>
+          </form>
+        </Card>
       )}
 
       {staff.length === 0 && (
-        <div className="border border-line bg-surface px-4 py-8 text-center text-sm text-muted">
-          Ingen aktive ansatte enda – legg til ansatte først.
-        </div>
+        <EmptyState description="Ingen aktive ansatte enda – legg til ansatte først." />
       )}
 
       <div className="space-y-4">
         {byStaff.map(({ staff: s, rows }) => (
-          <div key={s.id} className="border border-line bg-surface">
+          <Card key={s.id} padded={false}>
             <div className="flex items-baseline justify-between border-b border-line px-5 py-3">
               <p className="font-medium text-fg">{s.full_name}</p>
               <p className="text-xs text-muted">{s.title ?? "Barber"}</p>
@@ -174,25 +178,25 @@ export function StaffHoursManager({
                       >
                         <input type="hidden" name="id" value={h.id} />
                         <span className="w-28 text-fg">{WEEKDAYS[h.weekday]}</span>
-                        <input
+                        <Input
                           name="start_time"
                           type="time"
                           required
                           defaultValue={h.start_time}
-                          className={`${inputCls} w-28`}
+                          className="w-28"
                         />
                         <span className="text-muted">–</span>
-                        <input
+                        <Input
                           name="end_time"
                           type="time"
                           required
                           defaultValue={h.end_time}
-                          className={`${inputCls} w-28`}
+                          className="w-28"
                         />
-                        <select
+                        <Select
                           name="week_parity"
                           defaultValue={String(h.week_parity)}
-                          className={`${inputCls} w-28`}
+                          className="w-28"
                         >
                           <option value="0">Hver uke</option>
                           {weeks > 1 &&
@@ -201,21 +205,22 @@ export function StaffHoursManager({
                                 {parityLabel(i)}
                               </option>
                             ))}
-                        </select>
-                        <button
+                        </Select>
+                        <Button
                           type="submit"
                           disabled={pending}
-                          className="bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-40"
+                          className="px-3 py-1.5 text-xs"
                         >
                           Lagre
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
+                          variant="ghost"
                           onClick={() => setEditId(null)}
-                          className="px-3 py-1.5 text-xs text-muted hover:text-fg"
+                          className="px-3 py-1.5 text-xs"
                         >
                           Avbryt
-                        </button>
+                        </Button>
                       </form>
                     </li>
                   ) : (
@@ -227,23 +232,20 @@ export function StaffHoursManager({
                       <span className="font-display text-muted">
                         {h.start_time}–{h.end_time}
                       </span>
-                      <span
-                        className={
-                          "rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide " +
-                          (h.week_parity === 0
-                            ? "bg-surface-2 text-muted"
-                            : "bg-accent-soft/15 text-accent-soft")
-                        }
+                      <Badge
+                        tone={h.week_parity === 0 ? "neutral" : "accent"}
+                        className="text-[10px] uppercase tracking-wide"
                       >
                         {parityLabel(h.week_parity)}
-                      </span>
+                      </Badge>
                       <div className="flex items-center gap-3">
-                        <button
+                        <Button
+                          variant="ghost"
                           onClick={() => setEditId(h.id)}
-                          className="text-xs text-muted hover:text-fg hover:underline"
+                          className="text-xs hover:underline"
                         >
                           Endre
-                        </button>
+                        </Button>
                         <ConfirmButton
                           label="Slett"
                           confirmLabel="Ja, slett"
@@ -257,7 +259,7 @@ export function StaffHoursManager({
                 )}
               </ul>
             )}
-          </div>
+          </Card>
         ))}
       </div>
     </div>

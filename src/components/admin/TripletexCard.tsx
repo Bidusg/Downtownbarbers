@@ -6,6 +6,10 @@ import {
   probeTripletexData,
   type TripletexTestResult,
 } from "@/app/admin/integrasjoner/tripletex-actions";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { Table, THead, TBody, Tr, Th, Td } from "@/components/ui/Table";
+import { Badge } from "@/components/ui/Badge";
 
 export function TripletexCard({
   configured,
@@ -23,18 +27,18 @@ export function TripletexCard({
   const [probePending, startProbe] = useTransition();
 
   const mode = !configured
-    ? { text: "Ikke satt", cls: "bg-surface-2 text-muted" }
+    ? { text: "Ikke satt", tone: "neutral" as const }
     : !postingEnabled
-      ? { text: "Tørrkjøring", cls: "bg-surface-2 text-fg" }
-      : { text: "Aktiv · oppretter utkast", cls: "bg-accent-soft/15 text-accent-soft" };
+      ? { text: "Tørrkjøring", tone: "warning" as const }
+      : { text: "Aktiv · oppretter utkast", tone: "accent" as const };
 
   return (
     <div className="border border-line bg-surface p-5">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-fg">Regnskap (Tripletex)</h3>
-        <span className={"rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide " + mode.cls}>
+        <Badge tone={mode.tone} className="text-[10px] uppercase tracking-wide">
           {mode.text}
-        </span>
+        </Badge>
       </div>
       <p className="mt-2 text-sm text-muted">
         Sender dagsoppgjør som <strong className="text-fg">ubokført utkast</strong> til
@@ -43,21 +47,23 @@ export function TripletexCard({
       </p>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <input
+        <Input
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="rounded-md border border-line-2 bg-canvas px-3 py-2 text-sm text-fg outline-none focus:border-accent-soft"
+          className="w-auto"
         />
-        <button
+        <Button
+          variant="primary"
           type="button"
           disabled={pending}
           onClick={() => start(async () => setRes(await testTripletex(date || undefined)))}
-          className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-40"
+          className="rounded-md px-4 py-2 text-sm"
         >
           {pending ? "Tester …" : "Test tilkobling"}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="subtle"
           type="button"
           disabled={probePending}
           onClick={() =>
@@ -66,11 +72,11 @@ export function TripletexCard({
               setProbe(JSON.stringify(r, null, 2));
             })
           }
-          className="rounded-md border border-line-2 px-4 py-2 text-sm font-semibold text-fg hover:bg-surface-2 disabled:opacity-40"
+          className="rounded-md px-4 py-2 text-sm"
           title="Henter små rå-utsnitt fra regnskaps-endepunktene for å bekrefte dataformen (leser kun)"
         >
           {probePending ? "Henter …" : "Hent regnskapsdata (diagnostikk)"}
-        </button>
+        </Button>
       </div>
 
       {probe !== null && (
@@ -111,30 +117,30 @@ export function TripletexCard({
               <p className="text-muted">Ingen salg denne dagen.</p>
             ) : (
               <div className="overflow-x-auto rounded-md border border-line">
-                <table className="w-full text-sm">
-                  <thead className="bg-surface-2 text-left text-xs text-muted uppercase">
-                    <tr>
-                      <th className="px-3 py-2">Konto</th>
-                      <th className="px-3 py-2">Navn</th>
-                      <th className="px-3 py-2 text-right">Debet</th>
-                      <th className="px-3 py-2 text-right">Kredit</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table>
+                  <THead>
+                    <Tr head className="bg-surface-2 uppercase">
+                      <Th>Konto</Th>
+                      <Th>Navn</Th>
+                      <Th align="right">Debet</Th>
+                      <Th align="right">Kredit</Th>
+                    </Tr>
+                  </THead>
+                  <TBody>
                     {res.plan.postings.map((p) => (
-                      <tr key={p.row} className="border-t border-line">
-                        <td className="px-3 py-2 font-display text-fg">{p.accountNumber}</td>
-                        <td className="px-3 py-2 text-muted">{p.accountName}</td>
-                        <td className="px-3 py-2 text-right tabular-nums text-fg">
+                      <Tr key={p.row}>
+                        <Td className="font-display text-fg">{p.accountNumber}</Td>
+                        <Td muted>{p.accountName}</Td>
+                        <Td align="right" nums className="text-fg">
                           {p.amountGross > 0 ? p.amountGross.toLocaleString("nb-NO") : ""}
-                        </td>
-                        <td className="px-3 py-2 text-right tabular-nums text-fg">
+                        </Td>
+                        <Td align="right" nums className="text-fg">
                           {p.amountGross < 0 ? (-p.amountGross).toLocaleString("nb-NO") : ""}
-                        </td>
-                      </tr>
+                        </Td>
+                      </Tr>
                     ))}
-                  </tbody>
-                </table>
+                  </TBody>
+                </Table>
               </div>
             )}
             {res.plan && (

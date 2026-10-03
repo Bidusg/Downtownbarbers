@@ -6,6 +6,18 @@ import {
   setBookingStatus,
   type BookingStatus,
 } from "@/app/admin/bookinger/actions";
+import { Card } from "@/components/ui/Card";
+import {
+  Table,
+  THead,
+  TBody,
+  Tr,
+  Th,
+  Td,
+  TableEmpty,
+} from "@/components/ui/Table";
+import { Button } from "@/components/ui/Button";
+import { Badge, type BadgeTone } from "@/components/ui/Badge";
 
 const statusLabel: Record<string, string> = {
   pending: "Venter",
@@ -15,12 +27,12 @@ const statusLabel: Record<string, string> = {
   no_show: "Ikke møtt",
 };
 
-const statusStyle: Record<string, string> = {
-  confirmed: "bg-accent-soft/15 text-accent-soft",
-  completed: "bg-accent-soft/15 text-accent-soft",
-  cancelled: "bg-surface-2 text-danger",
-  pending: "bg-surface-2 text-muted",
-  no_show: "bg-surface-2 text-danger",
+const statusTone: Record<string, BadgeTone> = {
+  confirmed: "accent",
+  completed: "success",
+  cancelled: "danger",
+  pending: "neutral",
+  no_show: "danger",
 };
 
 function fmt(iso: string) {
@@ -48,9 +60,9 @@ function Row({ b }: { b: AdminBooking }) {
   };
 
   return (
-    <tr className="border-t border-line align-top">
-      <td className="px-4 py-3 text-fg">{fmt(b.start_at)}</td>
-      <td className="px-4 py-3">
+    <Tr className="align-top">
+      <Td>{fmt(b.start_at)}</Td>
+      <Td>
         <span className="text-fg">{b.customer}</span>
         <span className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
           {b.customerPhone && (
@@ -70,29 +82,25 @@ function Row({ b }: { b: AdminBooking }) {
             </a>
           )}
         </span>
-      </td>
-      <td className="px-4 py-3 text-muted">{b.service}</td>
-      <td className="px-4 py-3 text-muted">{b.barber}</td>
-      <td className="px-4 py-3 font-display">{b.price_nok} kr</td>
-      <td className="px-4 py-3">
-        <span
-          className={
-            "rounded-full px-2.5 py-0.5 text-xs font-semibold " +
-            (statusStyle[b.status] ?? "bg-surface-2 text-muted")
-          }
-        >
+      </Td>
+      <Td muted>{b.service}</Td>
+      <Td muted>{b.barber}</Td>
+      <Td className="font-display">{b.price_nok} kr</Td>
+      <Td>
+        <Badge tone={statusTone[b.status] ?? "neutral"}>
           {statusLabel[b.status] ?? b.status}
-        </span>
-      </td>
-      <td className="px-4 py-3 text-right whitespace-nowrap">
+        </Badge>
+      </Td>
+      <Td align="right" className="whitespace-nowrap">
         <div className="relative inline-block">
-          <button
+          <Button
+            variant="subtle"
             onClick={() => setOpen((o) => !o)}
             disabled={pending}
-            className="border border-line-2 px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg disabled:opacity-40"
+            className="px-3 py-1.5 text-xs"
           >
             {pending ? "…" : "Endre status"}
-          </button>
+          </Button>
           {open && (
             <div className="absolute right-0 z-10 mt-1 w-40 border border-line bg-surface py-1 shadow-lg">
               <button
@@ -122,39 +130,37 @@ function Row({ b }: { b: AdminBooking }) {
             </div>
           )}
         </div>
-      </td>
-    </tr>
+      </Td>
+    </Tr>
   );
 }
 
 export function BookingManager({ bookings }: { bookings: AdminBooking[] }) {
   return (
-    <div className="overflow-x-auto border border-line">
-      <table className="w-full text-sm">
-        <thead className="bg-surface-2 text-left text-xs tracking-wide text-muted uppercase">
-          <tr>
-            <th className="px-4 py-3">Tidspunkt</th>
-            <th className="px-4 py-3">Kunde</th>
-            <th className="px-4 py-3">Tjeneste</th>
-            <th className="px-4 py-3">Barber</th>
-            <th className="px-4 py-3">Pris</th>
-            <th className="px-4 py-3">Status</th>
-            <th className="px-4 py-3"></th>
-          </tr>
-        </thead>
-        <tbody>
+    <Card padded={false}>
+      <Table>
+        <THead>
+          <Tr head>
+            <Th>Tidspunkt</Th>
+            <Th>Kunde</Th>
+            <Th>Tjeneste</Th>
+            <Th>Barber</Th>
+            <Th>Pris</Th>
+            <Th>Status</Th>
+            <Th></Th>
+          </Tr>
+        </THead>
+        <TBody>
           {bookings.length === 0 && (
-            <tr>
-              <td colSpan={7} className="px-4 py-8 text-center text-muted">
-                Ingen bookinger enda. De dukker opp her når kunder bestiller time.
-              </td>
-            </tr>
+            <TableEmpty colSpan={7}>
+              Ingen bookinger enda. De dukker opp her når kunder bestiller time.
+            </TableEmpty>
           )}
           {bookings.map((b) => (
             <Row key={b.id} b={b} />
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TBody>
+      </Table>
+    </Card>
   );
 }

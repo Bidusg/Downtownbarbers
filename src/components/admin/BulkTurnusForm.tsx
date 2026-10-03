@@ -4,9 +4,9 @@ import { useState, useTransition } from "react";
 import type { StaffOption } from "@/lib/ops-queries";
 import { bulkSetStaffHours } from "@/app/admin/timelister/actions";
 import { parityLabel, parityOptions } from "@/lib/turnus";
-
-const inputCls =
-  "border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft";
+import { Card } from "@/components/ui/Card";
+import { Input, Select } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
 
 // Man → Søn (0 = søndag i databasen).
 const DAYS: { dow: number; label: string }[] = [
@@ -32,7 +32,7 @@ export function BulkTurnusForm({
   const [pending, start] = useTransition();
 
   return (
-    <div className="mb-6 border border-line bg-surface p-4">
+    <Card className="mb-6">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-semibold text-fg">Bulk-turnus</h3>
@@ -40,15 +40,16 @@ export function BulkTurnusForm({
             Sett arbeidstid for flere dager på én gang (f.eks. man–fre 09–17).
           </p>
         </div>
-        <button
+        <Button
+          variant="subtle"
           onClick={() => {
             setOpen((o) => !o);
             setMsg(null);
           }}
-          className="rounded-md border border-line-2 px-3 py-1.5 text-xs font-semibold text-fg hover:border-accent-soft"
+          className="rounded-md px-3 py-1.5 text-xs"
         >
           {open ? "Lukk" : "Åpne"}
-        </button>
+        </Button>
       </div>
 
       {open && (
@@ -71,7 +72,7 @@ export function BulkTurnusForm({
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1 text-xs text-muted">
               Ansatt
-              <select name="staff_id" required className={inputCls} defaultValue="">
+              <Select name="staff_id" required defaultValue="">
                 <option value="" disabled>
                   Velg ansatt …
                 </option>
@@ -80,11 +81,11 @@ export function BulkTurnusForm({
                     {s.full_name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <label className="flex flex-col gap-1 text-xs text-muted">
               Uke
-              <select name="week_parity" defaultValue="0" className={inputCls}>
+              <Select name="week_parity" defaultValue="0">
                 <option value="0">Hver uke</option>
                 {weeks > 1 &&
                   parityOptions(weeks).map((i) => (
@@ -92,7 +93,7 @@ export function BulkTurnusForm({
                       Kun {parityLabel(i).toLowerCase()}
                     </option>
                   ))}
-              </select>
+              </Select>
             </label>
           </div>
 
@@ -119,11 +120,11 @@ export function BulkTurnusForm({
           <div className="flex flex-wrap items-end gap-3">
             <label className="flex flex-col gap-1 text-xs text-muted">
               Fra
-              <input type="time" name="start_time" defaultValue="09:00" required className={inputCls} />
+              <Input type="time" name="start_time" defaultValue="09:00" required />
             </label>
             <label className="flex flex-col gap-1 text-xs text-muted">
               Til
-              <input type="time" name="end_time" defaultValue="17:00" required className={inputCls} />
+              <Input type="time" name="end_time" defaultValue="17:00" required />
             </label>
             <label className="flex items-center gap-2 text-xs text-muted">
               <input type="checkbox" name="replace" className="accent-accent" />
@@ -132,13 +133,14 @@ export function BulkTurnusForm({
           </div>
 
           <div className="flex items-center gap-3">
-            <button
+            <Button
               type="submit"
+              variant="primary"
               disabled={pending}
-              className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-40"
+              className="px-4 py-2 text-sm"
             >
               {pending ? "Lagrer …" : "Lagre turnus"}
-            </button>
+            </Button>
             {msg && (
               <span className={"text-sm " + (err ? "text-danger" : "text-muted")}>
                 {msg}
@@ -147,6 +149,6 @@ export function BulkTurnusForm({
           </div>
         </form>
       )}
-    </div>
+    </Card>
   );
 }

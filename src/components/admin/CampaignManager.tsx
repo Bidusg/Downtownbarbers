@@ -9,9 +9,10 @@ import {
   deleteCampaign,
 } from "@/app/admin/kuponger/actions";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
-
-const inputCls =
-  "w-full border border-line-2 bg-canvas px-3 py-2 text-sm text-fg outline-none focus:border-accent-soft";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Input, Select, Field } from "@/components/ui/Input";
 
 const kr = (n: number) => n.toLocaleString("nb-NO") + " kr";
 
@@ -49,14 +50,8 @@ function CampaignRow({
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-display font-semibold text-fg">{c.name}</span>
-            <span className="rounded-full bg-accent-soft/15 px-2 py-0.5 text-xs font-semibold text-accent-soft">
-              {value}
-            </span>
-            {!c.active && (
-              <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted">
-                Av
-              </span>
-            )}
+            <Badge tone="accent">{value}</Badge>
+            {!c.active && <Badge tone="neutral">Av</Badge>}
           </div>
           {c.description && (
             <p className="mt-0.5 text-xs text-muted">{c.description}</p>
@@ -68,14 +63,15 @@ function CampaignRow({
         </div>
 
         <div className="flex items-center gap-3">
-          <button
+          <Button
+            variant="link"
             type="button"
             disabled={pending}
             onClick={() => start(async () => toggleCampaign(c.id, !c.active))}
-            className="text-xs font-semibold text-accent-soft hover:underline disabled:opacity-40"
+            className="text-xs font-semibold"
           >
             {c.active ? "Slå av" : "Slå på"}
-          </button>
+          </Button>
           <ConfirmButton
             label="Slett"
             question={`Slette kupongen «${c.name}»?`}
@@ -114,12 +110,13 @@ export function CampaignManager({
         <p className="text-sm text-muted">
           {campaigns.length} {campaigns.length === 1 ? "kupong" : "kuponger"}
         </p>
-        <button
+        <Button
+          variant="primary"
           onClick={() => setOpen((o) => !o)}
-          className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
+          className="px-4 py-2 text-sm"
         >
           {open ? "Lukk" : "+ Ny kupong"}
-        </button>
+        </Button>
       </div>
 
       {open && (
@@ -133,86 +130,72 @@ export function CampaignManager({
           }
           className="grid gap-3 border border-line bg-surface p-5 sm:grid-cols-2"
         >
-          <label className="text-xs text-muted sm:col-span-2">
-            Navn
-            <input
-              name="name"
-              placeholder="Sommertilbud"
-              required
-              className={`mt-1 ${inputCls}`}
-            />
-          </label>
-          <label className="text-xs text-muted sm:col-span-2">
-            Beskrivelse (valgfritt — vises til kunden/kassa)
-            <input
-              name="description"
-              placeholder="−20% på alt i august"
-              className={`mt-1 ${inputCls}`}
-            />
-          </label>
+          <Field label="Navn" className="sm:col-span-2">
+            <Input name="name" placeholder="Sommertilbud" required />
+          </Field>
+          <Field
+            label="Beskrivelse (valgfritt — vises til kunden/kassa)"
+            className="sm:col-span-2"
+          >
+            <Input name="description" placeholder="−20% på alt i august" />
+          </Field>
 
-          <label className="text-xs text-muted">
-            Rabatt-type
-            <select
+          <Field label="Rabatt-type">
+            <Select
               name="discount_type"
               value={type}
               onChange={(e) => setType(e.target.value as "percent" | "fixed")}
-              className={`mt-1 ${inputCls}`}
             >
               <option value="percent">Prosent (%)</option>
               <option value="fixed">Fast beløp (kr)</option>
-            </select>
-          </label>
-          <label className="text-xs text-muted">
-            {type === "percent" ? "Prosent (1–100)" : "Beløp (kr)"}
-            <input
+            </Select>
+          </Field>
+          <Field label={type === "percent" ? "Prosent (1–100)" : "Beløp (kr)"}>
+            <Input
               name="discount_value"
               type="number"
               min={1}
               max={type === "percent" ? 100 : undefined}
               step={type === "percent" ? 1 : 10}
               required
-              className={`mt-1 ${inputCls}`}
             />
-          </label>
+          </Field>
 
-          <label className="text-xs text-muted">
-            Målgruppe (minste klubbnivå)
-            <select name="min_tier_sort_order" defaultValue={0} className={`mt-1 ${inputCls}`}>
+          <Field label="Målgruppe (minste klubbnivå)">
+            <Select name="min_tier_sort_order" defaultValue={0}>
               <option value={0}>Alle medlemmer</option>
               {orderedTiers.map((t) => (
                 <option key={t.id} value={t.sortOrder}>
                   {t.name} og oppover
                 </option>
               ))}
-            </select>
-          </label>
+            </Select>
+          </Field>
           <label className="mt-1 flex items-center gap-2 text-xs text-muted sm:mt-6">
             <input type="checkbox" name="once_per_member" defaultChecked className="accent-accent" />
             Kun én gang per medlem
           </label>
 
-          <label className="text-xs text-muted">
-            Gyldig fra (valgfritt)
-            <input name="starts_at" type="date" className={`mt-1 ${inputCls}`} />
-          </label>
-          <label className="text-xs text-muted">
-            Utløper (valgfritt)
-            <input name="expires_at" type="date" className={`mt-1 ${inputCls}`} />
-          </label>
+          <Field label="Gyldig fra (valgfritt)">
+            <Input name="starts_at" type="date" />
+          </Field>
+          <Field label="Utløper (valgfritt)">
+            <Input name="expires_at" type="date" />
+          </Field>
 
-          <button
+          <Button
+            variant="primary"
             type="submit"
             disabled={pending}
-            className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-50 sm:col-span-2"
+            className="px-4 py-2 text-sm sm:col-span-2"
           >
             {pending ? "Oppretter …" : "Utsted kupong"}
-          </button>
+          </Button>
         </form>
       )}
 
       {campaigns.length === 0 ? (
-        <p className="text-sm text-muted">Ingen kuponger enda.</p>
+        <EmptyState description="Ingen kuponger enda." />
       ) : (
         <div className="space-y-3">
           {campaigns.map((c) => (

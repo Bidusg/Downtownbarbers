@@ -1,6 +1,7 @@
 import { StatTile } from "@/components/ui/StatTile";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
+import { Table, TBody, Tr, Td, TableEmpty } from "@/components/ui/Table";
 import { SettlementManager } from "@/components/admin/SettlementManager";
 import { DailyReconciliation } from "@/components/admin/DailyReconciliation";
 import {
@@ -72,29 +73,25 @@ export default async function AdminKasseoppgjor() {
 
       {/* Auto-fordeling på betalingsmåte */}
       <Card title="Dagens salg fordelt på betalingsmåte" padded={false}>
-        {byMethod.length === 0 ? (
-          <p className="px-5 py-6 text-sm text-muted">
-            Ingen salg registrert i dag enda.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <tbody>
-              {byMethod.map((m) => (
-                <tr key={m.method} className="border-b border-line last:border-0">
-                  <td className="px-5 py-3 font-medium text-fg">
+        <Table>
+          <TBody>
+            {byMethod.length === 0 ? (
+              <TableEmpty colSpan={3}>Ingen salg registrert i dag enda.</TableEmpty>
+            ) : (
+              byMethod.map((m) => (
+                <Tr key={m.method}>
+                  <Td className="font-medium text-fg">
                     {methodLabel[m.method.toLowerCase()] ?? m.method}
-                  </td>
-                  <td className="px-5 py-3 text-muted">{m.count} salg</td>
-                  <td className="px-5 py-3 text-right font-display text-accent-soft">
+                  </Td>
+                  <Td muted>{m.count} salg</Td>
+                  <Td align="right" className="font-display text-accent-soft">
                     {kr(m.nok)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
-        )}
+                  </Td>
+                </Tr>
+              ))
+            )}
+          </TBody>
+        </Table>
       </Card>
 
       <SettlementManager settlements={settlements} defaultDate={today} />

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { StatTile } from "@/components/ui/StatTile";
 import { ProgressBar } from "@/components/ui/ProgressBar";
+import { Card } from "@/components/ui/Card";
+import { Table, THead, TBody, Tr, Th, Td } from "@/components/ui/Table";
 import { getSalesForPeriod, getDaysInMonth } from "@/lib/dashboard-queries";
 
 const nok = (n: number) => n.toLocaleString("nb-NO") + " kr";
@@ -32,38 +34,42 @@ function BarberMethod({
   const maxB = Math.max(1, ...byBarber.map((b) => b.nok));
   return (
     <div className="grid gap-6 md:grid-cols-2">
-      <div className="border border-line bg-surface p-6">
-        <h2 className="mb-5 font-display text-lg font-bold">Per barber</h2>
-        {byBarber.length === 0 ? (
-          <p className="text-sm text-muted">Ingen salg i perioden.</p>
-        ) : (
-          <div className="space-y-5">
-            {byBarber.map((b) => (
-              <ProgressBar
-                key={b.name}
-                value={Math.round((b.nok / maxB) * 100)}
-                label={b.name}
-                caption={nok(b.nok)}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-      <div className="border border-line bg-surface p-6">
-        <h2 className="mb-5 font-display text-lg font-bold">Per betalingsmåte</h2>
-        {byMethod.length === 0 ? (
-          <p className="text-sm text-muted">—</p>
-        ) : (
-          <ul className="space-y-2 text-sm">
-            {byMethod.map((m) => (
-              <li key={m.method} className="flex justify-between border-b border-line pb-2 last:border-0">
-                <span className="text-fg-soft">{m.method}</span>
-                <span className="font-medium">{nok(m.nok)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <Card padded={false}>
+        <div className="p-6">
+          <h2 className="mb-5 font-display text-lg font-bold">Per barber</h2>
+          {byBarber.length === 0 ? (
+            <p className="text-sm text-muted">Ingen salg i perioden.</p>
+          ) : (
+            <div className="space-y-5">
+              {byBarber.map((b) => (
+                <ProgressBar
+                  key={b.name}
+                  value={Math.round((b.nok / maxB) * 100)}
+                  label={b.name}
+                  caption={nok(b.nok)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </Card>
+      <Card padded={false}>
+        <div className="p-6">
+          <h2 className="mb-5 font-display text-lg font-bold">Per betalingsmåte</h2>
+          {byMethod.length === 0 ? (
+            <p className="text-sm text-muted">—</p>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {byMethod.map((m) => (
+                <li key={m.method} className="flex justify-between border-b border-line pb-2 last:border-0">
+                  <span className="text-fg-soft">{m.method}</span>
+                  <span className="font-medium">{nok(m.nok)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </Card>
     </div>
   );
 }
@@ -131,39 +137,37 @@ export async function OmsetningView({
           <StatTile label="Snitt per salg" value={nok(avg)} />
         </div>
 
-        <div className="border border-line bg-surface">
+        <Card padded={false}>
           <div className="border-b border-line px-6 py-4">
             <h2 className="font-display text-lg font-bold">Salg denne dagen</h2>
           </div>
           {rows.length === 0 ? (
             <p className="px-6 py-8 text-sm text-muted">Ingen registrerte salg.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-line text-left text-xs text-muted">
-                    <th className="px-6 py-3 font-medium">Tid</th>
-                    <th className="px-6 py-3 font-medium">Barber</th>
-                    <th className="px-6 py-3 font-medium">Kunde</th>
-                    <th className="px-6 py-3 font-medium">Betaling</th>
-                    <th className="px-6 py-3 text-right font-medium">Beløp</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.id} className="border-b border-line last:border-0">
-                      <td className="px-6 py-3 tabular-nums">{r.time}</td>
-                      <td className="px-6 py-3">{r.barber}</td>
-                      <td className="px-6 py-3 text-fg-soft">{r.customer}</td>
-                      <td className="px-6 py-3 text-fg-soft">{r.method}</td>
-                      <td className="px-6 py-3 text-right font-medium tabular-nums">{nok(r.nok)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Table>
+              <THead>
+                <Tr head>
+                  <Th>Tid</Th>
+                  <Th>Barber</Th>
+                  <Th>Kunde</Th>
+                  <Th>Betaling</Th>
+                  <Th align="right">Beløp</Th>
+                </Tr>
+              </THead>
+              <TBody>
+                {rows.map((r) => (
+                  <Tr key={r.id}>
+                    <Td nums>{r.time}</Td>
+                    <Td>{r.barber}</Td>
+                    <Td className="text-fg-soft">{r.customer}</Td>
+                    <Td className="text-fg-soft">{r.method}</Td>
+                    <Td align="right" nums className="font-medium">{nok(r.nok)}</Td>
+                  </Tr>
+                ))}
+              </TBody>
+            </Table>
           )}
-        </div>
+        </Card>
 
         <BarberMethod byBarber={byBarber} byMethod={byMethod} />
       </div>
@@ -197,7 +201,7 @@ export async function OmsetningView({
         <StatTile label="Snitt per salg" value={nok(avg)} />
       </div>
 
-      <div className="border border-line bg-surface">
+      <Card padded={false}>
         <div className="border-b border-line px-6 py-4">
           <h2 className="font-display text-lg font-bold">Omsetning per dag</h2>
         </div>
@@ -224,7 +228,7 @@ export async function OmsetningView({
             ))}
           </ul>
         )}
-      </div>
+      </Card>
 
       <BarberMethod byBarber={byBarber} byMethod={byMethod} />
     </div>

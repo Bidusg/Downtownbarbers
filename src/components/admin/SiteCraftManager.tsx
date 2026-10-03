@@ -10,6 +10,11 @@ import {
   moveCraft,
 } from "@/app/admin/nettside/actions";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
+import { Card } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 const inputCls =
   "w-full border border-line-2 bg-canvas px-3 py-2 text-sm text-fg outline-none focus:border-accent-soft";
@@ -56,11 +61,10 @@ function BlockRow({
         className="h-28 w-20 shrink-0 rounded object-cover"
       />
       <div className="min-w-0 flex-1 space-y-2">
-        <input
+        <Input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Tittel"
-          className={inputCls}
         />
         <textarea
           value={body}
@@ -70,14 +74,15 @@ function BlockRow({
           className={inputCls}
         />
         <div className="flex flex-wrap items-center gap-3">
-          <button
+          <Button
             type="button"
+            variant="primary"
             disabled={pending || !dirty}
             onClick={() => run(() => saveCraftText(block.id, title, body))}
-            className="bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-40"
+            className="px-3 py-1.5 text-xs"
           >
             Lagre tekst
-          </button>
+          </Button>
           <div className="flex items-center gap-1">
             <button
               type="button"
@@ -98,14 +103,15 @@ function BlockRow({
               ↓
             </button>
           </div>
-          <button
+          <Button
             type="button"
+            variant="link"
             disabled={pending}
             onClick={() => run(() => toggleCraft(block.id, !block.active))}
-            className="text-xs font-semibold text-accent-soft hover:underline disabled:opacity-40"
+            className="text-xs font-semibold"
           >
             {block.active ? "Skjul" : "Vis"}
-          </button>
+          </Button>
           <ConfirmButton
             label="Slett"
             question={`Slette blokken «${block.title}»?`}
@@ -115,9 +121,7 @@ function BlockRow({
           />
           {msg && err && <span className="text-xs text-danger">{msg}</span>}
           {!block.active && (
-            <span className="text-[11px] text-muted">
-              Skjult (kun forhåndsvisning)
-            </span>
+            <Badge tone="neutral">Skjult (kun forhåndsvisning)</Badge>
           )}
         </div>
       </div>
@@ -142,18 +146,19 @@ function AddBlock() {
     );
   }
   return (
-    <form
-      action={(fd) =>
-        start(async () => {
-          setErr(null);
-          const r = await createCraft(fd);
-          if (r.error) setErr(r.error);
-          else setOpen(false);
-        })
-      }
-      className="space-y-3 border border-line bg-surface p-4"
-    >
-      <p className="text-sm font-semibold text-fg">Ny håndverk-blokk</p>
+    <Card>
+      <form
+        action={(fd) =>
+          start(async () => {
+            setErr(null);
+            const r = await createCraft(fd);
+            if (r.error) setErr(r.error);
+            else setOpen(false);
+          })
+        }
+        className="space-y-3"
+      >
+        <p className="text-sm font-semibold text-fg">Ny håndverk-blokk</p>
       <label className="block text-xs text-muted">
         Bilde
         <input
@@ -164,26 +169,29 @@ function AddBlock() {
           className="mt-1 block text-xs text-fg file:mr-2 file:border file:border-line-2 file:bg-canvas file:px-2 file:py-1 file:text-xs"
         />
       </label>
-      <input name="title" placeholder="Tittel" required className={inputCls} />
+      <Input name="title" placeholder="Tittel" required />
       <textarea name="body" placeholder="Kort tekst" rows={2} className={inputCls} />
       <div className="flex items-center gap-3">
-        <button
+        <Button
           type="submit"
+          variant="primary"
           disabled={pending}
-          className="bg-accent px-3 py-1.5 text-sm font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-50"
+          className="px-3 py-1.5 text-sm"
         >
           {pending ? "Legger til …" : "Legg til blokk"}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="ghost"
           onClick={() => setOpen(false)}
-          className="text-xs text-muted hover:text-fg"
+          className="text-xs"
         >
           Avbryt
-        </button>
+        </Button>
         {err && <span className="text-xs text-danger">{err}</span>}
       </div>
-    </form>
+      </form>
+    </Card>
   );
 }
 
@@ -191,10 +199,7 @@ export function SiteCraftManager({ blocks }: { blocks: CraftBlock[] }) {
   return (
     <div className="space-y-3">
       {blocks.length === 0 ? (
-        <p className="text-sm text-muted">
-          Ingen egne blokker – forsiden viser standard-håndverket til du legger
-          til noen.
-        </p>
+        <EmptyState description="Ingen egne blokker – forsiden viser standard-håndverket til du legger til noen." />
       ) : (
         blocks.map((b, i) => (
           <BlockRow

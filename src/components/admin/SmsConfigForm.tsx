@@ -7,20 +7,16 @@ import {
   sendTestSms,
   type TestSmsState,
 } from "@/app/admin/integrasjoner/actions";
-
-const inputCls =
-  "w-full border border-line-2 bg-canvas px-3 py-2 text-sm text-fg outline-none focus:border-accent-soft";
+import { Card } from "@/components/ui/Card";
+import { Input, Select, Field } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 
 function KeyBadge({ set }: { set: boolean }) {
   return (
-    <span
-      className={
-        "rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide " +
-        (set ? "bg-accent-soft/15 text-accent-soft" : "bg-surface-2 text-muted")
-      }
-    >
+    <Badge tone={set ? "success" : "neutral"}>
       {set ? "Nøkkel satt" : "Ikke satt"}
-    </span>
+    </Badge>
   );
 }
 
@@ -41,147 +37,142 @@ export function SmsConfigForm({ status }: { status: SmsConfigStatus }) {
   return (
     <div className="space-y-8">
       <form action={saveSmsConfig} className="space-y-6">
-        <div className="grid gap-3 border border-line bg-surface-2 p-5 sm:grid-cols-2">
-          <div className="flex items-center justify-between sm:col-span-2">
-            <h3 className="font-semibold text-fg">Leverandør</h3>
-            <span
-              className={
-                "rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide " +
-                (status.configured
-                  ? "bg-accent-soft/15 text-accent-soft"
-                  : "bg-surface-2 text-muted")
-              }
-            >
-              {status.configured
-                ? `Aktiv · ${status.effectiveProvider}`
-                : "Ikke aktiv"}
-            </span>
+        <Card>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex items-center justify-between sm:col-span-2">
+              <h3 className="font-semibold text-fg">Leverandør</h3>
+              <Badge tone={status.configured ? "success" : "neutral"}>
+                {status.configured
+                  ? `Aktiv · ${status.effectiveProvider}`
+                  : "Ikke aktiv"}
+              </Badge>
+            </div>
+            <Field label="Leverandør" htmlFor="provider">
+              <Select id="provider" name="provider" defaultValue={status.provider}>
+                {PROVIDERS.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Avsendernavn" htmlFor="sender">
+              <Input
+                id="sender"
+                name="sender"
+                defaultValue={status.sender}
+                placeholder="Downtown"
+                maxLength={11}
+              />
+            </Field>
+            <label className="flex items-center gap-2 text-sm text-fg sm:col-span-2">
+              <input type="checkbox" name="enabled" defaultChecked={status.enabled} className="accent-[#F47721]" />
+              SMS aktivert
+            </label>
           </div>
-          <label className="text-xs text-muted">
-            Leverandør
-            <select name="provider" defaultValue={status.provider} className={`mt-1 ${inputCls}`}>
-              {PROVIDERS.map((p) => (
-                <option key={p.value} value={p.value}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-xs text-muted">
-            Avsendernavn
-            <input
-              name="sender"
-              defaultValue={status.sender}
-              placeholder="Downtown"
-              maxLength={11}
-              className={`mt-1 ${inputCls}`}
-            />
-          </label>
-          <label className="flex items-center gap-2 text-sm text-fg sm:col-span-2">
-            <input type="checkbox" name="enabled" defaultChecked={status.enabled} className="accent-[#F47721]" />
-            SMS aktivert
-          </label>
-        </div>
+        </Card>
 
         {/* GatewayAPI */}
-        <div className="grid gap-3 border border-line bg-surface-2 p-5">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-fg">GatewayAPI</h3>
-            <KeyBadge set={status.gatewayapiSet} />
+        <Card>
+          <div className="grid gap-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-fg">GatewayAPI</h3>
+              <KeyBadge set={status.gatewayapiSet} />
+            </div>
+            <Field label="API-token" htmlFor="gatewayapi_token">
+              <Input
+                id="gatewayapi_token"
+                name="gatewayapi_token"
+                type="password"
+                autoComplete="off"
+                placeholder={status.gatewayapiSet ? "•••• – la stå tomt for å beholde" : "Lim inn token"}
+              />
+            </Field>
           </div>
-          <label className="text-xs text-muted">
-            API-token
-            <input
-              name="gatewayapi_token"
-              type="password"
-              autoComplete="off"
-              placeholder={status.gatewayapiSet ? "•••• – la stå tomt for å beholde" : "Lim inn token"}
-              className={`mt-1 ${inputCls}`}
-            />
-          </label>
-        </div>
+        </Card>
 
         {/* Sveve */}
-        <div className="grid gap-3 border border-line bg-surface-2 p-5 sm:grid-cols-2">
-          <div className="flex items-center justify-between sm:col-span-2">
-            <h3 className="font-semibold text-fg">Sveve</h3>
-            <KeyBadge set={status.sveveSet} />
+        <Card>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex items-center justify-between sm:col-span-2">
+              <h3 className="font-semibold text-fg">Sveve</h3>
+              <KeyBadge set={status.sveveSet} />
+            </div>
+            <Field label="Brukernavn" htmlFor="sveve_user">
+              <Input id="sveve_user" name="sveve_user" autoComplete="off" placeholder={status.sveveSet ? "•••• – la stå tomt" : "Brukernavn"} />
+            </Field>
+            <Field label="Passord" htmlFor="sveve_password">
+              <Input id="sveve_password" name="sveve_password" type="password" autoComplete="off" placeholder={status.sveveSet ? "•••• – la stå tomt" : "Passord"} />
+            </Field>
           </div>
-          <label className="text-xs text-muted">
-            Brukernavn
-            <input name="sveve_user" autoComplete="off" placeholder={status.sveveSet ? "•••• – la stå tomt" : "Brukernavn"} className={`mt-1 ${inputCls}`} />
-          </label>
-          <label className="text-xs text-muted">
-            Passord
-            <input name="sveve_password" type="password" autoComplete="off" placeholder={status.sveveSet ? "•••• – la stå tomt" : "Passord"} className={`mt-1 ${inputCls}`} />
-          </label>
-        </div>
+        </Card>
 
         {/* Twilio */}
-        <div className="grid gap-3 border border-line bg-surface-2 p-5 sm:grid-cols-2">
-          <div className="flex items-center justify-between sm:col-span-2">
-            <h3 className="font-semibold text-fg">Twilio</h3>
-            <KeyBadge set={status.twilioSet} />
+        <Card>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex items-center justify-between sm:col-span-2">
+              <h3 className="font-semibold text-fg">Twilio</h3>
+              <KeyBadge set={status.twilioSet} />
+            </div>
+            <Field label="Account SID" htmlFor="twilio_account_sid">
+              <Input id="twilio_account_sid" name="twilio_account_sid" autoComplete="off" placeholder={status.twilioSet ? "•••• – la stå tomt" : "AC…"} />
+            </Field>
+            <Field label="Auth token" htmlFor="twilio_auth_token">
+              <Input id="twilio_auth_token" name="twilio_auth_token" type="password" autoComplete="off" placeholder={status.twilioSet ? "•••• – la stå tomt" : "Auth token"} />
+            </Field>
+            <Field label="Fra-nummer (E.164)" htmlFor="twilio_from" className="sm:col-span-2">
+              <Input id="twilio_from" name="twilio_from" defaultValue={status.twilioFrom} placeholder="+47…" />
+            </Field>
           </div>
-          <label className="text-xs text-muted">
-            Account SID
-            <input name="twilio_account_sid" autoComplete="off" placeholder={status.twilioSet ? "•••• – la stå tomt" : "AC…"} className={`mt-1 ${inputCls}`} />
-          </label>
-          <label className="text-xs text-muted">
-            Auth token
-            <input name="twilio_auth_token" type="password" autoComplete="off" placeholder={status.twilioSet ? "•••• – la stå tomt" : "Auth token"} className={`mt-1 ${inputCls}`} />
-          </label>
-          <label className="text-xs text-muted sm:col-span-2">
-            Fra-nummer (E.164)
-            <input name="twilio_from" defaultValue={status.twilioFrom} placeholder="+47…" className={`mt-1 ${inputCls}`} />
-          </label>
-        </div>
+        </Card>
 
         {/* Generisk */}
-        <div className="grid gap-3 border border-line bg-surface-2 p-5 sm:grid-cols-2">
-          <div className="flex items-center justify-between sm:col-span-2">
-            <h3 className="font-semibold text-fg">Generisk HTTP</h3>
-            <KeyBadge set={status.genericKeySet} />
+        <Card>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex items-center justify-between sm:col-span-2">
+              <h3 className="font-semibold text-fg">Generisk HTTP</h3>
+              <KeyBadge set={status.genericKeySet} />
+            </div>
+            <Field label="API-URL" htmlFor="generic_api_url">
+              <Input id="generic_api_url" name="generic_api_url" defaultValue={status.genericUrl} placeholder="https://…" />
+            </Field>
+            <Field label="API-nøkkel (bearer)" htmlFor="generic_api_key">
+              <Input id="generic_api_key" name="generic_api_key" type="password" autoComplete="off" placeholder={status.genericKeySet ? "•••• – la stå tomt" : "Lim inn nøkkel"} />
+            </Field>
           </div>
-          <label className="text-xs text-muted">
-            API-URL
-            <input name="generic_api_url" defaultValue={status.genericUrl} placeholder="https://…" className={`mt-1 ${inputCls}`} />
-          </label>
-          <label className="text-xs text-muted">
-            API-nøkkel (bearer)
-            <input name="generic_api_key" type="password" autoComplete="off" placeholder={status.genericKeySet ? "•••• – la stå tomt" : "Lim inn nøkkel"} className={`mt-1 ${inputCls}`} />
-          </label>
-        </div>
+        </Card>
 
-        <button type="submit" className="bg-accent px-5 py-2.5 text-sm font-semibold text-accent-fg hover:bg-accent-hover">
+        <Button type="submit" variant="primary" className="px-5 py-2.5 text-sm">
           Lagre SMS-oppsett
-        </button>
+        </Button>
       </form>
 
       {/* Test-sending */}
-      <form action={testAction} className="border border-line bg-surface p-5">
-        <h3 className="font-semibold text-fg">Send test-SMS</h3>
-        <p className="mt-1 text-sm text-muted">
-          Bekreft at oppsettet virker. Lagre først, så send en test til ditt eget nummer.
-        </p>
-        <div className="mt-3 flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-xs text-muted">
-            Mottakernummer
-            <input name="to" placeholder="+47…" className={inputCls + " min-w-[12rem]"} />
-          </label>
-          <button
-            type="submit"
-            disabled={testing}
-            className="border border-line-2 px-4 py-2 text-sm font-semibold text-fg transition-colors hover:bg-surface-2 disabled:opacity-50"
-          >
-            {testing ? "Sender…" : "Send test"}
-          </button>
-        </div>
-        {testState && (
-          <p className={"mt-3 text-sm " + (testState.ok ? "text-accent-soft" : "text-danger")}>
-            {testState.message}
+      <form action={testAction}>
+        <Card>
+          <h3 className="font-semibold text-fg">Send test-SMS</h3>
+          <p className="mt-1 text-sm text-muted">
+            Bekreft at oppsettet virker. Lagre først, så send en test til ditt eget nummer.
           </p>
-        )}
+          <div className="mt-3 flex flex-wrap items-end gap-3">
+            <Field label="Mottakernummer" htmlFor="to">
+              <Input id="to" name="to" placeholder="+47…" className="min-w-[12rem]" />
+            </Field>
+            <Button
+              type="submit"
+              variant="subtle"
+              disabled={testing}
+              className="px-4 py-2 text-sm transition-colors"
+            >
+              {testing ? "Sender…" : "Send test"}
+            </Button>
+          </div>
+          {testState && (
+            <p className={"mt-3 text-sm " + (testState.ok ? "text-accent-soft" : "text-danger")}>
+              {testState.message}
+            </p>
+          )}
+        </Card>
       </form>
     </div>
   );

@@ -7,9 +7,10 @@ import {
   deleteStaffException,
 } from "@/app/admin/timelister/actions";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
-
-const inputCls =
-  "border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft";
+import { Input, Select } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 type Mode = "off_full" | "off_part" | "extra";
 
@@ -47,12 +48,12 @@ export function StaffExceptionsManager({
         <p className="text-sm text-muted">
           {exceptions.length} kommende avvik
         </p>
-        <button
+        <Button
           onClick={() => setOpen((o) => !o)}
-          className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
+          className="px-4 py-2 text-sm"
         >
           {open ? "Lukk" : "+ Nytt avvik"}
-        </button>
+        </Button>
       </div>
 
       {open && (
@@ -70,7 +71,7 @@ export function StaffExceptionsManager({
           }}
           className="grid gap-3 border border-line bg-surface p-5 sm:grid-cols-2 lg:grid-cols-3"
         >
-          <select name="staff_id" required className={inputCls} defaultValue="">
+          <Select name="staff_id" required defaultValue="">
             <option value="" disabled>
               Velg ansatt …
             </option>
@@ -79,64 +80,61 @@ export function StaffExceptionsManager({
                 {s.full_name}
               </option>
             ))}
-          </select>
+          </Select>
 
-          <input name="date" type="date" required className={inputCls} />
+          <Input name="date" type="date" required />
 
-          <select
+          <Select
             value={mode}
             onChange={(e) => setMode(e.target.value as Mode)}
-            className={inputCls}
           >
             <option value="off_full">Fri hele dagen</option>
             <option value="off_part">Fri deler av dagen</option>
             <option value="extra">Ekstravakt</option>
-          </select>
+          </Select>
 
           {needsTimes && (
             <>
               <label className="text-xs text-muted">
                 Fra
-                <input
+                <Input
                   name="start_time"
                   type="time"
                   required
-                  className={`mt-1 block w-full ${inputCls}`}
+                  className="mt-1 block"
                   defaultValue={mode === "extra" ? "09:00" : "12:00"}
                 />
               </label>
               <label className="text-xs text-muted">
                 Til
-                <input
+                <Input
                   name="end_time"
                   type="time"
                   required
-                  className={`mt-1 block w-full ${inputCls}`}
+                  className="mt-1 block"
                   defaultValue={mode === "extra" ? "17:00" : "13:00"}
                 />
               </label>
             </>
           )}
 
-          <input
+          <Input
             name="note"
             placeholder="Notat (valgfritt) – f.eks. ferie, sykdom"
-            className={`${inputCls} sm:col-span-2 lg:col-span-3`}
+            className="sm:col-span-2 lg:col-span-3"
           />
 
-          <button
+          <Button
             type="submit"
-            className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover sm:col-span-2 lg:col-span-3"
+            className="px-4 py-2 text-sm sm:col-span-2 lg:col-span-3"
           >
             Lagre avvik
-          </button>
+          </Button>
         </form>
       )}
 
       {exceptions.length === 0 ? (
-        <div className="border border-line bg-surface px-4 py-8 text-center text-sm text-muted">
-          Ingen kommende avvik. Turnusen gjelder som normalt.
-        </div>
+        <EmptyState description="Ingen kommende avvik. Turnusen gjelder som normalt." />
       ) : (
         <ul className="divide-y divide-line border border-line bg-surface">
           {exceptions.map((e) => {
@@ -160,16 +158,12 @@ export function StaffExceptionsManager({
                   {fmtDate(e.date)}
                 </span>
                 <span className="min-w-32 flex-1 text-fg">{nameOf(e.staff_id)}</span>
-                <span
-                  className={
-                    "rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide " +
-                    (isExtra
-                      ? "bg-accent-soft/15 text-accent-soft"
-                      : "bg-danger/10 text-danger")
-                  }
+                <Badge
+                  tone={isExtra ? "accent" : "danger"}
+                  className="uppercase tracking-wide"
                 >
                   {label}
-                </span>
+                </Badge>
                 <span className="w-24 text-right font-display text-muted">
                   {time ?? "—"}
                 </span>

@@ -1,6 +1,10 @@
 import { StatTile } from "@/components/ui/StatTile";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Table, THead, TBody, Tr, Th, Td } from "@/components/ui/Table";
+import { Badge } from "@/components/ui/Badge";
+import { Input, Select } from "@/components/ui/Input";
 import {
   getConsentStats,
   getMarketingSends,
@@ -60,7 +64,7 @@ export default async function AdminMarkedsforing({
               Sendt {sp.kanal === "sms" ? "på SMS" : "på e-post"} til {sp.sendt} mottaker(e).
             </strong>{" "}
             {sp.sendt === "0" &&
-              "Ingen i valgt segment har samtykke + riktig kontaktinfo, eller leverandør-nøklene mangler."}
+              "Ingen i valgt segment har samtykke + riktig kontaktinfo, eller leverandøren er ikke ferdig satt opp."}
           </p>
         </div>
       )}
@@ -78,7 +82,8 @@ export default async function AdminMarkedsforing({
       </div>
 
       {/* Komponér */}
-      <form action={sendMarketing} className="space-y-4 border border-line bg-surface p-6">
+      <Card>
+      <form action={sendMarketing} className="space-y-4">
         <h2 className="font-display text-lg font-bold">Ny utsending</h2>
         <div>
           <label className="mb-1 block text-xs text-muted">Kanal</label>
@@ -95,20 +100,19 @@ export default async function AdminMarkedsforing({
         </div>
         <div>
           <label className="mb-1 block text-xs text-muted">Segment</label>
-          <select name="segment" className="w-full border border-line-2 bg-canvas px-3 py-2 text-sm text-fg sm:w-auto">
+          <Select name="segment" className="sm:w-auto">
             {SEGMENTS.map((s) => (
               <option key={s.key} value={s.key}>{s.label} — {s.hint}</option>
             ))}
-          </select>
+          </Select>
         </div>
         <div>
           <label className="mb-1 block text-xs text-muted">
             Emne <span className="text-muted/70">(kun e-post)</span>
           </label>
-          <input
+          <Input
             name="subject"
             placeholder="F.eks. 20 % på skjeggpleie i mars"
-            className="w-full border border-line-2 bg-canvas px-3 py-2 text-sm text-fg"
           />
         </div>
         <div>
@@ -131,42 +135,41 @@ export default async function AdminMarkedsforing({
           <span className="text-xs text-muted">Sender kun til kunder med samtykke.</span>
         </div>
       </form>
+      </Card>
 
       {/* Logg */}
-      <div className="border border-line bg-surface">
+      <Card padded={false}>
         <div className="border-b border-line px-6 py-4">
           <h2 className="font-display text-lg font-bold">Sendt før</h2>
         </div>
         {sends.length === 0 ? (
           <p className="px-6 py-8 text-sm text-muted">Ingen utsendinger enda.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-line text-left text-xs text-muted">
-                  <th className="px-6 py-3 font-medium">Tid</th>
-                  <th className="px-4 py-3 font-medium">Emne</th>
-                  <th className="px-4 py-3 font-medium">Segment</th>
-                  <th className="px-4 py-3 text-right font-medium">Mottakere</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sends.map((s) => (
-                  <tr key={s.id} className="border-b border-line last:border-0">
-                    <td className="px-6 py-3 whitespace-nowrap text-muted">{fmt(s.created_at)}</td>
-                    <td className="px-4 py-3">{s.subject}</td>
-                    <td className="px-4 py-3 text-muted">{SEG_LABEL[s.segment ?? ""] ?? s.segment ?? "—"}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">{s.recipient_count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <THead>
+              <Tr head>
+                <Th>Tid</Th>
+                <Th>Emne</Th>
+                <Th>Segment</Th>
+                <Th align="right">Mottakere</Th>
+              </Tr>
+            </THead>
+            <TBody>
+              {sends.map((s) => (
+                <Tr key={s.id}>
+                  <Td muted className="whitespace-nowrap">{fmt(s.created_at)}</Td>
+                  <Td>{s.subject}</Td>
+                  <Td muted>{SEG_LABEL[s.segment ?? ""] ?? s.segment ?? "—"}</Td>
+                  <Td align="right" nums>{s.recipient_count}</Td>
+                </Tr>
+              ))}
+            </TBody>
+          </Table>
         )}
-      </div>
+      </Card>
 
       {/* Innkommende svar (STOPP/START) */}
-      <div className="border border-line bg-surface">
+      <Card padded={false}>
         <div className="border-b border-line px-6 py-4">
           <h2 className="font-display text-lg font-bold">Innkommende svar (STOPP/START)</h2>
           <p className="mt-1 text-xs text-muted">
@@ -177,48 +180,44 @@ export default async function AdminMarkedsforing({
         {inbound.length === 0 ? (
           <p className="px-6 py-8 text-sm text-muted">Ingen innkommende svar enda.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-line text-left text-xs text-muted">
-                  <th className="px-6 py-3 font-medium">Tid</th>
-                  <th className="px-4 py-3 font-medium">Fra</th>
-                  <th className="px-4 py-3 font-medium">Handling</th>
-                  <th className="px-4 py-3 text-right font-medium">Kunder endret</th>
-                </tr>
-              </thead>
-              <tbody>
-                {inbound.map((m) => (
-                  <tr key={m.id} className="border-b border-line last:border-0">
-                    <td className="px-6 py-3 whitespace-nowrap text-muted">{fmt(m.created_at)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{m.from_phone}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={
-                          "rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide " +
-                          (m.action === "stop"
-                            ? "bg-danger/10 text-danger"
-                            : m.action === "start"
-                              ? "bg-accent-soft/15 text-accent-soft"
-                              : "bg-surface-2 text-muted")
-                        }
-                      >
-                        {INBOUND_LABEL[m.action] ?? m.action}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums">{m.matched}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <THead>
+              <Tr head>
+                <Th>Tid</Th>
+                <Th>Fra</Th>
+                <Th>Handling</Th>
+                <Th align="right">Kunder endret</Th>
+              </Tr>
+            </THead>
+            <TBody>
+              {inbound.map((m) => (
+                <Tr key={m.id}>
+                  <Td muted className="whitespace-nowrap">{fmt(m.created_at)}</Td>
+                  <Td className="font-mono text-xs">{m.from_phone}</Td>
+                  <Td>
+                    <Badge
+                      tone={
+                        m.action === "stop"
+                          ? "danger"
+                          : m.action === "start"
+                            ? "accent"
+                            : "neutral"
+                      }
+                    >
+                      {INBOUND_LABEL[m.action] ?? m.action}
+                    </Badge>
+                  </Td>
+                  <Td align="right" nums>{m.matched}</Td>
+                </Tr>
+              ))}
+            </TBody>
+          </Table>
         )}
-      </div>
+      </Card>
 
       <p className="text-xs text-muted">
-        E-post sendes via Resend (<span className="font-mono">RESEND_API_KEY</span>). SMS sendes via valgt
-        A2P-leverandør (<span className="font-mono">SMS_PROVIDER</span> + nøkler, f.eks. GatewayAPI eller Sveve)
-        med avsendernavn <span className="font-mono">SMS_SENDER</span>. Mangler nøklene, hoppes utsendingen stille over.
+        E-post sendes via vår e-postleverandør, og SMS via vår SMS-leverandør med et fast avsendernavn.
+        Er en leverandør ikke ferdig satt opp, hoppes utsendingen stille over.
       </p>
     </div>
   );

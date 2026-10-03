@@ -1,5 +1,18 @@
 import type { AdminCustomer } from "@/lib/admin-queries";
 import { Avatar } from "@/components/ui/Avatar";
+import { Card } from "@/components/ui/Card";
+import {
+  Table,
+  THead,
+  TBody,
+  Tr,
+  Th,
+  Td,
+  TableEmpty,
+} from "@/components/ui/Table";
+import { Input } from "@/components/ui/Input";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 
 function fmtDate(iso: string | null) {
   if (!iso) return "—";
@@ -48,18 +61,15 @@ export function CustomerTable({
   return (
     <div>
       <form method="get" action={basePath} className="mb-4 flex flex-wrap gap-2">
-        <input
+        <Input
           name="q"
           defaultValue={q}
           placeholder="Søk på navn, e-post eller telefon…"
-          className="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2.5 text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none sm:max-w-sm sm:flex-none sm:w-80"
+          className="min-w-0 flex-1 sm:max-w-sm sm:flex-none sm:w-80"
         />
-        <button
-          type="submit"
-          className="rounded-md bg-accent px-5 py-2.5 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
-        >
+        <Button type="submit" className="px-5 py-2.5 text-sm">
           Søk
-        </button>
+        </Button>
         {q && (
           <a
             href={basePath}
@@ -70,34 +80,29 @@ export function CustomerTable({
         )}
       </form>
 
-      <div className="overflow-x-auto border border-line">
-        <table className="w-full text-sm">
-          <thead className="bg-surface-2 text-left text-xs tracking-wide text-muted uppercase">
-            <tr>
-              <th className="px-4 py-3">Navn</th>
-              <th className="px-4 py-3">Kontakt</th>
-              <th className="px-4 py-3">Bookinger</th>
-              <th className="px-4 py-3">Sist</th>
-              <th className="px-4 py-3">Brukt</th>
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody>
+      <Card padded={false}>
+        <Table>
+          <THead>
+            <Tr head>
+              <Th>Navn</Th>
+              <Th>Kontakt</Th>
+              <Th>Bookinger</Th>
+              <Th>Sist</Th>
+              <Th>Brukt</Th>
+              <Th></Th>
+            </Tr>
+          </THead>
+          <TBody>
             {customers.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted">
-                  {total === 0 && !q
-                    ? "Ingen kunder enda. De registreres ved booking, eller importer kundekartoteket."
-                    : "Ingen treff."}
-                </td>
-              </tr>
+              <TableEmpty colSpan={6}>
+                {total === 0 && !q
+                  ? "Ingen kunder enda. De registreres ved booking, eller importer kundekartoteket."
+                  : "Ingen treff."}
+              </TableEmpty>
             )}
             {customers.map((c) => (
-              <tr
-                key={c.id}
-                className="border-t border-line hover:bg-surface-2/50"
-              >
-                <td className="px-4 py-3">
+              <Tr key={c.id} className="hover:bg-surface-2/50">
+                <Td>
                   <span className="flex items-center gap-2.5">
                     <Avatar name={c.full_name} colorKey={c.id} size={28} />
                     <a
@@ -108,12 +113,12 @@ export function CustomerTable({
                     </a>
                   </span>
                   {c.noShows > 0 && (
-                    <span className="ml-2 rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold text-danger">
+                    <Badge tone="danger" className="ml-2">
                       {c.noShows} ikke møtt
-                    </span>
+                    </Badge>
                   )}
-                </td>
-                <td className="px-4 py-3 text-xs">
+                </Td>
+                <Td className="text-xs">
                   <span className="flex flex-col gap-0.5">
                     {c.phone && (
                       <a
@@ -135,25 +140,25 @@ export function CustomerTable({
                       <span className="text-muted">—</span>
                     )}
                   </span>
-                </td>
-                <td className="px-4 py-3 font-display">{c.visits}</td>
-                <td className="px-4 py-3 text-muted">{fmtDate(c.lastVisit)}</td>
-                <td className="px-4 py-3 font-display">
+                </Td>
+                <Td className="font-display">{c.visits}</Td>
+                <Td muted>{fmtDate(c.lastVisit)}</Td>
+                <Td className="font-display">
                   {c.totalSpent > 0 ? `${c.totalSpent} kr` : "—"}
-                </td>
-                <td className="px-4 py-3 text-right">
+                </Td>
+                <Td align="right">
                   <a
                     href={`${basePath}/${c.id}`}
                     className="text-xs font-semibold text-muted hover:text-fg"
                   >
                     Åpne →
                   </a>
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TBody>
+        </Table>
+      </Card>
 
       {/* Paginering */}
       <div className="mt-4 flex items-center justify-between text-sm text-muted">

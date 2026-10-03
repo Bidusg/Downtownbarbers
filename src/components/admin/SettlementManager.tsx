@@ -7,9 +7,10 @@ import {
   deleteSettlement,
   expectedByMethod,
 } from "@/app/admin/kasseoppgjor/actions";
-
-const inputCls =
-  "border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft";
+import { Card } from "@/components/ui/Card";
+import { Table, THead, TBody, Tr, Th, Td, TableEmpty } from "@/components/ui/Table";
+import { Input, Field } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
 
 const kr = (n: number) => n.toLocaleString("nb-NO") + " kr";
 const signedKr = (n: number) =>
@@ -100,12 +101,13 @@ export function SettlementManager({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted">Dagsoppgjør</p>
-        <button
+        <Button
+          variant="primary"
           onClick={() => (open ? setOpen(false) : openForm())}
-          className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
+          className="px-4 py-2 text-sm"
         >
           {open ? "Lukk" : "+ Nytt oppgjør"}
-        </button>
+        </Button>
       </div>
 
       {open && (
@@ -117,9 +119,8 @@ export function SettlementManager({
           }}
           className="space-y-4 border border-line bg-surface p-5"
         >
-          <label className="block text-xs text-muted">
-            Dato
-            <input
+          <Field label="Dato">
+            <Input
               name="settle_date"
               type="date"
               required
@@ -128,124 +129,116 @@ export function SettlementManager({
                 setDate(e.target.value);
                 loadExpected(e.target.value);
               }}
-              className={`mt-1 block w-full max-w-[12rem] ${inputCls}`}
+              className="max-w-[12rem]"
             />
-          </label>
+          </Field>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs tracking-wide text-muted uppercase">
-                <tr>
-                  <th className="py-2 pr-3">Betalingsmåte</th>
-                  <th className="py-2 pr-3 text-right">Forventet</th>
-                  <th className="py-2 pr-3 text-right">Talt</th>
-                  <th className="py-2 text-right">Avvik</th>
-                </tr>
-              </thead>
-              <tbody>
-                {METHODS.map((m) => {
-                  const exp = expected[m.key];
-                  const cnt = countedNum(m.field);
-                  return (
-                    <tr key={m.key} className="border-t border-line">
-                      <td className="py-2 pr-3 font-medium text-fg">{m.label}</td>
-                      <td className="py-2 pr-3 text-right text-muted">
-                        {loadingExp ? "…" : kr(exp)}
-                      </td>
-                      <td className="py-2 pr-3 text-right">
-                        <input
-                          name={m.field}
-                          type="number"
-                          min={0}
-                          step="1"
-                          inputMode="numeric"
-                          placeholder="0"
-                          value={counted[m.field]}
-                          onChange={(e) =>
-                            setCounted((c) => ({ ...c, [m.field]: e.target.value }))
-                          }
-                          className={`w-28 text-right ${inputCls}`}
-                        />
-                      </td>
-                      <td className="py-2 text-right">
-                        <Avvik diff={cnt - exp} />
-                      </td>
-                    </tr>
-                  );
-                })}
-                <tr className="border-t border-line-2">
-                  <td className="py-2 pr-3 font-semibold text-fg">Sum</td>
-                  <td className="py-2 pr-3 text-right font-semibold text-muted">
-                    {loadingExp ? "…" : kr(expectedTotal)}
-                  </td>
-                  <td className="py-2 pr-3 text-right font-semibold text-fg">
-                    {kr(countedTotal)}
-                  </td>
-                  <td className="py-2 text-right">
-                    <Avvik diff={countedTotal - expectedTotal} />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <THead>
+              <Tr head>
+                <Th>Betalingsmåte</Th>
+                <Th align="right">Forventet</Th>
+                <Th align="right">Talt</Th>
+                <Th align="right">Avvik</Th>
+              </Tr>
+            </THead>
+            <TBody>
+              {METHODS.map((m) => {
+                const exp = expected[m.key];
+                const cnt = countedNum(m.field);
+                return (
+                  <Tr key={m.key}>
+                    <Td className="font-medium text-fg">{m.label}</Td>
+                    <Td align="right" muted nums>
+                      {loadingExp ? "…" : kr(exp)}
+                    </Td>
+                    <Td align="right">
+                      <Input
+                        name={m.field}
+                        type="number"
+                        min={0}
+                        step="1"
+                        inputMode="numeric"
+                        placeholder="0"
+                        value={counted[m.field]}
+                        onChange={(e) =>
+                          setCounted((c) => ({ ...c, [m.field]: e.target.value }))
+                        }
+                        className="w-28 text-right"
+                      />
+                    </Td>
+                    <Td align="right">
+                      <Avvik diff={cnt - exp} />
+                    </Td>
+                  </Tr>
+                );
+              })}
+              <Tr className="border-t border-line-2">
+                <Td className="font-semibold text-fg">Sum</Td>
+                <Td align="right" muted nums className="font-semibold">
+                  {loadingExp ? "…" : kr(expectedTotal)}
+                </Td>
+                <Td align="right" nums className="font-semibold text-fg">
+                  {kr(countedTotal)}
+                </Td>
+                <Td align="right">
+                  <Avvik diff={countedTotal - expectedTotal} />
+                </Td>
+              </Tr>
+            </TBody>
+          </Table>
 
-          <input
+          <Input
             name="note"
             placeholder="Notat (valgfritt) – f.eks. forklaring på avvik"
-            className={`block w-full ${inputCls}`}
           />
-          <button
+          <Button
             type="submit"
+            variant="primary"
             disabled={pending}
-            className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-50"
+            className="px-4 py-2 text-sm"
           >
             Lagre oppgjør
-          </button>
+          </Button>
         </form>
       )}
 
-      <div className="overflow-x-auto border border-line">
-        <table className="w-full text-sm">
-          <thead className="bg-surface-2 text-left text-xs tracking-wide text-muted uppercase">
-            <tr>
-              <th className="px-4 py-3">Dato</th>
-              <th className="px-4 py-3 text-right">Talt</th>
-              <th className="px-4 py-3 text-right">Forventet</th>
-              <th className="px-4 py-3 text-right">Avvik</th>
-              <th className="px-4 py-3">Notat</th>
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody>
+      <Card padded={false}>
+        <Table>
+          <THead>
+            <Tr head className="bg-surface-2">
+              <Th>Dato</Th>
+              <Th align="right">Talt</Th>
+              <Th align="right">Forventet</Th>
+              <Th align="right">Avvik</Th>
+              <Th>Notat</Th>
+              <Th></Th>
+            </Tr>
+          </THead>
+          <TBody>
             {settlements.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted">
-                  Ingen oppgjør registrert enda.
-                </td>
-              </tr>
+              <TableEmpty colSpan={6}>Ingen oppgjør registrert enda.</TableEmpty>
             )}
             {settlements.map((s) => {
               const expTotal = settlementExpectedTotal(s);
               return (
-                <tr key={s.id} className="border-t border-line">
-                  <td className="px-4 py-3 font-medium text-fg">
-                    {no(s.settle_date)}
-                  </td>
-                  <td className="px-4 py-3 text-right font-display text-accent-soft">
+                <Tr key={s.id}>
+                  <Td className="font-medium text-fg">{no(s.settle_date)}</Td>
+                  <Td align="right" nums className="font-display text-accent-soft">
                     {kr(s.total_nok)}
-                  </td>
-                  <td className="px-4 py-3 text-right text-muted">
+                  </Td>
+                  <Td align="right" muted nums>
                     {expTotal == null ? "—" : kr(expTotal)}
-                  </td>
-                  <td className="px-4 py-3 text-right">
+                  </Td>
+                  <Td align="right">
                     {expTotal == null ? (
                       <span className="text-xs text-muted">uten avstemming</span>
                     ) : (
                       <Avvik diff={s.total_nok - expTotal} />
                     )}
-                  </td>
-                  <td className="px-4 py-3 text-muted">{s.note ?? "—"}</td>
-                  <td className="px-4 py-3 text-right">
+                  </Td>
+                  <Td muted>{s.note ?? "—"}</Td>
+                  <Td align="right">
                     <button
                       onClick={() => {
                         if (confirm("Slette dette oppgjøret?"))
@@ -256,13 +249,13 @@ export function SettlementManager({
                     >
                       Slett
                     </button>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               );
             })}
-          </tbody>
-        </table>
-      </div>
+          </TBody>
+        </Table>
+      </Card>
     </div>
   );
 }

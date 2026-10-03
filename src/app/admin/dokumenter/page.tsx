@@ -4,6 +4,11 @@ import {
 } from "@/lib/documents-queries";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Table, THead, TBody, Tr, Th, Td } from "@/components/ui/Table";
+import { Badge } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Input, Field } from "@/components/ui/Input";
 import { uploadDocument, deleteDocument, downloadDocument } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -54,12 +59,7 @@ export default async function AdminDokumenter({
       />
 
       {sp.lastet !== undefined && (
-        <div className="flex items-start gap-3 border border-accent-soft/30 bg-accent-soft/5 px-4 py-3 text-sm">
-          <span className="mt-0.5 text-accent-soft">●</span>
-          <p className="text-muted">
-            <strong className="text-fg">Dokumentet ble lastet opp.</strong>
-          </p>
-        </div>
+        <EmptyState title="Dokumentet ble lastet opp." />
       )}
       {sp.feil === "tomt" && (
         <div className="border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
@@ -83,40 +83,33 @@ export default async function AdminDokumenter({
         className="space-y-4 border border-line bg-surface p-6"
       >
         <h2 className="font-display text-lg font-bold">Last opp dokument</h2>
-        <div>
-          <label className="mb-1 block text-xs text-muted">Fil</label>
-          <input
+        <Field label="Fil">
+          <Input
             type="file"
             name="file"
             required
-            className="w-full border border-line-2 bg-canvas px-3 py-2 text-sm text-fg file:mr-3 file:border-0 file:bg-surface-2 file:px-3 file:py-1 file:text-fg"
+            className="file:mr-3 file:border-0 file:bg-surface-2 file:px-3 file:py-1 file:text-fg"
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs text-muted">
-            Visningsnavn{" "}
-            <span className="text-muted/70">(valgfritt — bruker filnavn)</span>
-          </label>
-          <input
+        </Field>
+        <Field label="Visningsnavn" hint="(valgfritt — bruker filnavn)">
+          <Input
             name="name"
             placeholder="F.eks. Ansettelseskontrakt – mal 2026"
-            className="w-full border border-line-2 bg-canvas px-3 py-2 text-sm text-fg"
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs text-muted">Kategori</label>
-          <input
+        </Field>
+        <Field label="Kategori">
+          <Input
             name="category"
             list="dok-kategorier"
             placeholder="F.eks. Kontrakt, Rutine, Annet"
-            className="w-full border border-line-2 bg-canvas px-3 py-2 text-sm text-fg sm:w-auto"
+            className="sm:w-auto"
           />
           <datalist id="dok-kategorier">
             {[...new Set([...KATEGORI_FORSLAG, ...categories])].map((c) => (
               <option key={c} value={c} />
             ))}
           </datalist>
-        </div>
+        </Field>
         <div className="flex flex-wrap items-center gap-3">
           <Button type="submit" className="px-5 py-2 text-sm">
             Last opp
@@ -126,7 +119,7 @@ export default async function AdminDokumenter({
       </form>
 
       {/* Filter + liste */}
-      <div className="border border-line bg-surface">
+      <Card padded={false}>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-6 py-4">
           <h2 className="font-display text-lg font-bold">Dokumenter</h2>
           {categories.length > 0 && (
@@ -160,67 +153,59 @@ export default async function AdminDokumenter({
               : "Ingen dokumenter enda."}
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-line text-left text-xs text-muted">
-                  <th className="px-6 py-3 font-medium">Navn</th>
-                  <th className="px-4 py-3 font-medium">Kategori</th>
-                  <th className="px-4 py-3 text-right font-medium">Størrelse</th>
-                  <th className="px-4 py-3 font-medium">Dato</th>
-                  <th className="px-4 py-3 text-right font-medium">Handling</th>
-                </tr>
-              </thead>
-              <tbody>
-                {docs.map((d) => (
-                  <tr key={d.id} className="border-b border-line last:border-0">
-                    <td className="px-6 py-3">
-                      <span className="text-fg">{d.name}</span>
-                    </td>
-                    <td className="px-4 py-3 text-muted">
-                      {d.category ? (
-                        <span className="rounded bg-surface-2 px-2 py-0.5 text-[11px] text-muted">
-                          {d.category}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums text-muted">
-                      {fmtSize(d.size_bytes)}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-muted">
-                      {fmtDate(d.created_at)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-2">
-                        <form action={downloadDocument}>
-                          <input type="hidden" name="path" value={d.path} />
-                          <input type="hidden" name="name" value={d.name} />
-                          <button
-                            type="submit"
-                            className="border border-line-2 bg-surface-2 px-3 py-1 text-xs text-fg transition-opacity hover:opacity-90"
-                          >
-                            Last ned
-                          </button>
-                        </form>
-                        <form action={deleteDocument.bind(null, d.id)}>
-                          <button
-                            type="submit"
-                            className="border border-danger/30 bg-danger/5 px-3 py-1 text-xs text-danger transition-opacity hover:opacity-90"
-                          >
-                            Slett
-                          </button>
-                        </form>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <THead>
+              <Tr head>
+                <Th>Navn</Th>
+                <Th>Kategori</Th>
+                <Th align="right">Størrelse</Th>
+                <Th>Dato</Th>
+                <Th align="right">Handling</Th>
+              </Tr>
+            </THead>
+            <TBody>
+              {docs.map((d) => (
+                <Tr key={d.id}>
+                  <Td>
+                    <span className="text-fg">{d.name}</span>
+                  </Td>
+                  <Td muted>
+                    {d.category ? <Badge>{d.category}</Badge> : "—"}
+                  </Td>
+                  <Td align="right" nums muted>
+                    {fmtSize(d.size_bytes)}
+                  </Td>
+                  <Td muted className="whitespace-nowrap">
+                    {fmtDate(d.created_at)}
+                  </Td>
+                  <Td>
+                    <div className="flex items-center justify-end gap-2">
+                      <form action={downloadDocument}>
+                        <input type="hidden" name="path" value={d.path} />
+                        <input type="hidden" name="name" value={d.name} />
+                        <button
+                          type="submit"
+                          className="border border-line-2 bg-surface-2 px-3 py-1 text-xs text-fg transition-opacity hover:opacity-90"
+                        >
+                          Last ned
+                        </button>
+                      </form>
+                      <form action={deleteDocument.bind(null, d.id)}>
+                        <button
+                          type="submit"
+                          className="border border-danger/30 bg-danger/5 px-3 py-1 text-xs text-danger transition-opacity hover:opacity-90"
+                        >
+                          Slett
+                        </button>
+                      </form>
+                    </div>
+                  </Td>
+                </Tr>
+              ))}
+            </TBody>
+          </Table>
         )}
-      </div>
+      </Card>
 
       <p className="text-xs text-muted">
         Arkivet er privat. Nedlasting skjer via en signert lenke som er gyldig i

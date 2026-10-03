@@ -1,6 +1,10 @@
 import { getNotices, type NoticeLevel } from "@/lib/notices-queries";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Badge, type BadgeTone } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Input, Select, Field } from "@/components/ui/Input";
 import { createNotice, toggleNotice, deleteNotice } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -18,10 +22,10 @@ const AUDIENCE_LABEL: Record<string, string> = {
   ansatt: "Ansatt",
 };
 
-const LEVEL_BADGE: Record<NoticeLevel, string> = {
-  info: "bg-surface-2 text-muted",
-  warning: "bg-accent-soft/15 text-accent-soft",
-  critical: "bg-danger/10 text-danger",
+const LEVEL_TONE: Record<NoticeLevel, BadgeTone> = {
+  info: "neutral",
+  warning: "accent",
+  critical: "danger",
 };
 
 function fmt(iso: string | null) {
@@ -50,101 +54,74 @@ export default async function AdminMeldinger() {
       />
 
       {/* Ny melding */}
-      <form action={createNotice} className="space-y-4 border border-line bg-surface p-6">
-        <h2 className="font-display text-lg font-bold">Ny melding</h2>
-        <div>
-          <label className="mb-1 block text-xs text-muted">Tittel</label>
-          <input
-            name="title"
-            required
-            placeholder="F.eks. Kassesystemet er nede fra kl. 12"
-            className="w-full border border-line-2 bg-canvas px-3 py-2 text-sm text-fg"
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs text-muted">Tekst</label>
-          <textarea
-            name="body"
-            rows={4}
-            placeholder="Utfyllende beskrivelse (valgfritt) …"
-            className="w-full resize-y border border-line-2 bg-canvas px-3 py-2 text-sm text-fg"
-          />
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-xs text-muted">Nivå</label>
-            <select
-              name="level"
-              defaultValue="info"
-              className="w-full border border-line-2 bg-canvas px-3 py-2 text-sm text-fg"
-            >
-              <option value="info">Info</option>
-              <option value="warning">Viktig</option>
-              <option value="critical">Kritisk</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted">Målgruppe</label>
-            <select
-              name="audience"
-              defaultValue="all"
-              className="w-full border border-line-2 bg-canvas px-3 py-2 text-sm text-fg"
-            >
-              <option value="all">Alle</option>
-              <option value="admin">Admin</option>
-              <option value="shop">Kasse/butikk</option>
-              <option value="ansatt">Ansatt</option>
-            </select>
-          </div>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-xs text-muted">
-              Vises fra <span className="text-muted/70">(valgfritt)</span>
-            </label>
-            <input
-              type="datetime-local"
-              name="starts_at"
-              className="w-full border border-line-2 bg-canvas px-3 py-2 text-sm text-fg"
+      <Card title="Ny melding">
+        <form action={createNotice} className="space-y-4">
+          <Field label="Tittel">
+            <Input
+              name="title"
+              required
+              placeholder="F.eks. Kassesystemet er nede fra kl. 12"
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted">
-              Vises til <span className="text-muted/70">(valgfritt)</span>
-            </label>
-            <input
-              type="datetime-local"
-              name="ends_at"
-              className="w-full border border-line-2 bg-canvas px-3 py-2 text-sm text-fg"
+          </Field>
+          <Field label="Tekst">
+            <textarea
+              name="body"
+              rows={4}
+              placeholder="Utfyllende beskrivelse (valgfritt) …"
+              className="w-full resize-y border border-line-2 bg-canvas px-3 py-2 text-sm text-fg"
             />
+          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Nivå">
+              <Select name="level" defaultValue="info">
+                <option value="info">Info</option>
+                <option value="warning">Viktig</option>
+                <option value="critical">Kritisk</option>
+              </Select>
+            </Field>
+            <Field label="Målgruppe">
+              <Select name="audience" defaultValue="all">
+                <option value="all">Alle</option>
+                <option value="admin">Admin</option>
+                <option value="shop">Kasse/butikk</option>
+                <option value="ansatt">Ansatt</option>
+              </Select>
+            </Field>
           </div>
-        </div>
-        <label className="flex items-center gap-2 text-sm text-fg">
-          <input
-            type="checkbox"
-            name="active"
-            defaultChecked
-            className="accent-[#F47721]"
-          />
-          Aktiv (vis meldingen nå)
-        </label>
-        <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit" className="px-5 py-2 text-sm">
-            Opprett melding
-          </Button>
-          <span className="text-xs text-muted">
-            Tom «fra/til» betyr uten start/slutt.
-          </span>
-        </div>
-      </form>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Vises fra" hint="(valgfritt)">
+              <Input type="datetime-local" name="starts_at" />
+            </Field>
+            <Field label="Vises til" hint="(valgfritt)">
+              <Input type="datetime-local" name="ends_at" />
+            </Field>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-fg">
+            <input
+              type="checkbox"
+              name="active"
+              defaultChecked
+              className="accent-[#F47721]"
+            />
+            Aktiv (vis meldingen nå)
+          </label>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="submit" className="px-5 py-2 text-sm">
+              Opprett melding
+            </Button>
+            <span className="text-xs text-muted">
+              Tom «fra/til» betyr uten start/slutt.
+            </span>
+          </div>
+        </form>
+      </Card>
 
       {/* Eksisterende meldinger */}
-      <div className="border border-line bg-surface">
-        <div className="border-b border-line px-6 py-4">
-          <h2 className="font-display text-lg font-bold">Eksisterende meldinger</h2>
-        </div>
+      <Card title="Eksisterende meldinger" padded={false}>
         {notices.length === 0 ? (
-          <p className="px-6 py-8 text-sm text-muted">Ingen meldinger enda.</p>
+          <div className="p-6">
+            <EmptyState description="Ingen meldinger enda." />
+          </div>
         ) : (
           <ul className="divide-y divide-line">
             {notices.map((n) => (
@@ -152,22 +129,13 @@ export default async function AdminMeldinger() {
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={
-                          "rounded px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase " +
-                          (LEVEL_BADGE[n.level] ?? LEVEL_BADGE.info)
-                        }
-                      >
+                      <Badge tone={LEVEL_TONE[n.level] ?? "neutral"}>
                         {LEVEL_LABEL[n.level] ?? n.level}
-                      </span>
-                      <span className="rounded bg-surface-2 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-muted uppercase">
+                      </Badge>
+                      <Badge tone="neutral">
                         {AUDIENCE_LABEL[n.audience] ?? n.audience}
-                      </span>
-                      {!n.active && (
-                        <span className="rounded bg-surface-2 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-muted uppercase">
-                          Av
-                        </span>
-                      )}
+                      </Badge>
+                      {!n.active && <Badge tone="neutral">Av</Badge>}
                     </div>
                     <p className="mt-2 font-medium text-fg">{n.title}</p>
                     {n.body && (
@@ -182,20 +150,22 @@ export default async function AdminMeldinger() {
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <form action={toggleNotice.bind(null, n.id, !n.active)}>
-                      <button
+                      <Button
+                        variant="subtle"
                         type="submit"
-                        className="border border-line-2 px-3 py-1.5 text-xs font-medium text-fg transition-colors hover:bg-surface-2"
+                        className="px-3 py-1.5 text-xs"
                       >
                         {n.active ? "Slå av" : "Slå på"}
-                      </button>
+                      </Button>
                     </form>
                     <form action={deleteNotice.bind(null, n.id)}>
-                      <button
+                      <Button
+                        variant="danger"
                         type="submit"
-                        className="border border-danger/30 px-3 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger/10"
+                        className="px-3 py-1.5 text-xs"
                       >
                         Slett
-                      </button>
+                      </Button>
                     </form>
                   </div>
                 </div>
@@ -203,7 +173,7 @@ export default async function AdminMeldinger() {
             ))}
           </ul>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

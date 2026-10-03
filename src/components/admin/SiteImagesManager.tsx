@@ -9,6 +9,11 @@ import {
   moveSiteImage,
 } from "@/app/admin/nettside/actions";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Field, Input } from "@/components/ui/Input";
 
 const SECTIONS: { key: SiteSection; title: string; hint: string }[] = [
   { key: "hero", title: "Hero-karusell", hint: "Bilder og klipp øverst på forsiden" },
@@ -70,39 +75,42 @@ function ImageRow({
           {img.kind === "video" ? "🎬 Klipp" : "🖼 Bilde"}
           {img.alt ? ` · ${img.alt}` : ""}
         </p>
-        <p className="text-[11px] text-muted">
+        <Badge tone={img.active ? "success" : "neutral"}>
           {img.active ? "Vises på forsiden" : "Skjult (kun forhåndsvisning)"}
-        </p>
+        </Badge>
         {err && <p className="text-[11px] text-danger">{err}</p>}
       </div>
       <div className="flex items-center gap-1">
-        <button
+        <Button
+          variant="subtle"
           type="button"
           aria-label="Flytt opp"
           disabled={isTop || pending}
           onClick={() => run(() => moveSiteImage(img.id, "up"))}
-          className="border border-line-2 px-2 py-1 text-xs text-muted hover:text-fg disabled:opacity-30"
+          className="px-2 py-1 text-xs"
         >
           ↑
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="subtle"
           type="button"
           aria-label="Flytt ned"
           disabled={isBottom || pending}
           onClick={() => run(() => moveSiteImage(img.id, "down"))}
-          className="border border-line-2 px-2 py-1 text-xs text-muted hover:text-fg disabled:opacity-30"
+          className="px-2 py-1 text-xs"
         >
           ↓
-        </button>
+        </Button>
       </div>
-      <button
+      <Button
+        variant="link"
         type="button"
         disabled={pending}
         onClick={() => run(() => toggleSiteImage(img.id, !img.active))}
-        className="text-xs font-semibold text-accent-soft hover:underline disabled:opacity-40"
+        className="text-xs font-semibold"
       >
         {img.active ? "Skjul" : "Vis"}
-      </button>
+      </Button>
       <ConfirmButton
         label="Slett"
         question="Slette dette bildet?"
@@ -120,7 +128,8 @@ function SectionBlock({ section, images }: { section: (typeof SECTIONS)[number];
   const list = images.filter((i) => i.section === section.key);
 
   return (
-    <div className="space-y-3 border border-line bg-surface p-5">
+    <Card>
+      <div className="space-y-3">
       <div>
         <h3 className="font-display text-lg font-bold">{section.title}</h3>
         <p className="text-xs text-muted">{section.hint}</p>
@@ -148,29 +157,22 @@ function SectionBlock({ section, images }: { section: (typeof SECTIONS)[number];
           />
         </label>
         {section.key === "gallery" && (
-          <label className="text-xs text-muted">
-            Alt-tekst
-            <input
-              name="alt"
-              placeholder="Kort beskrivelse"
-              className="mt-1 block border border-line-2 bg-canvas px-2 py-1 text-sm outline-none focus:border-accent-soft"
-            />
-          </label>
+          <Field label="Alt-tekst">
+            <Input name="alt" placeholder="Kort beskrivelse" />
+          </Field>
         )}
-        <button
+        <Button
           type="submit"
           disabled={pending}
-          className="bg-accent px-3 py-1.5 text-sm font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-50"
+          className="px-3 py-1.5 text-sm"
         >
           {pending ? "Laster opp …" : "Legg til"}
-        </button>
+        </Button>
         {err && <p className="w-full text-xs text-danger">{err}</p>}
       </form>
 
       {list.length === 0 ? (
-        <p className="text-sm text-muted">
-          Ingen egne bilder – forsiden viser standardbildene til du legger til noen.
-        </p>
+        <EmptyState description="Ingen egne bilder – forsiden viser standardbildene til du legger til noen." />
       ) : (
         <div className="space-y-2">
           {list.map((img, i) => (
@@ -183,7 +185,8 @@ function SectionBlock({ section, images }: { section: (typeof SECTIONS)[number];
           ))}
         </div>
       )}
-    </div>
+      </div>
+    </Card>
   );
 }
 

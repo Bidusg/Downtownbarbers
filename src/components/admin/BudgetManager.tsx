@@ -4,9 +4,11 @@ import { useTransition } from "react";
 import type { Budget, StaffOption } from "@/lib/ops-queries";
 import { setBudget, deleteBudget } from "@/app/admin/budsjett/actions";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
-
-const inputCls =
-  "border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft";
+import { Card } from "@/components/ui/Card";
+import { Table, THead, TBody, Tr, Th, Td } from "@/components/ui/Table";
+import { Select } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 const kr = (n: number) => n.toLocaleString("nb-NO") + " kr";
 
@@ -37,61 +39,56 @@ export function BudgetManager({
       <form method="get" className="flex flex-wrap items-end gap-3 border border-line bg-surface p-4">
         <label className="text-xs text-muted">
           Måned
-          <select name="month" defaultValue={month} className={`mt-1 block ${inputCls}`}>
+          <Select name="month" defaultValue={month} className="mt-1 block">
             {MONTHS.map((m, i) => (
               <option key={m} value={i + 1}>
                 {m}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="text-xs text-muted">
           År
-          <select name="year" defaultValue={year} className={`mt-1 block ${inputCls}`}>
+          <Select name="year" defaultValue={year} className="mt-1 block">
             {years.map((y) => (
               <option key={y} value={y}>
                 {y}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
-        <button
-          type="submit"
-          className="bg-surface-2 px-4 py-2 text-sm font-semibold text-fg hover:bg-line"
-        >
+        <Button type="submit" variant="subtle" className="px-4 py-2 text-sm">
           Vis
-        </button>
+        </Button>
         <span className="ml-auto text-sm text-muted">
           Totalt mål: <span className="font-display text-fg">{kr(total)}</span>
         </span>
       </form>
 
       {staff.length === 0 ? (
-        <div className="border border-line bg-surface px-4 py-8 text-center text-sm text-muted">
-          Ingen aktive ansatte enda – legg til ansatte først.
-        </div>
+        <EmptyState description="Ingen aktive ansatte enda – legg til ansatte først." />
       ) : (
-        <div className="overflow-x-auto border border-line">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-2 text-left text-xs tracking-wide text-muted uppercase">
-              <tr>
-                <th className="px-4 py-3">Barber</th>
-                <th className="px-4 py-3">Mål {MONTHS[month - 1]} {year}</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody>
+        <Card padded={false}>
+          <Table>
+            <THead>
+              <Tr head className="bg-surface-2 tracking-wide uppercase">
+                <Th>Barber</Th>
+                <Th>Mål {MONTHS[month - 1]} {year}</Th>
+                <Th></Th>
+              </Tr>
+            </THead>
+            <TBody>
               {staff.map((s) => {
                 const b = byStaff.get(s.id);
                 return (
-                  <tr key={s.id} className="border-t border-line">
-                    <td className="px-4 py-3 font-medium text-fg">
+                  <Tr key={s.id}>
+                    <Td className="font-medium text-fg">
                       {s.full_name}
                       <span className="ml-2 text-xs text-muted">
                         {s.title ?? "Barber"}
                       </span>
-                    </td>
-                    <td className="px-4 py-3">
+                    </Td>
+                    <Td>
                       <form action={setBudget} className="flex items-center gap-2">
                         <input type="hidden" name="staff_id" value={s.id} />
                         <input type="hidden" name="year" value={year} />
@@ -113,8 +110,8 @@ export function BudgetManager({
                           Lagre
                         </button>
                       </form>
-                    </td>
-                    <td className="px-4 py-3 text-right">
+                    </Td>
+                    <Td align="right">
                       {b && (
                         <ConfirmButton
                           label="Nullstill"
@@ -125,13 +122,13 @@ export function BudgetManager({
                           onConfirm={() => deleteBudget(b.id)}
                         />
                       )}
-                    </td>
-                  </tr>
+                    </Td>
+                  </Tr>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
+            </TBody>
+          </Table>
+        </Card>
       )}
     </div>
   );

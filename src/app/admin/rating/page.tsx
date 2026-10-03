@@ -2,6 +2,8 @@ import { getRatingOverview } from "@/lib/rating-queries";
 import { getReviewsSummary, getReviewConfigAdmin } from "@/lib/reviews";
 import { ReviewConfigForm } from "@/components/admin/ReviewConfigForm";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +44,7 @@ export default async function AdminRating() {
       <PageHeader title="Rating & omdømme" />
 
       {/* ---------- Samlet omdømme (alle kilder) ---------- */}
-      <div className="border border-line bg-surface p-6">
+      <Card>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h2 className="font-display text-lg font-bold">Samlet omdømme</h2>
@@ -101,24 +103,23 @@ export default async function AdminRating() {
           ))}
         </div>
 
-      </div>
+      </Card>
 
       {/* ---------- Koble til kilder ---------- */}
-      <div className="border border-line bg-surface p-6">
+      <Card>
         <ReviewConfigForm status={reviewConfig} />
-      </div>
+      </Card>
 
       {/* ---------- Snittrating per barber (egne kunder) ---------- */}
-      <div className="border border-line bg-surface p-6">
+      <Card>
         <h2 className="mb-1 font-display text-lg font-bold">Snittrating per barber</h2>
         <p className="mb-5 text-sm text-muted">
           Fra egne kunder som vurderer etter fullført time.
         </p>
         {overview.perBarber.length === 0 ? (
-          <p className="text-sm text-muted">
-            Ingen kundevurderinger enda. De dukker opp her når kunder vurderer via
-            lenken de får etter en fullført time.
-          </p>
+          <EmptyState
+            description="Ingen kundevurderinger enda. De dukker opp her når kunder vurderer via lenken de får etter en fullført time."
+          />
         ) : (
           <div className="space-y-4">
             {overview.perBarber.map((b) => (
@@ -138,15 +139,13 @@ export default async function AdminRating() {
             ))}
           </div>
         )}
-      </div>
+      </Card>
 
       {/* ---------- Siste tilbakemeldinger (alle kilder) ---------- */}
-      <div className="border border-line bg-surface p-6">
+      <Card>
         <h2 className="mb-5 font-display text-lg font-bold">Siste tilbakemeldinger</h2>
         {summary.recent.length === 0 ? (
-          <p className="text-sm text-muted">
-            Ingen skriftlige tilbakemeldinger enda.
-          </p>
+          <EmptyState description="Ingen skriftlige tilbakemeldinger enda." />
         ) : (
           <ul className="divide-y divide-line">
             {summary.recent.map((c, i) => (
@@ -178,7 +177,7 @@ export default async function AdminRating() {
             ))}
           </ul>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

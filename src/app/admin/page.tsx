@@ -3,6 +3,7 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { RevenueChart } from "@/components/admin/RevenueChart";
 import {
   getRevenueSeries,
@@ -33,13 +34,14 @@ export default async function AdminDashboard() {
       />
 
       {!sum.hasData && (
-        <div className="flex items-start gap-3 border border-accent-soft/30 bg-accent-soft/5 px-4 py-3 text-sm">
-          <span className="mt-0.5 text-accent-soft">●</span>
-          <p className="text-muted">
-            <strong className="text-fg">Venter på salg.</strong> Omsetningstallene
-            fylles automatisk når timer fullføres og betales i kassen.
-          </p>
-        </div>
+        <EmptyState
+          description={
+            <>
+              <strong className="text-fg">Venter på salg.</strong> Omsetningstallene
+              fylles automatisk når timer fullføres og betales i kassen.
+            </>
+          }
+        />
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

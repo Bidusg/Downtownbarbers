@@ -4,6 +4,11 @@ import { useState, useTransition } from "react";
 import type { AdminStaff } from "@/lib/admin-queries";
 import type { StaffLevel, PickerService } from "@/lib/levels-queries";
 import { FileInput } from "@/components/ui/FileInput";
+import { Card } from "@/components/ui/Card";
+import { Table, THead, TBody, Tr, Th, Td, TableEmpty } from "@/components/ui/Table";
+import { Input, Select, Field } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 import {
   createStaff,
   updateStaff,
@@ -15,9 +20,6 @@ import {
   createStaffLogin,
   resendStaffPassword,
 } from "@/app/admin/ansatte/actions";
-
-const editInputCls =
-  "w-full border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft";
 
 /** Rediger-modal for én ansatt: navn, e-post, tittel, ansattnr, nivå + tjenester. */
 function EditStaffModal({
@@ -110,49 +112,39 @@ function EditStaffModal({
           <h3 className="font-display text-lg font-bold text-fg">
             Rediger ansatt
           </h3>
-          <button
+          <Button
+            variant="ghost"
             onClick={onClose}
             aria-label="Lukk"
-            className="text-2xl leading-none text-muted hover:text-fg"
+            className="text-2xl leading-none"
           >
             ×
-          </button>
+          </Button>
         </div>
         <div className="space-y-3">
-          <div>
-            <label className="mb-1 block text-xs text-muted">Fullt navn</label>
-            <input value={fullName} onChange={(e) => setFullName(e.target.value)} className={editInputCls} />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted">
-              E-post <span className="text-muted">(kreves for innlogging)</span>
-            </label>
-            <input
+          <Field label="Fullt navn">
+            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
+          </Field>
+          <Field label="E-post" hint="(kreves for innlogging)">
+            <Input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               type="email"
               inputMode="email"
               placeholder="navn@epost.no"
-              className={editInputCls}
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted">Tittel</label>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Barber / Master / Lærling" className={editInputCls} />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted">Ansattnr</label>
-            <input value={empNo} onChange={(e) => setEmpNo(e.target.value)} placeholder="DB-007" className={editInputCls} />
-          </div>
+          </Field>
+          <Field label="Tittel">
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Barber / Master / Lærling" />
+          </Field>
+          <Field label="Ansattnr">
+            <Input value={empNo} onChange={(e) => setEmpNo(e.target.value)} placeholder="DB-007" />
+          </Field>
 
-          <div>
-            <label className="mb-1 block text-xs text-muted">
-              Nivå <span className="text-muted">(styrer prisen kunden ser)</span>
-            </label>
-            <select
+          <Field label="Nivå" hint="(styrer prisen kunden ser)">
+            <Select
               value={levelId}
               onChange={(e) => setLevelId(e.target.value)}
-              className={editInputCls}
             >
               <option value="">Uten nivå (basispris)</option>
               {levels.map((l) => (
@@ -160,8 +152,8 @@ function EditStaffModal({
                   {l.name}
                 </option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </Field>
 
           <div>
             <div className="mb-1 flex items-center justify-between">
@@ -169,20 +161,21 @@ function EditStaffModal({
                 Tjenester denne leverer
               </label>
               <div className="flex gap-2 text-xs">
-                <button
+                <Button
                   type="button"
+                  variant="link"
                   onClick={() => setServiceIds(new Set(services.map((s) => s.id)))}
-                  className="text-accent-soft hover:underline"
                 >
                   Alle
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={() => setServiceIds(new Set())}
-                  className="text-muted hover:text-fg hover:underline"
+                  className="hover:underline"
                 >
                   Ingen
-                </button>
+                </Button>
               </div>
             </div>
             <div className="max-h-56 space-y-3 overflow-y-auto border border-line-2 bg-canvas p-3">
@@ -220,16 +213,17 @@ function EditStaffModal({
 
           {err && <p className="text-xs text-danger">{err}</p>}
           <div className="flex items-center gap-2 pt-1">
-            <button
+            <Button
+              variant="primary"
               onClick={save}
               disabled={pending}
-              className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-40"
+              className="px-4 py-2 text-sm"
             >
               {pending ? "Lagrer …" : "Lagre"}
-            </button>
-            <button onClick={onClose} className="text-sm text-muted hover:text-fg">
+            </Button>
+            <Button variant="ghost" onClick={onClose} className="text-sm">
               Avbryt
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -298,13 +292,13 @@ function LoginCell({
         <code className="rounded bg-canvas px-2 py-1 font-mono text-sm text-fg select-all">
           {creds.pw}
         </code>
-        <button
+        <Button
           type="button"
+          variant="link"
           onClick={copyPw}
-          className="text-accent-soft hover:underline"
         >
           {copied ? "Kopiert ✓" : "Kopier"}
-        </button>
+        </Button>
       </div>
       <p className="mt-1 text-muted">
         Gi dette til den ansatte. De logger inn på /logg-inn og bør bytte passord.
@@ -316,16 +310,15 @@ function LoginCell({
     return (
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
-          <span className="rounded-full bg-accent-soft/15 px-2 py-0.5 text-[10px] font-semibold text-accent-soft">
-            Har innlogging ✓
-          </span>
-          <button
+          <Badge tone="accent">Har innlogging ✓</Badge>
+          <Button
+            variant="link"
             onClick={() => run(() => resendStaffPassword(id))}
             disabled={pending}
-            className="text-xs text-accent-soft hover:underline disabled:opacity-40"
+            className="text-xs"
           >
             {pending ? "Sender …" : "Send nytt passord"}
-          </button>
+          </Button>
         </div>
         {msg && (
           <span className={"text-xs " + (err ? "text-danger" : "text-muted")}>
@@ -339,14 +332,15 @@ function LoginCell({
 
   return (
     <div className="flex flex-col gap-1">
-      <button
+      <Button
+        variant="primary"
         onClick={() => run(() => createStaffLogin(id))}
         disabled={pending || !email}
         title={email ? undefined : "Ansatt mangler e-post"}
-        className="w-fit bg-accent px-2.5 py-1 text-xs font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-40"
+        className="w-fit px-2.5 py-1 text-xs"
       >
         {pending ? "Oppretter …" : "Opprett innlogging"}
-      </button>
+      </Button>
       {!email && (
         <span className="text-xs text-muted">Mangler e-post</span>
       )}
@@ -368,20 +362,16 @@ function PinCell({ id, hasPin }: { id: string; hasPin: boolean }) {
   if (!open) {
     return (
       <div className="flex items-center gap-2">
-        <span
-          className={
-            "rounded-full px-2 py-0.5 text-[10px] font-semibold " +
-            (hasPin ? "bg-accent-soft/15 text-accent-soft" : "bg-surface-2 text-muted")
-          }
-        >
+        <Badge tone={hasPin ? "accent" : "neutral"}>
           {hasPin ? "PIN satt ✓" : "Ikke satt"}
-        </span>
-        <button
+        </Badge>
+        <Button
+          variant="link"
           onClick={() => { setOpen(true); setMsg(null); }}
-          className="text-xs text-accent-soft hover:underline"
+          className="text-xs"
         >
           {hasPin ? "Nullstill" : "Sett PIN"}
-        </button>
+        </Button>
       </div>
     );
   }
@@ -394,7 +384,8 @@ function PinCell({ id, hasPin }: { id: string; hasPin: boolean }) {
         placeholder="4 siffer"
         className="w-20 border border-line-2 bg-canvas px-2 py-1 text-xs outline-none focus:border-accent-soft"
       />
-      <button
+      <Button
+        variant="primary"
         onClick={() =>
           start(async () => {
             const r = await setStaffPin(id, pin);
@@ -403,10 +394,10 @@ function PinCell({ id, hasPin }: { id: string; hasPin: boolean }) {
           })
         }
         disabled={pending || pin.length !== 4}
-        className="bg-accent px-2 py-1 text-xs font-semibold text-accent-fg disabled:opacity-40"
+        className="px-2 py-1 text-xs"
       >
         Lagre
-      </button>
+      </Button>
       {msg && <span className="text-xs text-muted">{msg}</span>}
     </div>
   );
@@ -428,26 +419,20 @@ function PostnummerCell({
   if (!open) {
     return (
       <div className="flex items-center gap-2">
-        <span
-          className={
-            "rounded-full px-2 py-0.5 text-[10px] font-semibold " +
-            (postnummer
-              ? "bg-accent-soft/15 text-accent-soft"
-              : "bg-surface-2 text-muted")
-          }
-        >
+        <Badge tone={postnummer ? "accent" : "neutral"}>
           {postnummer ? postnummer : "Mangler"}
-        </span>
-        <button
+        </Badge>
+        <Button
+          variant="link"
           onClick={() => {
             setOpen(true);
             setMsg(null);
             setErr(false);
           }}
-          className="text-xs text-accent-soft hover:underline"
+          className="text-xs"
         >
           {postnummer ? "Endre" : "Sett"}
-        </button>
+        </Button>
       </div>
     );
   }
@@ -460,7 +445,8 @@ function PostnummerCell({
         placeholder="4 siffer"
         className="w-20 border border-line-2 bg-canvas px-2 py-1 text-xs outline-none focus:border-accent-soft"
       />
-      <button
+      <Button
+        variant="primary"
         onClick={() =>
           start(async () => {
             setMsg(null);
@@ -476,10 +462,10 @@ function PostnummerCell({
           })
         }
         disabled={pending || (value.length > 0 && value.length !== 4)}
-        className="bg-accent px-2 py-1 text-xs font-semibold text-accent-fg disabled:opacity-40"
+        className="px-2 py-1 text-xs"
       >
         Lagre
-      </button>
+      </Button>
       {msg && (
         <span className={"text-xs " + (err ? "text-danger" : "text-muted")}>
           {msg}
@@ -512,8 +498,8 @@ export function StaffManager({
   const inactiveStaff = staff.filter((s) => !s.active);
 
   const renderRow = (s: AdminStaff) => (
-    <tr key={s.id} className="border-t border-line">
-      <td className="px-4 py-3">
+    <Tr key={s.id}>
+      <Td>
         <div className="flex items-center gap-3">
           <span className="flex h-9 w-9 items-center justify-center bg-surface-2 font-display text-sm font-bold text-fg">
             {s.full_name.charAt(0)}
@@ -521,12 +507,13 @@ export function StaffManager({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="font-medium text-fg">{s.full_name}</span>
-              <button
+              <Button
+                variant="link"
                 onClick={() => setEditing(s)}
-                className="text-xs text-accent-soft hover:underline"
+                className="text-xs"
               >
                 Rediger
-              </button>
+              </Button>
             </div>
             <span
               className={
@@ -537,19 +524,17 @@ export function StaffManager({
             </span>
           </div>
         </div>
-      </td>
-      <td className="px-4 py-3 text-muted">{s.employee_number ?? "—"}</td>
-      <td className="px-4 py-3 text-muted">{s.title ?? "—"}</td>
-      <td className="px-4 py-3">
+      </Td>
+      <Td muted>{s.employee_number ?? "—"}</Td>
+      <Td muted>{s.title ?? "—"}</Td>
+      <Td>
         {levelName(s.level_id) ? (
-          <span className="rounded-full bg-accent-soft/15 px-2 py-0.5 text-[10px] font-semibold text-accent-soft">
-            {levelName(s.level_id)}
-          </span>
+          <Badge tone="accent">{levelName(s.level_id)}</Badge>
         ) : (
           <span className="text-xs text-muted">—</span>
         )}
-      </td>
-      <td className="px-4 py-3">
+      </Td>
+      <Td>
         <div className="flex flex-col gap-0.5">
           {s.contract_url && (
             <a href={s.contract_url} target="_blank" className="text-xs text-danger hover:underline">
@@ -560,17 +545,17 @@ export function StaffManager({
             Dokumenter
           </a>
         </div>
-      </td>
-      <td className="px-4 py-3">
+      </Td>
+      <Td>
         <LoginCell id={s.id} hasLogin={s.profile_id != null} email={s.email} />
-      </td>
-      <td className="px-4 py-3">
+      </Td>
+      <Td>
         <PinCell id={s.id} hasPin={s.has_pin} />
-      </td>
-      <td className="px-4 py-3">
+      </Td>
+      <Td>
         <PostnummerCell id={s.id} postnummer={s.postnummer} />
-      </td>
-      <td className="px-4 py-3">
+      </Td>
+      <Td>
         <button
           onClick={() => start(() => toggleStaff(s.id, !s.active))}
           disabled={pending}
@@ -581,22 +566,22 @@ export function StaffManager({
         >
           {s.active ? "Aktiv" : "Inaktiv"}
         </button>
-      </td>
-    </tr>
+      </Td>
+    </Tr>
   );
 
   const headRow = (
-    <tr>
-      <th className="px-4 py-3">Ansatt</th>
-      <th className="px-4 py-3">Ansattnr</th>
-      <th className="px-4 py-3">Tittel</th>
-      <th className="px-4 py-3">Nivå</th>
-      <th className="px-4 py-3">Kontrakt</th>
-      <th className="px-4 py-3">Innlogging</th>
-      <th className="px-4 py-3">Stemplings-PIN</th>
-      <th className="px-4 py-3">Postnummer</th>
-      <th className="px-4 py-3">Status</th>
-    </tr>
+    <Tr head>
+      <Th>Ansatt</Th>
+      <Th>Ansattnr</Th>
+      <Th>Tittel</Th>
+      <Th>Nivå</Th>
+      <Th>Kontrakt</Th>
+      <Th>Innlogging</Th>
+      <Th>Stemplings-PIN</Th>
+      <Th>Postnummer</Th>
+      <Th>Status</Th>
+    </Tr>
   );
 
   return (
@@ -615,12 +600,13 @@ export function StaffManager({
           {activeStaff.length} aktive ansatte
           {inactiveStaff.length > 0 && ` · ${inactiveStaff.length} inaktive`}
         </p>
-        <button
+        <Button
+          variant="primary"
           onClick={() => setOpen((o) => !o)}
-          className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
+          className="px-4 py-2 text-sm"
         >
           {open ? "Lukk" : "+ Ny ansatt"}
-        </button>
+        </Button>
       </div>
 
       {open && (
@@ -631,12 +617,12 @@ export function StaffManager({
           }}
           className="grid gap-3 border border-line bg-surface p-5 sm:grid-cols-2"
         >
-          <input name="employee_number" placeholder="Ansattnr (f.eks. DB-007)" required className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft" />
-          <input name="full_name" placeholder="Fullt navn" required className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft" />
-          <input name="email" type="email" inputMode="email" placeholder="E-post (for innlogging)" className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft" />
-          <input name="title" placeholder="Tittel (Barber / Master / Lærling)" className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft" />
-          <input name="bio" placeholder="Kort bio" className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft" />
-          <input name="postnummer" placeholder="Postnummer (passord til lønnsoversikt-ZIP)" inputMode="numeric" maxLength={4} pattern="\d{4}" className="border border-line-2 bg-canvas px-3 py-2 text-sm outline-none focus:border-accent-soft" />
+          <Input name="employee_number" placeholder="Ansattnr (f.eks. DB-007)" required />
+          <Input name="full_name" placeholder="Fullt navn" required />
+          <Input name="email" type="email" inputMode="email" placeholder="E-post (for innlogging)" />
+          <Input name="title" placeholder="Tittel (Barber / Master / Lærling)" />
+          <Input name="bio" placeholder="Kort bio" />
+          <Input name="postnummer" placeholder="Postnummer (passord til lønnsoversikt-ZIP)" inputMode="numeric" maxLength={4} pattern="\d{4}" />
           <div className="text-xs text-muted">
             Bilde
             <FileInput name="photo" accept="image/*" buttonLabel="Velg bilde" />
@@ -645,116 +631,25 @@ export function StaffManager({
             Kontrakt (PDF)
             <FileInput name="contract" accept="application/pdf" buttonLabel="Velg PDF" />
           </div>
-          <button type="submit" className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover sm:col-span-2">
+          <Button variant="primary" type="submit" className="px-4 py-2 text-sm sm:col-span-2">
             Lagre ansatt
-          </button>
+          </Button>
         </form>
       )}
 
-      <div className="overflow-x-auto border border-line">
-        <table className="w-full text-sm">
-          <thead className="bg-surface-2 text-left text-xs tracking-wide text-muted uppercase">
-            <tr>
-              <th className="px-4 py-3">Ansatt</th>
-              <th className="px-4 py-3">Ansattnr</th>
-              <th className="px-4 py-3">Tittel</th>
-              <th className="px-4 py-3">Nivå</th>
-              <th className="px-4 py-3">Kontrakt</th>
-              <th className="px-4 py-3">Innlogging</th>
-              <th className="px-4 py-3">Stemplings-PIN</th>
-              <th className="px-4 py-3">Postnummer</th>
-              <th className="px-4 py-3">Status</th>
-            </tr>
-          </thead>
-          <tbody>
+      <Card padded={false}>
+        <Table>
+          <THead>{headRow}</THead>
+          <TBody>
             {activeStaff.length === 0 && (
-              <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-muted">
-                  Ingen aktive ansatte – legg til den første.
-                </td>
-              </tr>
+              <TableEmpty colSpan={9}>
+                Ingen aktive ansatte – legg til den første.
+              </TableEmpty>
             )}
-            {activeStaff.map((s) => (
-              <tr key={s.id} className="border-t border-line">
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-9 w-9 items-center justify-center bg-surface-2 font-display text-sm font-bold text-fg">
-                      {s.full_name.charAt(0)}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-fg">{s.full_name}</span>
-                        <button
-                          onClick={() => setEditing(s)}
-                          className="text-xs text-accent-soft hover:underline"
-                        >
-                          Rediger
-                        </button>
-                      </div>
-                      <span
-                        className={
-                          "block text-xs " +
-                          (s.email ? "text-muted" : "text-danger")
-                        }
-                      >
-                        {s.email ?? "Mangler e-post"}
-                      </span>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-muted">{s.employee_number ?? "—"}</td>
-                <td className="px-4 py-3 text-muted">{s.title ?? "—"}</td>
-                <td className="px-4 py-3">
-                  {levelName(s.level_id) ? (
-                    <span className="rounded-full bg-accent-soft/15 px-2 py-0.5 text-[10px] font-semibold text-accent-soft">
-                      {levelName(s.level_id)}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-muted">—</span>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-col gap-0.5">
-                    {s.contract_url && (
-                      <a href={s.contract_url} target="_blank" className="text-xs text-danger hover:underline">
-                        Åpne (offentlig)
-                      </a>
-                    )}
-                    <a href={`/admin/ansattdokumenter?staff=${s.id}`} className="text-xs text-accent-soft hover:underline">
-                      Dokumenter
-                    </a>
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <LoginCell
-                    id={s.id}
-                    hasLogin={s.profile_id != null}
-                    email={s.email}
-                  />
-                </td>
-                <td className="px-4 py-3">
-                  <PinCell id={s.id} hasPin={s.has_pin} />
-                </td>
-                <td className="px-4 py-3">
-                  <PostnummerCell id={s.id} postnummer={s.postnummer} />
-                </td>
-                <td className="px-4 py-3">
-                  <button
-                    onClick={() => start(() => toggleStaff(s.id, !s.active))}
-                    disabled={pending}
-                    className={
-                      "rounded-full px-2.5 py-0.5 text-xs font-semibold " +
-                      (s.active ? "bg-accent-soft/15 text-accent-soft" : "bg-surface-2 text-muted")
-                    }
-                  >
-                    {s.active ? "Aktiv" : "Inaktiv"}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            {activeStaff.map(renderRow)}
+          </TBody>
+        </Table>
+      </Card>
 
       {inactiveStaff.length > 0 && (
         <details className="border border-line bg-surface">
@@ -762,14 +657,10 @@ export function StaffManager({
             Inaktive ansatte ({inactiveStaff.length})
             <span className="ml-2 text-xs font-normal text-muted">— klikk for å vise</span>
           </summary>
-          <div className="overflow-x-auto border-t border-line">
-            <table className="w-full text-sm">
-              <thead className="bg-surface-2 text-left text-xs uppercase tracking-wide text-muted">
-                {headRow}
-              </thead>
-              <tbody>{inactiveStaff.map(renderRow)}</tbody>
-            </table>
-          </div>
+          <Table>
+            <THead>{headRow}</THead>
+            <TBody>{inactiveStaff.map(renderRow)}</TBody>
+          </Table>
         </details>
       )}
     </div>

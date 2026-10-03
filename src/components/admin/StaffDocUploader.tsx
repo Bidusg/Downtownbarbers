@@ -2,6 +2,8 @@
 
 import { useRef, useState, useTransition } from "react";
 import { uploadStaffDocument } from "@/app/admin/ansattdokumenter/actions";
+import { Button } from "@/components/ui/Button";
+import { Field, Select } from "@/components/ui/Input";
 
 /**
  * Admin-opplasting av dokument for én valgt ansatt. Kun kategoriene
@@ -35,18 +37,12 @@ export function StaffDocUploader({ staffId }: { staffId: string }) {
       <h2 className="font-display text-lg font-bold">Last opp dokument</h2>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-xs text-muted">Kategori</label>
-          <select
-            name="category"
-            defaultValue="kontrakt"
-            required
-            className="w-full border border-line-2 bg-canvas px-3 py-2 text-sm text-fg outline-none focus:border-accent-soft"
-          >
+        <Field label="Kategori">
+          <Select name="category" defaultValue="kontrakt" required>
             <option value="kontrakt">Kontrakt</option>
             <option value="annet">Annet</option>
-          </select>
-        </div>
+          </Select>
+        </Field>
         <div>
           <label className="mb-1 block text-xs text-muted">Fil</label>
           <input
@@ -59,13 +55,14 @@ export function StaffDocUploader({ staffId }: { staffId: string }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <button
+        <Button
           type="submit"
+          variant="primary"
           disabled={pending}
-          className="bg-accent px-5 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
+          className="px-5 py-2 text-sm"
         >
           {pending ? "Laster opp…" : "Last opp"}
-        </button>
+        </Button>
         <span className="text-xs text-muted">
           Lagres privat. Maks 4 MB. Lønnsoversikt genereres av revisor.
         </span>

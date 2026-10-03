@@ -6,24 +6,18 @@ import { SmsConfigForm } from "@/components/admin/SmsConfigForm";
 import { TripletexCard } from "@/components/admin/TripletexCard";
 import { TRIPLETEX, tripletexConfigured } from "@/lib/tripletex/config";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Card } from "@/components/ui/Card";
+import { Badge, type BadgeTone } from "@/components/ui/Badge";
 
 export const dynamic = "force-dynamic";
 
 type Status = "ok" | "partial" | "off";
 
-function StatusBadge({ status, text }: { status: Status; text: string }) {
-  const cls =
-    status === "ok"
-      ? "bg-accent-soft/15 text-accent-soft"
-      : status === "partial"
-        ? "bg-surface-2 text-fg"
-        : "bg-surface-2 text-muted";
-  return (
-    <span className={"rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide " + cls}>
-      {text}
-    </span>
-  );
-}
+const STATUS_TONE: Record<Status, BadgeTone> = {
+  ok: "success",
+  partial: "warning",
+  off: "neutral",
+};
 
 function IntegrationCard({
   title,
@@ -37,13 +31,13 @@ function IntegrationCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="border border-line bg-surface p-5">
+    <Card>
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-fg">{title}</h3>
-        <StatusBadge status={status} text={badge} />
+        <Badge tone={STATUS_TONE[status]}>{badge}</Badge>
       </div>
       <div className="mt-2 text-sm text-muted">{children}</div>
-    </div>
+    </Card>
   );
 }
 
@@ -117,8 +111,8 @@ export default async function AdminIntegrasjoner() {
           badge={serviceRoleSet ? "Satt" : "Mangler"}
         >
           {serviceRoleSet
-            ? "Server-til-server-nøkkel er på plass (webhooks, cron, SMS-utsending)."
-            : "SUPABASE_SERVICE_ROLE_KEY mangler i Vercel — webhooks/cron/SMS vil ikke virke."}
+            ? "Nøkkelen for automatiske oppgaver er på plass (automatiske varsler, planlagte jobber og SMS-utsending)."
+            : "SUPABASE_SERVICE_ROLE_KEY mangler i Vercel — automatiske varsler, planlagte jobber og SMS vil ikke virke."}
         </IntegrationCard>
       </div>
 

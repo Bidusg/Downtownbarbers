@@ -3,23 +3,9 @@
 import { useState, useTransition } from "react";
 import type { SiteSettings, DayHours } from "@/lib/site-settings";
 import { updateSite } from "@/app/admin/nettside/actions";
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-xs font-semibold tracking-wide text-muted uppercase">
-        {label}
-      </span>
-      {children}
-    </label>
-  );
-}
+import { Card } from "@/components/ui/Card";
+import { Input, Select, Field } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
 
 const input =
   "w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft";
@@ -70,50 +56,56 @@ export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {
 
   return (
     <div className="space-y-8">
-      <section className="grid gap-4 border border-line bg-surface p-5 sm:grid-cols-2">
-        <h2 className="font-display text-lg font-bold sm:col-span-2">Topptekst (hero)</h2>
-        <Field label="Overskrift">
-          <input className={input} value={s.hero_title} onChange={(e) => set("hero_title", e.target.value)} />
-        </Field>
-        <Field label="Overskrift (kursiv, farget)">
-          <input className={input} value={s.hero_italic} onChange={(e) => set("hero_italic", e.target.value)} />
-        </Field>
-        <Field label="Ingress">
-          <textarea className={input} rows={2} value={s.intro} onChange={(e) => set("intro", e.target.value)} />
-        </Field>
-        <Field label="Etablert (år)">
-          <input className={input} value={s.established} onChange={(e) => set("established", e.target.value)} />
-        </Field>
-      </section>
+      <Card>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <h2 className="font-display text-lg font-bold sm:col-span-2">Topptekst (hero)</h2>
+          <Field label="Overskrift">
+            <Input value={s.hero_title} onChange={(e) => set("hero_title", e.target.value)} />
+          </Field>
+          <Field label="Overskrift (kursiv, farget)">
+            <Input value={s.hero_italic} onChange={(e) => set("hero_italic", e.target.value)} />
+          </Field>
+          <Field label="Ingress">
+            <textarea className={input} rows={2} value={s.intro} onChange={(e) => set("intro", e.target.value)} />
+          </Field>
+          <Field label="Etablert (år)">
+            <Input value={s.established} onChange={(e) => set("established", e.target.value)} />
+          </Field>
+        </div>
+      </Card>
 
-      <section className="grid gap-4 border border-line bg-surface p-5 sm:grid-cols-2">
-        <h2 className="font-display text-lg font-bold sm:col-span-2">Om oss & CTA</h2>
-        <Field label="Om oss-tekst">
-          <textarea className={input} rows={3} value={s.about_text} onChange={(e) => set("about_text", e.target.value)} />
-        </Field>
-        <div />
-        <Field label="CTA-overskrift">
-          <input className={input} value={s.cta_title} onChange={(e) => set("cta_title", e.target.value)} />
-        </Field>
-        <Field label="CTA-tekst">
-          <input className={input} value={s.cta_text} onChange={(e) => set("cta_text", e.target.value)} />
-        </Field>
-      </section>
+      <Card>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <h2 className="font-display text-lg font-bold sm:col-span-2">Om oss & CTA</h2>
+          <Field label="Om oss-tekst">
+            <textarea className={input} rows={3} value={s.about_text} onChange={(e) => set("about_text", e.target.value)} />
+          </Field>
+          <div />
+          <Field label="CTA-overskrift">
+            <Input value={s.cta_title} onChange={(e) => set("cta_title", e.target.value)} />
+          </Field>
+          <Field label="CTA-tekst">
+            <Input value={s.cta_text} onChange={(e) => set("cta_text", e.target.value)} />
+          </Field>
+        </div>
+      </Card>
 
-      <section className="grid gap-4 border border-line bg-surface p-5 sm:grid-cols-2">
-        <h2 className="font-display text-lg font-bold sm:col-span-2">Kontakt</h2>
-        <Field label="Adresse">
-          <input className={input} value={s.address} onChange={(e) => set("address", e.target.value)} />
-        </Field>
-        <Field label="Telefon">
-          <input className={input} value={s.phone} onChange={(e) => set("phone", e.target.value)} />
-        </Field>
-        <Field label="E-post (valgfri)">
-          <input className={input} value={s.email ?? ""} onChange={(e) => set("email", e.target.value)} />
-        </Field>
-      </section>
+      <Card>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <h2 className="font-display text-lg font-bold sm:col-span-2">Kontakt</h2>
+          <Field label="Adresse">
+            <Input value={s.address} onChange={(e) => set("address", e.target.value)} />
+          </Field>
+          <Field label="Telefon">
+            <Input value={s.phone} onChange={(e) => set("phone", e.target.value)} />
+          </Field>
+          <Field label="E-post (valgfri)">
+            <Input value={s.email ?? ""} onChange={(e) => set("email", e.target.value)} />
+          </Field>
+        </div>
+      </Card>
 
-      <section className="border border-line bg-surface p-5">
+      <Card>
         <div className="mb-4">
           <h2 className="font-display text-lg font-bold">Åpningstider</h2>
           <p className="mt-1 text-xs text-muted">
@@ -127,36 +119,38 @@ export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {
         <div className="mb-5 flex flex-wrap items-end gap-3 border border-line-2 bg-canvas/60 p-3">
           <label className="flex flex-col gap-1 text-xs font-semibold tracking-wide text-muted uppercase">
             Fra
-            <input
+            <Input
               type="time"
               value={bulk.open}
               onChange={(e) => setBulk((b) => ({ ...b, open: e.target.value }))}
-              className={input + " w-32"}
+              className="w-32"
             />
           </label>
           <label className="flex flex-col gap-1 text-xs font-semibold tracking-wide text-muted uppercase">
             Til
-            <input
+            <Input
               type="time"
               value={bulk.close}
               onChange={(e) => setBulk((b) => ({ ...b, close: e.target.value }))}
-              className={input + " w-32"}
+              className="w-32"
             />
           </label>
-          <button
+          <Button
+            variant="subtle"
             type="button"
             onClick={() => applyToDays([1, 2, 3, 4, 5], { open: bulk.open, close: bulk.close })}
-            className="border border-line-2 px-3 py-2.5 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
+            className="px-3 py-2.5 text-sm transition-colors"
           >
             Bruk på man–fre
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="subtle"
             type="button"
             onClick={() => applyToDays([0, 1, 2, 3, 4, 5, 6], { open: bulk.open, close: bulk.close })}
-            className="border border-line-2 px-3 py-2.5 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
+            className="px-3 py-2.5 text-sm transition-colors"
           >
             Bruk på alle dager
-          </button>
+          </Button>
         </div>
 
         <div className="space-y-2">
@@ -199,22 +193,22 @@ export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {
                   <span className="text-sm text-muted">Ingen ledige timer</span>
                 ) : (
                   <>
-                    <input
+                    <Input
                       type="time"
                       value={h.open}
                       onChange={(e) =>
                         updateDay(dow, { open: e.target.value, close: h.close })
                       }
-                      className={input + " w-32"}
+                      className="w-32"
                     />
                     <span className="text-muted">–</span>
-                    <input
+                    <Input
                       type="time"
                       value={h.close}
                       onChange={(e) =>
                         updateDay(dow, { open: h.open, close: e.target.value })
                       }
-                      className={input + " w-32"}
+                      className="w-32"
                     />
                   </>
                 )}
@@ -222,40 +216,43 @@ export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {
             );
           })}
         </div>
-      </section>
+      </Card>
 
-      <section className="grid gap-4 border border-line bg-surface p-5 sm:grid-cols-3">
-        <h2 className="font-display text-lg font-bold sm:col-span-3">Utseende & vurdering</h2>
-        <Field label="Aksentfarge">
-          <div className="flex items-center gap-2">
-            <input type="color" value={s.accent_hex} onChange={(e) => set("accent_hex", e.target.value)} className="h-10 w-14 border border-line-2 bg-canvas" />
-            <input className={input} value={s.accent_hex} onChange={(e) => set("accent_hex", e.target.value)} />
+      <Card>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <h2 className="font-display text-lg font-bold sm:col-span-3">Utseende & vurdering</h2>
+          <Field label="Aksentfarge">
+            <div className="flex items-center gap-2">
+              <input type="color" value={s.accent_hex} onChange={(e) => set("accent_hex", e.target.value)} className="h-10 w-14 border border-line-2 bg-canvas" />
+              <Input value={s.accent_hex} onChange={(e) => set("accent_hex", e.target.value)} />
+            </div>
+          </Field>
+          <Field label="Vis vurdering på forsiden">
+            <Select value={s.show_rating ? "1" : "0"} onChange={(e) => set("show_rating", e.target.value === "1")}>
+              <option value="1">Ja</option>
+              <option value="0">Nei</option>
+            </Select>
+          </Field>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Stjerner">
+              <Input type="number" step="0.1" value={s.rating_value} onChange={(e) => set("rating_value", Number(e.target.value))} />
+            </Field>
+            <Field label="Antall">
+              <Input type="number" value={s.rating_count} onChange={(e) => set("rating_count", Number(e.target.value))} />
+            </Field>
           </div>
-        </Field>
-        <Field label="Vis vurdering på forsiden">
-          <select className={input} value={s.show_rating ? "1" : "0"} onChange={(e) => set("show_rating", e.target.value === "1")}>
-            <option value="1">Ja</option>
-            <option value="0">Nei</option>
-          </select>
-        </Field>
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="Stjerner">
-            <input className={input} type="number" step="0.1" value={s.rating_value} onChange={(e) => set("rating_value", Number(e.target.value))} />
-          </Field>
-          <Field label="Antall">
-            <input className={input} type="number" value={s.rating_count} onChange={(e) => set("rating_count", Number(e.target.value))} />
-          </Field>
         </div>
-      </section>
+      </Card>
 
       <div className="sticky bottom-0 flex items-center gap-4 border-t border-line bg-canvas py-4">
-        <button
+        <Button
+          variant="primary"
           onClick={save}
           disabled={pending}
-          className="bg-accent px-6 py-3 text-sm font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-40"
+          className="px-6 py-3 text-sm"
         >
           {pending ? "Lagrer …" : "Lagre endringer"}
-        </button>
+        </Button>
         {msg && <span className="text-sm text-muted">{msg}</span>}
       </div>
     </div>

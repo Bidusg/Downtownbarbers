@@ -3,6 +3,10 @@
 import { useState, useTransition } from "react";
 import { decideLeaveRequest } from "@/app/admin/fravaer/actions";
 import type { LeaveRequestAdmin } from "@/lib/ops-queries";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Badge, type BadgeTone } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 const KIND: Record<string, string> = {
   ferie: "Ferie",
@@ -14,6 +18,12 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   approved: { label: "Godkjent", cls: "bg-accent-soft/15 text-accent-soft" },
   declined: { label: "Avslått", cls: "bg-danger/10 text-danger" },
   pending: { label: "Til behandling", cls: "bg-accent-soft/15 text-accent-soft" },
+};
+
+const STATUS_TONE: Record<string, BadgeTone> = {
+  approved: "success",
+  declined: "danger",
+  pending: "warning",
 };
 
 function fmt(iso: string) {
@@ -67,9 +77,7 @@ export function LeaveRequestsAdmin({
       <div className="mb-3 flex items-baseline justify-between">
         <h2 className="font-display text-lg font-bold">Fri-søknader</h2>
         {pending.length > 0 && (
-          <span className="rounded-full bg-accent-soft/15 px-2.5 py-0.5 text-xs font-semibold text-accent-soft">
-            {pending.length} til behandling
-          </span>
+          <Badge tone="warning">{pending.length} til behandling</Badge>
         )}
       </div>
 
@@ -84,11 +92,10 @@ export function LeaveRequestsAdmin({
       )}
 
       {pending.length === 0 ? (
-        <div className="border border-line bg-surface px-4 py-6 text-center text-sm text-muted">
-          Ingen søknader til behandling.
-        </div>
+        <EmptyState description="Ingen søknader til behandling." />
       ) : (
-        <ul className="divide-y divide-line border border-line bg-surface">
+        <Card padded={false}>
+          <ul className="divide-y divide-line">
           {pending.map((r) => {
             const busy = isPending && busyId === r.id;
             return (
@@ -105,25 +112,28 @@ export function LeaveRequestsAdmin({
                   </span>
                 )}
                 <div className="ml-auto flex gap-2">
-                  <button
+                  <Button
+                    variant="primary"
                     onClick={() => decide(r.id, true)}
                     disabled={busy}
-                    className="bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-40"
+                    className="px-3 py-1.5 text-xs"
                   >
                     {busy ? "…" : "Godkjenn"}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="subtle"
                     onClick={() => decide(r.id, false)}
                     disabled={busy}
-                    className="border border-line-2 px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-danger hover:text-danger disabled:opacity-40"
+                    className="px-3 py-1.5 text-xs"
                   >
                     Avslå
-                  </button>
+                  </Button>
                 </div>
               </li>
             );
           })}
-        </ul>
+          </ul>
+        </Card>
       )}
 
       {processed.length > 0 && (
@@ -131,7 +141,8 @@ export function LeaveRequestsAdmin({
           <summary className="cursor-pointer text-xs font-semibold tracking-wide text-muted uppercase">
             Behandlede søknader ({processed.length})
           </summary>
-          <ul className="mt-2 divide-y divide-line border border-line bg-surface">
+          <Card padded={false} className="mt-2">
+            <ul className="divide-y divide-line">
             {processed.map((r) => {
               const st = STATUS[r.status];
               return (
@@ -144,18 +155,17 @@ export function LeaveRequestsAdmin({
                     {period(r.from_date, r.to_date)}
                   </span>
                   <span className="text-muted">{KIND[r.kind] ?? r.kind}</span>
-                  <span
-                    className={
-                      "ml-auto rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide " +
-                      st.cls
-                    }
+                  <Badge
+                    tone={STATUS_TONE[r.status] ?? "neutral"}
+                    className="ml-auto"
                   >
                     {st.label}
-                  </span>
+                  </Badge>
                 </li>
               );
             })}
-          </ul>
+            </ul>
+          </Card>
         </details>
       )}
     </section>

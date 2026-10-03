@@ -9,6 +9,11 @@ import { StaffDocUploader } from "@/components/admin/StaffDocUploader";
 import { ContractMigrationButton } from "@/components/admin/ContractMigrationButton";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Table, THead, TBody, Tr, Th, Td } from "@/components/ui/Table";
+import { Badge } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Field, Select } from "@/components/ui/Input";
 import { deleteStaffDocument } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -32,14 +37,14 @@ const GROUPS: { key: DocCategory; label: string; hint: string }[] = [
 
 function DocRow({ d }: { d: StaffDocumentWithUrl }) {
   return (
-    <tr className="border-b border-line last:border-0">
-      <td className="px-4 py-3">
+    <Tr>
+      <Td>
         <span className="text-fg">{d.name}</span>
-      </td>
-      <td className="px-4 py-3 text-right tabular-nums text-muted">
+      </Td>
+      <Td align="right" nums className="text-muted">
         {fmtSize(d.size_bytes)}
-      </td>
-      <td className="px-4 py-3">
+      </Td>
+      <Td>
         <div className="flex items-center justify-end gap-2">
           {d.url ? (
             <a
@@ -62,8 +67,8 @@ function DocRow({ d }: { d: StaffDocumentWithUrl }) {
             </button>
           </form>
         </div>
-      </td>
-    </tr>
+      </Td>
+    </Tr>
   );
 }
 
@@ -97,13 +102,8 @@ export default async function AdminAnsattdokumenter({
         method="get"
         className="flex flex-wrap items-end gap-3 border border-line bg-surface p-6"
       >
-        <div className="flex-1 min-w-[220px]">
-          <label className="mb-1 block text-xs text-muted">Ansatt</label>
-          <select
-            name="staff"
-            defaultValue={staffId}
-            className="w-full border border-line-2 bg-canvas px-3 py-2 text-sm text-fg outline-none focus:border-accent-soft"
-          >
+        <Field label="Ansatt" className="flex-1 min-w-[220px]">
+          <Select name="staff" defaultValue={staffId}>
             <option value="">Velg ansatt …</option>
             {staff.map((s) => (
               <option key={s.id} value={s.id}>
@@ -111,24 +111,20 @@ export default async function AdminAnsattdokumenter({
                 {s.title ? ` — ${s.title}` : ""}
               </option>
             ))}
-          </select>
-        </div>
+          </Select>
+        </Field>
         <Button type="submit" className="px-5 py-2 text-sm">
           Vis
         </Button>
       </form>
 
       {staff.length === 0 && (
-        <p className="border border-line bg-surface px-6 py-8 text-sm text-muted">
-          Ingen aktive ansatte funnet.
-        </p>
+        <EmptyState description="Ingen aktive ansatte funnet." />
       )}
 
       {!selected ? (
         staff.length > 0 && (
-          <p className="border border-line bg-surface px-6 py-8 text-sm text-muted">
-            Velg en ansatt for å se og laste opp dokumenter.
-          </p>
+          <EmptyState description="Velg en ansatt for å se og laste opp dokumenter." />
         )
       ) : (
         <div className="space-y-8">
@@ -146,39 +142,33 @@ export default async function AdminAnsattdokumenter({
           {GROUPS.map((g) => {
             const rows = byCategory(g.key);
             return (
-              <div key={g.key} className="border border-line bg-surface">
+              <Card key={g.key} padded={false}>
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-6 py-4">
                   <div>
                     <h3 className="font-display text-lg font-bold">{g.label}</h3>
                     <p className="text-xs text-muted">{g.hint}</p>
                   </div>
-                  <span className="text-xs text-muted">{rows.length}</span>
+                  <Badge tone="neutral">{rows.length}</Badge>
                 </div>
                 {rows.length === 0 ? (
                   <p className="px-6 py-6 text-sm text-muted">Ingen dokumenter.</p>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-line text-left text-xs text-muted">
-                          <th className="px-4 py-3 font-medium">Navn</th>
-                          <th className="px-4 py-3 text-right font-medium">
-                            Størrelse
-                          </th>
-                          <th className="px-4 py-3 text-right font-medium">
-                            Handling
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((d) => (
-                          <DocRow key={d.id} d={d} />
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <Table>
+                    <THead>
+                      <Tr head>
+                        <Th>Navn</Th>
+                        <Th align="right">Størrelse</Th>
+                        <Th align="right">Handling</Th>
+                      </Tr>
+                    </THead>
+                    <TBody>
+                      {rows.map((d) => (
+                        <DocRow key={d.id} d={d} />
+                      ))}
+                    </TBody>
+                  </Table>
                 )}
-              </div>
+              </Card>
             );
           })}
         </div>

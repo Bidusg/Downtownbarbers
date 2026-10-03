@@ -1,19 +1,17 @@
 import type { ReviewConfigStatus } from "@/lib/reviews";
 import { saveReviewConfig } from "@/app/admin/rating/actions";
-
-const inputCls =
-  "w-full border border-line-2 bg-canvas px-3 py-2 text-sm text-fg outline-none focus:border-accent-soft";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Field, Input } from "@/components/ui/Input";
 
 function KeyBadge({ set }: { set: boolean }) {
   return (
-    <span
-      className={
-        "rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide " +
-        (set ? "bg-accent-soft/15 text-accent-soft" : "bg-surface-2 text-muted")
-      }
+    <Badge
+      tone={set ? "accent" : "neutral"}
+      className="uppercase tracking-wide"
     >
       {set ? "Nøkkel satt" : "Ikke satt"}
-    </span>
+    </Badge>
   );
 }
 
@@ -39,27 +37,23 @@ export function ReviewConfigForm({ status }: { status: ReviewConfigStatus }) {
           <h3 className="font-semibold text-fg">Google</h3>
           <KeyBadge set={status.googleKeySet} />
         </div>
-        <label className="text-xs text-muted">
-          Place-ID
-          <input
+        <Field label="Place-ID">
+          <Input
             name="google_place_id"
             defaultValue={status.googlePlaceId}
             placeholder="f.eks. ChIJ…"
-            className={`mt-1 ${inputCls}`}
           />
-        </label>
-        <label className="text-xs text-muted">
-          API-nøkkel
-          <input
+        </Field>
+        <Field label="API-nøkkel">
+          <Input
             name="google_api_key"
             type="password"
             autoComplete="off"
             placeholder={
               status.googleKeySet ? "•••• – la stå tomt for å beholde" : "Lim inn API-nøkkel"
             }
-            className={`mt-1 ${inputCls}`}
           />
-        </label>
+        </Field>
         <label className="flex items-center gap-2 text-sm text-fg sm:col-span-2">
           <input
             type="checkbox"
@@ -77,27 +71,23 @@ export function ReviewConfigForm({ status }: { status: ReviewConfigStatus }) {
           <h3 className="font-semibold text-fg">TripAdvisor</h3>
           <KeyBadge set={status.taKeySet} />
         </div>
-        <label className="text-xs text-muted">
-          Location-ID
-          <input
+        <Field label="Location-ID">
+          <Input
             name="tripadvisor_location_id"
             defaultValue={status.taLocationId}
             placeholder="f.eks. 1234567"
-            className={`mt-1 ${inputCls}`}
           />
-        </label>
-        <label className="text-xs text-muted">
-          API-nøkkel
-          <input
+        </Field>
+        <Field label="API-nøkkel">
+          <Input
             name="tripadvisor_api_key"
             type="password"
             autoComplete="off"
             placeholder={
               status.taKeySet ? "•••• – la stå tomt for å beholde" : "Lim inn API-nøkkel"
             }
-            className={`mt-1 ${inputCls}`}
           />
-        </label>
+        </Field>
         <label className="flex items-center gap-2 text-sm text-fg sm:col-span-2">
           <input
             type="checkbox"
@@ -114,12 +104,9 @@ export function ReviewConfigForm({ status }: { status: ReviewConfigStatus }) {
         </p>
       </div>
 
-      <button
-        type="submit"
-        className="bg-accent px-5 py-2.5 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
-      >
+      <Button type="submit" className="px-5 py-2.5 text-sm">
         Lagre kobling
-      </button>
+      </Button>
     </form>
   );
 }
