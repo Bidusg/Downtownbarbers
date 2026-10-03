@@ -2,15 +2,9 @@
 
 import { createServiceClient } from "@/lib/supabase/service";
 import { sendPasswordResetEmail } from "@/lib/email";
+import { siteUrl } from "@/lib/site-url";
 
 export type ForgotState = { sent?: boolean };
-
-function siteUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-    "https://downtownbarbers.no"
-  );
-}
 
 /**
  * Ber om tilbakestilling av passord. Svaret er ALLTID nøytralt – vi lekker

@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { sendBookingConfirmation } from "@/lib/email";
+import { siteUrl } from "@/lib/site-url";
 import { isValidEmail, isValidNorwegianPhone, titleCase } from "@/lib/validate";
 
 export type BookingInput = {
@@ -62,9 +63,7 @@ export async function createBooking(
     let cancelUrl: string | undefined;
     let portalUrl: string | undefined;
     if (bookingId) {
-      const base =
-        process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-        "https://downtownbarbers.no";
+      const base = siteUrl();
       const { data: token } = await sb.rpc("booking_cancel_token", {
         p_booking: bookingId,
       });

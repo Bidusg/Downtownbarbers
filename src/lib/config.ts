@@ -4,9 +4,17 @@
  * (Tilpasset og gjenbrukt fra tidligere app-versjon.)
  */
 
+import { siteUrl } from "@/lib/site-url";
+
 export type VippsMode = "mock" | "test" | "production";
 
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+// På Vercel (eller når NEXT_PUBLIC_SITE_URL er satt): samme auto-utledede URL
+// som e-postlenkene bruker. Ellers lokal utvikling → localhost.
+const onDeployedHost = Boolean(
+  process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim(),
+);
+const baseUrl = onDeployedHost ? siteUrl() : "http://localhost:3000";
 
 const vippsCredentialsPresent = Boolean(
   process.env.VIPPS_CLIENT_ID &&

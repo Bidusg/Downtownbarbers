@@ -11,6 +11,7 @@
  */
 
 import { salon } from "@/lib/data/salon";
+import { siteUrl } from "@/lib/site-url";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
@@ -26,12 +27,8 @@ const C = {
   ink: "#211E1A",
 };
 
-function siteUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-    "https://downtownbarbers.no"
-  );
-}
+/* siteUrl() hentes nå fra @/lib/site-url (auto-faller tilbake til Vercels
+   stabile produksjons-URL når NEXT_PUBLIC_SITE_URL ikke er satt). */
 
 /** Google Maps-veibeskrivelse bygget fra adressen. */
 const MAPS_URL = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(

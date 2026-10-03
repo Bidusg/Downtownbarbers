@@ -8,6 +8,7 @@ import { getPayrollForMonth } from "@/lib/payroll-slips";
 import { renderPayslipPdf } from "@/components/revisor/PayslipDocument";
 import { zipWithPassword } from "@/lib/zip";
 import { sendPayslipEmail } from "@/lib/email";
+import { siteUrl } from "@/lib/site-url";
 
 const MONTHS = [
   "januar", "februar", "mars", "april", "mai", "juni",
@@ -20,10 +21,7 @@ const MONTHS_CAP = [
 ];
 
 function portalUrl(): string {
-  const site =
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-    "https://downtownbarbers.no";
-  return `${site}/logg-inn`;
+  return `${siteUrl()}/logg-inn`;
 }
 
 export type GeneratePayslipsResult = {

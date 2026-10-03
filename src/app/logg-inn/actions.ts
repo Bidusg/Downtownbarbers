@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getUserRole, homeForRole } from "@/lib/auth";
 import { sendPortalLinkEmail } from "@/lib/email";
+import { siteUrl } from "@/lib/site-url";
 
 /**
  * Basis-URL for lenker i e-post. Bygges fra den faktiske forespørselen
@@ -21,10 +22,7 @@ async function requestBaseUrl(): Promise<string> {
   } catch {
     // ignorer – bruk fallback
   }
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-    "https://www.downtownbarbers.no"
-  );
+  return siteUrl();
 }
 
 export type LoginState = { error?: string };

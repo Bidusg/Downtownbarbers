@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserRole, isAdminRole } from "@/lib/auth";
 import { getMarketingRecipients, type Segment, type Channel } from "@/lib/dm-queries";
 import { sendMarketingEmail } from "@/lib/email";
+import { siteUrl } from "@/lib/site-url";
 import { sendSms } from "@/lib/sms";
 
 /**
@@ -28,8 +29,7 @@ export async function sendMarketing(formData: FormData): Promise<void> {
 
   const recipients = await getMarketingRecipients(segment, channel);
   const capped = recipients.slice(0, 500); // trygg grense per utsending
-  const base =
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://downtownbarbers.no";
+  const base = siteUrl();
 
   let sent = 0;
   // Send i småbolker for å unngå timeout på lange lister.

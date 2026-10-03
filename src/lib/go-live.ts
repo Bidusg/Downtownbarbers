@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { config } from "@/lib/config";
+import { siteUrl as resolveSiteUrl } from "@/lib/site-url";
 import { getSmsConfigAdmin } from "@/lib/sms";
 import { getReviewConfigAdmin } from "@/lib/reviews";
 import { getTurnusAnchor } from "@/lib/ops-queries";
@@ -32,7 +33,9 @@ export async function getGoLiveChecklist(): Promise<{
   groups: ChecklistGroup[];
   summary: { ok: number; action: number; blocked: number; total: number };
 }> {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  // Faktisk URL som e-postlenkene bruker (auto-utledet: NEXT_PUBLIC_SITE_URL,
+  // ellers Vercels stabile produksjons-URL, ellers eget domene).
+  const siteUrl = resolveSiteUrl();
   const resendKey = has(process.env.RESEND_API_KEY);
   const emailFrom = has(process.env.EMAIL_FROM);
   const serviceRole = has(process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -57,15 +60,13 @@ export async function getGoLiveChecklist(): Promise<{
         {
           key: "domain",
           label: "Domene",
-          status: customDomain ? "ok" : has(siteUrl) ? "action" : "blocked",
+          status: customDomain ? "ok" : "action",
           detail: customDomain
-            ? `Eget domene satt: ${siteUrl}`
-            : has(siteUrl)
-              ? `Bruker midlertidig URL: ${siteUrl}`
-              : "NEXT_PUBLIC_SITE_URL er ikke satt — e-postlenker blir døde.",
+            ? `Eget domene i bruk: ${siteUrl}`
+            : `Bruker midlertidig Vercel-URL: ${siteUrl}`,
           hint: customDomain
             ? undefined
-            : "Sett NEXT_PUBLIC_SITE_URL = https://downtownbarbers-2kfc.vercel.app nå, og koble downtownbarbers.no når den som styrer nettsiden har forklart oppsettet.",
+            : "E-postlenkene bruker automatisk Vercels stabile produksjons-URL (og blir eget domene av seg selv). Koble downtownbarbers.no i Vercel når den som styrer nettsiden har forklart oppsettet.",
           owner: "Kidus / tredjepart",
         },
         {

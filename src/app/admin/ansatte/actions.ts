@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireRole, getUserRole, isAdminRole } from "@/lib/auth";
 import { sendStaffCredentialsEmail } from "@/lib/email";
+import { siteUrl } from "@/lib/site-url";
 import { STAFF_DOCS_BUCKET } from "@/lib/staff-documents";
 
 // Offentlig bøtte – KUN for bilder (ansattfoto/produktbilder). Kontrakter
@@ -37,10 +38,7 @@ function generateTempPassword(): string {
 }
 
 function loginUrl(): string {
-  const site =
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-    "https://downtownbarbers.no";
-  return `${site}/logg-inn`;
+  return `${siteUrl()}/logg-inn`;
 }
 
 type ActionResult =
