@@ -3,10 +3,12 @@ import { StatTile } from "@/components/ui/StatTile";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { RevenueChart } from "@/components/admin/RevenueChart";
 import { TripletexSyncButton } from "@/components/admin/TripletexSyncButton";
+import { KontoplanTable } from "@/components/admin/KontoplanTable";
 import { getRevenueSeries, getRevenueSummary } from "@/lib/dashboard-queries";
 import {
   getTripletexResultat,
   getTripletexKontoplan,
+  getTripletexSaldobalanse,
   getLastSync,
 } from "@/lib/tripletex/queries";
 
@@ -38,17 +40,30 @@ export default async function AdminRegnskap({
   const period = sp.periode === "months" ? "months" : "days";
   const year = String(new Date().getFullYear());
 
-  const [series, sum, resultat, kontoplan, lastSyncRaw] = await Promise.all([
-    getRevenueSeries(period),
-    getRevenueSummary(),
-    getTripletexResultat(year),
-    getTripletexKontoplan(),
-    getLastSync(),
-  ]);
+  const [series, sum, resultat, kontoplan, saldobalanse, lastSyncRaw] =
+    await Promise.all([
+      getRevenueSeries(period),
+      getRevenueSummary(),
+      getTripletexResultat(year),
+      getTripletexKontoplan(),
+      getTripletexSaldobalanse(year),
+      getLastSync(),
+    ]);
 
   const maxBarber = Math.max(1, ...sum.perBarber.map((b) => b.nok));
   const lastSync = formatLastSync(lastSyncRaw);
   const hasTripletex = resultat.rows.length > 0 || kontoplan.length > 0;
+
+  // Kontoer med faktisk bevegelse/saldo i perioden – brukes til å vise kun
+  // relevante kontoer i kontoplanen (hele NS 4102 er flere hundre rader).
+  const movementNumbers = saldobalanse
+    .filter(
+      (b) =>
+        (b.balance_change ?? 0) !== 0 ||
+        (b.balance_out ?? 0) !== 0 ||
+        (b.balance_in ?? 0) !== 0,
+    )
+    .map((b) => b.account_number);
 
   const tab = (key: "days" | "months", label: string) => (
     <a
@@ -109,10 +124,45 @@ export default async function AdminRegnskap({
           </div>
         ) : (
           <>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatTile label="Omsetning" value={nok(resultat.omsetning)} sub="hittil i år" />
-              <StatTile label="Resultat" value={nok(resultat.resultat)} sub="hittil i år" />
+              <StatTile label="Driftsresultat" value={nok(resultat.driftsresultat)} sub="hittil i år" />
+              <StatTile label="Resultat før skatt" value={nok(resultat.resultatForSkatt)} sub="drift + finans" />
               <StatTile label="Utgående mva" value={nok(resultat.utgaaendeMva)} sub="perioden" />
+            </div>
+
+            {/* Resultatoppstilling: drift → finans → resultat før skatt */}
+            <div className="border border-line bg-surface">
+              <div className="border-b border-line px-6 py-4">
+                <h3 className="font-display text-lg font-bold">Resultatoppstilling</h3>
+                <p className="text-xs text-muted">
+                  Driftsresultat, finansposter og resultat før skatt (hittil i år).
+                </p>
+              </div>
+              <div className="px-6 py-4">
+                <dl className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <dt className="text-muted">Driftsresultat</dt>
+                    <dd className="tabular-nums">{nok(resultat.driftsresultat)}</dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt className="text-muted">+ Finansinntekter</dt>
+                    <dd className="tabular-nums">{nok(resultat.finansinntekter)}</dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt className="text-muted">− Finanskostnader</dt>
+                    <dd className="tabular-nums">{nok(resultat.finanskostnader)}</dd>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-line pt-2 font-semibold">
+                    <dt>Resultat før skatt</dt>
+                    <dd className="tabular-nums">{nok(resultat.resultatForSkatt)}</dd>
+                  </div>
+                </dl>
+                <p className="mt-3 text-xs text-muted">
+                  Skatt (kontoklasse 83) er ikke trukket fra. Resultat før skatt =
+                  driftsresultat + netto finans ({nok(resultat.nettoFinans)}).
+                </p>
+              </div>
             </div>
 
             {/* Resultat per konto */}
@@ -120,7 +170,7 @@ export default async function AdminRegnskap({
               <div className="border-b border-line px-6 py-4">
                 <h3 className="font-display text-lg font-bold">Resultat per konto</h3>
                 <p className="text-xs text-muted">
-                  Inntekts- og kostnadskontoer, beløp vist positivt.
+                  Inntekts-, kostnads- og finanskontoer, beløp vist positivt.
                 </p>
               </div>
               <div className="overflow-x-auto">
@@ -149,12 +199,18 @@ export default async function AdminRegnskap({
                             <span
                               className={
                                 "rounded px-2 py-0.5 text-[11px] font-semibold " +
-                                (r.kind === "INCOME"
+                                (r.kind === "INCOME" || r.kind === "FINANS_INCOME"
                                   ? "bg-accent-soft/15 text-accent-soft"
                                   : "bg-surface-2 text-muted")
                               }
                             >
-                              {r.kind === "INCOME" ? "Inntekt" : "Kostnad"}
+                              {r.kind === "INCOME"
+                                ? "Inntekt"
+                                : r.kind === "COST"
+                                  ? "Kostnad"
+                                  : r.kind === "FINANS_INCOME"
+                                    ? "Finansinntekt"
+                                    : "Finanskostnad"}
                             </span>
                           </td>
                           <td className="px-6 py-3 text-right tabular-nums">{nok(r.amount)}</td>
@@ -166,43 +222,17 @@ export default async function AdminRegnskap({
               </div>
             </div>
 
-            {/* Kontoplan fra Tripletex */}
-            <div className="border border-line bg-surface">
-              <div className="border-b border-line px-6 py-4">
-                <h3 className="font-display text-lg font-bold">Kontoplan</h3>
-                <p className="text-xs text-muted">Synket fra Tripletex.</p>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-line text-left text-xs text-muted">
-                      <th className="px-6 py-3 font-medium">Konto</th>
-                      <th className="px-6 py-3 font-medium">Navn</th>
-                      <th className="px-6 py-3 font-medium">Type</th>
-                      <th className="px-6 py-3 font-medium">Hovedbok</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {kontoplan.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="px-6 py-8 text-center text-muted">
-                          Ingen kontoer synket.
-                        </td>
-                      </tr>
-                    ) : (
-                      kontoplan.map((k) => (
-                        <tr key={k.tripletex_id} className="border-b border-line last:border-0">
-                          <td className="px-6 py-3 tabular-nums text-fg-soft">{k.number ?? "—"}</td>
-                          <td className="px-6 py-3">{k.name ?? "—"}</td>
-                          <td className="px-6 py-3 text-muted">{k.type ?? "—"}</td>
-                          <td className="px-6 py-3 text-muted">{k.ledger_type ?? "—"}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            {/* Kontoplan fra Tripletex – kun kontoer med bevegelse som standard */}
+            <KontoplanTable
+              accounts={kontoplan.map((k) => ({
+                tripletex_id: k.tripletex_id,
+                number: k.number,
+                name: k.name,
+                type: k.type,
+                ledger_type: k.ledger_type,
+              }))}
+              movementNumbers={movementNumbers}
+            />
           </>
         )}
       </section>

@@ -54,6 +54,20 @@ export function isCostRow(row: TxBalanceRow): boolean {
   return n != null && n >= 4000 && n <= 7999;
 }
 
+/** Er dette en finansinntekt? nummer 8000–8099 ELLER type==="INVESTMENT_INCOME". */
+export function isFinansInntektRow(row: TxBalanceRow): boolean {
+  const n = accountNumber(row);
+  if (n != null && n >= 8000 && n <= 8099) return true;
+  return (row.account?.type ?? "").toUpperCase() === "INVESTMENT_INCOME";
+}
+
+/** Er dette en finanskostnad? nummer 8100–8199 ELLER type==="COST_OF_CAPITAL". */
+export function isFinansKostnadRow(row: TxBalanceRow): boolean {
+  const n = accountNumber(row);
+  if (n != null && n >= 8100 && n <= 8199) return true;
+  return (row.account?.type ?? "").toUpperCase() === "COST_OF_CAPITAL";
+}
+
 /** Omsetning (positiv) = -sum(balanceChange) over inntektskontoer. */
 export function omsetning(rows: TxBalanceRow[]): number {
   const sum = rows
@@ -70,9 +84,35 @@ export function kostnader(rows: TxBalanceRow[]): number {
   return round2(sum);
 }
 
-/** Resultat = omsetning - kostnader (positiv = overskudd). */
+/** Resultat = omsetning - kostnader (positiv = overskudd). Driftsresultat. */
 export function resultat(rows: TxBalanceRow[]): number {
   return round2(omsetning(rows) - kostnader(rows));
+}
+
+/** Finansinntekter (positiv) = -sum(balanceChange) over finansinntektskontoer (8000–8099). */
+export function finansinntekter(rows: TxBalanceRow[]): number {
+  const sum = rows
+    .filter(isFinansInntektRow)
+    .reduce((acc, r) => acc + (r.balanceChange ?? 0), 0);
+  return round2(-sum);
+}
+
+/** Finanskostnader (positiv) = sum(balanceChange) over finanskostnadskontoer (8100–8199). */
+export function finanskostnader(rows: TxBalanceRow[]): number {
+  const sum = rows
+    .filter(isFinansKostnadRow)
+    .reduce((acc, r) => acc + (r.balanceChange ?? 0), 0);
+  return round2(sum);
+}
+
+/** Netto finans = finansinntekter - finanskostnader. */
+export function nettoFinans(rows: TxBalanceRow[]): number {
+  return round2(finansinntekter(rows) - finanskostnader(rows));
+}
+
+/** Resultat før skatt = driftsresultat + netto finans. */
+export function resultatForSkatt(rows: TxBalanceRow[]): number {
+  return round2(omsetning(rows) - kostnader(rows) + nettoFinans(rows));
 }
 
 /** Finn én rad på kontonummer. */
@@ -120,12 +160,12 @@ export type ResultRow = {
   type: string;
   /** Snudd-til-positivt: inntekt = -balanceChange, kostnad = +balanceChange. */
   amount: number;
-  /** "INCOME" | "COST" (vår klassifisering, ikke rå Tripletex-type). */
-  kind: "INCOME" | "COST";
+  /** "INCOME" | "COST" | "FINANS_INCOME" | "FINANS_COST" (vår klassifisering, ikke rå Tripletex-type). */
+  kind: "INCOME" | "COST" | "FINANS_INCOME" | "FINANS_COST";
 };
 
 /**
- * Per-konto resultatlinjer (kun inntekts- og kostnadskontoer), snudd til
+ * Per-konto resultatlinjer (inntekts-, kostnads- og finanskontoer), snudd til
  * positive beløp og sortert på kontonummer. Til oppstilling/revisjon.
  */
 export function resultRows(rows: TxBalanceRow[]): ResultRow[] {
@@ -133,15 +173,43 @@ export function resultRows(rows: TxBalanceRow[]): ResultRow[] {
   for (const r of rows) {
     const income = isIncomeRow(r);
     const cost = isCostRow(r);
-    if (!income && !cost) continue;
+    const finansIncome = isFinansInntektRow(r);
+    const finansCost = isFinansKostnadRow(r);
+    // Klassifiser kun én gang – intervallene er gjensidig utelukkende.
     const change = r.balanceChange ?? 0;
-    out.push({
-      number: accountNumber(r),
-      name: r.account?.name ?? "",
-      type: r.account?.type ?? "",
-      amount: round2(income ? -change : change),
-      kind: income ? "INCOME" : "COST",
-    });
+    if (income) {
+      out.push({
+        number: accountNumber(r),
+        name: r.account?.name ?? "",
+        type: r.account?.type ?? "",
+        amount: round2(-change),
+        kind: "INCOME",
+      });
+    } else if (cost) {
+      out.push({
+        number: accountNumber(r),
+        name: r.account?.name ?? "",
+        type: r.account?.type ?? "",
+        amount: round2(change),
+        kind: "COST",
+      });
+    } else if (finansIncome) {
+      out.push({
+        number: accountNumber(r),
+        name: r.account?.name ?? "",
+        type: r.account?.type ?? "",
+        amount: round2(-change),
+        kind: "FINANS_INCOME",
+      });
+    } else if (finansCost) {
+      out.push({
+        number: accountNumber(r),
+        name: r.account?.name ?? "",
+        type: r.account?.type ?? "",
+        amount: round2(change),
+        kind: "FINANS_COST",
+      });
+    }
   }
   out.sort((a, b) => (a.number ?? 0) - (b.number ?? 0));
   return out;
@@ -152,6 +220,12 @@ export type ResultatSummary = {
   omsetning: number;
   kostnader: number;
   resultat: number;
+  /** Driftsresultat = omsetning - kostnader (= resultat). */
+  driftsresultat: number;
+  finansinntekter: number;
+  finanskostnader: number;
+  nettoFinans: number;
+  resultatForSkatt: number;
   utgaaendeMva: number;
   inngaaendeMva: number;
   rows: ResultRow[];
@@ -165,6 +239,11 @@ export function buildResultatSummary(rows: TxBalanceRow[]): ResultatSummary {
     omsetning: omsetning(rows),
     kostnader: kostnader(rows),
     resultat: resultat(rows),
+    driftsresultat: resultat(rows),
+    finansinntekter: finansinntekter(rows),
+    finanskostnader: finanskostnader(rows),
+    nettoFinans: nettoFinans(rows),
+    resultatForSkatt: resultatForSkatt(rows),
     utgaaendeMva: utgaaendeMva(rows).value,
     inngaaendeMva: inngaaendeMva(rows).value,
     rows: resultRows(rows),

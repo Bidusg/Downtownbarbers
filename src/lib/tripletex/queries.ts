@@ -44,6 +44,11 @@ export async function getTripletexResultat(periodKey: string): Promise<{
   omsetning: number;
   kostnader: number;
   resultat: number;
+  driftsresultat: number;
+  finansinntekter: number;
+  finanskostnader: number;
+  nettoFinans: number;
+  resultatForSkatt: number;
   utgaaendeMva: number;
   inngaaendeMva: number;
   rows: ResultRow[];
@@ -52,6 +57,11 @@ export async function getTripletexResultat(periodKey: string): Promise<{
     omsetning: 0,
     kostnader: 0,
     resultat: 0,
+    driftsresultat: 0,
+    finansinntekter: 0,
+    finanskostnader: 0,
+    nettoFinans: 0,
+    resultatForSkatt: 0,
     utgaaendeMva: 0,
     inngaaendeMva: 0,
     rows: [] as ResultRow[],
@@ -72,6 +82,11 @@ export async function getTripletexResultat(periodKey: string): Promise<{
       omsetning: summary.omsetning,
       kostnader: summary.kostnader,
       resultat: summary.resultat,
+      driftsresultat: summary.driftsresultat,
+      finansinntekter: summary.finansinntekter,
+      finanskostnader: summary.finanskostnader,
+      nettoFinans: summary.nettoFinans,
+      resultatForSkatt: summary.resultatForSkatt,
       utgaaendeMva: summary.utgaaendeMva,
       inngaaendeMva: summary.inngaaendeMva,
       rows: summary.rows,
