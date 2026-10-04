@@ -18,6 +18,13 @@ export type WizBarber = { name: string; title: string };
 
 const STEPS = ["Tjeneste", "Barber", "Tid", "Kontakt"];
 
+// Landskoder for telefon (Norge først). [dial code, landkort].
+const COUNTRY_CODES: [string, string][] = [
+  ["+47", "NO"], ["+46", "SE"], ["+45", "DK"], ["+358", "FI"], ["+354", "IS"],
+  ["+44", "UK"], ["+48", "PL"], ["+49", "DE"], ["+33", "FR"], ["+34", "ES"],
+  ["+39", "IT"], ["+31", "NL"], ["+1", "US"],
+];
+
 function isoDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
@@ -67,6 +74,7 @@ export function BookingWizard({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [countryCode, setCountryCode] = useState("+47");
   const [source, setSource] = useState("");
   const [marketingConsent, setMarketingConsent] = useState(false);
   const [done, setDone] = useState(false);
@@ -189,7 +197,12 @@ export function BookingWizard({
   }, [step, slotsByDate, openDays]);
 
   const emailOk = isValidEmail(email);
-  const phoneOk = isValidNorwegianPhone(phone);
+  // +47 valideres som norsk nummer; andre landskoder tar et generisk sifferkrav.
+  const phoneDigits = phone.replace(/\D/g, "");
+  const phoneOk =
+    countryCode === "+47"
+      ? isValidNorwegianPhone(phone)
+      : phoneDigits.length >= 5 && phoneDigits.length <= 14;
 
   const canNext =
     (step === 0 && service) ||
@@ -207,7 +220,7 @@ export function BookingWizard({
       time,
       name,
       email,
-      phone,
+      phone: `${countryCode} ${phone.trim()}`,
       source,
       marketingConsent,
       price: priceLabel,
@@ -348,9 +361,17 @@ export function BookingWizard({
                       />
                     </svg>
                   </button>
-                  {open && (
-                    <div className="space-y-3 border-t border-line p-4">
-                      {items.map((s) => (
+                  <div
+                    className={
+                      "grid transition-all duration-300 ease-out " +
+                      (open
+                        ? "grid-rows-[1fr] opacity-100"
+                        : "grid-rows-[0fr] opacity-0")
+                    }
+                  >
+                    <div className="overflow-hidden">
+                      <div className="space-y-3 border-t border-line p-4">
+                        {items.map((s) => (
                         <div
                           key={s.name}
                           className={
@@ -386,9 +407,10 @@ export function BookingWizard({
                             {priceFrom(s.name, s.price)}
                           </p>
                         </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               );
             })}
@@ -562,18 +584,32 @@ export function BookingWizard({
               )}
             </div>
             <div>
-              <input
-                placeholder="Telefon (8 siffer)"
-                aria-label="Telefon"
-                type="tel"
-                autoComplete="tel"
-                inputMode="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
-              />
+              <div className="flex gap-2">
+                <select
+                  aria-label="Landskode"
+                  value={countryCode}
+                  onChange={(e) => setCountryCode(e.target.value)}
+                  className="shrink-0 border border-line-2 bg-canvas px-2 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
+                >
+                  {COUNTRY_CODES.map(([code, abbr]) => (
+                    <option key={code} value={code}>
+                      {code} {abbr}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  placeholder="Telefonnummer"
+                  aria-label="Telefon"
+                  type="tel"
+                  autoComplete="tel"
+                  inputMode="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
+                />
+              </div>
               {phone && !phoneOk && (
-                <p className="mt-1 text-xs text-danger">Ugyldig norsk telefonnummer.</p>
+                <p className="mt-1 text-xs text-danger">Ugyldig telefonnummer.</p>
               )}
             </div>
             <div>

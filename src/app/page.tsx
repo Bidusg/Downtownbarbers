@@ -147,7 +147,7 @@ export default async function Home({
         <Header overlay phone={s.phone} address={s.address} />
 
         {/* ===================== HERO ===================== */}
-        <section className="cine-vignette relative flex min-h-screen items-center overflow-hidden sm:items-end">
+        <section className="cine-vignette relative flex min-h-screen items-end overflow-hidden">
           <div className="absolute inset-0">
             <ScaleIn className="h-full w-full" from={1.2} to={1.04}>
               <HeroCarousel slides={heroSlidesFinal} poster="/media/hero/poster.jpg" />
@@ -157,7 +157,7 @@ export default async function Home({
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/70" />
           <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-transparent to-transparent" />
 
-          <div className="relative mx-auto w-full max-w-6xl px-6 py-24 text-center sm:px-5 sm:pt-40 sm:pb-32 sm:text-left">
+          <div className="relative mx-auto w-full max-w-6xl px-6 pt-28 pb-[20vh] text-center sm:px-5 sm:pt-40 sm:pb-32 sm:text-left">
             <p
               className="rise text-[10px] font-semibold tracking-[0.35em] text-accent-soft uppercase sm:text-[11px] sm:tracking-[0.4em]"
               style={rise(100)}

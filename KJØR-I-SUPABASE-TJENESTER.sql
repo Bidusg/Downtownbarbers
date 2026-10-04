@@ -62,21 +62,21 @@ begin
     'Rask maskinklipp eller lineup for deg som bare vil rydde opp rundt ører, nakke og hårlinje. Kort og effektivt – vær presis på oppmøtetid.',
     15, 1, 349, 449, 599);
   perform pg_temp.svc(c_klipp, 'Herreklipp 30''',
-    'En klipp for de fleste frisyrer. På 30 minutter rekker vi skinfade, taperfade og de fleste standard-klipp. Vask og styling inkludert.',
+    'En klipp for de fleste frisyrer. På 30 minutter rekker vi skinfade, taperfade og de fleste standard-klipp.',
     30, 2, 499, 549, 649);
   perform pg_temp.svc(c_klipp, 'Herreklipp 45''',
     'For deg som vil ha litt ekstra tid – førstegangskunde, skinfade, classic cut, mullet eller mer krevende frisyrer, med tynning, teksturering og detaljer underveis.',
     45, 3, 699, 749, 849);
   perform pg_temp.svc(c_klipp, 'Barneklipp',
-    'Klipp for barn under 13 år, hos hvilken som helst barber. Fast pris uansett nivå.',
+    'Klipp for barn under 13 år, hos hvilken som helst barber.',
     30, 4, 449, 449, 449);
 
   ------------------------------------------------------------------ KOMBO
   perform pg_temp.svc(c_kombo, 'Lett kombo',
-    'Klipp og skjegg i samme sesjon. Vi former håret og rydder skjegget så helheten sitter – en effektiv oppgradering fra vanlig klipp.',
+    'Klipp og skjegg i samme sesjon. Skjegget formes og trimmes med maskin (uten hot towel) – en effektiv oppgradering fra vanlig klipp.',
     45, 5, 799, 849, 949);
   perform pg_temp.svc(c_kombo, 'Full kombo',
-    'Full behandling med god tid: grundig klipp kombinert med komplett skjeggpleie, forming og detaljer. Den komplette opplevelsen.',
+    'Full behandling med god tid: grundig klipp kombinert med komplett skjeggpleie og hot towel-barbering. Den komplette opplevelsen.',
     60, 6, 999, 1099, 1199);
 
   ------------------------------------------------------------------ SKJEGG
@@ -87,18 +87,18 @@ begin
     'Forming, trimming og stell av skjegget med maskin og kniv, tilpasset ansiktsform.',
     30, 8, 499, 549, 649);
   perform pg_temp.svc(c_skjegg, 'Skjeggtrim deluxe',
-    'Full skjeggbehandling med varmt håndkle, nøyaktig forming, barberkniv på kantene og pleieprodukter.',
+    'Full skjeggbehandling med hot towel, nøyaktig forming, barberkniv på kantene og pleieprodukter.',
     45, 9, 699, 749, 849);
 
   ------------------------------------------------------------------ BARBERING
   perform pg_temp.svc(c_barb, 'Hodebarbering',
-    'Barbering av hodet med barberkniv og blad – ren, glatt finish med varmt håndkle.',
+    'Barbering av hodet med barberkniv og blad – ren, glatt finish med hot towel.',
     30, 10, 499, 549, 649);
   perform pg_temp.svc(c_barb, 'Barbering (ansikt)',
-    'Klassisk våtbarbering av ansiktet: varmt håndkle, skum og barberblad for en tett, ren barbering.',
+    'Klassisk våtbarbering av ansiktet: hot towel, skum og barberblad for en tett, ren barbering.',
     30, 11, 499, 549, 649);
   perform pg_temp.svc(c_barb, 'Barbering deluxe',
-    'Den fulle barberopplevelsen med ekstra tid, varmt håndkle, forming og pleie – for en luksuriøs, tett barbering.',
+    'Den fulle barberopplevelsen med ekstra tid, hot towel, forming og pleie – for en luksuriøs, tett barbering.',
     45, 12, 699, 749, 849);
 
 end $$;
