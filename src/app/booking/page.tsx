@@ -42,7 +42,7 @@ export default async function BookingPage({
             <p className="text-[10px] font-semibold tracking-[0.34em] text-accent-soft uppercase">
               Bestill time
             </p>
-            <h1 className="mt-5 font-display text-5xl font-bold leading-[0.95] sm:text-7xl">
+            <h1 className="mt-4 font-display text-4xl font-bold leading-[1] sm:text-5xl">
               Sett deg ned.
             </h1>
             <p className="mt-5 max-w-md text-muted">

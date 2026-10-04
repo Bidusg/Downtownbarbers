@@ -44,7 +44,7 @@ export default async function ButikkPage() {
           <SplitReveal
             as="h1"
             text="Over disk"
-            className="mt-5 font-display text-5xl font-bold sm:text-7xl"
+            className="mt-4 font-display text-4xl font-bold sm:text-5xl"
           />
           <FadeUp delay={0.06}>
             <p className="mt-5 mb-8 max-w-xl text-muted">

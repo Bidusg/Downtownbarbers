@@ -161,7 +161,7 @@ export default async function Home({
             >
               Oslo · Osterhaus&apos; gate 10 · Siden {s.established}
             </p>
-            <h1 className="mt-6 font-display text-[15vw] leading-[0.84] font-bold tracking-[-0.02em] text-white sm:text-[11rem] sm:leading-[0.82]">
+            <h1 className="mt-5 font-display text-[12vw] leading-[0.86] font-bold tracking-[-0.02em] text-white sm:text-8xl sm:leading-[0.84]">
               <span className="rise block" style={rise(220)}>
                 Downtown
               </span>
@@ -222,10 +222,10 @@ export default async function Home({
 
         {/* ===================== OM OSS ===================== */}
         <section className="border-b border-line">
-          <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-24 md:grid-cols-2 md:py-36">
+          <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 md:grid-cols-2 md:py-24">
             <FadeUp>
               <Label>Om oss</Label>
-              <p className="mt-7 font-display text-3xl leading-[1.15] sm:text-4xl">
+              <p className="mt-6 font-display text-2xl leading-[1.2] sm:text-3xl">
                 {s.about_text}
               </p>
               <a
@@ -259,12 +259,12 @@ export default async function Home({
 
         {/* ===================== HÅNDVERKET ===================== */}
         <section id="handverket" className="border-b border-line">
-          <div className="mx-auto max-w-6xl px-5 py-24 md:py-36">
+          <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
             <Label>Håndverket</Label>
             <SplitReveal
               as="h2"
               text="Det du kjenner idet du reiser deg fra stolen."
-              className="mt-5 max-w-3xl font-display text-4xl font-bold leading-[1.05] sm:text-6xl"
+              className="mt-5 max-w-2xl font-display text-3xl font-bold leading-[1.1] sm:text-4xl"
             />
             <Hairline className="mt-10" />
             <div className="mt-14 grid gap-6 md:grid-cols-3">
@@ -295,12 +295,12 @@ export default async function Home({
 
         {/* ===================== GALLERI ===================== */}
         <section id="galleri" className="border-b border-line bg-surface">
-          <div className="mx-auto max-w-6xl px-5 py-24 md:py-36">
+          <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
             <Label>Galleri</Label>
             <SplitReveal
               as="h2"
               text="Fra stolen"
-              className="mt-4 font-display text-4xl font-bold sm:text-5xl"
+              className="mt-4 font-display text-3xl font-bold sm:text-4xl"
             />
             <div className="mt-12 gap-5 columns-1 sm:columns-2">
               {galleryFinal.map((g) => (
@@ -336,7 +336,7 @@ export default async function Home({
             <p className="text-[11px] font-semibold tracking-[0.4em] text-accent-soft uppercase">
               Downtown Barbers · Oslo
             </p>
-            <p className="mx-auto mt-6 max-w-4xl font-display text-4xl leading-[1.05] font-bold text-white sm:text-6xl">
+            <p className="mx-auto mt-6 max-w-3xl font-display text-3xl leading-[1.1] font-bold text-white sm:text-5xl">
               {s.slogan}
             </p>
           </FadeUp>
@@ -344,12 +344,12 @@ export default async function Home({
 
         {/* ===================== TJENESTER ===================== */}
         <section id="tjenester" className="border-b border-line">
-          <div className="mx-auto max-w-6xl px-5 py-24 md:py-36">
+          <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
             <Label>Tjenester</Label>
             <SplitReveal
               as="h2"
               text="Prisliste"
-              className="mt-4 font-display text-4xl font-bold sm:text-5xl"
+              className="mt-4 font-display text-3xl font-bold sm:text-4xl"
             />
             <div className="mt-12 grid gap-6 md:grid-cols-3">
               {serviceCategories.map((cat, ci) => (
@@ -389,9 +389,9 @@ export default async function Home({
 
         {/* ===================== CTA (cream «intermisjon») ===================== */}
         <section className="border-b border-line bg-accent text-accent-fg">
-          <div className="mx-auto max-w-6xl px-5 py-28 text-center md:py-40">
+          <div className="mx-auto max-w-6xl px-5 py-20 text-center md:py-28">
             <FadeUp>
-              <h2 className="mx-auto max-w-3xl font-display text-5xl leading-[1.02] font-bold sm:text-7xl">
+              <h2 className="mx-auto max-w-2xl font-display text-4xl leading-[1.05] font-bold sm:text-5xl">
                 {s.cta_title}
               </h2>
               <p className="mx-auto mt-6 max-w-md text-base opacity-75">
@@ -409,12 +409,12 @@ export default async function Home({
 
         {/* ===================== TEAM ===================== */}
         <section id="team" className="border-b border-line bg-surface">
-          <div className="mx-auto max-w-6xl px-5 py-24 md:py-36">
+          <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
             <Label>Teamet</Label>
             <SplitReveal
               as="h2"
               text="Håndverkerne"
-              className="mt-4 font-display text-4xl font-bold sm:text-5xl"
+              className="mt-4 font-display text-3xl font-bold sm:text-4xl"
             />
             <div className="mt-14 grid grid-cols-3 gap-x-4 gap-y-8 sm:grid-cols-4 sm:gap-6 md:grid-cols-6">
               {team.map((m, i) => (
@@ -434,7 +434,7 @@ export default async function Home({
 
         {/* ===================== ÅPNINGSTIDER + KONTAKT ===================== */}
         <section id="apningstider" className="border-b border-line">
-          <div className="mx-auto grid max-w-6xl gap-14 px-5 py-24 md:grid-cols-2 md:py-36">
+          <div className="mx-auto grid max-w-6xl gap-14 px-5 py-16 md:grid-cols-2 md:py-24">
             <FadeUp>
               <Label>Åpningstider</Label>
               <ul className="mt-8 space-y-3.5">
