@@ -103,10 +103,13 @@ export default async function Home({
   const serviceCategories = groupByCategory(services);
 
   // Hero + galleri fra CMS-bildene, med fallback til de innebygde bildene.
-  const dbHero = siteImages.filter((i) => i.section === "hero");
+  // Kun bilder i heroen (ingen videoer) – filtrerer vekk evt. videoklipp.
+  const dbHero = siteImages.filter(
+    (i) => i.section === "hero" && i.kind === "image",
+  );
   const heroSlidesFinal: Slide[] = dbHero.length
-    ? dbHero.map((i) => ({ type: i.kind, src: i.url }))
-    : heroSlides;
+    ? dbHero.map((i) => ({ type: "image" as const, src: i.url }))
+    : heroSlides.filter((sl) => sl.type === "image");
   const dbGallery = siteImages.filter((i) => i.section === "gallery");
   const galleryFinal = dbGallery.length
     ? dbGallery.map((i) => ({ src: i.url, alt: i.alt ?? "" }))
@@ -144,7 +147,7 @@ export default async function Home({
         <Header overlay phone={s.phone} address={s.address} />
 
         {/* ===================== HERO ===================== */}
-        <section className="cine-vignette relative flex min-h-screen items-end overflow-hidden">
+        <section className="cine-vignette relative flex min-h-screen items-center overflow-hidden sm:items-end">
           <div className="absolute inset-0">
             <ScaleIn className="h-full w-full" from={1.2} to={1.04}>
               <HeroCarousel slides={heroSlidesFinal} poster="/media/hero/poster.jpg" />
@@ -154,7 +157,7 @@ export default async function Home({
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/70" />
           <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-transparent to-transparent" />
 
-          <div className="relative mx-auto w-full max-w-6xl px-6 pt-40 pb-24 sm:px-5 sm:pb-32">
+          <div className="relative mx-auto w-full max-w-6xl px-6 py-24 text-center sm:px-5 sm:pt-40 sm:pb-32 sm:text-left">
             <p
               className="rise text-[10px] font-semibold tracking-[0.35em] text-accent-soft uppercase sm:text-[11px] sm:tracking-[0.4em]"
               style={rise(100)}
@@ -162,7 +165,7 @@ export default async function Home({
               Oslo · Osterhaus&apos; gate 10 · Siden {s.established}
             </p>
             <div
-              className="rise mt-8 flex flex-wrap items-center gap-4"
+              className="rise mt-8 flex flex-wrap items-center justify-center gap-4 sm:justify-start"
               style={rise(260)}
             >
               <a

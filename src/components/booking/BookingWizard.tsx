@@ -12,6 +12,7 @@ export type WizService = {
   price: string;
   duration: string;
   category: string;
+  description?: string;
 };
 export type WizBarber = { name: string; title: string };
 
@@ -107,6 +108,21 @@ export function BookingWizard({
     () => Array.from(new Set(services.map((s) => s.category))),
     [services],
   );
+  // Trekkspill: hvilken kategori som er åpen (første åpen som standard).
+  const [openCat, setOpenCat] = useState<string | null>(
+    () => services[0]?.category ?? null,
+  );
+  // «fra {pris}» når prisen varierer mellom nivåer, ellers fast pris.
+  const priceFrom = (name: string, fallback: string) => {
+    const lv = levelPrices[name];
+    const vals = lv ? Object.values(lv) : [];
+    if (vals.length) {
+      const min = Math.round(Math.min(...vals));
+      const varies = vals.some((v) => Math.round(v) !== min);
+      return varies ? `fra ${min} kr` : `${min} kr`;
+    }
+    return fallback;
+  };
 
   // Barbere som IKKE er ekskludert for valgt tjeneste (alle uten unntak vises).
   const availableBarbers = useMemo(() => {
@@ -299,39 +315,83 @@ export function BookingWizard({
 
       <div className="p-6">
         {step === 0 && (
-          <div className="space-y-6">
-            {cats.map((cat) => (
-              <div key={cat}>
-                <h3 className="mb-3 text-xs font-semibold tracking-wide text-muted uppercase">
-                  {cat}
-                </h3>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {services
-                    .filter((s) => s.category === cat)
-                    .map((s) => (
-                      <button
-                        key={s.name}
-                        onClick={() => {
-                          setService(s);
-                          setStep(1);
-                        }}
-                        className={
-                          "flex items-center justify-between border p-4 text-left transition-colors " +
-                          (service?.name === s.name
-                            ? "border-accent-soft bg-accent-soft/5"
-                            : "border-line hover:border-line-2")
-                        }
-                      >
-                        <span>
-                          <span className="block font-medium text-fg">{s.name}</span>
-                          <span className="block text-xs text-muted">{s.duration}</span>
-                        </span>
-                        <span className="font-display text-sm text-fg">{s.price}</span>
-                      </button>
-                    ))}
+          <div className="space-y-2.5">
+            {cats.map((cat) => {
+              const open = openCat === cat;
+              const items = services.filter((s) => s.category === cat);
+              return (
+                <div key={cat} className="border border-line bg-surface">
+                  <button
+                    type="button"
+                    onClick={() => setOpenCat(open ? null : cat)}
+                    aria-expanded={open}
+                    className="flex w-full items-center justify-between px-4 py-3.5 text-left"
+                  >
+                    <span className="font-display text-base font-bold text-fg">
+                      {cat}
+                    </span>
+                    <svg
+                      viewBox="0 0 24 24"
+                      className={
+                        "h-4 w-4 text-muted transition-transform duration-300 " +
+                        (open ? "rotate-180" : "")
+                      }
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      aria-hidden
+                    >
+                      <path
+                        d="m6 9 6 6 6-6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                  {open && (
+                    <div className="space-y-3 border-t border-line p-4">
+                      {items.map((s) => (
+                        <div
+                          key={s.name}
+                          className={
+                            "border p-4 transition-colors " +
+                            (service?.name === s.name
+                              ? "border-accent-soft bg-accent-soft/5"
+                              : "border-line")
+                          }
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="font-semibold text-fg">{s.name}</p>
+                              <p className="mt-0.5 text-xs text-muted italic">
+                                ~{s.duration}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => {
+                                setService(s);
+                                setStep(1);
+                              }}
+                              className="shrink-0 border border-line-2 px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft hover:text-accent-soft"
+                            >
+                              + Velg
+                            </button>
+                          </div>
+                          {s.description && (
+                            <p className="mt-2 text-sm leading-relaxed text-muted">
+                              {s.description}
+                            </p>
+                          )}
+                          <p className="mt-2.5 font-display text-sm font-bold text-fg">
+                            {priceFrom(s.name, s.price)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
