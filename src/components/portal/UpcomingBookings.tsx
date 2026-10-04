@@ -13,6 +13,7 @@ export type UpcomingBooking = {
   start_at: string;
   service: string | null;
   barber: string | null;
+  addons?: string[];
 };
 
 const OSLO = "Europe/Oslo";
@@ -117,6 +118,9 @@ function Row({ token, b }: { token: string; b: UpcomingBooking }) {
         {fmtWhen(b.start_at)}
         {b.barber ? ` · hos ${b.barber}` : ""}
       </p>
+      {b.addons && b.addons.length > 0 && (
+        <p className="mt-0.5 text-xs text-muted">+ {b.addons.join(", ")}</p>
+      )}
 
       {msg && <p className="mt-2 text-sm text-danger">{msg}</p>}
 

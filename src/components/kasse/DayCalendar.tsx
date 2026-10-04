@@ -405,11 +405,23 @@ export function DayCalendar({
                             <span className="truncate text-xs font-semibold text-fg">
                               {hhmm(b.start_at)} {b.customer ?? "—"}
                             </span>
+                            {b.group_id && (
+                              <span
+                                className="shrink-0 text-[10px] text-accent-soft"
+                                title={b.person_label ?? "Gruppebooking"}
+                                aria-label="Gruppebooking"
+                              >
+                                👥
+                              </span>
+                            )}
                           </div>
                           {height > 38 && (
                             <p className="truncate text-[10px] text-muted">
                               {completed ? "✓ " : noshow ? "✗ " : ""}
                               {b.service ?? ""}
+                              {b.addons && b.addons.length > 0
+                                ? ` +${b.addons.length}`
+                                : ""}
                             </p>
                           )}
                         </button>

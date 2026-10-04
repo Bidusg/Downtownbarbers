@@ -5,6 +5,7 @@ import type { SVGProps } from "react";
 import Link from "next/link";
 import { LogoMark } from "@/components/site/LogoMark";
 import { salon } from "@/lib/data/salon";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 function PhoneIcon(props: SVGProps<SVGSVGElement>) {
   return (
@@ -23,13 +24,14 @@ function PinIcon(props: SVGProps<SVGSVGElement>) {
 }
 
 // Rekkefølge følger hvor seksjonene ligger på forsiden (topp → bunn).
+// labelKey slås opp i ordboken slik at navigasjonen bytter språk.
 const nav = [
-  { label: "Håndverket", href: "/#handverket" },
-  { label: "Galleri", href: "/#galleri" },
-  { label: "Tjenester", href: "/#tjenester" },
-  { label: "Team", href: "/#team" },
-  { label: "Butikk", href: "/butikk" },
-  { label: "Kontakt", href: "/#kontakt" },
+  { labelKey: "nav.handverket", href: "/#handverket" },
+  { labelKey: "nav.galleri", href: "/#galleri" },
+  { labelKey: "nav.tjenester", href: "/#tjenester" },
+  { labelKey: "nav.team", href: "/#team" },
+  { labelKey: "nav.butikk", href: "/butikk" },
+  { labelKey: "nav.kontakt", href: "/#kontakt" },
 ];
 
 export function Header({
@@ -41,6 +43,7 @@ export function Header({
   phone?: string;
   address?: string;
 }) {
+  const { lang, setLang, t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -90,7 +93,7 @@ export function Header({
               href={n.href}
               className={"text-[13px] font-medium transition-colors " + navText}
             >
-              {n.label}
+              {t(n.labelKey)}
             </Link>
           ))}
         </nav>
@@ -119,6 +122,46 @@ export function Header({
             <PhoneIcon className="h-4 w-4" />
             <span className="hidden sm:inline">{phone}</span>
           </a>
+          {/* Språkbytte NO | EN */}
+          <div
+            role="group"
+            aria-label={t("header.langLabel")}
+            className={
+              "flex items-center gap-1 text-[13px] font-medium transition-colors " +
+              navText
+            }
+          >
+            <button
+              type="button"
+              onClick={() => setLang("no")}
+              aria-pressed={lang === "no"}
+              className={
+                "px-1 transition-opacity " +
+                (lang === "no"
+                  ? (solid ? "text-fg" : "text-white") + " font-semibold"
+                  : "opacity-55 hover:opacity-100")
+              }
+            >
+              NO
+            </button>
+            <span aria-hidden className="opacity-40">
+              |
+            </span>
+            <button
+              type="button"
+              onClick={() => setLang("en")}
+              aria-pressed={lang === "en"}
+              className={
+                "px-1 transition-opacity " +
+                (lang === "en"
+                  ? (solid ? "text-fg" : "text-white") + " font-semibold"
+                  : "opacity-55 hover:opacity-100")
+              }
+            >
+              EN
+            </button>
+          </div>
+
           <Link
             href="/logg-inn"
             className={
@@ -129,19 +172,19 @@ export function Header({
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" />
             </svg>
-            Logg inn
+            {t("header.login")}
           </Link>
           <Link
             href="/booking"
             className="shine-btn hidden bg-accent-soft px-5 py-2.5 text-[13px] font-semibold text-[#211E1A] transition-transform hover:-translate-y-0.5 sm:inline-block"
           >
-            Bestill time
+            {t("header.book")}
           </Link>
 
           {/* Hamburger – kun mobil */}
           <button
             type="button"
-            aria-label={open ? "Lukk meny" : "Åpne meny"}
+            aria-label={open ? t("header.closeMenu") : t("header.openMenu")}
             aria-expanded={open}
             onClick={() => setOpen((o) => !o)}
             className="flex h-10 w-10 flex-col items-center justify-center gap-1.5 md:hidden"
@@ -182,7 +225,7 @@ export function Header({
                 onClick={() => setOpen(false)}
                 className="border-b border-line py-3 text-sm font-medium text-fg last:border-0"
               >
-                {n.label}
+                {t(n.labelKey)}
               </Link>
             ))}
             <Link
@@ -190,14 +233,14 @@ export function Header({
               onClick={() => setOpen(false)}
               className="mt-3 bg-accent-soft px-5 py-3 text-center text-sm font-semibold text-[#211E1A]"
             >
-              Bestill time
+              {t("header.book")}
             </Link>
             <Link
               href="/logg-inn"
               onClick={() => setOpen(false)}
               className="mt-2 border border-line-2 px-5 py-3 text-center text-sm font-semibold text-fg"
             >
-              Logg inn
+              {t("header.login")}
             </Link>
             <a
               href={telHref}

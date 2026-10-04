@@ -108,6 +108,22 @@ export function BookingDetailModal({
             <span className="text-muted">Tjeneste</span>
             <span className="text-fg">{b.service ?? "—"}</span>
           </div>
+          {b.addons && b.addons.length > 0 && (
+            <div className="flex justify-between gap-3">
+              <span className="text-muted">Tillegg</span>
+              <span className="text-right text-fg">
+                {b.addons.map((a) => a.name).join(", ")}
+              </span>
+            </div>
+          )}
+          {(b.group_id || b.person_label) && (
+            <div className="flex justify-between">
+              <span className="text-muted">Gruppe</span>
+              <span className="text-accent-soft">
+                {b.person_label ?? "Del av gruppebooking"}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between">
             <span className="text-muted">Status</span>
             <span className="text-fg">{statusLabel[b.status] ?? b.status}</span>

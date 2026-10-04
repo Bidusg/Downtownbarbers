@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCartSlots, createBookingGroup } from "@/app/booking/cart-actions";
 import { isValidEmail, isValidNorwegianPhone } from "@/lib/validate";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 export type WizService = {
   name: string;
@@ -14,7 +15,7 @@ export type WizService = {
 export type WizBarber = { name: string; title: string };
 export type WizAddon = { name: string; price: number; durationMin: number };
 
-const STEPS = ["Tjenester", "Tid", "Kontakt"];
+const STEP_KEYS = ["step.services", "step.time", "step.contact"];
 
 const COUNTRY_CODES: [string, string][] = [
   ["+47", "NO"], ["+46", "SE"], ["+45", "DK"], ["+358", "FI"], ["+354", "IS"],
@@ -58,6 +59,9 @@ export function BookingWizard({
   initialServiceName?: string;
   initialBarberName?: string;
 }) {
+  const { lang, t } = useLanguage();
+  const locale = lang === "en" ? "en-GB" : "nb-NO";
+
   const cats = useMemo(
     () => Array.from(new Set(services.map((s) => s.category))),
     [services],
@@ -116,13 +120,13 @@ export function BookingWizard({
       if (closedWeekdays.includes(day.getDay())) continue;
       out.push({
         iso: isoDate(day),
-        weekday: day.toLocaleDateString("nb-NO", { weekday: "short" }),
+        weekday: day.toLocaleDateString(locale, { weekday: "short" }),
         dayNum: String(day.getDate()),
-        month: day.toLocaleDateString("nb-NO", { month: "short" }),
+        month: day.toLocaleDateString(locale, { month: "short" }),
       });
     }
     return out;
-  }, [closedWeekdays]);
+  }, [closedWeekdays, locale]);
 
   // ---- Priser --------------------------------------------------------------
   const serviceMinPrice = (name: string) => {
@@ -267,31 +271,31 @@ export function BookingWizard({
   if (done) {
     return (
       <div className="border border-line bg-surface p-10 text-center">
-        <p className="font-display text-3xl font-bold text-fg">Takk! 💈</p>
+        <p className="font-display text-3xl font-bold text-fg">{t("wiz.thanks")}</p>
         <p className="mt-4 text-muted">
-          Bestillingen er bekreftet:
+          {t("wiz.confirmed")}
           <br />
           <strong className="text-fg">
             {cart.map((it) => it.service.name).join(" · ")}
           </strong>
           <br />
-          {date} kl. {time}
+          {date} {t("common.at")} {time}
         </p>
         {(confirmLinks.portalUrl || confirmLinks.cancelUrl) && (
           <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm">
             {confirmLinks.portalUrl && (
               <a href={confirmLinks.portalUrl} className="font-semibold text-accent-soft hover:underline">
-                Min side →
+                {t("wiz.myPage")}
               </a>
             )}
             {confirmLinks.cancelUrl && (
               <a href={confirmLinks.cancelUrl} className="text-muted hover:text-fg">
-                Avbestill
+                {t("wiz.cancel")}
               </a>
             )}
           </div>
         )}
-        <p className="mt-6 text-sm text-muted">Vi sender også en bekreftelse på e-post.</p>
+        <p className="mt-6 text-sm text-muted">{t("wiz.emailConfirm")}</p>
       </div>
     );
   }
@@ -300,7 +304,7 @@ export function BookingWizard({
     <div className="border border-line bg-surface">
       {/* Steg-faner */}
       <div className="flex border-b border-line">
-        {STEPS.map((s, i) => (
+        {STEP_KEYS.map((s, i) => (
           <div
             key={s}
             className={
@@ -308,7 +312,7 @@ export function BookingWizard({
               (i === step ? "bg-accent text-accent-fg" : i < step ? "text-accent-soft" : "text-muted")
             }
           >
-            {i + 1}. {s}
+            {i + 1}. {t(s)}
           </div>
         ))}
       </div>
@@ -361,7 +365,7 @@ export function BookingWizard({
                                   onClick={() => addToCart(s)}
                                   className="shrink-0 border border-line-2 px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft hover:text-accent-soft"
                                 >
-                                  + Legg til
+                                  {t("wiz.add")}
                                 </button>
                               </div>
                               {s.description && (
@@ -371,7 +375,7 @@ export function BookingWizard({
                                 {serviceMinPrice(s.name) ===
                                 Math.max(...(levelPrices[s.name] ? Object.values(levelPrices[s.name]) : [serviceMinPrice(s.name)]))
                                   ? nok(serviceMinPrice(s.name))
-                                  : `fra ${nok(serviceMinPrice(s.name))}`}
+                                  : `${t("common.from")}${nok(serviceMinPrice(s.name))}`}
                               </p>
                             </div>
                           ))}
@@ -385,13 +389,13 @@ export function BookingWizard({
 
             {/* Kurv */}
             {cart.length === 0 ? (
-              <p className="text-sm text-muted">Legg til én eller flere tjenester for å fortsette.</p>
+              <p className="text-sm text-muted">{t("wiz.emptyCart")}</p>
             ) : (
               <div className="space-y-4 border border-line-2 bg-canvas p-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-display text-base font-bold text-fg">Din kurv</h3>
+                  <h3 className="font-display text-base font-bold text-fg">{t("wiz.yourCart")}</h3>
                   <span className="text-sm text-muted">
-                    {anyEstimate ? "fra " : ""}
+                    {anyEstimate ? t("common.from") : ""}
                     {nok(cartTotal)}
                   </span>
                 </div>
@@ -403,13 +407,13 @@ export function BookingWizard({
                       onClick={() => setMode("single")}
                       className={"flex-1 px-3 py-2 " + (mode === "single" ? "bg-accent text-accent-fg" : "text-muted")}
                     >
-                      Én person (etter hverandre)
+                      {t("wiz.modeSingle")}
                     </button>
                     <button
                       onClick={() => setMode("group")}
                       className={"flex-1 px-3 py-2 " + (mode === "group" ? "bg-accent text-accent-fg" : "text-muted")}
                     >
-                      Flere personer (samtidig)
+                      {t("wiz.modeGroup")}
                     </button>
                   </div>
                 )}
@@ -418,14 +422,14 @@ export function BookingWizard({
                 {mode === "single" && (
                   <div>
                     <label className="mb-1 block text-xs font-semibold tracking-wide text-muted uppercase">
-                      Barber for besøket
+                      {t("wiz.barberForVisit")}
                     </label>
                     <select
                       value={singleBarber}
                       onChange={(e) => setSingleBarber(e.target.value)}
                       className="w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
                     >
-                      <option value={ANY}>Hvilken som helst</option>
+                      <option value={ANY}>{t("wiz.anyBarber")}</option>
                       {barbersForAll.map((b) => (
                         <option key={b.name} value={b.name}>
                           {b.name} · {b.title}
@@ -448,7 +452,7 @@ export function BookingWizard({
                           onClick={() => removeLine(it.id)}
                           className="shrink-0 text-xs text-muted hover:text-danger"
                         >
-                          Fjern
+                          {t("wiz.remove")}
                         </button>
                       </div>
 
@@ -460,7 +464,7 @@ export function BookingWizard({
                             onChange={(e) => patchLine(it.id, { barberName: e.target.value || null })}
                             className="border border-line-2 bg-canvas px-2 py-2 text-sm text-fg outline-none focus:border-accent-soft"
                           >
-                            <option value="">Velg barber …</option>
+                            <option value="">{t("wiz.chooseBarber")}</option>
                             {barbersFor(it.service.name).map((b) => (
                               <option key={b.name} value={b.name}>
                                 {b.name} · {b.title}
@@ -470,7 +474,7 @@ export function BookingWizard({
                           <input
                             value={it.person}
                             onChange={(e) => patchLine(it.id, { person: e.target.value })}
-                            placeholder={`Navn (Person ${idx + 1})`}
+                            placeholder={`${t("wiz.personName")} (${t("wiz.person")} ${idx + 1})`}
                             className="border border-line-2 bg-canvas px-2 py-2 text-sm text-fg outline-none focus:border-accent-soft"
                           />
                         </div>
@@ -480,7 +484,7 @@ export function BookingWizard({
                       {addons.length > 0 && (
                         <div className="mt-3">
                           <p className="mb-1.5 text-[11px] font-semibold tracking-wide text-muted uppercase">
-                            Legg til
+                            {t("wiz.addonsLabel")}
                           </p>
                           <div className="flex flex-wrap gap-2">
                             {addons.map((a) => {
@@ -506,7 +510,7 @@ export function BookingWizard({
                       )}
 
                       <p className="mt-2.5 text-right font-display text-sm font-bold text-fg">
-                        {linePrice(it).exact ? "" : "fra "}
+                        {linePrice(it).exact ? "" : t("common.from")}
                         {nok(linePrice(it).value)}
                       </p>
                     </div>
@@ -514,7 +518,7 @@ export function BookingWizard({
                 </div>
 
                 {groupNeedsBarbers && (
-                  <p className="text-xs text-danger">Velg barber for hver person.</p>
+                  <p className="text-xs text-danger">{t("wiz.needBarbers")}</p>
                 )}
 
                 <button
@@ -522,7 +526,7 @@ export function BookingWizard({
                   disabled={!canGoTid}
                   className="w-full bg-accent px-6 py-3 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
                 >
-                  Velg tid →
+                  {t("wiz.chooseTime")}
                 </button>
               </div>
             )}
@@ -534,25 +538,24 @@ export function BookingWizard({
           <div className="space-y-5">
             <div className="flex items-center justify-between">
               <label className="block text-xs font-semibold tracking-wide text-muted uppercase">
-                Velg dag og tid
+                {t("wiz.chooseDayTime")}
               </label>
               <button onClick={() => setStep(0)} className="text-xs text-accent-soft hover:underline">
-                ← Endre kurv
+                {t("wiz.editCart")}
               </button>
             </div>
 
             {openDays.length === 0 ? (
-              <p className="text-sm text-muted">Ingen åpne dager tilgjengelig akkurat nå.</p>
+              <p className="text-sm text-muted">{t("wiz.noOpenDays")}</p>
             ) : loadingSlots ? (
-              <p className="text-sm text-muted">Henter ledige tider …</p>
+              <p className="text-sm text-muted">{t("wiz.loadingSlots")}</p>
             ) : slotsError ? (
               <p className="text-sm text-danger">
-                Kunne ikke hente ledige tider akkurat nå. Prøv igjen om litt.
+                {t("wiz.slotsError")}
               </p>
             ) : openDays.every((d) => halfHourSlots(d.iso).length === 0) ? (
               <p className="text-sm text-muted">
-                Ingen ledige tider som passer hele bestillingen i perioden. Prøv færre tjenester,
-                andre barbere, eller «flere personer»-modus.
+                {t("wiz.noSlotsPeriod")}
               </p>
             ) : (
               <>
@@ -588,7 +591,7 @@ export function BookingWizard({
                 {(() => {
                   const times = halfHourSlots(viewDay);
                   if (times.length === 0)
-                    return <p className="text-sm text-muted">Ingen ledige tider denne dagen – velg en annen.</p>;
+                    return <p className="text-sm text-muted">{t("wiz.noSlotsDay")}</p>;
                   return (
                     <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
                       {times.map((t) => {
@@ -620,7 +623,7 @@ export function BookingWizard({
                   disabled={!date || !time}
                   className="w-full bg-accent px-6 py-3 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
                 >
-                  Videre til kontakt →
+                  {t("wiz.toContact")}
                 </button>
               </>
             )}
@@ -632,10 +635,10 @@ export function BookingWizard({
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <label className="block text-xs font-semibold tracking-wide text-muted uppercase">
-                Dine opplysninger
+                {t("wiz.yourDetails")}
               </label>
               <button onClick={() => setStep(1)} className="text-xs text-accent-soft hover:underline">
-                ← Endre tid
+                {t("wiz.editTime")}
               </button>
             </div>
 
@@ -644,32 +647,32 @@ export function BookingWizard({
                 <strong>{cart.map((it) => it.service.name).join(" · ")}</strong>
               </p>
               <p className="mt-1 text-muted">
-                {date} kl. {time} · {anyEstimate ? "fra " : ""}
+                {date} {t("common.at")} {time} · {anyEstimate ? t("common.from") : ""}
                 {nok(cartTotal)}
               </p>
             </div>
 
             <input
-              placeholder="Fullt navn"
+              placeholder={t("wiz.fullName")}
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
             />
             <div>
               <input
-                placeholder="E-post"
+                placeholder={t("wiz.email")}
                 type="email"
                 inputMode="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
               />
-              {email && !emailOk && <p className="mt-1 text-xs text-danger">Ugyldig e-postadresse.</p>}
+              {email && !emailOk && <p className="mt-1 text-xs text-danger">{t("wiz.invalidEmail")}</p>}
             </div>
             <div>
               <div className="flex gap-2">
                 <select
-                  aria-label="Landskode"
+                  aria-label={t("wiz.countryCode")}
                   value={countryCode}
                   onChange={(e) => setCountryCode(e.target.value)}
                   className="shrink-0 border border-line-2 bg-canvas px-2 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
@@ -681,8 +684,8 @@ export function BookingWizard({
                   ))}
                 </select>
                 <input
-                  placeholder="Telefonnummer"
-                  aria-label="Telefon"
+                  placeholder={t("wiz.phone")}
+                  aria-label={t("wiz.phoneAria")}
                   type="tel"
                   autoComplete="tel"
                   inputMode="tel"
@@ -691,11 +694,11 @@ export function BookingWizard({
                   className="w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
                 />
               </div>
-              {phone && !phoneOk && <p className="mt-1 text-xs text-danger">Ugyldig telefonnummer.</p>}
+              {phone && !phoneOk && <p className="mt-1 text-xs text-danger">{t("wiz.invalidPhone")}</p>}
             </div>
 
             <input
-              placeholder="Hvordan hørte du om oss? (valgfritt)"
+              placeholder={t("wiz.source")}
               value={source}
               onChange={(e) => setSource(e.target.value)}
               className="w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
@@ -708,7 +711,7 @@ export function BookingWizard({
                 onChange={(e) => setMarketingConsent(e.target.checked)}
                 className="mt-0.5"
               />
-              <span>Ja, jeg vil motta tilbud og nyheter fra Downtown Barbers på e-post.</span>
+              <span>{t("wiz.marketingConsent")}</span>
             </label>
 
             {error && <p className="text-sm text-danger">{error}</p>}
@@ -718,7 +721,7 @@ export function BookingWizard({
               disabled={pending || !name.trim() || !emailOk || !phoneOk}
               className="w-full bg-accent px-6 py-3 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
             >
-              {pending ? "Bestiller …" : "Bekreft bestilling"}
+              {pending ? t("wiz.booking") : t("wiz.confirm")}
             </button>
           </div>
         )}

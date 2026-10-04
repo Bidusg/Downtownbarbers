@@ -58,6 +58,15 @@ export default async function MinSide({ params }: { params: Promise<{ token: str
   const p = (Array.isArray(data) ? data[0] : data) as Portal | null;
   if (!p || !p.full_name) return <NotFound />;
 
+  // Tillegg per booking (handlekurv) – egen SECURITY DEFINER-RPC via token.
+  const { data: addonRows } = await sb.rpc("customer_portal_addons", { p_token: token });
+  const addonsByBooking = new Map<string, string[]>();
+  for (const r of (addonRows ?? []) as { booking_id: string; name: string }[]) {
+    const list = addonsByBooking.get(r.booking_id) ?? [];
+    list.push(r.name);
+    addonsByBooking.set(r.booking_id, list);
+  }
+
   const membership = await getCustomerMembershipByToken(token);
   const membershipLeft = membership ? remainingToNext(membership) : null;
 
@@ -169,6 +178,7 @@ export default async function MinSide({ params }: { params: Promise<{ token: str
           start_at: b.start_at,
           service: b.service,
           barber: b.barber,
+          addons: addonsByBooking.get(b.id),
         }))}
       />
 
@@ -188,6 +198,9 @@ export default async function MinSide({ params }: { params: Promise<{ token: str
                   <div className="min-w-0">
                     <span className="text-fg">{b.service ?? "Time"}</span>
                     <span className="block text-xs text-muted">{fmtDate(b.start_at)}{b.barber ? ` · ${b.barber}` : ""}</span>
+                    {(addonsByBooking.get(b.id)?.length ?? 0) > 0 && (
+                      <span className="block text-xs text-muted">+ {addonsByBooking.get(b.id)!.join(", ")}</span>
+                    )}
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
                     <span className="text-xs text-muted">{STATUS[b.status] ?? b.status}</span>
