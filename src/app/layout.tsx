@@ -4,6 +4,9 @@ import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
 
 export const viewport: Viewport = {
   themeColor: "#F8F5EF",
+  // Lar innholdet (hero) fylle helt opp under statuslinja på mobil, så det
+  // ikke blir en lys stripe mellom toppen av skjermen og headeren.
+  viewportFit: "cover",
 };
 
 export const metadata: Metadata = {

@@ -1,6 +1,7 @@
 import type { SVGProps } from "react";
 import { initials } from "@/lib/colors";
 import type { PublicProduct } from "@/lib/queries";
+import { T } from "@/lib/i18n/T";
 
 /* Enkle linje-ikoner (arver farge via currentColor). */
 function GiftIcon(props: SVGProps<SVGSVGElement>) {
@@ -51,8 +52,6 @@ function StoreIcon(props: SVGProps<SVGSVGElement>) {
  * bevisst «kjøpes i salongen» i stedet for en handlekurv-knapp.
  */
 export function ProductCard({ product: p }: { product: PublicProduct }) {
-  const badgeLabel = p.is_gift_card ? "Gavekort · i salongen" : "I salongen";
-
   return (
     <article className="group flex flex-col overflow-hidden rounded-lg border border-line bg-surface">
       <div className="relative aspect-square overflow-hidden bg-surface-2">
@@ -87,7 +86,11 @@ export function ProductCard({ product: p }: { product: PublicProduct }) {
           ) : (
             <StoreIcon className="h-3 w-3" />
           )}
-          {badgeLabel}
+          {p.is_gift_card ? (
+            <T k="product.badge.gift" />
+          ) : (
+            <T k="product.badge.inStore" />
+          )}
         </span>
       </div>
 
@@ -102,7 +105,7 @@ export function ProductCard({ product: p }: { product: PublicProduct }) {
           </p>
           <span className="inline-flex items-center gap-1 text-[11px] font-medium text-accent-soft">
             <StoreIcon className="h-3.5 w-3.5" />
-            Kjøp i salongen
+            <T k="product.buyInStore" />
           </span>
         </div>
       </div>

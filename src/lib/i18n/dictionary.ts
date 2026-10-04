@@ -109,4 +109,92 @@ export const dictionary: Dict = {
     no: "Vi sender også en bekreftelse på e-post.",
     en: "We'll also send a confirmation by email.",
   },
+
+  // ---- Forside: hero ----
+  "home.hero.since": { no: "Siden", en: "Since" },
+  "home.hero.reviews": { no: "vurderinger", en: "reviews" },
+
+  // ---- Forside: om oss ----
+  "home.about.eyebrow": { no: "Om oss", en: "About us" },
+  "home.about.cta": { no: "Bestill din time", en: "Book your appointment" },
+
+  // ---- Forside: håndverket ----
+  "home.craft.eyebrow": { no: "Håndverket", en: "The Craft" },
+  "home.craft.title": {
+    no: "Det du kjenner idet du reiser deg fra stolen.",
+    en: "What you feel the moment you rise from the chair.",
+  },
+
+  // ---- Forside: galleri ----
+  "home.gallery.eyebrow": { no: "Galleri", en: "Gallery" },
+  "home.gallery.title": { no: "Fra stolen", en: "From the chair" },
+
+  // ---- Forside: tjenester ----
+  "home.services.eyebrow": { no: "Tjenester", en: "Services" },
+  "home.services.title": { no: "Prisliste", en: "Price list" },
+
+  // ---- Forside: cta-banner ----
+  "home.cta.button": { no: "Bestill time nå", en: "Book now" },
+
+  // ---- Forside: team ----
+  "home.team.eyebrow": { no: "Teamet", en: "The Team" },
+  "home.team.title": { no: "Håndverkerne", en: "The Craftsmen" },
+
+  // ---- Forside: åpningstider + kontakt ----
+  "home.hours.eyebrow": { no: "Åpningstider", en: "Opening hours" },
+  "home.contact.eyebrow": { no: "Kontakt", en: "Contact" },
+
+  // ---- Anmeldelser (GoogleReviews) ----
+  "reviews.eyebrow": { no: "Anmeldelser", en: "Reviews" },
+  "reviews.title": { no: "Hva kundene sier", en: "What customers say" },
+  "reviews.onGoogle": {
+    no: "anmeldelser på Google",
+    en: "reviews on Google",
+  },
+  "reviews.fromGoogle": { no: "Anmeldelser fra Google", en: "Reviews from Google" },
+  "reviews.seeAll": { no: "Se alle på Google", en: "See all on Google" },
+
+  // ---- Footer ----
+  "footer.rights": {
+    no: "Alle rettigheter forbeholdt.",
+    en: "All rights reserved.",
+  },
+
+  // ---- Booking-side ----
+  "booking.eyebrow": { no: "Bestill time", en: "Book appointment" },
+  "booking.heading": { no: "Sett deg ned.", en: "Have a seat." },
+  "booking.intro": {
+    no: "Fire steg: tjeneste, barber, tid og kontakt. Bekreftelse på e-post med en gang.",
+    en: "Four steps: service, barber, time and contact. Email confirmation right away.",
+  },
+
+  // ---- Butikk-side ----
+  "butikk.eyebrow": { no: "Produkter & gavekort", en: "Products & gift cards" },
+  "butikk.title": { no: "Over disk", en: "Over the counter" },
+  "butikk.intro.base": {
+    no: "De samme produktene vi bruker i stolen",
+    en: "The same products we use in the chair",
+  },
+  "butikk.intro.gift": {
+    no: " – pluss gavekort som alltid sitter. ",
+    en: " – plus gift cards that always fit. ",
+  },
+  "butikk.intro.plain": { no: ". ", en: ". " },
+  "butikk.intro.tail": {
+    no: "Alt kjøpes i salongen: stikk innom eller ring, så legger vi det av til deg.",
+    en: "Everything is bought in the salon: drop by or call, and we'll set it aside for you.",
+  },
+  "butikk.box.titleBase": { no: "Kjøp i salongen", en: "Buy in the salon" },
+  "butikk.box.titleGift": { no: " – også gavekort", en: " – gift cards too" },
+  "butikk.box.bodyProducts": { no: "Vi selger produkter", en: "We sell products" },
+  "butikk.box.bodyGift": { no: " og gavekort", en: " and gift cards" },
+  "butikk.box.bodyTail": {
+    no: " direkte over disk – ingen frakt og ingen ventetid. Nettbutikk med betaling og levering er på vei; til da får du alt raskest ved å komme innom.",
+    en: " directly over the counter – no shipping and no waiting. An online shop with payment and delivery is on the way; until then the fastest way is to come by.",
+  },
+
+  // ---- Produktkort ----
+  "product.badge.gift": { no: "Gavekort · i salongen", en: "Gift card · in salon" },
+  "product.badge.inStore": { no: "I salongen", en: "In the salon" },
+  "product.buyInStore": { no: "Kjøp i salongen", en: "Buy in salon" },
 };

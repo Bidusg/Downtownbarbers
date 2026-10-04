@@ -1,6 +1,13 @@
 "use client";
 
-import { Fragment, useMemo, useRef, useState, useTransition } from "react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { useRouter } from "next/navigation";
 import type { AgendaBooking, ShopBarber, ShopService } from "@/lib/shop-queries";
 import { colorAt } from "@/lib/colors";
@@ -12,6 +19,7 @@ import {
   blockTime,
   cancelBooking,
   reassignBookingBarber,
+  rescheduleBooking,
   setBookingLength,
 } from "@/app/kasse/actions";
 
@@ -45,6 +53,13 @@ function hhmm(iso: string) {
   } catch {
     return "";
   }
+}
+
+// Minutter etter midnatt → "HH:MM" (brukes til live-feedback når man drar).
+function minToHHMM(min: number) {
+  const hh = String(Math.floor(min / 60)).padStart(2, "0");
+  const mm = String(Math.round(min) % 60).padStart(2, "0");
+  return `${hh}:${mm}`;
 }
 
 function addDays(date: string, days: number): string {
@@ -94,8 +109,34 @@ export function DayCalendar({
     toBarber: string;
   } | null>(null);
 
+  // Dra-for-flytting (vertikalt = ny starttid, samme barber/kolonne).
+  const [move, setMove] = useState<{
+    id: string;
+    startMin: number; // opprinnelig start (minutter etter midnatt, Oslo)
+    dur: number; // varighet i minutter (beholdes)
+    y0: number; // clientY ved pointer-down
+  } | null>(null);
+  const [moveStart, setMoveStart] = useState<number | null>(null); // live ny start
+  const [moveMsg, setMoveMsg] = useState<string | null>(null);
+  const [, startMoveSave] = useTransition();
+  // Optimistisk ny start per booking-id – holdes til router.refresh() gir ny agenda.
+  const [optimistic, setOptimistic] = useState<Record<string, number>>({});
+  // Fersk agenda fra serveren → nullstill optimistiske overstyringer.
+  useEffect(() => {
+    setOptimistic({});
+  }, [agenda]);
+
   const down = useRef<{ x: number; y: number } | null>(null);
   const moved = useRef(false);
+  // Pointer-gest på en blokk: hvilken booking, startpunkt og valgt akse.
+  const blkDown = useRef<{
+    id: string;
+    x: number;
+    y: number;
+    axis: "" | "v" | "h";
+  } | null>(null);
+  // Satt når en vertikal flytting faktisk endret tiden – hindrer at klikk åpner modal.
+  const blkDragged = useRef(false);
 
   const today = new Date().toLocaleDateString("en-CA", {
     timeZone: "Europe/Oslo",
@@ -209,6 +250,98 @@ export function DayCalendar({
     });
   }
 
+  // ---- Dra-for-flytting (vertikal = ny tid) ---------------------------
+  const MOVE_THRESH = 5; // piksler før en gest regnes som dra
+  const MOVE_SNAP = 15; // minutter (kalenderens steg)
+
+  function blockPointerDown(e: React.PointerEvent, b: AgendaBooking) {
+    // Ikke preventDefault her: en horisontal gest skal fortsatt kunne starte
+    // native dra-til-barber. Vi avgjør aksen på første reelle bevegelse.
+    blkDown.current = { id: b.id, x: e.clientX, y: e.clientY, axis: "" };
+    blkDragged.current = false;
+  }
+
+  function blockPointerMove(e: React.PointerEvent, b: AgendaBooking) {
+    const d = blkDown.current;
+    if (!d || d.id !== b.id) return;
+
+    // Aktiv vertikal flytting: følg pekeren, snap til 15 min, hold deg innenfor dagen.
+    if (move?.id === b.id) {
+      const dy = e.clientY - move.y0;
+      let ns = move.startMin + dy / PX;
+      ns = Math.round(ns / MOVE_SNAP) * MOVE_SNAP;
+      ns = Math.max(OPEN, Math.min(ns, CLOSE - move.dur));
+      setMoveStart(ns);
+      e.preventDefault();
+      return;
+    }
+
+    if (d.axis !== "") return;
+    const dx = e.clientX - d.x;
+    const dy = e.clientY - d.y;
+    if (Math.abs(dx) < MOVE_THRESH && Math.abs(dy) < MOVE_THRESH) return;
+
+    if (Math.abs(dy) >= Math.abs(dx)) {
+      // Vertikal → flytt tid (pointer). Samme barber/kolonne.
+      d.axis = "v";
+      const curStart =
+        optimistic[b.id] != null ? optimistic[b.id] : osloMinutes(b.start_at);
+      const dur = Math.max(
+        MOVE_SNAP,
+        osloMinutes(b.end_at) - osloMinutes(b.start_at),
+      );
+      setMove({ id: b.id, startMin: curStart, dur, y0: d.y });
+      setMoveStart(curStart);
+      try {
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      } catch {
+        /* noop */
+      }
+      e.preventDefault();
+    } else {
+      // Horisontal → overlat til native dra-til-barber (uendret oppførsel).
+      d.axis = "h";
+    }
+  }
+
+  function blockPointerUp(_e: React.PointerEvent, b: AgendaBooking) {
+    if (move?.id === b.id) endMove();
+    blkDown.current = null;
+  }
+
+  function blockPointerCancel() {
+    setMove(null);
+    setMoveStart(null);
+    blkDown.current = null;
+  }
+
+  function endMove() {
+    const cur = move;
+    const ns = moveStart;
+    setMove(null);
+    setMoveStart(null);
+    if (!cur || ns == null || ns === cur.startMin) return;
+    blkDragged.current = true; // ekte flytting – ikke tolk som klikk
+    const startIso = new Date(
+      `${date}T${minToHHMM(ns)}:00`,
+    ).toISOString();
+    setMoveMsg(null);
+    setOptimistic((m) => ({ ...m, [cur.id]: ns }));
+    startMoveSave(async () => {
+      const res = await rescheduleBooking(cur.id, startIso);
+      if (res.error) {
+        // Feil → angre den optimistiske flyttingen og vis melding.
+        setOptimistic((m) => {
+          const n = { ...m };
+          delete n[cur.id];
+          return n;
+        });
+        setMoveMsg(res.error);
+      }
+      router.refresh();
+    });
+  }
+
   return (
     <div>
       {/* Topplinje */}
@@ -244,6 +377,12 @@ export function DayCalendar({
       {resizeMsg && (
         <p className="mb-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
           {resizeMsg}
+        </p>
+      )}
+
+      {moveMsg && (
+        <p className="mb-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+          {moveMsg}
         </p>
       )}
 
@@ -323,12 +462,24 @@ export function DayCalendar({
                   )}
 
                   {col.items.map((b) => {
-                    const s = Math.max(osloMinutes(b.start_at), OPEN);
-                    // Live sluttid under en aktiv resize; ellers bookingens egen.
-                    const endMin =
-                      resize?.id === b.id && resizeEnd != null
-                        ? resizeEnd
-                        : osloMinutes(b.end_at);
+                    const realStart = osloMinutes(b.start_at);
+                    const dur = osloMinutes(b.end_at) - realStart;
+                    // Effektiv start/slutt: optimistisk flytting < live drag; live
+                    // resize overstyrer kun sluttiden.
+                    let startMin = realStart;
+                    let endMin = osloMinutes(b.end_at);
+                    if (optimistic[b.id] != null) {
+                      startMin = optimistic[b.id];
+                      endMin = startMin + dur;
+                    }
+                    if (resize?.id === b.id && resizeEnd != null)
+                      endMin = resizeEnd;
+                    if (move?.id === b.id && moveStart != null) {
+                      startMin = moveStart;
+                      endMin = moveStart + dur;
+                    }
+                    const isMoving = move?.id === b.id;
+                    const s = Math.max(startMin, OPEN);
                     const e = Math.min(endMin, CLOSE);
                     const top = (s - OPEN) * PX;
                     const height = Math.max((e - s) * PX, 26);
@@ -366,15 +517,31 @@ export function DayCalendar({
                     const noshow = b.status === "no_show";
                     const resizable = canResize && !completed && !noshow;
                     const isResizing = resize?.id === b.id;
+                    // Flyttbar = aktiv time (samme vilkår som dra-til-barber).
+                    const movable = !completed && !noshow;
                     return (
                       <Fragment key={b.id}>
                         <button
                           onClick={() => {
-                            if (moved.current || isResizing) return;
+                            // Et reelt dra (akse eller terskel) skal ikke åpne modalen.
+                            if (
+                              moved.current ||
+                              isResizing ||
+                              isMoving ||
+                              blkDragged.current
+                            ) {
+                              blkDragged.current = false;
+                              return;
+                            }
                             setSelected(b);
                           }}
-                          draggable={!completed && !noshow && !isResizing}
+                          draggable={movable && !isResizing && !isMoving}
                           onDragStart={(e) => {
+                            // Pågående vertikal flytting → avbryt native dra-til-barber.
+                            if (isMoving || blkDown.current?.axis === "v") {
+                              e.preventDefault();
+                              return;
+                            }
                             e.stopPropagation();
                             setDragId(b.id);
                             e.dataTransfer.effectAllowed = "move";
@@ -385,8 +552,32 @@ export function DayCalendar({
                             }
                           }}
                           onDragEnd={() => setDragId(null)}
-                          title="Dra til en annen barber for å flytte kunden"
-                          className="absolute right-1 left-1 cursor-grab overflow-hidden rounded-md border-l-[3px] px-2 py-1 text-left transition-transform hover:z-10 hover:scale-[1.02] active:cursor-grabbing"
+                          onPointerDown={
+                            movable
+                              ? (ev) => blockPointerDown(ev, b)
+                              : undefined
+                          }
+                          onPointerMove={
+                            movable
+                              ? (ev) => blockPointerMove(ev, b)
+                              : undefined
+                          }
+                          onPointerUp={
+                            movable ? (ev) => blockPointerUp(ev, b) : undefined
+                          }
+                          onPointerCancel={
+                            movable ? blockPointerCancel : undefined
+                          }
+                          title={
+                            movable
+                              ? "Dra opp/ned for å endre tid · dra til siden for å bytte barber"
+                              : undefined
+                          }
+                          className={`absolute right-1 left-1 cursor-grab overflow-hidden rounded-md border-l-[3px] px-2 py-1 text-left motion-safe:transition-transform hover:z-10 motion-safe:hover:scale-[1.02] active:cursor-grabbing ${
+                            isMoving
+                              ? "z-30 shadow-lg ring-1 ring-accent-soft"
+                              : ""
+                          }`}
                           style={{
                             top,
                             height,
@@ -394,6 +585,7 @@ export function DayCalendar({
                             borderLeftColor: color,
                             opacity:
                               dragId === b.id ? 0.35 : completed || noshow ? 0.6 : 1,
+                            touchAction: movable ? "none" : undefined,
                           }}
                         >
                           <div className="flex items-center gap-1.5">
@@ -403,7 +595,7 @@ export function DayCalendar({
                               size={16}
                             />
                             <span className="truncate text-xs font-semibold text-fg">
-                              {hhmm(b.start_at)} {b.customer ?? "—"}
+                              {minToHHMM(startMin)} {b.customer ?? "—"}
                             </span>
                             {b.group_id && (
                               <span
@@ -453,6 +645,16 @@ export function DayCalendar({
                           >
                             {String(Math.floor(resizeEnd / 60)).padStart(2, "0")}:
                             {String(resizeEnd % 60).padStart(2, "0")}
+                          </div>
+                        )}
+
+                        {/* Live ny starttid mens man flytter */}
+                        {isMoving && moveStart != null && (
+                          <div
+                            className="pointer-events-none absolute left-1 z-40 rounded bg-fg px-1.5 py-0.5 text-[10px] font-bold text-surface tabular-nums"
+                            style={{ top: Math.max(top - 16, 0) }}
+                          >
+                            {minToHHMM(moveStart)}–{minToHHMM(moveStart + dur)}
                           </div>
                         )}
                       </Fragment>

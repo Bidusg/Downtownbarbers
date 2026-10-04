@@ -29,6 +29,7 @@ export function HeroCarousel({
   const n = slides.length;
   const [index, setIndex] = useState(0);
   const [reduced, setReduced] = useState(false);
+  const [failed, setFailed] = useState<Set<number>>(() => new Set());
   const videoRefs = useRef<Record<number, HTMLVideoElement | null>>({});
   const advancing = useRef(false);
 
@@ -88,6 +89,14 @@ export function HeroCarousel({
 
   return (
     <div className="absolute inset-0">
+      {/* Basislag: posteren vises alltid bak, så et bilde som ikke laster
+          aldri gir en hvit/blank flate – da ser man posteren i stedet. */}
+      <img
+        src={poster}
+        alt=""
+        aria-hidden
+        className="absolute inset-0 h-full w-full object-cover"
+      />
       {slides.map((slide, i) => {
         const live = i === index || i === next || i === prev;
         const active = i === index;
@@ -112,11 +121,19 @@ export function HeroCarousel({
                 >
                   <source src={slide.src} type="video/mp4" />
                 </video>
-              ) : (
+              ) : failed.has(i) ? null : (
                 <img
                   src={slide.src}
                   alt=""
                   aria-hidden
+                  onError={() => {
+                    setFailed((f) => {
+                      const s = new Set(f);
+                      s.add(i);
+                      return s;
+                    });
+                    if (active) go();
+                  }}
                   className={
                     "h-full w-full object-cover" + (active ? " kenburns" : "")
                   }

@@ -1,9 +1,10 @@
 import type { SVGProps } from "react";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
-import { SmoothScroll, FadeUp, SplitReveal } from "@/components/site/motion/CineFx";
+import { SmoothScroll, FadeUp } from "@/components/site/motion/CineFx";
 import { ProductCard } from "@/components/butikk/ProductCard";
 import { getPublicProducts } from "@/lib/queries";
+import { T, SplitRevealT } from "@/lib/i18n/T";
 
 export const metadata = { title: "Nettbutikk | Downtown Barbers" };
 
@@ -38,20 +39,23 @@ export default async function ButikkPage() {
         <section className="mx-auto max-w-6xl px-5 pt-28 pb-20 sm:pt-32">
           <FadeUp>
             <p className="text-[10px] font-semibold tracking-[0.34em] text-accent-soft uppercase">
-              Produkter & gavekort
+              <T k="butikk.eyebrow" />
             </p>
           </FadeUp>
-          <SplitReveal
+          <SplitRevealT
             as="h1"
-            text="Over disk"
+            k="butikk.title"
             className="mt-4 font-display text-4xl font-bold sm:text-5xl"
           />
           <FadeUp delay={0.06}>
             <p className="mt-5 mb-8 max-w-xl text-muted">
-              De samme produktene vi bruker i stolen
-              {hasGiftCards ? " – pluss gavekort som alltid sitter. " : ". "}
-              Alt kjøpes i salongen: stikk innom eller ring, så legger vi det av
-              til deg.
+              <T k="butikk.intro.base" />
+              {hasGiftCards ? (
+                <T k="butikk.intro.gift" />
+              ) : (
+                <T k="butikk.intro.plain" />
+              )}
+              <T k="butikk.intro.tail" />
             </p>
           </FadeUp>
 
@@ -64,13 +68,13 @@ export default async function ButikkPage() {
               </span>
               <div>
                 <p className="font-medium text-fg">
-                  Kjøp i salongen{hasGiftCards ? " – også gavekort" : ""}
+                  <T k="butikk.box.titleBase" />
+                  {hasGiftCards ? <T k="butikk.box.titleGift" /> : ""}
                 </p>
                 <p className="mt-1 text-sm text-muted">
-                  Vi selger produkter{hasGiftCards ? " og gavekort" : ""} direkte
-                  over disk – ingen frakt og ingen ventetid. Nettbutikk med
-                  betaling og levering er på vei; til da får du alt raskest ved å
-                  komme innom.
+                  <T k="butikk.box.bodyProducts" />
+                  {hasGiftCards ? <T k="butikk.box.bodyGift" /> : ""}
+                  <T k="butikk.box.bodyTail" />
                 </p>
               </div>
             </div>

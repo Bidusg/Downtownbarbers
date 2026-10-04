@@ -1,5 +1,6 @@
 import { getGoogleReviews } from "@/lib/google-reviews";
 import { Reveal } from "@/components/site/Reveal";
+import { T } from "@/lib/i18n/T";
 
 function Stars({ value, className = "" }: { value: number; className?: string }) {
   const rounded = Math.round(value);
@@ -38,11 +39,11 @@ export async function GoogleReviews() {
       <div className="mx-auto max-w-6xl px-5 py-20 md:py-28">
         <Reveal>
           <p className="text-[10px] font-semibold tracking-[0.3em] text-accent-soft uppercase">
-            Anmeldelser
+            <T k="reviews.eyebrow" />
           </p>
           <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
             <h2 className="font-display text-3xl font-bold sm:text-4xl">
-              Hva kundene sier
+              <T k="reviews.title" />
             </h2>
             <div className="flex items-center gap-3">
               <span className="font-display text-3xl font-bold text-fg">
@@ -51,7 +52,7 @@ export async function GoogleReviews() {
               <span>
                 <Stars value={data.rating} />
                 <span className="mt-0.5 block text-xs text-muted">
-                  {data.total} anmeldelser på Google
+                  {data.total} <T k="reviews.onGoogle" />
                 </span>
               </span>
             </div>
@@ -113,7 +114,9 @@ export async function GoogleReviews() {
               d="M12 4.75c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 1.46 14.97.5 12 .5A11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 6.68 9.14 4.75 12 4.75z"
             />
           </svg>
-          <span className="text-sm text-muted">Anmeldelser fra Google</span>
+          <span className="text-sm text-muted">
+            <T k="reviews.fromGoogle" />
+          </span>
           {data.mapsUri && (
             <a
               href={data.mapsUri}
@@ -121,7 +124,7 @@ export async function GoogleReviews() {
               rel="noopener noreferrer"
               className="ml-auto inline-flex items-center gap-2 text-sm font-semibold text-accent-soft transition-colors hover:text-fg"
             >
-              Se alle på Google
+              <T k="reviews.seeAll" />
               <span aria-hidden>→</span>
             </a>
           )}

@@ -71,6 +71,7 @@ export function BookingWizard({
   );
 
   const [step, setStep] = useState(0);
+  const [cartOpen, setCartOpen] = useState(false);
   const [cart, setCart] = useState<CartItem[]>(() => {
     const pre = initialServiceName
       ? services.find((s) => s.name === initialServiceName)
@@ -174,6 +175,7 @@ export function BookingWizard({
   const addToCart = (service: WizService) => {
     setCart((c) => [...c, { id: nextId, service, barberName: null, person: "", addons: [] }]);
     setNextId((n) => n + 1);
+    setCartOpen(true); // vis handlekurv-popup med en gang
   };
   const removeLine = (id: number) => setCart((c) => c.filter((l) => l.id !== id));
   const patchLine = (id: number, patch: Partial<CartItem>) =>
@@ -387,18 +389,50 @@ export function BookingWizard({
               })}
             </div>
 
-            {/* Kurv */}
+            {/* Handlekurv: sticky knapp (alltid synlig) + popup */}
             {cart.length === 0 ? (
               <p className="text-sm text-muted">{t("wiz.emptyCart")}</p>
             ) : (
-              <div className="space-y-4 border border-line-2 bg-canvas p-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-display text-base font-bold text-fg">{t("wiz.yourCart")}</h3>
-                  <span className="text-sm text-muted">
+              <>
+                <button
+                  type="button"
+                  onClick={() => setCartOpen(true)}
+                  className="sticky bottom-3 z-10 flex w-full items-center justify-between gap-3 border border-accent-soft bg-accent px-4 py-3.5 text-sm font-semibold text-accent-fg shadow-lg transition-opacity hover:opacity-90"
+                >
+                  <span>
+                    {lang === "en" ? "View cart" : "Se handlekurv"} ({cart.length})
+                  </span>
+                  <span>
                     {anyEstimate ? t("common.from") : ""}
                     {nok(cartTotal)}
                   </span>
-                </div>
+                </button>
+
+                {cartOpen && (
+                  <div
+                    className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+                    role="dialog"
+                    aria-modal="true"
+                  >
+                    <div
+                      className="absolute inset-0 bg-black/60"
+                      onClick={() => setCartOpen(false)}
+                    />
+                    <div className="relative max-h-[88vh] w-full max-w-md overflow-y-auto border border-line bg-surface p-5">
+                      <div className="mb-4 flex items-center justify-between">
+                        <h3 className="font-display text-lg font-bold text-fg">
+                          {t("wiz.yourCart")}
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => setCartOpen(false)}
+                          aria-label={lang === "en" ? "Close" : "Lukk"}
+                          className="text-2xl leading-none text-muted hover:text-fg"
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <div className="space-y-4">
 
                 {/* Modus-bryter (kun relevant med flere linjer) */}
                 {cart.length > 1 && (
@@ -520,15 +554,34 @@ export function BookingWizard({
                 {groupNeedsBarbers && (
                   <p className="text-xs text-danger">{t("wiz.needBarbers")}</p>
                 )}
+                      </div>
 
-                <button
-                  onClick={() => canGoTid && setStep(1)}
-                  disabled={!canGoTid}
-                  className="w-full bg-accent px-6 py-3 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
-                >
-                  {t("wiz.chooseTime")}
-                </button>
-              </div>
+                      <div className="mt-5 flex gap-2 border-t border-line pt-4">
+                        <button
+                          type="button"
+                          onClick={() => setCartOpen(false)}
+                          className="flex-1 border border-line-2 px-4 py-3 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
+                        >
+                          {lang === "en" ? "+ Add more" : "+ Legg til flere"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (canGoTid) {
+                              setCartOpen(false);
+                              setStep(1);
+                            }
+                          }}
+                          disabled={!canGoTid}
+                          className="flex-1 bg-accent px-4 py-3 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
+                        >
+                          {t("wiz.chooseTime")}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

@@ -12,7 +12,7 @@ export type PublicService = {
   duration: string;
   category: string;
 };
-export type PublicBarber = { name: string; title: string };
+export type PublicBarber = { name: string; title: string; photo?: string | null };
 
 const kr = (n: number) => `${n} kr`;
 
@@ -92,13 +92,14 @@ export async function getPublicBarbers(): Promise<PublicBarber[]> {
     const sb = await createClient();
     const { data } = await sb
       .from("staff")
-      .select("full_name, title")
+      .select("full_name, title, photo_url")
       .eq("active", true)
       .order("employee_number");
     if (data && data.length) {
       return data.map((r) => ({
         name: r.full_name as string,
         title: (r.title as string) ?? "Barber",
+        photo: (r.photo_url as string | null) ?? null,
       }));
     }
   } catch {

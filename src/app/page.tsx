@@ -7,11 +7,11 @@ import { GoogleReviews } from "@/components/site/GoogleReviews";
 import {
   SmoothScroll,
   Parallax,
-  SplitReveal,
   FadeUp,
   Hairline,
   ScaleIn,
 } from "@/components/site/motion/CineFx";
+import { T, TOr, TDyn, SplitRevealT } from "@/lib/i18n/T";
 import {
   getPublicServices,
   getPublicBarbers,
@@ -162,7 +162,8 @@ export default async function Home({
               className="rise text-[10px] font-semibold tracking-[0.35em] text-accent-soft uppercase sm:text-[11px] sm:tracking-[0.4em]"
               style={rise(100)}
             >
-              Oslo · Osterhaus&apos; gate 10 · Siden {s.established}
+              Oslo · Osterhaus&apos; gate 10 · <T k="home.hero.since" />{" "}
+              {s.established}
             </p>
             <div
               className="rise mt-8 flex flex-wrap items-center justify-center gap-4 sm:justify-start"
@@ -172,7 +173,7 @@ export default async function Home({
                 href="/booking"
                 className="cine-btn bg-accent-soft px-9 py-4 text-base font-semibold text-[#211E1A]"
               >
-                Bestill time
+                <T k="header.book" />
               </a>
               {ratingLabel && (
                 <div className="flex flex-col gap-0.5 pl-1">
@@ -180,7 +181,7 @@ export default async function Home({
                     <span className="text-accent-soft">★</span> {ratingLabel}
                   </span>
                   <span className="text-[11px] text-white/45">
-                    {ratingCount} vurderinger
+                    {ratingCount} <T k="home.hero.reviews" />
                   </span>
                 </div>
               )}
@@ -200,15 +201,17 @@ export default async function Home({
         <section className="border-b border-line">
           <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 md:grid-cols-2 md:py-24">
             <FadeUp>
-              <Label>Om oss</Label>
+              <Label>
+                <T k="home.about.eyebrow" />
+              </Label>
               <p className="mt-6 font-display text-2xl leading-[1.2] sm:text-3xl">
-                {s.about_text}
+                <TDyn text={s.about_text} map="settings" />
               </p>
               <a
                 href="/booking"
                 className="group mt-9 inline-flex items-center gap-2 text-sm font-semibold text-accent-soft transition-colors hover:text-fg"
               >
-                Bestill din time
+                <T k="home.about.cta" />
                 <span aria-hidden className="transition-transform group-hover:translate-x-1">
                   →
                 </span>
@@ -236,10 +239,12 @@ export default async function Home({
         {/* ===================== HÅNDVERKET ===================== */}
         <section id="handverket" className="border-b border-line">
           <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
-            <Label>Håndverket</Label>
-            <SplitReveal
+            <Label>
+              <T k="home.craft.eyebrow" />
+            </Label>
+            <SplitRevealT
               as="h2"
-              text="Det du kjenner idet du reiser deg fra stolen."
+              k="home.craft.title"
               className="mt-5 max-w-2xl font-display text-3xl font-bold leading-[1.1] sm:text-4xl"
             />
             <Hairline className="mt-10" />
@@ -258,9 +263,11 @@ export default async function Home({
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
                     <figcaption className="absolute right-6 bottom-6 left-6">
                       <p className="font-display text-2xl font-bold text-white">
-                        {c.title}
+                        <TDyn text={c.title} map="settings" />
                       </p>
-                      <p className="mt-1.5 text-sm text-white/75">{c.text}</p>
+                      <p className="mt-1.5 text-sm text-white/75">
+                        <TDyn text={c.text} map="settings" />
+                      </p>
                     </figcaption>
                   </figure>
                 </FadeUp>
@@ -272,10 +279,12 @@ export default async function Home({
         {/* ===================== GALLERI ===================== */}
         <section id="galleri" className="border-b border-line bg-surface">
           <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
-            <Label>Galleri</Label>
-            <SplitReveal
+            <Label>
+              <T k="home.gallery.eyebrow" />
+            </Label>
+            <SplitRevealT
               as="h2"
-              text="Fra stolen"
+              k="home.gallery.title"
               className="mt-4 font-display text-3xl font-bold sm:text-4xl"
             />
             <div className="mt-12 gap-5 columns-1 sm:columns-2">
@@ -313,7 +322,7 @@ export default async function Home({
               Downtown Barbers · Oslo
             </p>
             <p className="mx-auto mt-6 max-w-3xl font-display text-3xl leading-[1.1] font-bold text-white sm:text-5xl">
-              {s.slogan}
+              <TDyn text={s.slogan} map="settings" />
             </p>
           </FadeUp>
         </section>
@@ -321,40 +330,46 @@ export default async function Home({
         {/* ===================== TJENESTER ===================== */}
         <section id="tjenester" className="border-b border-line">
           <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
-            <Label>Tjenester</Label>
-            <SplitReveal
+            <Label>
+              <T k="home.services.eyebrow" />
+            </Label>
+            <SplitRevealT
               as="h2"
-              text="Prisliste"
+              k="home.services.title"
               className="mt-4 font-display text-3xl font-bold sm:text-4xl"
             />
-            <div className="mt-12 grid gap-6 md:grid-cols-3">
+            <div className="mt-12 gap-6 sm:columns-2 lg:columns-3">
               {serviceCategories.map((cat, ci) => (
-                <FadeUp key={cat.name} delay={ci * 0.08}>
-                  <div className="h-full border border-line bg-surface p-8 transition-all duration-500 hover:-translate-y-1.5 hover:border-accent-soft">
-                    <h3 className="mb-6 text-sm font-semibold tracking-[0.12em] text-fg uppercase">
-                      {cat.name}
-                    </h3>
-                    <ul className="space-y-5">
-                      {cat.services.map((sv) => (
-                        <li
-                          key={sv.name}
-                          className="border-b border-line pb-5 last:border-0"
-                        >
-                          <div className="flex items-baseline justify-between gap-4">
-                            <span className="font-medium text-fg">{sv.name}</span>
-                            <span className="font-display text-sm whitespace-nowrap text-accent-soft">
-                              {sv.price}
-                            </span>
-                          </div>
-                          <p className="mt-1.5 text-sm text-muted">
-                            {sv.description}
-                          </p>
-                          <p className="mt-1 text-xs text-muted">{sv.duration}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </FadeUp>
+                <div key={cat.name} className="mb-6 break-inside-avoid">
+                  <FadeUp delay={ci * 0.08}>
+                    <div className="border border-line bg-surface p-7 transition-all duration-500 hover:-translate-y-1.5 hover:border-accent-soft">
+                      <h3 className="mb-5 text-sm font-semibold tracking-[0.12em] text-accent-soft uppercase">
+                        <TDyn text={cat.name} map="services" />
+                      </h3>
+                      <ul className="space-y-4">
+                        {cat.services.map((sv) => (
+                          <li
+                            key={sv.name}
+                            className="border-b border-line pb-4 last:border-0 last:pb-0"
+                          >
+                            <div className="flex items-baseline justify-between gap-4">
+                              <span className="font-medium text-fg">
+                                <TDyn text={sv.name} map="services" />
+                              </span>
+                              <span className="font-display text-sm whitespace-nowrap text-accent-soft">
+                                {sv.price}
+                              </span>
+                            </div>
+                            <p className="mt-1.5 text-sm leading-relaxed text-muted">
+                              <TDyn text={sv.description} map="services" />
+                            </p>
+                            <p className="mt-1 text-xs text-muted">{sv.duration}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </FadeUp>
+                </div>
               ))}
             </div>
           </div>
@@ -368,16 +383,16 @@ export default async function Home({
           <div className="mx-auto max-w-6xl px-5 py-20 text-center md:py-28">
             <FadeUp>
               <h2 className="mx-auto max-w-2xl font-display text-4xl leading-[1.05] font-bold sm:text-5xl">
-                {s.cta_title}
+                <TDyn text={s.cta_title} map="settings" />
               </h2>
               <p className="mx-auto mt-6 max-w-md text-base opacity-75">
-                {s.cta_text}
+                <TDyn text={s.cta_text} map="settings" />
               </p>
               <a
                 href="/booking"
                 className="cine-btn mt-11 inline-block bg-[#211E1A] px-10 py-4 text-sm font-semibold tracking-[0.1em] text-[#F8F5EF] uppercase"
               >
-                Bestill time nå
+                <T k="home.cta.button" />
               </a>
             </FadeUp>
           </div>
@@ -386,18 +401,31 @@ export default async function Home({
         {/* ===================== TEAM ===================== */}
         <section id="team" className="border-b border-line bg-surface">
           <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
-            <Label>Teamet</Label>
-            <SplitReveal
+            <Label>
+              <T k="home.team.eyebrow" />
+            </Label>
+            <SplitRevealT
               as="h2"
-              text="Håndverkerne"
+              k="home.team.title"
               className="mt-4 font-display text-3xl font-bold sm:text-4xl"
             />
             <div className="mt-14 grid grid-cols-3 gap-x-4 gap-y-8 sm:grid-cols-4 sm:gap-6 md:grid-cols-6">
               {team.map((m, i) => (
                 <FadeUp key={m.name} delay={i * 0.05}>
                   <div className="group text-center">
-                    <div className="mx-auto flex aspect-square w-full max-w-[96px] items-center justify-center rounded-full bg-surface-2 font-display text-xl font-bold text-fg ring-1 ring-line transition-all duration-500 group-hover:-translate-y-1 group-hover:text-accent-soft group-hover:ring-accent-soft sm:text-3xl">
-                      {m.name.charAt(0)}
+                    <div className="mx-auto aspect-square w-full max-w-[96px] overflow-hidden rounded-full bg-surface-2 ring-1 ring-line transition-all duration-500 group-hover:-translate-y-1 group-hover:ring-accent-soft">
+                      {m.photo ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={m.photo}
+                          alt={m.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center font-display text-xl font-bold text-fg group-hover:text-accent-soft sm:text-3xl">
+                          {m.name.charAt(0)}
+                        </div>
+                      )}
                     </div>
                     <p className="mt-3 font-medium text-fg">{m.name}</p>
                     <p className="text-xs text-muted">{m.title}</p>
@@ -412,21 +440,29 @@ export default async function Home({
         <section id="apningstider" className="border-b border-line">
           <div className="mx-auto grid max-w-6xl gap-14 px-5 py-16 md:grid-cols-2 md:py-24">
             <FadeUp>
-              <Label>Åpningstider</Label>
+              <Label>
+                <T k="home.hours.eyebrow" />
+              </Label>
               <ul className="mt-8 space-y-3.5">
                 {s.opening_hours.map((o) => (
                   <li
                     key={o.day}
                     className="flex justify-between border-b border-line pb-3.5 text-sm"
                   >
-                    <span className="text-fg">{o.day}</span>
-                    <span className="text-muted">{o.hours}</span>
+                    <span className="text-fg">
+                      <TDyn text={o.day} map="days" />
+                    </span>
+                    <span className="text-muted">
+                      <TDyn text={o.hours} map="days" />
+                    </span>
                   </li>
                 ))}
               </ul>
             </FadeUp>
             <FadeUp delay={0.1} id="kontakt">
-              <Label>Kontakt</Label>
+              <Label>
+                <T k="home.contact.eyebrow" />
+              </Label>
               <div className="mt-8 space-y-3 text-fg">
                 <p>{s.address}</p>
                 <p>

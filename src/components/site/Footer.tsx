@@ -2,6 +2,7 @@ import type { SVGProps } from "react";
 import { salon } from "@/lib/data/salon";
 import { getSiteSettings } from "@/lib/site-settings";
 import { LogoMark } from "@/components/site/LogoMark";
+import { T, TDyn } from "@/lib/i18n/T";
 
 /* Merkevare-ikoner (fylte glyffer, arver farge via currentColor). */
 function InstagramIcon(props: SVGProps<SVGSVGElement>) {
@@ -84,8 +85,12 @@ export async function Footer() {
           <ul className="mt-8 space-y-1.5 text-sm">
             {s.opening_hours.map((o) => (
               <li key={o.day} className="flex justify-between gap-6 sm:max-w-xs">
-                <span className="text-fg-soft">{o.day}</span>
-                <span>{o.hours}</span>
+                <span className="text-fg-soft">
+                  <TDyn text={o.day} map="days" />
+                </span>
+                <span>
+                  <TDyn text={o.hours} map="days" />
+                </span>
               </li>
             ))}
           </ul>
@@ -104,7 +109,7 @@ export async function Footer() {
       </div>
 
       <div className="border-t border-line py-5 text-center text-xs text-muted">
-        © {s.established}–2026 {s.name}. Alle rettigheter forbeholdt.
+        © {s.established}–2026 {s.name}. <T k="footer.rights" />
       </div>
     </footer>
   );

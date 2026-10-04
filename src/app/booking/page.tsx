@@ -10,6 +10,7 @@ import {
 } from "@/lib/service-catalog-queries";
 import { getPublicAddons } from "@/lib/addon-queries";
 import { getSiteSettings } from "@/lib/site-settings";
+import { T } from "@/lib/i18n/T";
 
 export const metadata = { title: "Bestill time | Downtown Barbers" };
 
@@ -42,14 +43,13 @@ export default async function BookingPage({
         <section className="mx-auto max-w-3xl px-5 pt-28 pb-20 sm:pt-32">
           <FadeUp>
             <p className="text-[10px] font-semibold tracking-[0.34em] text-accent-soft uppercase">
-              Bestill time
+              <T k="booking.eyebrow" />
             </p>
             <h1 className="mt-4 font-display text-4xl font-bold leading-[1] sm:text-5xl">
-              Sett deg ned.
+              <T k="booking.heading" />
             </h1>
             <p className="mt-5 max-w-md text-muted">
-              Fire steg: tjeneste, barber, tid og kontakt. Bekreftelse på e-post
-              med en gang.
+              <T k="booking.intro" />
             </p>
           </FadeUp>
           <div className="mt-10">
