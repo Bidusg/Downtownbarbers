@@ -161,42 +161,15 @@ export default async function Home({
             >
               Oslo · Osterhaus&apos; gate 10 · Siden {s.established}
             </p>
-            <h1 className="mt-5 font-display text-[12vw] leading-[0.86] font-bold tracking-[-0.02em] text-white sm:text-8xl sm:leading-[0.84]">
-              <span className="rise block" style={rise(220)}>
-                Downtown
-              </span>
-              <span
-                className="rise block italic text-accent-soft"
-                style={rise(360)}
-              >
-                Barbers
-              </span>
-            </h1>
-            <p
-              className="rise mt-8 max-w-xl font-display text-2xl leading-snug text-white/95 sm:text-3xl"
-              style={rise(520)}
-            >
-              {s.hero_title}{" "}
-              <span className="italic text-accent-soft">{s.hero_italic}</span>
-            </p>
-            <p className="rise mt-5 max-w-lg text-white/65" style={rise(640)}>
-              {s.intro}
-            </p>
             <div
-              className="rise mt-10 flex flex-wrap items-center gap-4"
-              style={rise(760)}
+              className="rise mt-8 flex flex-wrap items-center gap-4"
+              style={rise(260)}
             >
               <a
                 href="/booking"
                 className="cine-btn bg-accent-soft px-9 py-4 text-base font-semibold text-[#211E1A]"
               >
                 Bestill time
-              </a>
-              <a
-                href="#handverket"
-                className="border border-white/25 px-9 py-4 text-base font-semibold text-white transition-colors hover:border-white hover:bg-white/10"
-              >
-                Se håndverket
               </a>
               {ratingLabel && (
                 <div className="flex flex-col gap-0.5 pl-1">
