@@ -8,7 +8,10 @@
  */
 
 :root {
-  color-scheme: light dark;
+  /* Hele appen pinnes til lyst tema (eier ønsket lyst overalt – også admin,
+     login og min side). Mørk-modus-overstyringen er fjernet, så siden følger
+     ikke lenger telefonens mørke modus. De offentlige sidene bruker .cine. */
+  color-scheme: light;
 
   --canvas: 97.3% 0.007 85;
   --surface: 99.2% 0.004 85;
@@ -29,27 +32,7 @@
   --danger: 44% 0.15 27;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --canvas: 16.5% 0.008 45;
-    --surface: 20% 0.009 45;
-    --surface-2: 24% 0.01 45;
-
-    --fg: 94% 0.009 85;
-    --fg-soft: 88% 0.012 85;
-    --muted: 66% 0.014 70;
-
-    --line: 29% 0.01 50;
-    --line-2: 37% 0.012 55;
-
-    --accent: 94% 0.009 85;
-    --accent-hover: 86% 0.014 80;
-    --accent-soft: 70% 0.17 45;
-    --accent-fg: 16.5% 0.008 45;
-
-    --danger: 70% 0.13 22;
-  }
-}
+/* (Mørk-modus-overstyring fjernet – appen er pinnet til lyst tema overalt.) */
 
 /* Tailwind v4: `inline` gjør at tokenene følger CSS-variablene (og dermed tema-bytte). */
 @theme inline {
