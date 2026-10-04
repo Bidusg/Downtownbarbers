@@ -154,14 +154,14 @@ export default async function Home({
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/70" />
           <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-transparent to-transparent" />
 
-          <div className="relative mx-auto w-full max-w-6xl px-5 pt-44 pb-24 sm:pb-32">
+          <div className="relative mx-auto w-full max-w-6xl px-6 pt-40 pb-24 sm:px-5 sm:pb-32">
             <p
-              className="rise text-[11px] font-semibold tracking-[0.4em] text-accent-soft uppercase"
+              className="rise text-[10px] font-semibold tracking-[0.35em] text-accent-soft uppercase sm:text-[11px] sm:tracking-[0.4em]"
               style={rise(100)}
             >
               Oslo · Osterhaus&apos; gate 10 · Siden {s.established}
             </p>
-            <h1 className="mt-6 font-display text-[18vw] leading-[0.82] font-bold tracking-[-0.02em] text-white sm:text-[11rem]">
+            <h1 className="mt-6 font-display text-[15vw] leading-[0.84] font-bold tracking-[-0.02em] text-white sm:text-[11rem] sm:leading-[0.82]">
               <span className="rise block" style={rise(220)}>
                 Downtown
               </span>
@@ -416,11 +416,11 @@ export default async function Home({
               text="Håndverkerne"
               className="mt-4 font-display text-4xl font-bold sm:text-5xl"
             />
-            <div className="mt-14 grid grid-cols-2 gap-8 sm:grid-cols-3 md:grid-cols-6">
+            <div className="mt-14 grid grid-cols-3 gap-x-4 gap-y-8 sm:grid-cols-4 sm:gap-6 md:grid-cols-6">
               {team.map((m, i) => (
                 <FadeUp key={m.name} delay={i * 0.05}>
                   <div className="group text-center">
-                    <div className="mx-auto flex aspect-square w-full items-center justify-center rounded-full bg-surface-2 font-display text-3xl font-bold text-fg ring-1 ring-line transition-all duration-500 group-hover:-translate-y-1 group-hover:text-accent-soft group-hover:ring-accent-soft">
+                    <div className="mx-auto flex aspect-square w-full max-w-[96px] items-center justify-center rounded-full bg-surface-2 font-display text-xl font-bold text-fg ring-1 ring-line transition-all duration-500 group-hover:-translate-y-1 group-hover:text-accent-soft group-hover:ring-accent-soft sm:text-3xl">
                       {m.name.charAt(0)}
                     </div>
                     <p className="mt-3 font-medium text-fg">{m.name}</p>

@@ -284,7 +284,7 @@ export function BookingWizard({
           <div
             key={s}
             className={
-              "flex-1 px-3 py-3 text-center text-xs font-semibold tracking-wide uppercase " +
+              "flex-1 px-2 py-3 text-center text-[10px] tracking-tight font-semibold uppercase sm:px-3 sm:text-xs sm:tracking-wide " +
               (i === step
                 ? "bg-accent text-accent-fg"
                 : i < step

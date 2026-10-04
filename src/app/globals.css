@@ -264,22 +264,26 @@ body {
  *   å wrappe sideinnholdet i <div class="cine">. GSAP/Lenis gir bevegelsen.
  * ===================================================================== */
 .cine {
-  --canvas: 13% 0.012 44;
-  --surface: 16.5% 0.012 44;
-  --surface-2: 20% 0.013 44;
+  /* Lyst tema (eier ønsket lysere). Varm lin-bakgrunn, espresso-tekst,
+     merkeoransje. Pinnes lyst uansett system-tema. Hero over video beholder
+     mørk overlay + hvit tekst – et filmatisk «mørkt vindu» i en lys side. */
+  --canvas: 97.5% 0.008 85;
+  --surface: 99.3% 0.004 85;
+  --surface-2: 94% 0.009 85;
 
-  --fg: 95% 0.008 85;
-  --fg-soft: 88% 0.011 85;
-  --muted: 63% 0.016 70;
+  --fg: 22% 0.014 50;
+  --fg-soft: 30% 0.014 50;
+  --muted: 46% 0.014 60;
 
-  --line: 26% 0.012 46;
-  --line-2: 34% 0.014 50;
+  --line: 87% 0.01 82;
+  --line-2: 80% 0.012 80;
 
-  --accent: 95% 0.008 85;
-  --accent-hover: 88% 0.012 82;
-  --accent-soft: 70% 0.174 48;
-  --accent-fg: 13% 0.012 44;
+  --accent: 22% 0.014 50;
+  --accent-hover: 32% 0.015 50;
+  --accent-soft: 56% 0.17 42;
+  --accent-fg: 97.5% 0.008 85;
 
+  color-scheme: light;
   background: oklch(var(--canvas));
   color: oklch(var(--fg));
   position: relative;
@@ -292,9 +296,9 @@ body {
   inset: 0;
   z-index: 60;
   pointer-events: none;
-  opacity: 0.045;
+  opacity: 0.02;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  mix-blend-mode: overlay;
+  mix-blend-mode: multiply;
 }
 
 /* Vignett rundt filmatiske seksjoner. */
