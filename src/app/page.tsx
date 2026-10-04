@@ -81,17 +81,6 @@ const craft = [
   },
 ];
 
-// Marquee-ord som ruller under hero (premium «band»).
-const marqueeWords = [
-  "Skin fade",
-  "Skjeggtrim",
-  "Hot towel",
-  "Barberkniv",
-  "Herreklipp",
-  "Line-up",
-  "Walk-ins",
-];
-
 export default async function Home({
   searchParams,
 }: {
@@ -230,24 +219,6 @@ export default async function Home({
             </div>
           </div>
         </section>
-
-        {/* ===================== MARQUEE-BÅND ===================== */}
-        <div className="overflow-hidden border-y border-line bg-surface-2 py-5">
-          <div className="marquee-track">
-            {[0, 1].map((rep) => (
-              <div key={rep} className="flex items-center" aria-hidden={rep === 1}>
-                {marqueeWords.map((w) => (
-                  <span key={w} className="flex items-center">
-                    <span className="px-8 font-display text-2xl italic text-fg-soft sm:text-3xl">
-                      {w}
-                    </span>
-                    <span className="text-accent-soft">✦</span>
-                  </span>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
 
         {/* ===================== OM OSS ===================== */}
         <section className="border-b border-line">
