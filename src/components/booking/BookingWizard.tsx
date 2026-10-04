@@ -1,11 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { createBooking } from "@/app/booking/actions";
-import { getAvailableSlotsRange } from "@/app/booking/availability-actions";
+import { getCartSlots, createBookingGroup } from "@/app/booking/cart-actions";
 import { isValidEmail, isValidNorwegianPhone } from "@/lib/validate";
-import { eventLinks } from "@/lib/calendar-links";
-import { Button } from "@/components/ui/Button";
 
 export type WizService = {
   name: string;
@@ -15,94 +12,108 @@ export type WizService = {
   description?: string;
 };
 export type WizBarber = { name: string; title: string };
+export type WizAddon = { name: string; price: number; durationMin: number };
 
-const STEPS = ["Tjeneste", "Barber", "Tid", "Kontakt"];
+const STEPS = ["Tjenester", "Tid", "Kontakt"];
 
-// Landskoder for telefon (Norge først). [dial code, landkort].
 const COUNTRY_CODES: [string, string][] = [
   ["+47", "NO"], ["+46", "SE"], ["+45", "DK"], ["+358", "FI"], ["+354", "IS"],
   ["+44", "UK"], ["+48", "PL"], ["+49", "DE"], ["+33", "FR"], ["+34", "ES"],
   ["+39", "IT"], ["+31", "NL"], ["+1", "US"],
 ];
 
+const ANY = "__any__";
+
 function isoDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+const durMin = (s: string) => parseInt(s, 10) || 30;
+const nok = (n: number) => `${Math.round(n)} kr`;
+
+type CartItem = {
+  id: number;
+  service: WizService;
+  barberName: string | null; // null = hvilken som helst (gruppe-modus)
+  person: string;
+  addons: string[]; // add-on navn
+};
 
 export function BookingWizard({
   services,
   barbers,
+  addons = [],
   exclusions = {},
   levelPrices = {},
   barberLevels = {},
   closedWeekdays = [],
   initialServiceName,
-  initialBarberName,
 }: {
   services: WizService[];
   barbers: WizBarber[];
-  /** Tjeneste-navn → barber-navn som IKKE utfører tjenesten. */
+  addons?: WizAddon[];
   exclusions?: Record<string, string[]>;
-  /** Tjeneste-navn → nivå-slug → pris (nivåpris når barber er valgt). */
   levelPrices?: Record<string, Record<string, number>>;
-  /** Barber-navn → nivå-slug. */
   barberLevels?: Record<string, string>;
-  /** Ukedager (0=søndag … 6=lørdag) salongen er stengt – filtreres bort fra dagvalget. */
   closedWeekdays?: number[];
-  /** Forhåndsvalgt tjeneste/barber (f.eks. «Book på nytt» fra min-side). */
   initialServiceName?: string;
   initialBarberName?: string;
 }) {
-  // «Book på nytt»: forhåndsvelg tjeneste + barber og hopp til riktig steg.
-  const preService = initialServiceName
-    ? services.find((s) => s.name === initialServiceName) ?? null
-    : null;
-  const preBarber =
-    preService && initialBarberName
-      ? barbers.find(
-          (b) =>
-            b.name === initialBarberName &&
-            !(exclusions[preService.name] ?? []).includes(b.name),
-        ) ?? null
-      : null;
+  const cats = useMemo(
+    () => Array.from(new Set(services.map((s) => s.category))),
+    [services],
+  );
+  const [openCat, setOpenCat] = useState<string | null>(
+    () => services[0]?.category ?? null,
+  );
 
-  const [step, setStep] = useState(preService ? (preBarber ? 2 : 1) : 0);
-  const [service, setService] = useState<WizService | null>(preService);
-  const [barber, setBarber] = useState<WizBarber | null>(preBarber);
+  const [step, setStep] = useState(0);
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    const pre = initialServiceName
+      ? services.find((s) => s.name === initialServiceName)
+      : null;
+    return pre
+      ? [{ id: 1, service: pre, barberName: null, person: "", addons: [] }]
+      : [];
+  });
+  const [nextId, setNextId] = useState(2);
+  const [mode, setMode] = useState<"single" | "group">("single");
+  // Barber for hele besøket i «én person»-modus (ANY = hvilken som helst).
+  const [singleBarber, setSingleBarber] = useState<string>(ANY);
+
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
+  const [viewDay, setViewDay] = useState("");
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [countryCode, setCountryCode] = useState("+47");
   const [source, setSource] = useState("");
   const [marketingConsent, setMarketingConsent] = useState(false);
+
   const [done, setDone] = useState(false);
-  const [confirmLinks, setConfirmLinks] = useState<{
-    portalUrl?: string;
-    cancelUrl?: string;
-  }>({});
+  const [confirmLinks, setConfirmLinks] = useState<{ portalUrl?: string; cancelUrl?: string }>({});
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [slotsByDate, setSlotsByDate] = useState<Record<string, string[]>>({});
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slotsError, setSlotsError] = useState(false);
-  // Hvilken dag som vises i tid-steget (selve valget settes først når man
-  // trykker et klokkeslett → date + time).
-  const [viewDay, setViewDay] = useState("");
 
-  // Neste åpne dager som klikkbare chips (hopper over stengte ukedager).
+  const addonByName = useMemo(() => {
+    const m = new Map<string, WizAddon>();
+    addons.forEach((a) => m.set(a.name, a));
+    return m;
+  }, [addons]);
+
+  // Åpne dager (neste ~21 dager, hopp over stengte ukedager).
   const openDays = useMemo(() => {
-    const closed = new Set(closedWeekdays);
-    const out: { iso: string; weekday: string; dayNum: string; month: string }[] =
-      [];
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    for (let i = 0; out.length < 14 && i < 90; i++) {
-      const day = new Date(start);
-      day.setDate(start.getDate() + i);
-      if (closed.has(day.getDay())) continue;
+    const out: { iso: string; weekday: string; dayNum: string; month: string }[] = [];
+    const today = new Date();
+    for (let i = 0; i < 28 && out.length < 21; i++) {
+      const day = new Date(today);
+      day.setDate(today.getDate() + i);
+      if (closedWeekdays.includes(day.getDay())) continue;
       out.push({
         iso: isoDate(day),
         weekday: day.toLocaleDateString("nb-NO", { weekday: "short" }),
@@ -112,110 +123,130 @@ export function BookingWizard({
     }
     return out;
   }, [closedWeekdays]);
-  const cats = useMemo(
-    () => Array.from(new Set(services.map((s) => s.category))),
-    [services],
-  );
-  // Trekkspill: hvilken kategori som er åpen (første åpen som standard).
-  const [openCat, setOpenCat] = useState<string | null>(
-    () => services[0]?.category ?? null,
-  );
-  // «fra {pris}» når prisen varierer mellom nivåer, ellers fast pris.
-  const priceFrom = (name: string, fallback: string) => {
+
+  // ---- Priser --------------------------------------------------------------
+  const serviceMinPrice = (name: string) => {
     const lv = levelPrices[name];
     const vals = lv ? Object.values(lv) : [];
-    if (vals.length) {
-      const min = Math.round(Math.min(...vals));
-      const varies = vals.some((v) => Math.round(v) !== min);
-      return varies ? `fra ${min} kr` : `${min} kr`;
-    }
-    return fallback;
+    if (vals.length) return Math.min(...vals);
+    return parseInt(services.find((s) => s.name === name)?.price ?? "", 10) || 0;
   };
+  const serviceExactPrice = (name: string, barber: string | null) => {
+    if (!barber || barber === ANY) return null;
+    const slug = barberLevels[barber];
+    const p = slug ? levelPrices[name]?.[slug] : undefined;
+    return typeof p === "number" ? p : null;
+  };
+  const addonsSum = (names: string[]) =>
+    names.reduce((s, n) => s + (addonByName.get(n)?.price ?? 0), 0);
+  const addonsMinutes = (names: string[]) =>
+    names.reduce((s, n) => s + (addonByName.get(n)?.durationMin ?? 0), 0);
 
-  // Barbere som IKKE er ekskludert for valgt tjeneste (alle uten unntak vises).
-  const availableBarbers = useMemo(() => {
-    if (!service) return barbers;
-    const excluded = new Set(exclusions[service.name] ?? []);
-    return barbers.filter((b) => !excluded.has(b.name));
-  }, [barbers, exclusions, service]);
+  const lineBarber = (it: CartItem) =>
+    mode === "single" ? (singleBarber === ANY ? null : singleBarber) : it.barberName;
 
-  // Nullstill valgt barber hvis den blir ekskludert av (ny) valgt tjeneste.
-  useEffect(() => {
-    if (barber && !availableBarbers.some((b) => b.name === barber.name)) {
-      setBarber(null);
-    }
-  }, [availableBarbers, barber]);
+  const linePrice = (it: CartItem) => {
+    const b = lineBarber(it);
+    const exact = serviceExactPrice(it.service.name, b);
+    const svc = exact ?? serviceMinPrice(it.service.name);
+    return { value: svc + addonsSum(it.addons), exact: exact != null };
+  };
+  const cartTotal = cart.reduce((s, it) => s + linePrice(it).value, 0);
+  const anyEstimate = cart.some((it) => !linePrice(it).exact);
 
-  // Pris som vises: nivåpris når barber (med nivå + satt nivåpris) er valgt,
-  // ellers tjenestens basispris. Speiler prisen create_booking faktisk setter.
-  const priceLabel = useMemo(() => {
-    if (service && barber) {
-      const slug = barberLevels[barber.name];
-      const lv = slug ? levelPrices[service.name]?.[slug] : undefined;
-      if (typeof lv === "number") return `${Math.round(lv)} kr`;
-    }
-    return service?.price ?? "";
-  }, [service, barber, barberLevels, levelPrices]);
+  // Barbere som kan ta tjenesten (ikke ekskludert).
+  const barbersFor = (serviceName: string) => {
+    const ex = new Set(exclusions[serviceName] ?? []);
+    return barbers.filter((b) => !ex.has(b.name));
+  };
+  // Barbere som kan ta ALLE tjenestene i kurven (for «én person»).
+  const barbersForAll = useMemo(() => {
+    return barbers.filter((b) =>
+      cart.every((it) => !(exclusions[it.service.name] ?? []).includes(b.name)),
+    );
+  }, [barbers, cart, exclusions]);
 
-  // Hent ledige tider for HELE perioden i ETT kall når barber + tjeneste er valgt
-  // (i stedet for ett kall per dag). Da vises tidene med én gang man bytter dag.
-  useEffect(() => {
-    let active = true;
-    if (step === 2 && barber && service && openDays.length > 0) {
-      const from = openDays[0].iso;
-      const to = openDays[openDays.length - 1].iso;
-      setLoadingSlots(true);
-      setSlotsError(false);
-      getAvailableSlotsRange(barber.name, service.name, from, to).then((res) => {
-        if (active) {
-          setSlotsByDate(res.byDate);
-          setSlotsError(!!res.error);
-          setLoadingSlots(false);
-        }
-      });
-    }
-    return () => {
-      active = false;
-    };
-  }, [step, barber, service, openDays]);
+  // ---- Kurv-operasjoner ----------------------------------------------------
+  const addToCart = (service: WizService) => {
+    setCart((c) => [...c, { id: nextId, service, barberName: null, person: "", addons: [] }]);
+    setNextId((n) => n + 1);
+  };
+  const removeLine = (id: number) => setCart((c) => c.filter((l) => l.id !== id));
+  const patchLine = (id: number, patch: Partial<CartItem>) =>
+    setCart((c) => c.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+  const toggleAddon = (id: number, name: string) =>
+    setCart((c) =>
+      c.map((l) =>
+        l.id === id
+          ? {
+              ...l,
+              addons: l.addons.includes(name)
+                ? l.addons.filter((a) => a !== name)
+                : [...l.addons, name],
+            }
+          : l,
+      ),
+    );
 
-  // Vis kun hele og halve timer (09:00, 09:30 …) – enklere valg for kunden.
-  const halfHourSlots = (iso: string): string[] =>
-    (slotsByDate[iso] ?? []).filter((t) => {
-      const m = t.slice(3, 5);
-      return m === "00" || m === "30";
-    });
-
-  // Hold «vist dag» på en dag som faktisk har ledige tider.
-  useEffect(() => {
-    if (step !== 2) return;
-    const hasSlots = (iso: string) => halfHourSlots(iso).length > 0;
-    if (viewDay && hasSlots(viewDay)) return;
-    const firstWithSlots = openDays.find((d) => hasSlots(d.iso));
-    setViewDay(firstWithSlots?.iso ?? openDays[0]?.iso ?? "");
+  // Kurv → input til server (ledige tider / oppretting).
+  const cartLines = useMemo(
+    () =>
+      cart.map((it) => ({
+        serviceName: it.service.name,
+        serviceMinutes: durMin(it.service.duration),
+        addonMinutes: addonsMinutes(it.addons),
+        addonNames: it.addons,
+        barberName: lineBarber(it),
+        person: it.person,
+      })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, slotsByDate, openDays]);
+    [cart, mode, singleBarber],
+  );
+
+  const groupNeedsBarbers =
+    mode === "group" && cart.some((it) => !it.barberName);
+  const canGoTid = cart.length > 0 && !groupNeedsBarbers;
+
+  // ---- Hent ledige tider når man går til Tid-steget ------------------------
+  useEffect(() => {
+    if (step !== 1 || cart.length === 0 || openDays.length === 0) return;
+    let cancelled = false;
+    setLoadingSlots(true);
+    setSlotsError(false);
+    const from = openDays[0].iso;
+    const to = openDays[openDays.length - 1].iso;
+    getCartSlots(cartLines, mode, from, to)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.error) setSlotsError(true);
+        setSlotsByDate(res.byDate ?? {});
+        const firstWithSlots = openDays.find((d) => (res.byDate?.[d.iso] ?? []).length > 0);
+        setViewDay(firstWithSlots?.iso ?? openDays[0]?.iso ?? "");
+      })
+      .catch(() => !cancelled && setSlotsError(true))
+      .finally(() => !cancelled && setLoadingSlots(false));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
+  const halfHourSlots = (iso: string) =>
+    (slotsByDate[iso] ?? []).filter((t) => t.endsWith(":00") || t.endsWith(":30"));
 
   const emailOk = isValidEmail(email);
-  // +47 valideres som norsk nummer; andre landskoder tar et generisk sifferkrav.
   const phoneDigits = phone.replace(/\D/g, "");
   const phoneOk =
     countryCode === "+47"
       ? isValidNorwegianPhone(phone)
       : phoneDigits.length >= 5 && phoneDigits.length <= 14;
 
-  const canNext =
-    (step === 0 && service) ||
-    (step === 1 && barber) ||
-    (step === 2 && date && time) ||
-    step === 3;
-
   async function submit() {
     setPending(true);
     setError(null);
-    const res = await createBooking({
-      serviceName: service!.name,
-      barberName: barber!.name,
+    const res = await createBookingGroup({
+      lines: cartLines,
+      mode,
       date,
       time,
       name,
@@ -223,7 +254,6 @@ export function BookingWizard({
       phone: `${countryCode} ${phone.trim()}`,
       source,
       marketingConsent,
-      price: priceLabel,
     });
     setPending(false);
     if (res?.error) setError(res.error);
@@ -233,74 +263,34 @@ export function BookingWizard({
     }
   }
 
+  // ---- Suksess -------------------------------------------------------------
   if (done) {
-    const durMin = parseInt(service?.duration ?? "", 10) || 30;
-    const start = new Date(`${date}T${time}:00`);
-    const cal =
-      service && !Number.isNaN(start.getTime())
-        ? eventLinks({
-            title: `Downtown Barbers – ${service.name}`,
-            start,
-            durationMin: durMin,
-            description: barber ? `Hos ${barber.name}` : undefined,
-          })
-        : null;
     return (
       <div className="border border-line bg-surface p-10 text-center">
         <p className="font-display text-3xl font-bold text-fg">Takk! 💈</p>
         <p className="mt-4 text-muted">
-          Timen din er bekreftet: <strong className="text-fg">{service?.name}</strong> hos{" "}
-          <strong className="text-fg">{barber?.name}</strong>
+          Bestillingen er bekreftet:
+          <br />
+          <strong className="text-fg">
+            {cart.map((it) => it.service.name).join(" · ")}
+          </strong>
           <br />
           {date} kl. {time}
         </p>
-
-        {cal && (
-          <div className="mt-6">
-            <p className="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
-              Legg til i kalender
-            </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              <a
-                href={cal.icsHref}
-                download="downtown-barbers.ics"
-                className="rounded-md border border-line-2 px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
-              >
-                Apple / Outlook (.ics)
-              </a>
-              <a
-                href={cal.googleHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-md border border-line-2 px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
-              >
-                Google Kalender
-              </a>
-            </div>
-          </div>
-        )}
-
         {(confirmLinks.portalUrl || confirmLinks.cancelUrl) && (
           <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm">
             {confirmLinks.portalUrl && (
-              <a
-                href={confirmLinks.portalUrl}
-                className="font-semibold text-accent-soft hover:underline"
-              >
+              <a href={confirmLinks.portalUrl} className="font-semibold text-accent-soft hover:underline">
                 Min side →
               </a>
             )}
             {confirmLinks.cancelUrl && (
-              <a
-                href={confirmLinks.cancelUrl}
-                className="text-muted hover:text-fg"
-              >
-                Avbestill timen
+              <a href={confirmLinks.cancelUrl} className="text-muted hover:text-fg">
+                Avbestill
               </a>
             )}
           </div>
         )}
-
         <p className="mt-6 text-sm text-muted">Vi sender også en bekreftelse på e-post.</p>
       </div>
     );
@@ -308,17 +298,14 @@ export function BookingWizard({
 
   return (
     <div className="border border-line bg-surface">
+      {/* Steg-faner */}
       <div className="flex border-b border-line">
         {STEPS.map((s, i) => (
           <div
             key={s}
             className={
               "flex-1 px-2 py-3 text-center text-[10px] tracking-tight font-semibold uppercase sm:px-3 sm:text-xs sm:tracking-wide " +
-              (i === step
-                ? "bg-accent text-accent-fg"
-                : i < step
-                  ? "text-accent-soft"
-                  : "text-muted")
+              (i === step ? "bg-accent text-accent-fg" : i < step ? "text-accent-soft" : "text-muted")
             }
           >
             {i + 1}. {s}
@@ -327,159 +314,248 @@ export function BookingWizard({
       </div>
 
       <div className="p-6">
+        {/* ======================= STEG 0: TJENESTER + KURV ================= */}
         {step === 0 && (
-          <div className="space-y-2.5">
-            {cats.map((cat) => {
-              const open = openCat === cat;
-              const items = services.filter((s) => s.category === cat);
-              return (
-                <div key={cat} className="border border-line bg-surface">
-                  <button
-                    type="button"
-                    onClick={() => setOpenCat(open ? null : cat)}
-                    aria-expanded={open}
-                    className="flex w-full items-center justify-between px-4 py-3.5 text-left"
-                  >
-                    <span className="font-display text-base font-bold text-fg">
-                      {cat}
-                    </span>
-                    <svg
-                      viewBox="0 0 24 24"
-                      className={
-                        "h-4 w-4 text-muted transition-transform duration-300 " +
-                        (open ? "rotate-180" : "")
-                      }
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      aria-hidden
+          <div className="space-y-6">
+            {/* Trekkspill med tjenester */}
+            <div className="space-y-2.5">
+              {cats.map((cat) => {
+                const open = openCat === cat;
+                const items = services.filter((s) => s.category === cat);
+                return (
+                  <div key={cat} className="border border-line bg-surface">
+                    <button
+                      type="button"
+                      onClick={() => setOpenCat(open ? null : cat)}
+                      aria-expanded={open}
+                      className="flex w-full items-center justify-between px-4 py-3.5 text-left"
                     >
-                      <path
-                        d="m6 9 6 6 6-6"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </button>
-                  <div
-                    className={
-                      "grid transition-all duration-300 ease-out " +
-                      (open
-                        ? "grid-rows-[1fr] opacity-100"
-                        : "grid-rows-[0fr] opacity-0")
-                    }
-                  >
-                    <div className="overflow-hidden">
-                      <div className="space-y-3 border-t border-line p-4">
-                        {items.map((s) => (
-                        <div
-                          key={s.name}
-                          className={
-                            "border p-4 transition-colors " +
-                            (service?.name === s.name
-                              ? "border-accent-soft bg-accent-soft/5"
-                              : "border-line")
-                          }
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="font-semibold text-fg">{s.name}</p>
-                              <p className="mt-0.5 text-xs text-muted italic">
-                                ~{s.duration}
+                      <span className="font-display text-base font-bold text-fg">{cat}</span>
+                      <svg
+                        viewBox="0 0 24 24"
+                        className={"h-4 w-4 text-muted transition-transform duration-300 " + (open ? "rotate-180" : "")}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        aria-hidden
+                      >
+                        <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                    <div
+                      className={
+                        "grid transition-all duration-300 ease-out " +
+                        (open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")
+                      }
+                    >
+                      <div className="overflow-hidden">
+                        <div className="space-y-3 border-t border-line p-4">
+                          {items.map((s) => (
+                            <div key={s.name} className="border border-line p-4">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-fg">{s.name}</p>
+                                  <p className="mt-0.5 text-xs text-muted italic">~{s.duration}</p>
+                                </div>
+                                <button
+                                  onClick={() => addToCart(s)}
+                                  className="shrink-0 border border-line-2 px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft hover:text-accent-soft"
+                                >
+                                  + Legg til
+                                </button>
+                              </div>
+                              {s.description && (
+                                <p className="mt-2 text-sm leading-relaxed text-muted">{s.description}</p>
+                              )}
+                              <p className="mt-2.5 font-display text-sm font-bold text-fg">
+                                {serviceMinPrice(s.name) ===
+                                Math.max(...(levelPrices[s.name] ? Object.values(levelPrices[s.name]) : [serviceMinPrice(s.name)]))
+                                  ? nok(serviceMinPrice(s.name))
+                                  : `fra ${nok(serviceMinPrice(s.name))}`}
                               </p>
                             </div>
-                            <button
-                              onClick={() => {
-                                setService(s);
-                                setStep(1);
-                              }}
-                              className="shrink-0 border border-line-2 px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft hover:text-accent-soft"
-                            >
-                              + Velg
-                            </button>
-                          </div>
-                          {s.description && (
-                            <p className="mt-2 text-sm leading-relaxed text-muted">
-                              {s.description}
-                            </p>
-                          )}
-                          <p className="mt-2.5 font-display text-sm font-bold text-fg">
-                            {priceFrom(s.name, s.price)}
-                          </p>
+                          ))}
                         </div>
-                        ))}
                       </div>
                     </div>
                   </div>
+                );
+              })}
+            </div>
+
+            {/* Kurv */}
+            {cart.length === 0 ? (
+              <p className="text-sm text-muted">Legg til én eller flere tjenester for å fortsette.</p>
+            ) : (
+              <div className="space-y-4 border border-line-2 bg-canvas p-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display text-base font-bold text-fg">Din kurv</h3>
+                  <span className="text-sm text-muted">
+                    {anyEstimate ? "fra " : ""}
+                    {nok(cartTotal)}
+                  </span>
                 </div>
-              );
-            })}
+
+                {/* Modus-bryter (kun relevant med flere linjer) */}
+                {cart.length > 1 && (
+                  <div className="flex overflow-hidden rounded-md border border-line-2 text-xs font-semibold">
+                    <button
+                      onClick={() => setMode("single")}
+                      className={"flex-1 px-3 py-2 " + (mode === "single" ? "bg-accent text-accent-fg" : "text-muted")}
+                    >
+                      Én person (etter hverandre)
+                    </button>
+                    <button
+                      onClick={() => setMode("group")}
+                      className={"flex-1 px-3 py-2 " + (mode === "group" ? "bg-accent text-accent-fg" : "text-muted")}
+                    >
+                      Flere personer (samtidig)
+                    </button>
+                  </div>
+                )}
+
+                {/* Felles barber i «én person»-modus */}
+                {mode === "single" && (
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold tracking-wide text-muted uppercase">
+                      Barber for besøket
+                    </label>
+                    <select
+                      value={singleBarber}
+                      onChange={(e) => setSingleBarber(e.target.value)}
+                      className="w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
+                    >
+                      <option value={ANY}>Hvilken som helst</option>
+                      {barbersForAll.map((b) => (
+                        <option key={b.name} value={b.name}>
+                          {b.name} · {b.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Linjer */}
+                <div className="space-y-3">
+                  {cart.map((it, idx) => (
+                    <div key={it.id} className="border border-line bg-surface p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-fg">{it.service.name}</p>
+                          <p className="text-xs text-muted">~{it.service.duration}</p>
+                        </div>
+                        <button
+                          onClick={() => removeLine(it.id)}
+                          className="shrink-0 text-xs text-muted hover:text-danger"
+                        >
+                          Fjern
+                        </button>
+                      </div>
+
+                      {/* Gruppe-modus: barber + person per linje */}
+                      {mode === "group" && (
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          <select
+                            value={it.barberName ?? ""}
+                            onChange={(e) => patchLine(it.id, { barberName: e.target.value || null })}
+                            className="border border-line-2 bg-canvas px-2 py-2 text-sm text-fg outline-none focus:border-accent-soft"
+                          >
+                            <option value="">Velg barber …</option>
+                            {barbersFor(it.service.name).map((b) => (
+                              <option key={b.name} value={b.name}>
+                                {b.name} · {b.title}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            value={it.person}
+                            onChange={(e) => patchLine(it.id, { person: e.target.value })}
+                            placeholder={`Navn (Person ${idx + 1})`}
+                            className="border border-line-2 bg-canvas px-2 py-2 text-sm text-fg outline-none focus:border-accent-soft"
+                          />
+                        </div>
+                      )}
+
+                      {/* Tillegg */}
+                      {addons.length > 0 && (
+                        <div className="mt-3">
+                          <p className="mb-1.5 text-[11px] font-semibold tracking-wide text-muted uppercase">
+                            Legg til
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {addons.map((a) => {
+                              const on = it.addons.includes(a.name);
+                              return (
+                                <button
+                                  key={a.name}
+                                  onClick={() => toggleAddon(it.id, a.name)}
+                                  className={
+                                    "rounded-full border px-3 py-1 text-xs transition-colors " +
+                                    (on
+                                      ? "border-accent-soft bg-accent-soft/15 text-fg"
+                                      : "border-line-2 text-muted hover:border-accent-soft")
+                                  }
+                                >
+                                  {on ? "✓ " : "+ "}
+                                  {a.name} ({nok(a.price)})
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      <p className="mt-2.5 text-right font-display text-sm font-bold text-fg">
+                        {linePrice(it).exact ? "" : "fra "}
+                        {nok(linePrice(it).value)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                {groupNeedsBarbers && (
+                  <p className="text-xs text-danger">Velg barber for hver person.</p>
+                )}
+
+                <button
+                  onClick={() => canGoTid && setStep(1)}
+                  disabled={!canGoTid}
+                  className="w-full bg-accent px-6 py-3 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
+                >
+                  Velg tid →
+                </button>
+              </div>
+            )}
           </div>
         )}
 
-        {step === 1 && availableBarbers.length === 0 && (
-          <p className="text-sm text-muted">
-            Ingen barbere tilgjengelig for denne tjenesten. Velg en annen
-            tjeneste.
-          </p>
-        )}
-
-        {step === 1 && availableBarbers.length > 0 && (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {availableBarbers.map((b) => (
-              <button
-                key={b.name}
-                onClick={() => {
-                  setBarber(b);
-                  setStep(2);
-                }}
-                className={
-                  "border p-4 text-center transition-colors " +
-                  (barber?.name === b.name
-                    ? "border-accent-soft bg-accent-soft/5"
-                    : "border-line hover:border-line-2")
-                }
-              >
-                <span className="mx-auto mb-2 flex h-12 w-12 items-center justify-center bg-surface-2 font-display text-lg font-bold text-fg">
-                  {b.name.charAt(0)}
-                </span>
-                <span className="block font-medium text-fg">{b.name}</span>
-                <span className="block text-xs text-muted">{b.title}</span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {step === 2 && (
+        {/* ======================= STEG 1: TID ============================== */}
+        {step === 1 && (
           <div className="space-y-5">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <div className="flex items-center justify-between">
               <label className="block text-xs font-semibold tracking-wide text-muted uppercase">
-                Velg dag og tid {service ? `· ${service.duration}` : ""}
+                Velg dag og tid
               </label>
-              <span className="text-[11px] text-muted">
-                Velg dag, så klokkeslett
-              </span>
+              <button onClick={() => setStep(0)} className="text-xs text-accent-soft hover:underline">
+                ← Endre kurv
+              </button>
             </div>
 
             {openDays.length === 0 ? (
-              <p className="text-sm text-muted">
-                Ingen åpne dager tilgjengelig akkurat nå.
-              </p>
+              <p className="text-sm text-muted">Ingen åpne dager tilgjengelig akkurat nå.</p>
             ) : loadingSlots ? (
               <p className="text-sm text-muted">Henter ledige tider …</p>
             ) : slotsError ? (
               <p className="text-sm text-danger">
-                Kunne ikke hente ledige tider akkurat nå. Prøv igjen om litt,
-                eller last inn siden på nytt.
+                Kunne ikke hente ledige tider akkurat nå. Prøv igjen om litt.
               </p>
             ) : openDays.every((d) => halfHourSlots(d.iso).length === 0) ? (
               <p className="text-sm text-muted">
-                Ingen ledige tider i perioden (stengt eller fullt). Prøv en
-                annen barber eller tjeneste.
+                Ingen ledige tider som passer hele bestillingen i perioden. Prøv færre tjenester,
+                andre barbere, eller «flere personer»-modus.
               </p>
             ) : (
               <>
-                {/* Dag-velger (horisontal) */}
                 <div className="-mx-1 overflow-x-auto pb-1">
                   <div className="flex min-w-max gap-2 px-1">
                     {openDays.map((d) => {
@@ -500,12 +576,8 @@ export function BookingWizard({
                                 : "border-line hover:border-line-2")
                           }
                         >
-                          <span className="text-[10px] font-semibold tracking-wide text-muted uppercase">
-                            {d.weekday}
-                          </span>
-                          <span className="font-display text-lg font-bold text-fg">
-                            {d.dayNum}
-                          </span>
+                          <span className="text-[10px] font-semibold tracking-wide text-muted uppercase">{d.weekday}</span>
+                          <span className="font-display text-lg font-bold text-fg">{d.dayNum}</span>
                           <span className="text-[10px] text-muted">{d.month}</span>
                         </button>
                       );
@@ -513,16 +585,10 @@ export function BookingWizard({
                   </div>
                 </div>
 
-                {/* Tider for valgt dag – kompakt rutenett (hele + halve timer) */}
                 {(() => {
                   const times = halfHourSlots(viewDay);
-                  if (times.length === 0) {
-                    return (
-                      <p className="text-sm text-muted">
-                        Ingen ledige tider denne dagen – velg en annen.
-                      </p>
-                    );
-                  }
+                  if (times.length === 0)
+                    return <p className="text-sm text-muted">Ingen ledige tider denne dagen – velg en annen.</p>;
                   return (
                     <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
                       {times.map((t) => {
@@ -538,7 +604,7 @@ export function BookingWizard({
                               "rounded-md border py-2 text-sm tabular-nums transition-colors " +
                               (active
                                 ? "border-accent-soft bg-accent-soft/15 font-semibold text-fg"
-                                : "border-line text-fg-soft hover:border-accent-soft hover:text-fg")
+                                : "border-line text-muted hover:border-line-2 hover:text-fg")
                             }
                           >
                             {t}
@@ -548,22 +614,43 @@ export function BookingWizard({
                     </div>
                   );
                 })()}
+
+                <button
+                  onClick={() => date && time && setStep(2)}
+                  disabled={!date || !time}
+                  className="w-full bg-accent px-6 py-3 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
+                >
+                  Videre til kontakt →
+                </button>
               </>
             )}
           </div>
         )}
 
-        {step === 3 && (
+        {/* ======================= STEG 2: KONTAKT ========================== */}
+        {step === 2 && (
           <div className="space-y-4">
-            <div className="mb-2 border border-line bg-surface-2 p-4 text-sm text-muted">
-              <strong className="text-fg">{service?.name}</strong> ({service?.duration}) hos{" "}
-              <strong className="text-fg">{barber?.name}</strong> · {date} kl. {time} ·{" "}
-              <span className="text-fg">{priceLabel}</span>
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold tracking-wide text-muted uppercase">
+                Dine opplysninger
+              </label>
+              <button onClick={() => setStep(1)} className="text-xs text-accent-soft hover:underline">
+                ← Endre tid
+              </button>
             </div>
+
+            <div className="border border-line-2 bg-canvas p-3 text-sm">
+              <p className="text-fg">
+                <strong>{cart.map((it) => it.service.name).join(" · ")}</strong>
+              </p>
+              <p className="mt-1 text-muted">
+                {date} kl. {time} · {anyEstimate ? "fra " : ""}
+                {nok(cartTotal)}
+              </p>
+            </div>
+
             <input
               placeholder="Fullt navn"
-              aria-label="Fullt navn"
-              autoComplete="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
@@ -571,17 +658,13 @@ export function BookingWizard({
             <div>
               <input
                 placeholder="E-post"
-                aria-label="E-post"
                 type="email"
-                autoComplete="email"
                 inputMode="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
               />
-              {email && !emailOk && (
-                <p className="mt-1 text-xs text-danger">Ugyldig e-postadresse.</p>
-              )}
+              {email && !emailOk && <p className="mt-1 text-xs text-danger">Ugyldig e-postadresse.</p>}
             </div>
             <div>
               <div className="flex gap-2">
@@ -608,82 +691,36 @@ export function BookingWizard({
                   className="w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
                 />
               </div>
-              {phone && !phoneOk && (
-                <p className="mt-1 text-xs text-danger">Ugyldig telefonnummer.</p>
-              )}
+              {phone && !phoneOk && <p className="mt-1 text-xs text-danger">Ugyldig telefonnummer.</p>}
             </div>
-            <div>
-              <label className="mb-1 block text-xs text-muted">
-                Hvordan hørte du om oss? <span className="text-muted">(valgfritt)</span>
-              </label>
-              <select
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
-                className="w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
-              >
-                <option value="">Velg …</option>
-                <option value="Anbefalt av venn/kunde">Anbefalt av venn/kunde</option>
-                <option value="Google">Google-søk</option>
-                <option value="Instagram / sosiale medier">Instagram / sosiale medier</option>
-                <option value="Gikk forbi / skilt">Gikk forbi / skilt</option>
-                <option value="Annet">Annet</option>
-              </select>
-            </div>
-            <label className="flex cursor-pointer items-start gap-2.5 text-sm text-muted">
+
+            <input
+              placeholder="Hvordan hørte du om oss? (valgfritt)"
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+              className="w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
+            />
+
+            <label className="flex items-start gap-2 text-xs text-muted">
               <input
                 type="checkbox"
                 checked={marketingConsent}
                 onChange={(e) => setMarketingConsent(e.target.checked)}
-                className="mt-0.5 h-4 w-4 shrink-0 accent-accent-soft"
+                className="mt-0.5"
               />
-              <span>
-                Ja, jeg vil motta tilbud og nyheter fra Downtown Barbers på
-                e-post/SMS <span className="text-muted">(valgfritt)</span>
-              </span>
+              <span>Ja, jeg vil motta tilbud og nyheter fra Downtown Barbers på e-post.</span>
             </label>
-            {error && <p className="text-sm text-danger">{error}</p>}
-            {!pending && (!name.trim() || !emailOk || !phoneOk) && (
-              <p className="text-xs text-muted">
-                Fyll inn{" "}
-                {[
-                  !name.trim() ? "navn" : null,
-                  !emailOk ? "gyldig e-post" : null,
-                  !phoneOk ? "gyldig telefon" : null,
-                ]
-                  .filter(Boolean)
-                  .join(", ")}{" "}
-                for å bekrefte bookingen.
-              </p>
-            )}
-          </div>
-        )}
-      </div>
 
-      <div className="flex items-center justify-between border-t border-line p-4">
-        <Button
-          variant="ghost"
-          onClick={() => setStep((s) => Math.max(0, s - 1))}
-          disabled={step === 0}
-          className="px-4 py-2 text-sm"
-        >
-          Tilbake
-        </Button>
-        {step < 3 ? (
-          <Button
-            onClick={() => canNext && setStep((s) => s + 1)}
-            disabled={!canNext}
-            className="px-6 py-2.5 text-sm"
-          >
-            Neste
-          </Button>
-        ) : (
-          <Button
-            onClick={submit}
-            disabled={pending || !name.trim() || !emailOk || !phoneOk}
-            className="px-6 py-2.5 text-sm"
-          >
-            {pending ? "Bekrefter …" : "Bekreft booking"}
-          </Button>
+            {error && <p className="text-sm text-danger">{error}</p>}
+
+            <button
+              onClick={submit}
+              disabled={pending || !name.trim() || !emailOk || !phoneOk}
+              className="w-full bg-accent px-6 py-3 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
+            >
+              {pending ? "Bestiller …" : "Bekreft bestilling"}
+            </button>
+          </div>
         )}
       </div>
     </div>

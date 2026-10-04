@@ -8,6 +8,7 @@ import {
   getPublicLevelPrices,
   getPublicBarberLevels,
 } from "@/lib/service-catalog-queries";
+import { getPublicAddons } from "@/lib/addon-queries";
 import { getSiteSettings } from "@/lib/site-settings";
 
 export const metadata = { title: "Bestill time | Downtown Barbers" };
@@ -18,10 +19,11 @@ export default async function BookingPage({
   searchParams: Promise<{ service?: string; barber?: string }>;
 }) {
   const sp = await searchParams;
-  const [services, barbers, exclusions, levelPrices, barberLevels, settings] =
+  const [services, barbers, addons, exclusions, levelPrices, barberLevels, settings] =
     await Promise.all([
       getPublicServices(),
       getPublicBarbers(),
+      getPublicAddons(),
       getPublicServiceExclusions(),
       getPublicLevelPrices(),
       getPublicBarberLevels(),
@@ -54,6 +56,7 @@ export default async function BookingPage({
             <BookingWizard
               services={services}
               barbers={barbers}
+              addons={addons}
               exclusions={exclusions}
               levelPrices={levelPrices}
               barberLevels={barberLevels}
