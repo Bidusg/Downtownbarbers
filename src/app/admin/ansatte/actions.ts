@@ -201,10 +201,31 @@ async function uploadFile(
   return sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
-export async function createStaff(formData: FormData) {
+export async function createStaff(formData: FormData): Promise<ActionResult> {
   await requireRole(["admin"]);
   const sb = await createClient();
   const me = await getUserRole();
+
+  const full_name = String(formData.get("full_name") ?? "").trim();
+  const employee_number = String(formData.get("employee_number") ?? "").trim();
+  if (!full_name) return { ok: false, error: "Navn kan ikke være tomt." };
+
+  // Ansattnr må være unikt. Sjekk at det er ledig FØR vi evt. laster opp bilde,
+  // så vi slipper foreldreløse filer når nummeret er opptatt. (Admin ser alle
+  // rader via RLS, også inaktive – så gamle/sluttede ansatte fanges også opp.)
+  if (employee_number) {
+    const { data: existing } = await sb
+      .from("staff")
+      .select("id")
+      .eq("employee_number", employee_number)
+      .maybeSingle();
+    if (existing) {
+      return {
+        ok: false,
+        error: `Ansattnr «${employee_number}» er allerede i bruk. Velg et ledig nummer.`,
+      };
+    }
+  }
 
   // Foto er offentlig (vises på nettsiden) → staff-files.
   const photo_url = await uploadFile(
@@ -216,8 +237,8 @@ export async function createStaff(formData: FormData) {
   const { data: inserted, error } = await sb
     .from("staff")
     .insert({
-      employee_number: String(formData.get("employee_number") ?? "") || null,
-      full_name: String(formData.get("full_name") ?? ""),
+      employee_number: employee_number || null,
+      full_name,
       title: String(formData.get("title") ?? "") || null,
       email: String(formData.get("email") ?? "").trim().toLowerCase() || null,
       bio: String(formData.get("bio") ?? "") || null,
@@ -229,9 +250,22 @@ export async function createStaff(formData: FormData) {
     .select("id")
     .single();
 
+  if (error || !inserted) {
+    // 23505 = unique_violation (ansattnr rakk å bli opptatt etter sjekken over).
+    const dup =
+      (error as { code?: string } | null)?.code === "23505" ||
+      (error?.message ?? "").toLowerCase().includes("employee_number");
+    return {
+      ok: false,
+      error: dup
+        ? `Ansattnr «${employee_number}» er allerede i bruk. Velg et ledig nummer.`
+        : `Kunne ikke lagre ansatt: ${error?.message ?? "ukjent feil"}`,
+    };
+  }
+
   // Kontrakt → PRIVAT staff-docs + staff_documents-rad (aldri offentlig bøtte).
   const contract = formData.get("contract") as File | null;
-  if (!error && inserted && contract && contract.size > 0 && me) {
+  if (inserted && contract && contract.size > 0 && me) {
     const ext = (contract.name.split(".").pop() || "pdf").toLowerCase();
     const path = `${inserted.id}/${crypto.randomUUID()}-kontrakt.${ext}`;
     const { error: upErr } = await sb.storage
@@ -254,6 +288,7 @@ export async function createStaff(formData: FormData) {
     }
   }
   revalidatePath("/admin/ansatte");
+  return { ok: true };
 }
 
 /**

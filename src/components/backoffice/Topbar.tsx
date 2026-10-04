@@ -465,6 +465,23 @@ function MobileSheet({
       ? nav.links
       : [nav.dashboard, ...nav.groups.flatMap((g) => g.items)];
 
+  // Grupper på mobil er sammenslåbare (accordion), så man slipper å bla langt.
+  // Gruppa som inneholder gjeldende side åpnes automatisk.
+  const groupList = nav.kind === "grouped" ? nav.groups : [];
+  const activeGroupLabel = groupList.find((g) =>
+    g.items.some((it) => isActive(it.href, it.exact ?? false, path)),
+  )?.label;
+  const [openGroups, setOpenGroups] = useState<Set<string>>(
+    () => new Set(activeGroupLabel ? [activeGroupLabel] : []),
+  );
+  const toggleGroup = (label: string) =>
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+
   let counter = 0;
 
   return (
@@ -514,13 +531,13 @@ function MobileSheet({
             })}
           </nav>
         ) : (
-          <nav className="flex flex-col gap-4">
+          <nav className="flex flex-col gap-1.5">
             <Link
               href={nav.dashboard.href}
               onClick={onClose}
               style={{ ["--i" as string]: counter++ }}
               className={
-                "bo-sheet-row flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold " +
+                "bo-sheet-row mb-1 flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold " +
                 (isActive(nav.dashboard.href, true, path)
                   ? "bg-accent-soft/12 text-fg ring-1 ring-accent-soft/30"
                   : "text-fg-soft hover:bg-surface-2")
@@ -529,38 +546,80 @@ function MobileSheet({
               <Icon name="dashboard" className="h-4 w-4 text-accent-soft" />
               {nav.dashboard.label}
             </Link>
-            {nav.groups.map((g) => (
-              <div key={g.label}>
-                <p className="mb-1 flex items-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted/80">
-                  <Icon
-                    name={GROUP_ICON[g.label] ?? "innhold"}
-                    className="h-3.5 w-3.5 text-accent-soft"
-                  />
-                  {g.label}
-                </p>
-                <div className="flex flex-col gap-0.5">
-                  {g.items.map((it) => {
-                    const active = isActive(it.href, it.exact ?? false, path);
-                    return (
-                      <Link
-                        key={it.href}
-                        href={it.href}
-                        onClick={onClose}
-                        style={{ ["--i" as string]: counter++ }}
-                        className={
-                          "bo-sheet-row rounded-lg px-3 py-2 text-sm " +
-                          (active
-                            ? "bg-accent-soft/12 font-semibold text-fg"
-                            : "text-muted hover:bg-surface-2 hover:text-fg")
-                        }
-                      >
-                        {it.label}
-                      </Link>
-                    );
-                  })}
+            {nav.groups.map((g) => {
+              const isOpen = openGroups.has(g.label);
+              const groupActive = g.items.some((it) =>
+                isActive(it.href, it.exact ?? false, path),
+              );
+              return (
+                <div
+                  key={g.label}
+                  className="overflow-hidden rounded-xl border border-line/60 bg-surface"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(g.label)}
+                    aria-expanded={isOpen}
+                    className={
+                      "flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold hover:bg-surface-2 " +
+                      (groupActive ? "text-fg" : "text-fg-soft")
+                    }
+                  >
+                    <Icon
+                      name={GROUP_ICON[g.label] ?? "innhold"}
+                      className="h-4 w-4 text-accent-soft"
+                    />
+                    <span className="flex-1">{g.label}</span>
+                    {groupActive && !isOpen && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-accent-soft" />
+                    )}
+                    <svg
+                      viewBox="0 0 24 24"
+                      className={
+                        "h-4 w-4 text-muted transition-transform duration-300 " +
+                        (isOpen ? "rotate-180" : "")
+                      }
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      aria-hidden
+                    >
+                      <path
+                        d="m6 9 6 6 6-6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                  {isOpen && (
+                    <div className="flex flex-col gap-0.5 px-2 pb-2">
+                      {g.items.map((it) => {
+                        const active = isActive(
+                          it.href,
+                          it.exact ?? false,
+                          path,
+                        );
+                        return (
+                          <Link
+                            key={it.href}
+                            href={it.href}
+                            onClick={onClose}
+                            className={
+                              "rounded-lg px-3 py-2 text-sm " +
+                              (active
+                                ? "bg-accent-soft/12 font-semibold text-fg"
+                                : "text-muted hover:bg-surface-2 hover:text-fg")
+                            }
+                          >
+                            {it.label}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </nav>
         )}
 

@@ -489,6 +489,7 @@ export function StaffManager({
 }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<AdminStaff | null>(null);
+  const [createErr, setCreateErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   const levelName = (id: string | null) =>
@@ -602,7 +603,10 @@ export function StaffManager({
         </p>
         <Button
           variant="primary"
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => {
+            setCreateErr(null);
+            setOpen((o) => !o);
+          }}
           className="px-4 py-2 text-sm"
         >
           {open ? "Lukk" : "+ Ny ansatt"}
@@ -612,11 +616,24 @@ export function StaffManager({
       {open && (
         <form
           action={async (fd) => {
-            await createStaff(fd);
-            setOpen(false);
+            const res = await createStaff(fd);
+            if (res?.ok) {
+              setCreateErr(null);
+              setOpen(false);
+            } else {
+              setCreateErr(res?.error ?? "Noe gikk galt. Prøv igjen.");
+            }
           }}
           className="grid gap-3 border border-line bg-surface p-5 sm:grid-cols-2"
         >
+          {createErr && (
+            <p
+              role="alert"
+              className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger sm:col-span-2"
+            >
+              {createErr}
+            </p>
+          )}
           <Input name="employee_number" placeholder="Ansattnr (f.eks. DB-007)" required />
           <Input name="full_name" placeholder="Fullt navn" required />
           <Input name="email" type="email" inputMode="email" placeholder="E-post (for innlogging)" />
