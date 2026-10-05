@@ -13,8 +13,42 @@ export type WizService = {
   category: string;
   description?: string;
 };
-export type WizBarber = { name: string; title: string; photo?: string | null };
+export type WizBarber = { name: string; display?: string; title: string; photo?: string | null };
 export type WizAddon = { name: string; price: number; durationMin: number };
+
+/**
+ * Prislapp: oransje «badge» så prisen er lett å få øye på i veiviseren.
+ * `from` legger på «fra» i liten tekst (nivåpris varierer med barber).
+ */
+function PriceTag({
+  value,
+  from = false,
+  size = "md",
+  fromLabel,
+}: {
+  value: number;
+  from?: boolean;
+  size?: "sm" | "md" | "lg";
+  fromLabel: string;
+}) {
+  const pad = size === "lg" ? "px-3.5 py-1.5" : size === "sm" ? "px-2 py-0.5" : "px-2.5 py-1";
+  const amt = size === "lg" ? "text-lg" : size === "sm" ? "text-xs" : "text-sm";
+  return (
+    <span
+      className={
+        "inline-flex items-baseline gap-1 whitespace-nowrap rounded-full border border-accent-soft/50 bg-accent-soft/12 " +
+        pad
+      }
+    >
+      {from && (
+        <span className="text-[10px] font-semibold tracking-[0.12em] text-accent-soft/80 uppercase">
+          {fromLabel.trim()}
+        </span>
+      )}
+      <span className={"font-display font-bold text-accent-soft " + amt}>{nok(value)}</span>
+    </span>
+  );
+}
 
 const STEP_KEYS = ["step.services", "step.barber", "step.time", "step.contact"];
 
@@ -446,11 +480,15 @@ export function BookingWizard({
                               {s.description && (
                                 <p className="mt-2 text-sm leading-relaxed text-muted">{tc(s.description)}</p>
                               )}
-                              <p className="mt-2.5 font-display text-sm font-bold text-fg">
-                                {serviceMinPrice(s.name) ===
-                                Math.max(...(levelPrices[s.name] ? Object.values(levelPrices[s.name]) : [serviceMinPrice(s.name)]))
-                                  ? nok(serviceMinPrice(s.name))
-                                  : `${t("common.from")}${nok(serviceMinPrice(s.name))}`}
+                              <p className="mt-2.5">
+                                <PriceTag
+                                  value={serviceMinPrice(s.name)}
+                                  from={
+                                    serviceMinPrice(s.name) !==
+                                    Math.max(...(levelPrices[s.name] ? Object.values(levelPrices[s.name]) : [serviceMinPrice(s.name)]))
+                                  }
+                                  fromLabel={t("common.from")}
+                                />
                               </p>
                             </div>
                             );
@@ -552,7 +590,8 @@ export function BookingWizard({
                                   }
                                 >
                                   {on ? "✓ " : "+ "}
-                                  {tc(a.name)} ({nok(a.price)})
+                                  {tc(a.name)}{" "}
+                                  <span className="font-semibold text-accent-soft">+{nok(a.price)}</span>
                                 </button>
                               );
                             })}
@@ -560,9 +599,8 @@ export function BookingWizard({
                         </div>
                       )}
 
-                      <p className="mt-2.5 text-right font-display text-sm font-bold text-fg">
-                        {linePrice(it).exact ? "" : t("common.from")}
-                        {nok(linePrice(it).value)}
+                      <p className="mt-2.5 text-right">
+                        <PriceTag value={linePrice(it).value} from={!linePrice(it).exact} fromLabel={t("common.from")} />
                       </p>
                     </div>
                   ))}
@@ -573,10 +611,7 @@ export function BookingWizard({
                   <span className="text-xs font-semibold tracking-wide text-muted uppercase">
                     {t("wiz.total")}
                   </span>
-                  <span className="font-display text-lg font-bold text-fg">
-                    {anyEstimate ? t("common.from") : ""}
-                    {nok(cartTotal)}
-                  </span>
+                  <PriceTag value={cartTotal} from={anyEstimate} size="lg" fromLabel={t("common.from")} />
                 </div>
                 {anyEstimate && (
                   <p className="-mt-2 text-[11px] text-muted">{t("wiz.estimateNote")}</p>
@@ -687,15 +722,12 @@ export function BookingWizard({
                         <img src={b.photo} alt="" className="h-16 w-16 rounded-full object-cover ring-1 ring-line" />
                       ) : (
                         <span className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-2 font-display text-2xl font-bold text-fg">
-                          {b.name.charAt(0)}
+                          {(b.display ?? b.name).charAt(0)}
                         </span>
                       )}
-                      <span className="text-sm font-semibold text-fg">{b.name}</span>
+                      <span className="text-sm font-semibold text-fg">{b.display ?? b.name}</span>
                       <span className="text-[11px] text-muted">{tt(b.title)}</span>
-                      <span className="font-display text-sm font-bold text-fg">
-                        {allExact ? "" : t("common.from")}
-                        {nok(total)}
-                      </span>
+                      <PriceTag value={total} from={!allExact} fromLabel={t("common.from")} />
                     </button>
                   );
                 })}
@@ -714,7 +746,7 @@ export function BookingWizard({
                         <option value="">{t("wiz.chooseBarber")}</option>
                         {barbersFor(it.service.name).map((b) => (
                           <option key={b.name} value={b.name}>
-                            {b.name} · {tt(b.title)}
+                            {b.display ?? b.name} · {tt(b.title)}
                           </option>
                         ))}
                       </select>
@@ -878,7 +910,7 @@ export function BookingWizard({
                           ) : null}
                         </p>
                         <p className="text-xs text-muted">
-                          {t("wiz.summary.barber")}: {b ?? t("wiz.anyBarber")}
+                          {t("wiz.summary.barber")}: {b ? (barbers.find((x) => x.name === b)?.display ?? b) : t("wiz.anyBarber")}
                           {it.addons.length > 0 && (
                             <>
                               {" · "}
@@ -887,10 +919,7 @@ export function BookingWizard({
                           )}
                         </p>
                       </div>
-                      <span className="shrink-0 tabular-nums text-fg">
-                        {lp.exact ? "" : t("common.from")}
-                        {nok(lp.value)}
-                      </span>
+                      <PriceTag value={lp.value} from={!lp.exact} size="sm" fromLabel={t("common.from")} />
                     </li>
                   );
                 })}
@@ -899,10 +928,7 @@ export function BookingWizard({
                 <span className="text-xs font-semibold tracking-wide text-muted uppercase">
                   {t("wiz.total")}
                 </span>
-                <span className="font-display text-lg font-bold text-fg">
-                  {anyEstimate ? t("common.from") : ""}
-                  {nok(cartTotal)}
-                </span>
+                <PriceTag value={cartTotal} from={anyEstimate} size="lg" fromLabel={t("common.from")} />
               </div>
               {anyEstimate && (
                 <p className="mt-1 text-[11px] text-muted">{t("wiz.estimateNote")}</p>

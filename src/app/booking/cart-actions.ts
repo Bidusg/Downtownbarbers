@@ -302,7 +302,10 @@ export async function createBookingGroup(
         to: input.email.trim(),
         name,
         service: summary,
-        barber: input.mode === "group" ? "Flere barbere" : (resolvedBarber ?? ""),
+        barber:
+          input.mode === "group"
+            ? "Flere barbere"
+            : (barbers.find((b) => b.name === resolvedBarber)?.display ?? resolvedBarber ?? ""),
         barberTitle:
           input.mode === "group" ? undefined : barbers.find((b) => b.name === resolvedBarber)?.title,
         barberPhotoUrl:

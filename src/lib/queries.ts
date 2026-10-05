@@ -12,7 +12,8 @@ export type PublicService = {
   duration: string;
   category: string;
 };
-export type PublicBarber = { name: string; title: string; photo?: string | null };
+/** name = fullt navn (nøkkel mot staff/RPC-er), display = det kundene ser. */
+export type PublicBarber = { name: string; display: string; title: string; photo?: string | null };
 
 const kr = (n: number) => `${n} kr`;
 
@@ -110,12 +111,13 @@ export async function getPublicBarbers(): Promise<PublicBarber[]> {
     const sb = await createClient();
     const { data } = await sb
       .from("staff")
-      .select("full_name, title, photo_url")
+      .select("full_name, display_name, title, photo_url")
       .eq("active", true)
       .order("employee_number");
     if (data && data.length) {
       return data.map((r) => ({
         name: r.full_name as string,
+        display: ((r.display_name as string | null) ?? "").trim() || (r.full_name as string),
         title: normalizeTitle(r.title as string | null),
         photo: (r.photo_url as string | null) ?? null,
       }));
@@ -123,7 +125,7 @@ export async function getPublicBarbers(): Promise<PublicBarber[]> {
   } catch {
     // fallback under
   }
-  return staticTeam.map((b) => ({ name: b.name, title: normalizeTitle(b.title) }));
+  return staticTeam.map((b) => ({ name: b.name, display: b.name, title: normalizeTitle(b.title) }));
 }
 
 export type PublicProduct = {

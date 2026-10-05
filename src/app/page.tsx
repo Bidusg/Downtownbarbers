@@ -19,6 +19,7 @@ import {
 } from "@/lib/queries";
 import { getSiteSettings } from "@/lib/site-settings";
 import { getSiteImages, getSiteCraft } from "@/lib/site-images";
+import { getPublicLevelPrices } from "@/lib/service-catalog-queries";
 import { getUserRole, isAdminRole } from "@/lib/auth";
 import { getPublicReviewsSummary } from "@/lib/reviews";
 import { siteUrl } from "@/lib/site-url";
@@ -94,14 +95,20 @@ export default async function Home({
   const role = wantPreview ? await getUserRole() : null;
   const preview = wantPreview && isAdminRole(role?.role);
 
-  const [services, team, s, omdomme, siteImages, siteCraft] = await Promise.all([
+  const [services, team, s, omdomme, siteImages, siteCraft, levelPrices] = await Promise.all([
     getPublicServices(),
     getPublicBarbers(),
     getSiteSettings(),
     getPublicReviewsSummary(),
     getSiteImages(preview),
     getSiteCraft(preview),
+    getPublicLevelPrices(),
   ]);
+  // «fra»-pris i prislista når prisen varierer med barberens nivå.
+  const priceVaries = (name: string) => {
+    const v = Object.values(levelPrices[name] ?? {});
+    return v.length > 1 && Math.min(...v) !== Math.max(...v);
+  };
   const serviceCategories = groupByCategory(services);
 
   // Hero + galleri fra CMS-bildene, med fallback til de innebygde bildene.
@@ -272,23 +279,23 @@ export default async function Home({
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={m.photo}
-                          alt={m.name}
+                          alt={m.display}
                           className="h-full w-full object-cover"
                         />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center font-display text-xl font-bold text-fg group-hover:text-accent-soft sm:text-3xl">
-                          {m.name.charAt(0)}
+                          {m.display.charAt(0)}
                         </div>
                       )}
                     </div>
-                    <p className="mt-3 font-medium text-fg">{m.name}</p>
+                    <p className="mt-3 font-medium text-fg">{m.display}</p>
                     <p className="text-xs text-muted">
                       <TDyn text={m.title} map="titles" />
                     </p>
                     <a
                       href={`/booking?barber=${encodeURIComponent(m.name)}`}
                       className="mt-3 inline-block border border-line px-3 py-1.5 text-[11px] font-semibold tracking-[0.12em] text-fg uppercase transition-colors hover:border-accent-soft hover:bg-accent-soft hover:text-[#211E1A]"
-                      aria-label={`${m.name}`}
+                      aria-label={m.display}
                     >
                       <T k="home.team.book" />
                     </a>
@@ -329,6 +336,11 @@ export default async function Home({
                                 <TDyn text={sv.name} map="services" />
                               </span>
                               <span className="font-display text-sm whitespace-nowrap text-accent-soft">
+                                {priceVaries(sv.name) && (
+                                  <span className="mr-1 text-[10px] font-semibold tracking-[0.12em] text-accent-soft/80 uppercase">
+                                    <T k="common.from" />
+                                  </span>
+                                )}
                                 {sv.price}
                               </span>
                             </div>

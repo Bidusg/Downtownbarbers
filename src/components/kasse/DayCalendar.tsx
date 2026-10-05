@@ -99,6 +99,21 @@ export function DayCalendar({
   const [dragX, setDragX] = useState(0);
   const [slide, setSlide] = useState<{ dir: 1 | -1; phase: "out" | "in" } | null>(null);
   const touch = useRef<{ x: number; y: number; axis: "x" | "y" | null; fired: boolean } | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  // Berøringsskjerm (mobil/iPad): native HTML-dra er av, flytting skjer via
+  // hold-og-dra (pointer events). Desktop beholder umiddelbar dra.
+  const [coarse, setCoarse] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(pointer: coarse)");
+    const apply = () => setCoarse(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+  // Hold-og-dra på touch: timer før flyttemodus, og kolonnen under fingeren.
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [hoverCol, setHoverCol] = useState<string | null>(null);
+  const gestureLock = useRef(false); // true mens en blokk flyttes (stopper dag-sveip)
   const prevDate = useRef(date);
   useEffect(() => {
     // Ny dag kom fra serveren → la den gli inn fra motsatt side og «sprette» på plass.
@@ -119,6 +134,15 @@ export function DayCalendar({
     setTimeout(() => setSlide((s) => (s && s.phase === "out" ? null : s)), 2500);
   }
   function onTouchStart(e: React.TouchEvent) {
+    if (e.touches.length !== 1 || slide || gestureLock.current) return;
+    // Når kolonnene er bredere enn skjermen (mobil), eier nettleseren den
+    // horisontale bevegelsen (scroll) – da byttes dag med pilene/topplinja.
+    const el = gridRef.current;
+    if (el && el.scrollWidth > el.clientWidth + 2) return;
+    touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, axis: null, fired: false };
+  }
+  /** Sveip på topplinja (dato/pilene) bytter alltid dag – også på mobil. */
+  function onBarTouchStart(e: React.TouchEvent) {
     if (e.touches.length !== 1 || slide) return;
     touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, axis: null, fired: false };
   }
@@ -337,25 +361,81 @@ export function DayCalendar({
   const MOVE_THRESH = 5; // piksler før en gest regnes som dra
   const MOVE_SNAP = 15; // minutter (kalenderens steg)
 
+  function startMoveMode(target: HTMLElement, pointerId: number, b: AgendaBooking, y0: number) {
+    const curStart =
+      optimistic[b.id] != null ? optimistic[b.id] : osloMinutes(b.start_at);
+    const dur = Math.max(MOVE_SNAP, osloMinutes(b.end_at) - osloMinutes(b.start_at));
+    setMove({ id: b.id, startMin: curStart, dur, y0 });
+    setMoveStart(curStart);
+    gestureLock.current = true;
+    try {
+      target.setPointerCapture(pointerId);
+    } catch {
+      /* noop */
+    }
+  }
+
   function blockPointerDown(e: React.PointerEvent, b: AgendaBooking) {
-    // Ikke preventDefault her: en horisontal gest skal fortsatt kunne starte
-    // native dra-til-barber. Vi avgjør aksen på første reelle bevegelse.
     blkDown.current = { id: b.id, x: e.clientX, y: e.clientY, axis: "" };
     blkDragged.current = false;
+    if (e.pointerType === "touch") {
+      // Touch: hold ~350 ms uten å bevege fingeren → flyttemodus (opp/ned =
+      // ny tid, sidelengs = annen barber). Kort trykk = åpne detaljer,
+      // rask bevegelse = vanlig scroll.
+      const target = e.currentTarget as HTMLElement;
+      const pid = e.pointerId;
+      const y0 = e.clientY;
+      if (holdTimer.current) clearTimeout(holdTimer.current);
+      holdTimer.current = setTimeout(() => {
+        holdTimer.current = null;
+        if (!blkDown.current || blkDown.current.id !== b.id) return;
+        blkDown.current.axis = "v";
+        startMoveMode(target, pid, b, y0);
+        try {
+          navigator.vibrate?.(12);
+        } catch {
+          /* noop */
+        }
+      }, 350);
+    }
+    // Desktop: ikke preventDefault – horisontal gest skal starte native
+    // dra-til-barber; aksen avgjøres på første reelle bevegelse.
+  }
+
+  /** Kolonne (barbernavn) under pekeren – for touch-overføring til annen barber. */
+  function columnAtPoint(x: number, y: number): string | null {
+    const el = document.elementFromPoint(x, y) as HTMLElement | null;
+    const col = el?.closest<HTMLElement>("[data-col]");
+    return col?.dataset.col ?? null;
   }
 
   function blockPointerMove(e: React.PointerEvent, b: AgendaBooking) {
     const d = blkDown.current;
     if (!d || d.id !== b.id) return;
 
-    // Aktiv vertikal flytting: følg pekeren, snap til 15 min, hold deg innenfor dagen.
+    // Aktiv flytting: følg pekeren, snap til 15 min, hold deg innenfor dagen.
     if (move?.id === b.id) {
       const dy = e.clientY - move.y0;
       let ns = move.startMin + dy / PX;
       ns = Math.round(ns / MOVE_SNAP) * MOVE_SNAP;
       ns = Math.max(OPEN, Math.min(ns, CLOSE - move.dur));
       setMoveStart(ns);
+      if (e.pointerType === "touch") {
+        // Sidelengs på touch: marker kolonnen under fingeren (bytt barber).
+        const col = columnAtPoint(e.clientX, e.clientY);
+        setHoverCol(col && col !== (b.barber ?? "") ? col : null);
+      }
       e.preventDefault();
+      return;
+    }
+
+    if (e.pointerType === "touch") {
+      // Før hold-tiden er ute: beveger fingeren seg, er det scroll – avbryt holdet.
+      if (holdTimer.current && (Math.abs(e.clientX - d.x) > 8 || Math.abs(e.clientY - d.y) > 8)) {
+        clearTimeout(holdTimer.current);
+        holdTimer.current = null;
+        blkDown.current = null;
+      }
       return;
     }
 
@@ -388,11 +468,34 @@ export function DayCalendar({
   }
 
   function blockPointerUp(_e: React.PointerEvent, b: AgendaBooking) {
-    if (move?.id === b.id) endMove();
+    if (holdTimer.current) {
+      clearTimeout(holdTimer.current);
+      holdTimer.current = null;
+    }
+    if (move?.id === b.id) {
+      const target = hoverCol;
+      setHoverCol(null);
+      gestureLock.current = false;
+      if (target && target !== (b.barber ?? "")) {
+        // Sluppet over en annen kolonne → bytt barber (samme bekreftelse som på PC).
+        setMove(null);
+        setMoveStart(null);
+        blkDragged.current = true;
+        setTransfer({ booking: b, toBarber: target });
+      } else {
+        endMove();
+      }
+    }
     blkDown.current = null;
   }
 
   function blockPointerCancel() {
+    if (holdTimer.current) {
+      clearTimeout(holdTimer.current);
+      holdTimer.current = null;
+    }
+    gestureLock.current = false;
+    setHoverCol(null);
     setMove(null);
     setMoveStart(null);
     blkDown.current = null;
@@ -403,6 +506,7 @@ export function DayCalendar({
     const ns = moveStart;
     setMove(null);
     setMoveStart(null);
+    gestureLock.current = false;
     if (!cur || ns == null || ns === cur.startMin) return;
     blkDragged.current = true; // ekte flytting – ikke tolk som klikk
     const startIso = new Date(
@@ -428,11 +532,36 @@ export function DayCalendar({
   return (
     <div>
       {/* Topplinje */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+      <div
+        className="mb-4 flex flex-wrap items-center justify-between gap-3"
+        onTouchStart={onBarTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={() => {
+          touch.current = null;
+          setDragX(0);
+        }}
+      >
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => goDay(-1)}
+            aria-label="Forrige dag"
+            className="rounded-md border border-line px-3 py-2 text-sm text-muted hover:border-accent-soft hover:text-fg"
+          >
+            ‹
+          </button>
           <span className="font-display text-lg font-bold capitalize">
             {prettyDate}
           </span>
+          <button
+            type="button"
+            onClick={() => goDay(1)}
+            aria-label="Neste dag"
+            className="rounded-md border border-line px-3 py-2 text-sm text-muted hover:border-accent-soft hover:text-fg"
+          >
+            ›
+          </button>
           <input
             type="date"
             value={date}
@@ -441,7 +570,7 @@ export function DayCalendar({
           />
         </div>
         <div className="flex items-center gap-2">
-          <span className="hidden text-xs text-muted sm:inline">
+          <span className="hidden text-xs text-muted lg:inline">
             ← sveip for å bytte dag →
           </span>
           {canBlock && (
@@ -471,8 +600,9 @@ export function DayCalendar({
 
       {/* Rutenett */}
       <div
+        ref={gridRef}
         className="relative overflow-auto rounded-xl border border-line bg-surface"
-        style={{ maxHeight: "72vh", touchAction: "pan-y", ...slideStyle }}
+        style={{ maxHeight: "72vh", touchAction: "pan-x pan-y", ...slideStyle }}
         onPointerDown={onDown}
         onPointerMove={onMove}
         onPointerUp={onUp}
@@ -505,7 +635,11 @@ export function DayCalendar({
             return (
               <div
                 key={col.barber.id}
-                className="min-w-[150px] flex-1 border-l border-line"
+                data-col={col.barber.full_name}
+                className={
+                  "min-w-[150px] flex-1 border-l border-line transition-colors " +
+                  (hoverCol === col.barber.full_name ? "bg-accent-soft/15" : "")
+                }
                 onDragOver={(e) => {
                   if (dragId) e.preventDefault();
                 }}
@@ -625,7 +759,7 @@ export function DayCalendar({
                             }
                             setSelected(b);
                           }}
-                          draggable={movable && !isResizing && !isMoving}
+                          draggable={!coarse && movable && !isResizing && !isMoving}
                           onDragStart={(e) => {
                             // Pågående vertikal flytting → avbryt native dra-til-barber.
                             if (isMoving || blkDown.current?.axis === "v") {
@@ -660,7 +794,9 @@ export function DayCalendar({
                           }
                           title={
                             movable
-                              ? "Dra opp/ned for å endre tid · dra til siden for å bytte barber"
+                              ? coarse
+                                ? "Hold inne, så dra opp/ned for ny tid eller sidelengs til annen barber"
+                                : "Dra opp/ned for å endre tid · dra til siden for å bytte barber"
                               : undefined
                           }
                           className={`absolute right-1 left-1 cursor-grab overflow-hidden rounded-md border-l-[3px] px-2 py-1 text-left motion-safe:transition-transform hover:z-10 motion-safe:hover:scale-[1.02] active:cursor-grabbing ${
@@ -675,7 +811,8 @@ export function DayCalendar({
                             borderLeftColor: color,
                             opacity:
                               dragId === b.id ? 0.35 : completed || noshow ? 0.6 : 1,
-                            touchAction: movable ? "none" : undefined,
+                            // Touch: la vanlig scroll gå til holdet er «tatt»; desktop som før.
+                            touchAction: movable ? (coarse && !isMoving ? "pan-y" : "none") : undefined,
                           }}
                         >
                           <div className="flex items-center gap-1.5">

@@ -1,5 +1,7 @@
 "use client";
 
+import { createPortal } from "react-dom";
+
 import { useState, useTransition } from "react";
 import type { AdminStaff } from "@/lib/admin-queries";
 import type { StaffLevel, PickerService } from "@/lib/levels-queries";
@@ -37,6 +39,7 @@ function EditStaffModal({
   onClose: () => void;
 }) {
   const [fullName, setFullName] = useState(staff.full_name);
+  const [displayName, setDisplayName] = useState(staff.display_name ?? "");
   const [email, setEmail] = useState(staff.email ?? "");
   const [title, setTitle] = useState(staff.title ?? "");
   const [empNo, setEmpNo] = useState(staff.employee_number ?? "");
@@ -80,6 +83,7 @@ function EditStaffModal({
         title,
         employee_number: empNo,
         base_salary_nok: baseSalary,
+        display_name: displayName,
       });
       if (r.error) {
         setErr(r.error);
@@ -99,18 +103,23 @@ function EditStaffModal({
     });
   }
 
-  return (
+  // Portal til <body>: dialogen må ligge utenfor sideanimasjonen (.bo-page)
+  // og topplinja, ellers havner den bak/over feil ting og kuttes i toppen.
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3 sm:p-6"
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="edit-staff-title"
     >
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto border border-line bg-surface p-5 shadow-2xl"
+        className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-lg flex-col rounded-lg border border-line bg-surface shadow-2xl sm:max-h-[calc(100dvh-3rem)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-display text-lg font-bold text-fg">
-            Rediger ansatt
+        <div className="flex items-center justify-between border-b border-line px-5 py-3">
+          <h3 id="edit-staff-title" className="font-display text-lg font-bold text-fg">
+            Rediger {staff.full_name}
           </h3>
           <Button
             variant="ghost"
@@ -121,9 +130,16 @@ function EditStaffModal({
             ×
           </Button>
         </div>
-        <div className="space-y-3">
-          <Field label="Fullt navn">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
+          <Field label="Fullt navn" hint="(internt: kassa, lønn, timelister)">
             <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
+          </Field>
+          <Field label="Visningsnavn på nettsiden" hint="(det kundene ser i Teamet og i booking – tomt = fullt navn)">
+            <Input
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder={fullName.split(" ")[0] || "F.eks. Kochari"}
+            />
           </Field>
           <Field label="E-post" hint="(kreves for innlogging)">
             <Input
@@ -255,23 +271,24 @@ function EditStaffModal({
             </p>
           </div>
 
+        </div>
+        <div className="flex items-center gap-3 border-t border-line px-5 py-3">
+          <Button
+            variant="primary"
+            onClick={save}
+            disabled={pending}
+            className="px-4 py-2 text-sm"
+          >
+            {pending ? "Lagrer …" : "Lagre"}
+          </Button>
+          <Button variant="ghost" onClick={onClose} className="text-sm">
+            Avbryt
+          </Button>
           {err && <p className="text-xs text-danger">{err}</p>}
-          <div className="flex items-center gap-2 pt-1">
-            <Button
-              variant="primary"
-              onClick={save}
-              disabled={pending}
-              className="px-4 py-2 text-sm"
-            >
-              {pending ? "Lagrer …" : "Lagre"}
-            </Button>
-            <Button variant="ghost" onClick={onClose} className="text-sm">
-              Avbryt
-            </Button>
-          </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

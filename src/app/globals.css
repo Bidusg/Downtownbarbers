@@ -794,3 +794,15 @@ body {
     transition: none !important;
   }
 }
+
+
+/* iOS Safari zoomer inn når et felt med skrift < 16px får fokus – og blir
+   værende zoomet etter innlogging («siden er kuttet i kantene»). På
+   berøringsskjermer settes derfor alle felt til minst 16px. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+}

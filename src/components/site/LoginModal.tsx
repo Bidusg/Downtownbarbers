@@ -24,13 +24,13 @@ export function LoginModal({ open, onClose }: { open: boolean; onClose: () => vo
   if (!open) return null;
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center"
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
       aria-label="Logg inn"
     >
       <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="relative max-h-[92vh] w-full max-w-md overflow-y-auto border border-line bg-canvas p-6 shadow-2xl sm:rounded-lg">
+      <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg border border-line bg-canvas p-6 shadow-2xl">
         <button
           type="button"
           onClick={onClose}

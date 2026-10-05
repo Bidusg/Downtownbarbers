@@ -31,9 +31,10 @@ const playfair = localFont({
 
 export const viewport: Viewport = {
   themeColor: "#F8F5EF",
-  // Lar innholdet (hero) fylle helt opp under statuslinja på mobil, så det
-  // ikke blir en lys stripe mellom toppen av skjermen og headeren.
-  viewportFit: "cover",
+  width: "device-width",
+  initialScale: 1,
+  // viewportFit:"cover" ga et tomrom over headeren på iPhone (safe-area-
+  // innrykk når adresselinja krymper) – standard viewport er riktig her.
 };
 
 const DESCRIPTION =

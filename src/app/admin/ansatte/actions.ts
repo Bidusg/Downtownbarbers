@@ -339,6 +339,7 @@ export async function updateStaff(
     title?: string;
     employee_number?: string;
     base_salary_nok?: string; // tom = standard grunnlønn
+    display_name?: string; // navn kundene ser (tom = fullt navn)
   },
 ): Promise<{ ok?: true; error?: string }> {
   await requireRole(["admin"]);
@@ -362,6 +363,8 @@ export async function updateStaff(
     patch.email = fields.email.trim().toLowerCase() || null;
   }
   if (fields.title !== undefined) patch.title = fields.title.trim() || null;
+  if (fields.display_name !== undefined)
+    patch.display_name = fields.display_name.trim().slice(0, 60) || null;
   if (fields.employee_number !== undefined)
     patch.employee_number = fields.employee_number.trim() || null;
 

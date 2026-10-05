@@ -428,3 +428,115 @@ Bygg 9: tidsfeil i nettbooking (+2 t), barber-steg, kundenotat, bildegalleri, ny
 6. Admin → Omsetning → dag → Annuller testsalget.
 7. Ansatte → Rediger → sett grunnlønn → Lønn viser den.
 8. iPad: sveip i kalenderen.
+
+---
+
+# ENDRINGER — Bygg 9b (6. okt 2026): kalenderen på mobil
+
+## Commit-tittel
+
+```
+Kalender på mobil: hold-og-dra for å flytte/bytte barber, dag-piler, sveip som faktisk bytter dag
+```
+
+Ingen SQL.
+
+## Hva som var galt
+
+- **Sveip byttet ikke dag:** på mobil er kolonnene bredere enn skjermen, så
+  nettleseren tok den horisontale bevegelsen som scroll og avbrøt gesten
+  (touchcancel) – «gummistrikken» vistes, men ingen dag-bytte.
+- **Flytte/bytte barber virket ikke på mobil:** bytte barber brukte native
+  HTML-dra (finnes ikke på touch), og `draggable` på blokkene fikk iOS til å
+  avbryte pointer-gesten for flytting.
+
+## Løsning
+
+- **Hold-og-dra på touch:** hold fingeren ~0,35 s på en booking (liten
+  vibrasjon) → flyttemodus. Dra opp/ned = ny tid (15-min-steg), dra
+  sidelengs over en annen kolonne (lyser opp) og slipp = bytt barber (samme
+  bekreftelsesdialog som på PC). Kort trykk = detaljer, rask bevegelse =
+  vanlig scroll. Desktop er uendret (umiddelbar dra).
+- **Dag-piler ‹ ›** ved datoen (alle skjermer), og sveip på topplinja bytter
+  alltid dag. Sveip i selve rutenettet bytter dag bare når alle kolonnene får
+  plass (ellers scroller det sidelengs, som det skal).
+
+## Test på mobil
+
+1. Hold på en booking → den «løfter seg» → dra ned → slipp → ny tid.
+2. Hold → dra til nabokolonnen (lyser) → slipp → bekreft bytte av barber.
+3. Pil ‹ › bytter dag; sveip på datolinja bytter dag med bounce.
+4. Vanlig scroll opp/ned og sidelengs fungerer uten at noe flyttes.
+
+---
+
+# ENDRINGER — Bygg 9c (6. okt 2026): mobil-finpuss
+
+## Commit-tittel
+
+```
+Mobil: innlogging midt på skjermen, tomrom over header fjernet, ingen auto-zoom etter innlogging
+```
+
+Ingen SQL.
+
+- **Innlogging** er nå et svevende vindu midt på skjermen også på mobil (ikke
+  ark nedenfra).
+- **Tomrom over headeren** på iPhone: kom av `viewport-fit=cover` + safe-area-
+  innrykk på headeren når adresselinja krymper. Begge fjernet – standard
+  viewport.
+- **«Siden kuttes i kantene» / må zoome ut:** iOS Safari zoomer inn når et
+  felt med skrift under 16px får fokus (e-post/passord i innloggingen) og
+  blir værende zoomet etter at du er sendt videre til admin. Alle felt er nå
+  minst 16px på berøringsskjermer – da zoomer ikke iOS. (Hvis du fortsatt
+  er zoomet inn akkurat nå: dobbelttrykk eller knip ut én gang; det er
+  gammel tilstand i fanen.)
+
+---
+
+# ENDRINGER — Bygg 9d (6. okt 2026): Rediger ansatt + visningsnavn
+
+## Commit-tittel
+
+```
+Ansatte: rediger-dialog som ikke kuttes, og visningsnavn for kundene
+```
+
+## Kjør i Supabase FØR push
+
+`KJØR-I-SUPABASE-VISNINGSNAVN.sql` – legger til `staff.display_name`.
+
+- **Rediger ansatt**-dialogen lå inne i sideanimasjonen/topplinja og ble
+  kuttet i toppen (Navn-feltet var usynlig). Nå rendres den over alt annet,
+  med fast topp (tittel + lukk), rullbart innhold og Lagre/Avbryt alltid
+  synlig nederst – også på små skjermer.
+- **Visningsnavn på nettsiden** (nytt felt): det kundene ser i Teamet, i
+  booking-steget «Barber» og i bekreftelses-e-posten. Tomt = fullt navn.
+  Kassa, lønn og timelister bruker fortsatt fullt navn.
+
+---
+
+# ENDRINGER — Bygg 9e (6. okt 2026): prislapper
+
+## Commit-tittel
+
+```
+Booking: oransje prislapper (tjenester, barber-kort, kurv, totalsum) + «fra» i prislista på forsiden
+```
+
+Ingen SQL.
+
+- Priser i veiviseren er nå oransje «prislapper» (pille med lys oransje bakgrunn,
+  «FRA» i liten kapitél når prisen avhenger av barber). Brukes på tjenestelista,
+  barber-kortene, kurvlinjene, totalsummen og oppsummeringen. Tillegg-chips viser
+  «+149 kr» i oransje.
+- Prislista på forsiden viser «FRA» foran prisen når nivåprisen varierer
+  (Barber/Senior/Master) – f.eks. «fra 299 kr».
+
+---
+
+# ENDRINGER — Bygg 9f: kategori «Hårklipp»
+
+Kjør `KJØR-I-SUPABASE-HAARKLIPP.sql` (døper om «Klipp» → «Hårklipp»).
+EN-oversettelse «Haircuts» lagt i content-map (dekker både gammelt og nytt navn).
+Kategori-overskriftene i booking er uendret (plain), prislappene som før.
