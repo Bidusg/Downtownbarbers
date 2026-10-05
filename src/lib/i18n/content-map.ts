@@ -20,7 +20,8 @@ export type ContentMap = Record<string, { en: string }>;
 // Kategorinavn, tjenestenavn og -beskrivelser + tilleggene (kategori «Tillegg»).
 const services: ContentMap = {
   // Kategorier
-  Klipp: { en: "Cuts" },
+  Klipp: { en: "Haircuts" },
+  Hårklipp: { en: "Haircuts" },
   Kombo: { en: "Combo" },
   Skjegg: { en: "Beard" },
   Barbering: { en: "Shaving" },
