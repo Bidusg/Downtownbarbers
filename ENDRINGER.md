@@ -630,3 +630,19 @@ Ingen SQL.
 
 Env: bruker `CRON_SECRET` hvis satt i Vercel (fallback utledet av service-
 nøkkelen) til å beskytte arbeider-ruten. Ingenting nytt må settes.
+
+---
+
+# ENDRINGER — Bygg 9k: «Send til resten»
+
+Ingen ny SQL (bruker kø-tabellen fra 9j – den må være kjørt).
+
+- Ny lenke **«Send til resten»** på hver ferdige e-postutsending under
+  «Sendt før». Sender samme emne + tekst til alle med samtykke som ikke har
+  fått den. Hvem som har fått den sjekkes mot (1) køen og (2) **Resends egen
+  logg** (`GET /emails`, filtrert på emne og dato) – nødvendig fordi
+  utsendingene 5. okt kl. 14:07 ble sendt før køen fantes og ikke ble logget
+  per mottaker. Bouncede/feilede regnes som ikke mottatt; de som ble avvist
+  av rate-limit nådde aldri Resend og får den nå.
+- Feilsikring: får vi ikke lest Resend-loggen, sendes ingenting (ingen
+  risiko for dobbel e-post).

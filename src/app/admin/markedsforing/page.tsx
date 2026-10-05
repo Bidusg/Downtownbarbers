@@ -10,7 +10,8 @@ import {
   getRecentInbound,
   SEGMENTS,
 } from "@/lib/dm-queries";
-import { sendMarketing, resumeMarketing } from "./actions";
+import { sendMarketing, resumeMarketing, sendToRest } from "./actions";
+import { SendRestButton } from "@/components/admin/SendRestButton";
 import { SendMarketingButton } from "@/components/admin/SendMarketingButton";
 import { AutoRefresh } from "@/components/kasse/AutoRefresh";
 
@@ -41,7 +42,7 @@ function fmt(iso: string) {
 export default async function AdminMarkedsforing({
   searchParams,
 }: {
-  searchParams: Promise<{ sendt?: string; startet?: string; feil?: string; kanal?: string }>;
+  searchParams: Promise<{ sendt?: string; startet?: string; feil?: string; kanal?: string; utelatt?: string }>;
 }) {
   const sp = await searchParams;
   const [stats, sends, inbound] = await Promise.all([
@@ -77,6 +78,7 @@ export default async function AdminMarkedsforing({
             <strong className="text-fg">
               Utsending startet {sp.kanal === "sms" ? "på SMS" : "på e-post"} til {Number(sp.startet).toLocaleString("nb-NO")} mottakere.
             </strong>{" "}
+            {sp.utelatt ? `${Number(sp.utelatt).toLocaleString("nb-NO")} som allerede har fått den er utelatt. ` : ""}
             Sendes i bakgrunnen – fremdriften oppdateres under «Sendt før».
           </p>
         </div>
@@ -94,6 +96,16 @@ export default async function AdminMarkedsforing({
       {sp.feil === "ingen" && (
         <div className="border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
           Ingen i valgt segment har samtykke + riktig kontaktinfo.
+        </div>
+      )}
+      {sp.feil === "resendlogg" && (
+        <div className="border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+          Fikk ikke lest Resend-loggen, så vi vet ikke hvem som har fått den – ingenting sendt. Prøv igjen om litt.
+        </div>
+      )}
+      {sp.feil === "alleharfatt" && (
+        <div className="border border-accent-soft/30 bg-accent-soft/5 px-4 py-3 text-sm text-muted">
+          Alle med samtykke har allerede fått denne utsendingen.
         </div>
       )}
       {sp.feil === "db" && (
@@ -189,7 +201,12 @@ export default async function AdminMarkedsforing({
                   <Td muted>{SEG_LABEL[s.segment ?? ""] ?? s.segment ?? "—"}</Td>
                   <Td>
                     {s.status === "done" || !s.status ? (
-                      <span className="text-xs text-muted">Ferdig{s.failed ? ` · ${s.failed} feilet` : ""}</span>
+                      <span className="flex flex-wrap items-center gap-x-2 text-xs text-muted">
+                        Ferdig{s.failed ? ` · ${s.failed} feilet` : ""}
+                        {s.channel !== "sms" && (
+                          <SendRestButton action={sendToRest.bind(null, s.id)} subject={s.subject} />
+                        )}
+                      </span>
                     ) : s.status === "failed" ? (
                       <form action={resumeMarketing.bind(null, s.id)}>
                         <span className="text-xs text-danger">Stoppet</span>{" "}
