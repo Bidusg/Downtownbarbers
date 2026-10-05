@@ -50,6 +50,8 @@ export function BookingDetailModal({
   const [err, setErr] = useState<string | null>(null);
 
   const b = booking;
+  // «Ikke møtt» gir først mening når timen har startet.
+  const started = new Date(b.start_at).getTime() <= Date.now();
   const finished =
     b.status === "completed" ||
     b.status === "no_show" ||
@@ -128,6 +130,17 @@ export function BookingDetailModal({
             <span className="text-muted">Status</span>
             <span className="text-fg">{statusLabel[b.status] ?? b.status}</span>
           </div>
+          {b.phone && (
+            <div className="flex justify-between">
+              <span className="text-muted">Telefon</span>
+              <a
+                href={`tel:${b.phone.replace(/\s/g, "")}`}
+                className="font-medium text-accent-soft hover:underline"
+              >
+                {b.phone}
+              </a>
+            </div>
+          )}
           {b.email && (
             <div className="flex justify-between">
               <span className="text-muted">E-post</span>
@@ -305,7 +318,9 @@ export function BookingDetailModal({
                 />
                 <button
                   onClick={() => setMode("noshow")}
-                  className="rounded-md border border-line-2 px-3 py-2 text-sm text-muted transition-colors hover:text-fg"
+                  disabled={!started}
+                  title={started ? undefined : "Kan settes når timen har startet"}
+                  className="rounded-md border border-line-2 px-3 py-2 text-sm text-muted transition-colors hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Ikke møtt
                 </button>

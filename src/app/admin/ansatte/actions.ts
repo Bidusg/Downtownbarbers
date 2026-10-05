@@ -355,6 +355,31 @@ export async function updateStaff(
   return { ok: true };
 }
 
+/**
+ * Bytt/legg til profilbilde på en eksisterende ansatt (vises i Teamet på
+ * forsiden, i kassa og i stemplingen). Bildet lagres i den offentlige
+ * bilde-bøtta (samme som ved opprettelse).
+ */
+export async function updateStaffPhoto(
+  id: string,
+  formData: FormData,
+): Promise<{ ok?: true; error?: string }> {
+  await requireRole(["admin"]);
+  const file = formData.get("photo") as File | null;
+  if (!file || file.size === 0) return { error: "Velg et bilde først." };
+  if (!file.type.startsWith("image/")) return { error: "Filen må være et bilde." };
+  if (file.size > 5 * 1024 * 1024) return { error: "Bildet er for stort (maks 5 MB)." };
+  const sb = await createClient();
+  const photo_url = await uploadFile(sb, file, "photos");
+  if (!photo_url) return { error: "Kunne ikke laste opp bildet. Prøv igjen." };
+  const { error } = await sb.from("staff").update({ photo_url }).eq("id", id);
+  if (error) return { error: `Kunne ikke lagre: ${error.message}` };
+  revalidatePath("/admin/ansatte");
+  revalidatePath("/");
+  revalidatePath("/kasse");
+  return { ok: true };
+}
+
 export async function toggleStaff(id: string, active: boolean) {
   await requireRole(["admin"]);
   const sb = await createClient();

@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ShopBarber, ShopService } from "@/lib/shop-queries";
+import { isAddonCategory } from "@/lib/service-categories";
 import {
   createDeskBooking,
   rescheduleBooking,
@@ -17,6 +18,22 @@ type Prefill = {
   service?: string;
   barber?: string;
 };
+
+
+/** Grupper tjenester per kategori (rekkefølgen kommer ferdig sortert fra serveren). */
+function groupByCategory(list: ShopService[]): { cat: string; rows: ShopService[] }[] {
+  const out: { cat: string; rows: ShopService[] }[] = [];
+  for (const s of list) {
+    const cat = s.category ?? "Annet";
+    let g = out.find((x) => x.cat === cat);
+    if (!g) {
+      g = { cat, rows: [] };
+      out.push(g);
+    }
+    g.rows.push(s);
+  }
+  return out;
+}
 
 export function DeskBooking({
   services,
@@ -95,7 +112,9 @@ function Dialog({
 
   // Detaljer
   const [service, setService] = useState(
-    prefill?.service ?? services[0]?.name ?? "",
+    prefill?.service ??
+      (services.find((s) => !isAddonCategory(s.category)) ?? services[0])?.name ??
+      "",
   );
   const [barber, setBarber] = useState(
     prefill?.barber ?? barbers[0]?.full_name ?? "",
@@ -306,10 +325,14 @@ function Dialog({
               onChange={(e) => setService(e.target.value)}
               className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg focus:border-accent-soft focus:outline-none"
             >
-              {services.map((s) => (
-                <option key={s.name} value={s.name}>
-                  {s.name}
-                </option>
+              {groupByCategory(services).map((g) => (
+                <optgroup key={g.cat} label={g.cat}>
+                  {g.rows.map((s) => (
+                    <option key={s.name} value={s.name}>
+                      {s.name} · {s.duration_min} min
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </div>

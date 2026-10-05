@@ -381,9 +381,18 @@ export type RevenueSummary = {
   avgPerSale: number;
   perBarber: { name: string; nok: number }[];
   hasData: boolean;
+  /** Kr av månedstallet som kommer fra Fixit-historikk (dager t.o.m. FIXIT_CUTOVER). */
+  fixitInMonth: number;
 };
 
-/** Nøkkeltall for dashboard/regnskap fra ekte salg. */
+/**
+ * Nøkkeltall for dashboard/regnskap.
+ * Månedstallet bruker SAMME skille som trendgrafen: dager t.o.m. FIXIT_CUTOVER
+ * hentes fra Fixit-historikken, dager etter fra ekte kassesalg. Uten dette
+ * viste grafen omsetning mens «Omsetning måned» sto på 0 kr i overgangsmåneden.
+ * Antall salg / snitt / per barber finnes bare for ekte kassesalg (Fixit-
+ * importen har kun dagstotaler).
+ */
 export async function getRevenueSummary(): Promise<RevenueSummary> {
   const empty: RevenueSummary = {
     today: 0,
@@ -392,40 +401,59 @@ export async function getRevenueSummary(): Promise<RevenueSummary> {
     avgPerSale: 0,
     perBarber: [],
     hasData: false,
+    fixitInMonth: 0,
   };
   try {
     const sb = await createClient();
     const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const todayKey = now.toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" });
+    const monthStartKey = `${todayKey.slice(0, 7)}-01`;
+    const monthStart = new Date(monthStartKey + "T00:00:00Z").toISOString();
     const { data } = await sb
       .from("sales")
       .select("total_nok, sold_at, staff(full_name)")
       .gte("sold_at", monthStart);
     const rows = data ?? [];
-    if (rows.length === 0) return empty;
 
-    const todayKey = now.toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" });
     let today = 0;
-    let month = 0;
+    let liveMonth = 0;
     const perBarber = new Map<string, number>();
     for (const s of rows) {
       const amt = Number(s.total_nok) || 0;
-      month += amt;
-      if (osloDayKey(s.sold_at) === todayKey) today += amt;
+      const dayKey = osloDayKey(s.sold_at as string);
+      // Dager t.o.m. cutover telles fra Fixit (under), ikke dobbelt.
+      if (dayKey > FIXIT_CUTOVER) liveMonth += amt;
+      if (dayKey === todayKey) today += amt;
       const st = s.staff as { full_name?: string } | null;
       const name = st?.full_name ?? "Ukjent";
       perBarber.set(name, (perBarber.get(name) ?? 0) + amt);
     }
+
+    // Fixit-historikk for dagene i måneden t.o.m. cutover.
+    let fixitInMonth = 0;
+    if (monthStartKey <= FIXIT_CUTOVER) {
+      const fixit = await getFixitDailyTotals(
+        sb,
+        monthStartKey,
+        todayKey < FIXIT_CUTOVER ? todayKey : FIXIT_CUTOVER,
+      );
+      for (const v of fixit.values()) fixitInMonth += v;
+    }
+
+    const month = liveMonth + fixitInMonth;
+    if (rows.length === 0 && fixitInMonth === 0) return empty;
+
     return {
       today: Math.round(today),
       month: Math.round(month),
       saleCount: rows.length,
-      avgPerSale: Math.round(month / rows.length),
+      avgPerSale: rows.length ? Math.round(liveMonth / rows.length) : 0,
       perBarber: Array.from(perBarber, ([name, nok]) => ({
         name,
         nok: Math.round(nok),
       })).sort((a, b) => b.nok - a.nok),
       hasData: true,
+      fixitInMonth: Math.round(fixitInMonth),
     };
   } catch {
     return empty;

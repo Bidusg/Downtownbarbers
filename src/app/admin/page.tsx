@@ -46,8 +46,12 @@ export default async function AdminDashboard() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile label="Omsetning i dag" value={nok(sum.today)} />
-        <StatTile label="Omsetning måned" value={nok(sum.month)} sub="denne måneden" />
-        <StatTile label="Antall salg" value={String(sum.saleCount)} sub="denne måneden" />
+        <StatTile
+          label="Omsetning måned"
+          value={nok(sum.month)}
+          sub={sum.fixitInMonth > 0 ? "denne måneden · inkl. Fixit-historikk" : "denne måneden"}
+        />
+        <StatTile label="Antall salg" value={String(sum.saleCount)} sub="denne måneden · fra kassa" />
         <StatTile label="Snitt per salg" value={nok(sum.avgPerSale)} />
       </div>
 

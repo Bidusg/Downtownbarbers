@@ -59,15 +59,28 @@ export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {
       <Card>
         <div className="grid gap-4 sm:grid-cols-2">
           <h2 className="font-display text-lg font-bold sm:col-span-2">Topptekst (hero)</h2>
-          <Field label="Overskrift">
-            <Input value={s.hero_title} onChange={(e) => set("hero_title", e.target.value)} />
-          </Field>
-          <Field label="Overskrift (kursiv, farget)">
-            <Input value={s.hero_italic} onChange={(e) => set("hero_italic", e.target.value)} />
-          </Field>
-          <Field label="Ingress">
-            <textarea className={input} rows={2} value={s.intro} onChange={(e) => set("intro", e.target.value)} />
-          </Field>
+          <p className="-mt-2 text-xs text-muted sm:col-span-2">
+            Heroen på forsiden er forenklet: den viser kun «Oslo · Osterhaus&apos; gate 10 · Siden
+            {" "}{s.established || "…"}» og «Bestill time»-knappen (pluss vurderingen under).
+            Overskrift og ingress vises derfor ikke lenger på forsiden; feltene beholdes
+            her i tilfelle heroen utvides igjen.
+          </p>
+          <details className="sm:col-span-2">
+            <summary className="cursor-pointer text-sm font-semibold text-muted">
+              Skjulte hero-tekster (vises ikke på forsiden nå)
+            </summary>
+            <div className="mt-3 grid gap-4 sm:grid-cols-2">
+              <Field label="Overskrift">
+                <Input value={s.hero_title} onChange={(e) => set("hero_title", e.target.value)} />
+              </Field>
+              <Field label="Overskrift (kursiv, farget)">
+                <Input value={s.hero_italic} onChange={(e) => set("hero_italic", e.target.value)} />
+              </Field>
+              <Field label="Ingress">
+                <textarea className={input} rows={2} value={s.intro} onChange={(e) => set("intro", e.target.value)} />
+              </Field>
+            </div>
+          </details>
           <Field label="Etablert (år)">
             <Input value={s.established} onChange={(e) => set("established", e.target.value)} />
           </Field>

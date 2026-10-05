@@ -30,6 +30,21 @@ const inputCls =
 
 const STEPS = ["Ansatt", "Tjeneste", "Produkter", "Kunde", "Rabatt", "Betaling"];
 
+/** Grupper behandlinger per kategori (serveren leverer dem ferdig sortert). */
+function groupServices(list: SellableService[]): { cat: string; rows: SellableService[] }[] {
+  const out: { cat: string; rows: SellableService[] }[] = [];
+  for (const s of list) {
+    const cat = s.category ?? "Annet";
+    let g = out.find((x) => x.cat === cat);
+    if (!g) {
+      g = { cat, rows: [] };
+      out.push(g);
+    }
+    g.rows.push(s);
+  }
+  return out;
+}
+
 type SelectedCustomer = { id: string; name: string };
 
 /**
@@ -398,22 +413,38 @@ export function QuickSale({
                     >
                       Ingen behandling
                     </button>
-                    {services.map((s) => (
-                      <button
-                        key={s.name}
-                        onClick={() => pickService(s.name)}
-                        className={
-                          "flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm transition-colors " +
-                          (serviceName === s.name
-                            ? "border-accent-soft bg-accent-soft/10"
-                            : "border-line hover:border-accent-soft")
-                        }
-                      >
-                        <span className="text-fg">{s.name}</span>
-                        <span className="font-display text-muted">
-                          {kr(s.price_nok)}
-                        </span>
-                      </button>
+                    {groupServices(services).map((g) => (
+                      <div key={g.cat} className="pt-2">
+                        <p className="mb-1.5 text-[10px] font-semibold tracking-wide text-accent-soft uppercase">
+                          {g.cat}
+                          {g.cat.toLowerCase() === "tillegg" && (
+                            <span className="ml-1 normal-case tracking-normal text-muted">
+                              · kun som eneste behandling – flere linjer kommer
+                            </span>
+                          )}
+                        </p>
+                        <div className="space-y-1.5">
+                          {g.rows.map((s) => (
+                            <button
+                              key={s.name}
+                              type="button"
+                              onClick={() => pickService(s.name)}
+                              aria-pressed={serviceName === s.name}
+                              className={
+                                "flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm transition-colors " +
+                                (serviceName === s.name
+                                  ? "border-accent-soft bg-accent-soft/10"
+                                  : "border-line hover:border-accent-soft")
+                              }
+                            >
+                              <span className="text-fg">{s.name}</span>
+                              <span className="font-display text-muted">
+                                {kr(s.price_nok)}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </div>

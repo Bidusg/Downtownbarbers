@@ -74,3 +74,77 @@ allerede følger `NEXT_PUBLIC_SITE_URL` → Vercel-prod-domene → downtownbarbe
 - Forside: klikk «Team» i menyen → «TEAMET»-etiketten skal være synlig under headeren.
 - Del forsidelenken i en melding/iMessage → bilde + tittel skal vises.
 - Fanen i nettleseren skal vise Downtown-logoen (hard-refresh/ny fane).
+
+---
+
+# ENDRINGER — Admin-fiks etter gjennomgang (5. okt 2026, bygg 2)
+
+## Commit-tittel
+
+```
+Admin: eier-tilgang til /admin, månedsomsetning konsistent med graf, bilde på eksisterende ansatt
+```
+
+## Innhold
+
+- **Eier (Dawit) låses ikke lenger ute av /admin.** `admin/layout.tsx` sjekket
+  `role === "admin"` strengt, mens resten av systemet (requireRole, is_admin())
+  regner «eier» som admin. En eier-bruker ville blitt sendt til
+  «/logg-inn?feil=tilgang» i evig løkke. Nå brukes `isAdminRole()`.
+- **«Omsetning måned» stemmer med grafen.** Grafen blander Fixit-historikk
+  (t.o.m. 3. okt) med kassesalg, men KPI-flisen brukte kun kassesalg – derfor
+  «0 kr» ved siden av en graf med omsetning. Månedstallet bruker nå samme
+  skille, og flisen merkes «inkl. Fixit-historikk» når det gjelder. Antall salg
+  / snitt / per barber gjelder fortsatt bare kassa (Fixit har kun dagstotaler).
+  Gjelder dashboard, Regnskap og Revisor-oversikten.
+- **Bilde kan lastes opp på eksisterende ansatt** (Ansatte → Rediger → Bilde).
+  Før kunne bilde bare settes ved opprettelse – så barberne som viser initial
+  på forsiden kunne ikke få bilde uten å slettes og opprettes på nytt.
+
+Ingen migrasjon. Ingen nye env-variabler.
+
+---
+
+# ENDRINGER — Admin/kasse-forbedringer 4–9 + Fixit-samtykke (5. okt 2026, bygg 3)
+
+## Commit-tittel
+
+```
+Admin/kasse: kundeklubb-telling, grupperte tjenester i kassa, telefon i bookingdetaljer, døde hero-felt, datoformat + SQL for Fixit-samtykke og kundevask
+```
+
+## Kjør i Supabase → SQL Editor (idempotente)
+
+1. `KJØR-I-SUPABASE-SAMTYKKE-FIXIT.sql` — setter markedsføringssamtykke = ja på
+   kundene importert fra Fixit (de ga samtykke der; feltet ble ikke med i
+   importen). Rører ikke kunder som har meldt seg av eller som selv har valgt i
+   den nye bookingen. Dokumenterer grunnlaget i ny kolonne
+   `marketing_consent_source = 'fixit'`. Kjør gjerne FORHÅNDSVISNING-selecten
+   øverst i fila først.
+2. `KJØR-I-SUPABASE-KUNDEVASK.sql` — fjerner telefonnummer som ligger som
+   fornavn («47657179 Bue» → «Bue»), og legger nummeret i phone hvis tomt.
+
+## Kode
+
+- **Kundeklubb-telling** («Bronse: 1000 kunder» ved 6 400+): PostgREST-taket på
+  1000 rader. Salg/bookinger pagineres nå, og laveste nivå = eksakt kundetall −
+  kunder på høyere nivå.
+- **Tjenester i kassa er gruppert per kategori** (Klipp, Kombo, Skjegg,
+  Barbering, Tillegg sist) både i Hurtigsalg og «Ny booking». Ny booking
+  foreslår nå første ordinære tjeneste (ikke «Ansiktsmassasje» alfabetisk), og
+  viser varighet. Hurtigsalg kan fortsatt bare ha én behandling per salg –
+  behandling + tillegg i samme salg krever endring i `record_walkin_sale`
+  (egen jobb, se under).
+- **Bookingdetaljer i kassa viser telefon** (klikkbar `tel:`-lenke) over e-post.
+  «Ikke møtt» er deaktivert til timen har startet.
+- **Datooverskrift i kalender**: «Mandag 5. oktober» (små bokstaver i måned,
+  uten ledende null).
+- **Nettside-innstillinger**: hero-feltene som ikke lenger vises (overskrift,
+  kursiv overskrift, ingress) ligger nå sammenslått under «Skjulte hero-tekster»
+  med forklaring, så ingen lurer på hvorfor endringer ikke synes.
+
+## Ikke gjort (egen jobb hvis ønsket)
+
+- Flere behandlingslinjer (tjeneste + tillegg) i ett hurtigsalg – krever ny
+  RPC-signatur (`record_walkin_sale` tar i dag én `service`).
+- Gavekort som betalingsmåte direkte i hurtigsalg (i dag: egen Gavekort-side).

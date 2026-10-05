@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/Badge";
 import {
   createStaff,
   updateStaff,
+  updateStaffPhoto,
   toggleStaff,
   setStaffPin,
   setStaffPostnummer,
@@ -51,6 +52,7 @@ function EditStaffModal({
       ),
   );
   const [err, setErr] = useState<string | null>(null);
+  const [photoSaved, setPhotoSaved] = useState(false);
   const [pending, start] = useTransition();
 
   const toggleService = (id: string) =>
@@ -139,6 +141,42 @@ function EditStaffModal({
           </Field>
           <Field label="Ansattnr">
             <Input value={empNo} onChange={(e) => setEmpNo(e.target.value)} placeholder="DB-007" />
+          </Field>
+
+          {/* Profilbilde – kunne tidligere bare settes ved opprettelse. */}
+          <Field label="Bilde" hint="(vises i Teamet på forsiden, i kassa og stemplingen)">
+            <form
+              className="flex items-center gap-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const fd = new FormData(e.currentTarget);
+                setErr(null);
+                start(async () => {
+                  const r = await updateStaffPhoto(staff.id, fd);
+                  if (r.error) setErr(r.error);
+                  else setPhotoSaved(true);
+                });
+              }}
+            >
+              {staff.photo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={staff.photo_url}
+                  alt=""
+                  className="h-12 w-12 shrink-0 rounded-full object-cover ring-1 ring-line"
+                />
+              ) : (
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-2 font-display text-lg font-bold text-fg ring-1 ring-line">
+                  {fullName.charAt(0)}
+                </span>
+              )}
+              <div className="min-w-0 flex-1">
+                <FileInput name="photo" accept="image/*" buttonLabel="Velg bilde" />
+              </div>
+              <Button type="submit" variant="ghost" className="shrink-0 px-3 py-1.5 text-xs" disabled={pending}>
+                {photoSaved ? "Lagret ✓" : "Last opp"}
+              </Button>
+            </form>
           </Field>
 
           <Field label="Nivå" hint="(styrer prisen kunden ser)">

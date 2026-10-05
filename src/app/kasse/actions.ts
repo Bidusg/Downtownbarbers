@@ -432,7 +432,7 @@ export async function listSellableProducts(): Promise<SellableProduct[]> {
   }
 }
 
-export type SellableService = { name: string; price_nok: number };
+export type SellableService = { name: string; price_nok: number; category?: string };
 
 /** Aktive behandlinger som kan selges i kassen (med pris). */
 export async function listSellableServices(): Promise<SellableService[]> {
@@ -440,13 +440,31 @@ export async function listSellableServices(): Promise<SellableService[]> {
     const sb = await createClient();
     const { data } = await sb
       .from("services")
-      .select("name, price_nok, active, sort_order")
-      .eq("active", true)
-      .order("sort_order");
-    return ((data as SellableService[]) ?? []).map((s) => ({
+      .select("name, price_nok, active, sort_order, service_categories(name, sort_order)")
+      .eq("active", true);
+    const rows = ((data ?? []) as unknown as {
+      name: string;
+      price_nok: number;
+      sort_order: number | null;
+      service_categories: { name?: string; sort_order?: number } | null;
+    }[]).map((s) => ({
       name: s.name,
       price_nok: Number(s.price_nok) || 0,
+      category: s.service_categories?.name ?? "Annet",
+      catSort: s.service_categories?.sort_order ?? 0,
+      svcSort: s.sort_order ?? 0,
     }));
+    // Samme rekkefølge som forsiden/kalenderen: kategori først, «Tillegg» sist.
+    const isAddon = (c: string) => c.trim().toLowerCase() === "tillegg";
+    rows.sort(
+      (a, b) =>
+        Number(isAddon(a.category)) - Number(isAddon(b.category)) ||
+        a.catSort - b.catSort ||
+        a.category.localeCompare(b.category) ||
+        a.svcSort - b.svcSort ||
+        a.name.localeCompare(b.name),
+    );
+    return rows.map(({ name, price_nok, category }) => ({ name, price_nok, category }));
   } catch {
     return [];
   }

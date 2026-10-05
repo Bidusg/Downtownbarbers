@@ -167,11 +167,12 @@ export function DayCalendar({
 
   const prettyDate = (() => {
     try {
-      return new Date(date + "T00:00:00").toLocaleDateString("nb-NO", {
+      const s = new Date(date + "T00:00:00").toLocaleDateString("nb-NO", {
         weekday: "long",
-        day: "2-digit",
+        day: "numeric",
         month: "long",
       });
+      return s.charAt(0).toUpperCase() + s.slice(1);
     } catch {
       return date;
     }

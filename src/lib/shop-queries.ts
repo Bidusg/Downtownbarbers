@@ -1,7 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
+import { isAddonCategory } from "@/lib/service-categories";
 
 export type ShopBarber = { id: string; full_name: string };
-export type ShopService = { name: string; duration_min: number };
+export type ShopService = {
+  name: string;
+  duration_min: number;
+  /** Kategorinavn (f.eks. Klipp, Skjegg, Tillegg). Brukes til gruppering i kassa. */
+  category?: string;
+};
+
 
 export async function getBarbers(): Promise<ShopBarber[]> {
   try {
@@ -22,10 +29,30 @@ export async function getServices(): Promise<ShopService[]> {
     const sb = await createClient();
     const { data } = await sb
       .from("services")
-      .select("name, duration_min")
-      .eq("active", true)
-      .order("name");
-    return (data as ShopService[]) ?? [];
+      .select("name, duration_min, sort_order, service_categories(name, sort_order)")
+      .eq("active", true);
+    const rows = ((data ?? []) as unknown as {
+      name: string;
+      duration_min: number;
+      sort_order: number | null;
+      service_categories: { name?: string; sort_order?: number } | null;
+    }[]).map((r) => ({
+      name: r.name,
+      duration_min: Number(r.duration_min) || 30,
+      category: r.service_categories?.name ?? "Annet",
+      catSort: r.service_categories?.sort_order ?? 0,
+      svcSort: r.sort_order ?? 0,
+    }));
+    // Kategori-rekkefølge som på forsiden; «Tillegg» alltid sist.
+    rows.sort(
+      (a, b) =>
+        Number(isAddonCategory(a.category)) - Number(isAddonCategory(b.category)) ||
+        a.catSort - b.catSort ||
+        a.category.localeCompare(b.category) ||
+        a.svcSort - b.svcSort ||
+        a.name.localeCompare(b.name),
+    );
+    return rows.map(({ name, duration_min, category }) => ({ name, duration_min, category }));
   } catch {
     return [];
   }
