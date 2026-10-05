@@ -80,7 +80,7 @@ const fallback: SiteSettings = {
   intro:
     "Barbershop i Osterhaus' gate. Walk-in når det passer – timebestilling når du vil være sikker på plassen.",
   about_text:
-    "Vi åpnet i 2018 med én idé: en barbershop der klippen faktisk sitter og praten går av seg selv. Erfarne barberere, skarpe verktøy og tid nok til å gjøre det ordentlig – midt i Oslo.",
+    "Siden 2013 har vi klippet Oslo midt i sentrum. Én idé hele veien: en barbershop der klippen faktisk sitter og praten går av seg selv. Erfarne barberere, skarpe verktøy og tid nok til å gjøre det ordentlig – et fast punkt i Oslo sentrum siden starten.",
   cta_title: "Klar for stolen?",
   cta_text: "Velg tjeneste, barber og tid – booket på under ett minutt.",
   phone: salon.phone,

@@ -276,3 +276,27 @@ Ingen migrasjon. Ingen nye env-variabler.
 ## Rydd (manuelt)
 
 - Slett `src/app/api/debug-email/route.ts` (nøytralisert 404-stub, kan fjernes).
+
+---
+
+# ENDRINGER — Etablert 2013 + «Om oss» (5. okt 2026, bygg 8)
+
+## Commit-tittel
+
+```
+Forside: etablert 2013 (ikke 2018) + ny «Om oss»-tekst om forankringen i Oslo sentrum
+```
+
+## Kjør i Supabase (idempotent)
+
+`KJØR-I-SUPABASE-ETABLERT-2013.sql` – setter `established = '2013'` og ny
+«Om oss»-tekst i site_settings (styrer hero «Siden 2013», Om oss og
+copyright «© 2013–2026»). Alternativt: admin → Nettside → Etablert + Om oss-
+tekst – men bruk da nøyaktig teksten i SQL-fila, ellers treffer ikke EN-
+oversettelsen og EN-modus viser norsk.
+
+## Kode
+
+- Fallback-verdier i koden satt til 2013 + ny tekst (brukes hvis DB ikke svarer).
+- EN-oversettelse av den nye «Om oss»-teksten i content-map (den gamle beholdes).
+- JSON-LD får `foundingDate` fra «Etablert», så Google ser 2013.

@@ -159,6 +159,7 @@ export default async function Home({
     url: siteUrl(),
     telephone: s.phone,
     email: s.email ?? undefined,
+    foundingDate: s.established || undefined,
     image: `${siteUrl()}/opengraph-image.jpg`,
     priceRange: "kr",
     address: {

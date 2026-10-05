@@ -128,6 +128,10 @@ const settings: ContentMap = {
   "Reis deg skarpere.": { en: "Rise sharper." },
 
   // Om oss
+  "Siden 2013 har vi klippet Oslo midt i sentrum. Én idé hele veien: en barbershop der klippen faktisk sitter og praten går av seg selv. Erfarne barberere, skarpe verktøy og tid nok til å gjøre det ordentlig – et fast punkt i Oslo sentrum siden starten.":
+    {
+      en: "Since 2013 we've been cutting Oslo right in the city centre. One idea all the way: a barbershop where the cut actually holds and the conversation flows by itself. Experienced barbers, sharp tools and enough time to do it properly – a fixture in central Oslo since day one.",
+    },
   "Vi åpnet i 2018 med én idé: en barbershop der klippen faktisk sitter og praten går av seg selv. Erfarne barberere, skarpe verktøy og tid nok til å gjøre det ordentlig – midt i Oslo.":
     {
       en: "We opened in 2018 with one idea: a barbershop where the cut actually holds and the conversation flows by itself. Experienced barbers, sharp tools and enough time to do it properly – in the heart of Oslo.",

@@ -7,7 +7,7 @@
 export const salon = {
   name: "Downtown Barbers",
   slogan: "Der presisjon møter stil",
-  established: 2018,
+  established: 2013,
   intro:
     "Freshe klipper, skarpe fades og ekspert grooming – midt i hjertet av Oslo.",
   address: "Osterhaus' gate 10, 0183 Oslo",
