@@ -10,7 +10,10 @@ import {
   getRecentInbound,
   SEGMENTS,
 } from "@/lib/dm-queries";
-import { sendMarketing, resumeMarketing, sendToRest } from "./actions";
+import { sendMarketing, resumeMarketing, sendToRest, previewRest } from "./actions";
+import { after } from "next/server";
+import { kickMarketingWorker } from "@/lib/marketing-worker";
+import { siteUrl } from "@/lib/site-url";
 import { SendRestButton } from "@/components/admin/SendRestButton";
 import { SendMarketingButton } from "@/components/admin/SendMarketingButton";
 import { AutoRefresh } from "@/components/kasse/AutoRefresh";
@@ -22,6 +25,8 @@ const INBOUND_LABEL: Record<string, string> = {
 };
 
 export const dynamic = "force-dynamic";
+// Server actions på siden (utsending) kjører første bolk i bakgrunnen etter svaret.
+export const maxDuration = 60;
 
 const SEG_LABEL: Record<string, string> = {
   all: "Alle med samtykke",
@@ -50,10 +55,24 @@ export default async function AdminMarkedsforing({
     getMarketingSends(20),
     getRecentInbound(15),
   ]);
+  // Pågående utsending? Da oppdaterer siden seg selv, og står den stille
+  // (ingen fremdrift på 30 s) dyttes bakgrunnsjobben i gang igjen.
+  const active = sends.some((x) => x.status === "queued" || x.status === "sending");
+  const stale = sends.some(
+    (x) =>
+      (x.status === "queued" || x.status === "sending") &&
+      Date.now() - new Date(x.updated_at ?? x.created_at).getTime() > 30_000,
+  );
+  if (stale) {
+    const base = siteUrl();
+    after(async () => {
+      await kickMarketingWorker(base);
+    });
+  }
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
-      {sends.some((x) => x.status === "queued" || x.status === "sending") && <AutoRefresh seconds={5} />}
+      {active && <AutoRefresh seconds={5} />}
       <PageHeader
         title="Markedsføring"
         description="Send tilbud og nyheter på e-post eller SMS — kun til kunder som har sagt ja (markedsføringsloven §15). Hver utsending har en avmeldingslenke."
@@ -204,7 +223,11 @@ export default async function AdminMarkedsforing({
                       <span className="flex flex-wrap items-center gap-x-2 text-xs text-muted">
                         Ferdig{s.failed ? ` · ${s.failed} feilet` : ""}
                         {s.channel !== "sms" && (
-                          <SendRestButton action={sendToRest.bind(null, s.id)} subject={s.subject} />
+                          <SendRestButton
+                            action={sendToRest.bind(null, s.id)}
+                            preview={previewRest.bind(null, s.id)}
+                            subject={s.subject}
+                          />
                         )}
                       </span>
                     ) : s.status === "failed" ? (
@@ -213,9 +236,19 @@ export default async function AdminMarkedsforing({
                         <button type="submit" className="text-xs text-accent-soft hover:underline">Fortsett</button>
                       </form>
                     ) : (
-                      <span className="inline-flex items-center gap-2 text-xs text-accent-soft">
-                        <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent-soft" />
-                        Sender … {Math.round(((s.recipient_count ?? 0) / Math.max(1, s.total ?? 1)) * 100)} %
+                      <span className="flex flex-col gap-1">
+                        <span className="inline-flex items-center gap-2 text-xs text-accent-soft">
+                          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent-soft" />
+                          {s.status === "queued" && (s.recipient_count ?? 0) === 0 ? "I kø – starter …" : "Sender …"}{" "}
+                          {Math.round(((s.recipient_count ?? 0) / Math.max(1, s.total ?? 1)) * 100)} %
+                        </span>
+                        <span className="h-1 w-28 overflow-hidden rounded-full bg-line">
+                          <span
+                            className="block h-full bg-accent-soft transition-[width]"
+                            style={{ width: `${Math.round(((s.recipient_count ?? 0) / Math.max(1, s.total ?? 1)) * 100)}%` }}
+                          />
+                        </span>
+                        {s.last_error && <span className="text-[11px] text-danger">{s.last_error.slice(0, 120)}</span>}
                       </span>
                     )}
                   </Td>

@@ -7,7 +7,20 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserRole, isAdminRole } from "@/lib/auth";
 import { getMarketingRecipients, type Segment, type Channel } from "@/lib/dm-queries";
 import { siteUrl } from "@/lib/site-url";
-import { kickMarketingWorker } from "@/lib/marketing-worker";
+import { kickMarketingWorker, runMarketingWorker } from "@/lib/marketing-worker";
+
+/** Kjør første runde direkte (ingen avhengighet til HTTP-selvkall), kjed videre ved behov. */
+function startWorkerAfterResponse() {
+  const base = siteUrl();
+  after(async () => {
+    try {
+      const r = await runMarketingWorker();
+      if (r.more) await kickMarketingWorker(base);
+    } catch {
+      await kickMarketingWorker(base);
+    }
+  });
+}
 
 /**
  * Starter en utsending til et segment på e-post ELLER SMS. Kun admin, kun
@@ -79,10 +92,7 @@ export async function sendMarketing(formData: FormData): Promise<void> {
   }
 
   // Start bakgrunnsjobben etter at svaret er sendt til nettleseren.
-  const base = siteUrl();
-  after(async () => {
-    await kickMarketingWorker(base);
-  });
+  startWorkerAfterResponse();
 
   revalidatePath("/admin/markedsforing");
   redirect(`/admin/markedsforing?startet=${recipients.length}&kanal=${channel}`);
@@ -94,10 +104,9 @@ export async function resumeMarketing(sendId: string): Promise<void> {
   if (!me || !isAdminRole(me.role)) return;
   const sb = await createClient();
   await sb.from("marketing_sends").update({ status: "queued", last_error: null }).eq("id", sendId);
-  const base = siteUrl();
-  after(async () => {
-    await kickMarketingWorker(base);
-  });
+  // Feilede mottakere legges tilbake i køen.
+  await sb.from("marketing_queue").update({ status: "queued", error: null }).eq("send_id", sendId).eq("status", "failed");
+  startWorkerAfterResponse();
   revalidatePath("/admin/markedsforing");
 }
 
@@ -109,7 +118,12 @@ export async function resumeMarketing(sendId: string): Promise<void> {
  *  2) Resends egen logg (GET /emails) – dekker eldre utsendinger som ble
  *     sendt før køen fantes. Bouncede/feilede regnes som IKKE mottatt.
  */
-async function alreadyReceived(subject: string, since: string): Promise<{ set: Set<string>; fromResend: number; resendOk: boolean }> {
+type ResendStatus = "ok" | "restricted" | "error" | "nokey";
+
+async function alreadyReceived(
+  subject: string,
+  since: string,
+): Promise<{ set: Set<string>; fromQueue: number; fromResend: number; resendOk: boolean; resendStatus: ResendStatus; resendDetail?: string }> {
   const set = new Set<string>();
   const sb = await createClient();
 
@@ -128,10 +142,16 @@ async function alreadyReceived(subject: string, since: string): Promise<{ set: S
     }
   }
 
+  const fromQueue = set.size;
   let fromResend = 0;
   let resendOk = false;
-  const key = process.env.RESEND_API_KEY;
+  let resendStatus: ResendStatus = "nokey";
+  let resendDetail: string | undefined;
+  // Lesing av loggen krever en nøkkel med «Full access». Sendenøkkelen har
+  // ofte bare «Sending access» – da kan en egen RESEND_LOG_KEY settes.
+  const key = process.env.RESEND_LOG_KEY || process.env.RESEND_API_KEY;
   if (key) {
+    resendStatus = "error";
     const cutoff = new Date(since).getTime() - 24 * 3600_000;
     let after: string | undefined;
     for (let page = 0; page < 300; page++) {
@@ -145,8 +165,14 @@ async function alreadyReceived(subject: string, since: string): Promise<{ set: S
         page--;
         continue;
       }
-      if (!res.ok) break;
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        resendStatus = res.status === 401 || res.status === 403 || /restricted/i.test(txt) ? "restricted" : "error";
+        resendDetail = `${res.status} ${txt.slice(0, 160)}`;
+        break;
+      }
       resendOk = true;
+      resendStatus = "ok";
       const json = (await res.json()) as {
         data?: { id: string; to: string[] | string; subject: string; created_at: string; last_event?: string }[];
         has_more?: boolean;
@@ -171,7 +197,51 @@ async function alreadyReceived(subject: string, since: string): Promise<{ set: S
       await new Promise((r) => setTimeout(r, 550)); // Resend: ~2 kall/sek
     }
   }
-  return { set, fromResend, resendOk };
+  return { set, fromQueue, fromResend, resendOk, resendStatus, resendDetail };
+}
+
+export type RestPreview = {
+  ok: boolean;
+  total: number; // alle med samtykke + e-post i segmentet
+  already: number; // har fått den (kø + Resend)
+  rest: number; // får den nå
+  resendStatus: ResendStatus;
+  resendDetail?: string;
+  error?: string;
+};
+
+/** Forhåndsvisning før «Send til resten»: hvor mange har fått den, hvor mange gjenstår. */
+export async function previewRest(sendId: string): Promise<RestPreview> {
+  const me = await getUserRole();
+  const empty: RestPreview = { ok: false, total: 0, already: 0, rest: 0, resendStatus: "error" };
+  if (!me || !isAdminRole(me.role)) return { ...empty, error: "Ingen tilgang." };
+  const sb = await createClient();
+  const { data: orig } = await sb
+    .from("marketing_sends")
+    .select("subject, channel, segment, created_at")
+    .eq("id", sendId)
+    .maybeSingle();
+  if (!orig || orig.channel === "sms") return { ...empty, error: "Fant ikke e-postutsendingen." };
+  const { data: first } = await sb
+    .from("marketing_sends")
+    .select("created_at")
+    .eq("subject", orig.subject)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  const r = await alreadyReceived(orig.subject as string, (first?.created_at as string) ?? (orig.created_at as string));
+  const all = (await getMarketingRecipients((orig.segment as Segment) ?? "all", "email")).filter((x) => x.token);
+  const rest = all.filter((x) => !r.set.has(x.email.trim().toLowerCase())).length;
+  // Trygt å sende bare hvis vi faktisk vet hvem som har fått den.
+  const known = r.resendOk || r.fromQueue > 0;
+  return {
+    ok: known,
+    total: all.length,
+    already: all.length - rest,
+    rest,
+    resendStatus: r.resendStatus,
+    resendDetail: r.resendDetail,
+  };
 }
 
 /**
@@ -230,10 +300,7 @@ export async function sendToRest(sendId: string): Promise<void> {
     await sb.from("marketing_queue").insert(rows);
   }
 
-  const base = siteUrl();
-  after(async () => {
-    await kickMarketingWorker(base);
-  });
+  startWorkerAfterResponse();
   revalidatePath("/admin/markedsforing");
   redirect(`/admin/markedsforing?startet=${rest.length}&kanal=email&utelatt=${all.length - rest.length}`);
 }

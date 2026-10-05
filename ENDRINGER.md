@@ -646,3 +646,34 @@ Ingen ny SQL (bruker kø-tabellen fra 9j – den må være kjørt).
   av rate-limit nådde aldri Resend og får den nå.
 - Feilsikring: får vi ikke lest Resend-loggen, sendes ingenting (ingen
   risiko for dobbel e-post).
+
+---
+
+# ENDRINGER — Bygg 9l: «Send til resten» med forhåndsvisning + robust kø
+
+## Kjør i Supabase (valgfritt, men anbefalt)
+
+`KJØR-I-SUPABASE-UTSENDING-KO-2.sql` – kolonnen `updated_at` (brukes til å
+oppdage og restarte en utsending som står fast). Koden tåler at den mangler.
+
+## Hva som skjedde
+
+«Send til resten» ble trykket, men ingen ny utsending ble opprettet (lista
+viser fortsatt bare de to fra 14:07). Mest sannsynlig: Resend-nøkkelen har
+bare «Sending access» og kan ikke lese loggen (GET /emails → 401). Da nekter
+koden å sende (for å unngå dobbel e-post) – men den sa bare ifra med et
+banner øverst, lett å overse.
+
+## Nå
+
+- **Forhåndsvisning før sending:** dialogen sjekker først og viser tall –
+  «Kan nås: 6 169 · Har fått den: 5xx · Får den nå: 5 6xx» – og knappen sier
+  «Send til 5 6xx». Kan loggen ikke leses, står det rett ut hvorfor og hva du
+  gjør (se under), og det finnes ingen send-knapp.
+- **Ny valgfri env `RESEND_LOG_KEY`:** en Resend-nøkkel med *Full access*,
+  bare til å lese loggen. Sendenøkkelen kan beholdes som den er.
+- **Kø mer robust:** første bolk sendes direkte i bakgrunnen etter svaret
+  (ikke via et HTTP-kall til seg selv), og står en utsending stille i 30 s
+  mens admin-siden er åpen, dyttes den i gang igjen. «Fortsett» legger
+  feilede mottakere tilbake i køen.
+- **Fremdriftslinje** og feilmelding (f.eks. rate-limit) vises på raden.

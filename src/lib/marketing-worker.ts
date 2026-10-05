@@ -58,6 +58,7 @@ export async function runMarketingWorker(): Promise<{ sent: number; failed: numb
 
     const sendId = send.id as string;
     await svc.from("marketing_sends").update({ status: "sending" }).eq("id", sendId);
+    await svc.from("marketing_sends").update({ updated_at: new Date().toISOString() }).eq("id", sendId);
 
     const { data: rows } = await svc
       .from("marketing_queue")
@@ -145,6 +146,7 @@ export async function runMarketingWorker(): Promise<{ sent: number; failed: numb
       .eq("send_id", sendId)
       .eq("status", "sent");
     await svc.from("marketing_sends").update({ recipient_count: okCount ?? 0 }).eq("id", sendId);
+    await svc.from("marketing_sends").update({ updated_at: new Date().toISOString() }).eq("id", sendId);
   }
 
   return { sent, failed, more: true };

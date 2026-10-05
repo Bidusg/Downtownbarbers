@@ -142,14 +142,23 @@ export type MarketingSend = {
   total?: number;
   failed?: number;
   channel?: string;
+  last_error?: string | null;
+  updated_at?: string | null;
 };
 
 export async function getMarketingSends(limit = 20): Promise<MarketingSend[]> {
   try {
     const sb = await createClient();
+    // Tål at nyeste kolonner (updated_at) ikke er migrert ennå.
+    const full = await sb
+      .from("marketing_sends")
+      .select("id, subject, segment, recipient_count, created_at, status, total, failed, channel, last_error, updated_at")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (!full.error) return (full.data as MarketingSend[]) ?? [];
     const { data } = await sb
       .from("marketing_sends")
-      .select("id, subject, segment, recipient_count, created_at, status, total, failed, channel")
+      .select("id, subject, segment, recipient_count, created_at, status, total, failed, channel, last_error")
       .order("created_at", { ascending: false })
       .limit(limit);
     return (data as MarketingSend[]) ?? [];
