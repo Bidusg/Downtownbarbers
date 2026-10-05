@@ -263,6 +263,15 @@ export async function createStaff(formData: FormData): Promise<ActionResult> {
     };
   }
 
+  // Ny ansatt leverer alle aktive tjenester som standard (juster under Rediger).
+  {
+    const { data: svc } = await sb.from("services").select("id").eq("active", true);
+    const rows = (svc ?? []).map((r) => ({ staff_id: inserted.id as string, service_id: r.id as string }));
+    if (rows.length > 0) {
+      await sb.from("staff_services").upsert(rows, { onConflict: "staff_id,service_id" });
+    }
+  }
+
   // Kontrakt → PRIVAT staff-docs + staff_documents-rad (aldri offentlig bøtte).
   const contract = formData.get("contract") as File | null;
   if (inserted && contract && contract.size > 0 && me) {
@@ -329,10 +338,21 @@ export async function updateStaff(
     email?: string;
     title?: string;
     employee_number?: string;
+    base_salary_nok?: string; // tom = standard grunnlønn
   },
 ): Promise<{ ok?: true; error?: string }> {
   await requireRole(["admin"]);
-  const patch: Record<string, string | null> = {};
+  const patch: Record<string, string | number | null> = {};
+  if (fields.base_salary_nok !== undefined) {
+    const raw = fields.base_salary_nok.replace(/\s/g, "").replace(",", ".");
+    if (raw === "") patch.base_salary_nok = null;
+    else {
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n < 0 || n > 500000)
+        return { error: "Grunnlønn må være et beløp mellom 0 og 500 000." };
+      patch.base_salary_nok = Math.round(n);
+    }
+  }
   if (fields.full_name !== undefined) {
     const v = fields.full_name.trim();
     if (!v) return { error: "Navn kan ikke være tomt." };

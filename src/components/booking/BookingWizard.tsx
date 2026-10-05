@@ -13,10 +13,10 @@ export type WizService = {
   category: string;
   description?: string;
 };
-export type WizBarber = { name: string; title: string };
+export type WizBarber = { name: string; title: string; photo?: string | null };
 export type WizAddon = { name: string; price: number; durationMin: number };
 
-const STEP_KEYS = ["step.services", "step.time", "step.contact"];
+const STEP_KEYS = ["step.services", "step.barber", "step.time", "step.contact"];
 
 const COUNTRY_CODES: [string, string][] = [
   ["+47", "NO"], ["+46", "SE"], ["+45", "DK"], ["+358", "FI"], ["+354", "IS"],
@@ -64,6 +64,7 @@ export function BookingWizard({
   barberLevels = {},
   closedWeekdays = [],
   initialServiceName,
+  initialBarberName,
 }: {
   services: WizService[];
   barbers: WizBarber[];
@@ -115,7 +116,11 @@ export function BookingWizard({
   const [nextId, setNextId] = useState(2);
   const [mode, setMode] = useState<"single" | "group">("single");
   // Barber for hele besøket i «én person»-modus (ANY = hvilken som helst).
-  const [singleBarber, setSingleBarber] = useState<string>(ANY);
+  const [singleBarber, setSingleBarber] = useState<string>(() =>
+    initialBarberName && barbers.some((b) => b.name === initialBarberName)
+      ? initialBarberName
+      : ANY,
+  );
 
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -127,6 +132,7 @@ export function BookingWizard({
   const [countryCode, setCountryCode] = useState("+47");
   const [source, setSource] = useState("");
   const [marketingConsent, setMarketingConsent] = useState(false);
+  const [note, setNote] = useState("");
   // Honeypot-felt (skal alltid være tomt for ekte kunder).
   const [website, setWebsite] = useState("");
 
@@ -249,7 +255,7 @@ export function BookingWizard({
 
   // ---- Hent ledige tider når man går til Tid-steget ------------------------
   useEffect(() => {
-    if (step !== 1 || cart.length === 0 || openDays.length === 0) return;
+    if (step !== 2 || cart.length === 0 || openDays.length === 0) return;
     let cancelled = false;
     setLoadingSlots(true);
     setSlotsError(false);
@@ -298,6 +304,7 @@ export function BookingWizard({
       phone: `${countryCode} ${phone.trim()}`,
       source,
       marketingConsent,
+      note: note.trim() || undefined,
       website,
     });
     setPending(false);
@@ -501,45 +508,6 @@ export function BookingWizard({
                       </div>
                       <div className="space-y-4">
 
-                {/* Modus-bryter (kun relevant med flere linjer) */}
-                {cart.length > 1 && (
-                  <div className="flex overflow-hidden rounded-md border border-line-2 text-xs font-semibold">
-                    <button
-                      onClick={() => setMode("single")}
-                      className={"flex-1 px-3 py-2 " + (mode === "single" ? "bg-accent text-accent-fg" : "text-muted")}
-                    >
-                      {t("wiz.modeSingle")}
-                    </button>
-                    <button
-                      onClick={() => setMode("group")}
-                      className={"flex-1 px-3 py-2 " + (mode === "group" ? "bg-accent text-accent-fg" : "text-muted")}
-                    >
-                      {t("wiz.modeGroup")}
-                    </button>
-                  </div>
-                )}
-
-                {/* Felles barber i «én person»-modus */}
-                {mode === "single" && (
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold tracking-wide text-muted uppercase">
-                      {t("wiz.barberForVisit")}
-                    </label>
-                    <select
-                      value={singleBarber}
-                      onChange={(e) => setSingleBarber(e.target.value)}
-                      className="w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
-                    >
-                      <option value={ANY}>{t("wiz.anyBarber")}</option>
-                      {barbersForAll.map((b) => (
-                        <option key={b.name} value={b.name}>
-                          {b.name} · {tt(b.title)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
                 {/* Linjer */}
                 <div className="space-y-3">
                   {cart.map((it, idx) => (
@@ -560,30 +528,6 @@ export function BookingWizard({
                           {t("wiz.remove")}
                         </button>
                       </div>
-
-                      {/* Gruppe-modus: barber + person per linje */}
-                      {mode === "group" && (
-                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                          <select
-                            value={it.barberName ?? ""}
-                            onChange={(e) => patchLine(it.id, { barberName: e.target.value || null })}
-                            className="border border-line-2 bg-canvas px-2 py-2 text-sm text-fg outline-none focus:border-accent-soft"
-                          >
-                            <option value="">{t("wiz.chooseBarber")}</option>
-                            {barbersFor(it.service.name).map((b) => (
-                              <option key={b.name} value={b.name}>
-                                {b.name} · {tt(b.title)}
-                              </option>
-                            ))}
-                          </select>
-                          <input
-                            value={it.person}
-                            onChange={(e) => patchLine(it.id, { person: e.target.value })}
-                            placeholder={`${t("wiz.personName")} (${t("wiz.person")} ${idx + 1})`}
-                            className="border border-line-2 bg-canvas px-2 py-2 text-sm text-fg outline-none focus:border-accent-soft"
-                          />
-                        </div>
-                      )}
 
                       {/* Tillegg */}
                       {addons.length > 0 && (
@@ -624,10 +568,6 @@ export function BookingWizard({
                   ))}
                 </div>
 
-                {groupNeedsBarbers && (
-                  <p className="text-xs text-danger">{t("wiz.needBarbers")}</p>
-                )}
-
                 {/* Sum for hele kurven */}
                 <div className="flex items-baseline justify-between border-t border-line pt-3">
                   <span className="text-xs font-semibold tracking-wide text-muted uppercase">
@@ -654,15 +594,15 @@ export function BookingWizard({
                         <button
                           type="button"
                           onClick={() => {
-                            if (canGoTid) {
+                            if (cart.length > 0) {
                               setCartOpen(false);
                               setStep(1);
                             }
                           }}
-                          disabled={!canGoTid}
+                          disabled={cart.length === 0}
                           className="flex-1 bg-accent px-4 py-3 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
                         >
-                          {t("wiz.chooseTime")}
+                          {t("wiz.toBarber")}
                         </button>
                       </div>
                     </div>
@@ -673,15 +613,146 @@ export function BookingWizard({
           </div>
         )}
 
-        {/* ======================= STEG 1: TID ============================== */}
+        {/* ======================= STEG 1: BARBER =========================== */}
         {step === 1 && (
+          <div className="space-y-5">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold tracking-wide text-muted uppercase">
+                {t("wiz.whoCuts")}
+              </label>
+              <button type="button" onClick={() => setStep(0)} className="text-xs text-accent-soft hover:underline">
+                {t("wiz.editCart")}
+              </button>
+            </div>
+
+            {cart.length > 1 && (
+              <div className="flex overflow-hidden rounded-md border border-line-2 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setMode("single")}
+                  className={"flex-1 px-3 py-2 " + (mode === "single" ? "bg-accent text-accent-fg" : "text-muted")}
+                >
+                  {t("wiz.modeSingle")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode("group")}
+                  className={"flex-1 px-3 py-2 " + (mode === "group" ? "bg-accent text-accent-fg" : "text-muted")}
+                >
+                  {t("wiz.modeGroup")}
+                </button>
+              </div>
+            )}
+
+            {mode === "single" ? (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {/* «Hvem som helst» */}
+                <button
+                  type="button"
+                  onClick={() => setSingleBarber(ANY)}
+                  aria-pressed={singleBarber === ANY}
+                  className={
+                    "flex flex-col items-center gap-2 rounded-md border p-4 text-center transition-colors " +
+                    (singleBarber === ANY
+                      ? "border-accent-soft bg-accent-soft/10"
+                      : "border-line hover:border-line-2")
+                  }
+                >
+                  <span className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-2 font-display text-2xl font-bold text-fg">
+                    ✂
+                  </span>
+                  <span className="text-sm font-semibold text-fg">{t("wiz.anyBarber")}</span>
+                  <span className="text-[11px] text-muted">{t("wiz.anyBarberHint")}</span>
+                </button>
+                {barbersForAll.map((b) => {
+                  const on = singleBarber === b.name;
+                  const total = cart.reduce((sum, it) => {
+                    const exact = serviceExactPrice(it.service.name, b.name);
+                    return sum + (exact ?? serviceMinPrice(it.service.name)) + addonsSum(it.addons);
+                  }, 0);
+                  const allExact = cart.every((it) => serviceExactPrice(it.service.name, b.name) !== null);
+                  return (
+                    <button
+                      key={b.name}
+                      type="button"
+                      onClick={() => setSingleBarber(b.name)}
+                      aria-pressed={on}
+                      className={
+                        "flex flex-col items-center gap-2 rounded-md border p-4 text-center transition-colors " +
+                        (on ? "border-accent-soft bg-accent-soft/10" : "border-line hover:border-line-2")
+                      }
+                    >
+                      {b.photo ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={b.photo} alt="" className="h-16 w-16 rounded-full object-cover ring-1 ring-line" />
+                      ) : (
+                        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-2 font-display text-2xl font-bold text-fg">
+                          {b.name.charAt(0)}
+                        </span>
+                      )}
+                      <span className="text-sm font-semibold text-fg">{b.name}</span>
+                      <span className="text-[11px] text-muted">{tt(b.title)}</span>
+                      <span className="font-display text-sm font-bold text-fg">
+                        {allExact ? "" : t("common.from")}
+                        {nok(total)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {cart.map((it, idx) => (
+                  <div key={it.id} className="border border-line bg-surface p-3">
+                    <p className="font-semibold break-words text-fg">{tc(it.service.name)}</p>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      <select
+                        value={it.barberName ?? ""}
+                        onChange={(e) => patchLine(it.id, { barberName: e.target.value || null })}
+                        className="border border-line-2 bg-canvas px-2 py-2 text-sm text-fg outline-none focus:border-accent-soft"
+                      >
+                        <option value="">{t("wiz.chooseBarber")}</option>
+                        {barbersFor(it.service.name).map((b) => (
+                          <option key={b.name} value={b.name}>
+                            {b.name} · {tt(b.title)}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        value={it.person}
+                        onChange={(e) => patchLine(it.id, { person: e.target.value })}
+                        placeholder={`${t("wiz.personName")} (${t("wiz.person")} ${idx + 1})`}
+                        className="border border-line-2 bg-canvas px-2 py-2 text-sm text-fg outline-none focus:border-accent-soft"
+                      />
+                    </div>
+                  </div>
+                ))}
+                {groupNeedsBarbers && (
+                  <p className="text-xs text-danger">{t("wiz.needBarbers")}</p>
+                )}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => canGoTid && setStep(2)}
+              disabled={!canGoTid}
+              className="w-full bg-accent px-6 py-3 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
+            >
+              {t("wiz.chooseTime")}
+            </button>
+          </div>
+        )}
+
+        {/* ======================= STEG 2: TID ============================== */}
+        {step === 2 && (
           <div className="space-y-5">
             <div className="flex items-center justify-between">
               <label className="block text-xs font-semibold tracking-wide text-muted uppercase">
                 {t("wiz.chooseDayTime")}
               </label>
-              <button type="button" onClick={() => setStep(0)} className="text-xs text-accent-soft hover:underline">
-                {t("wiz.editCart")}
+              <button type="button" onClick={() => setStep(1)} className="text-xs text-accent-soft hover:underline">
+                {t("wiz.editBarber")}
               </button>
             </div>
 
@@ -767,7 +838,7 @@ export function BookingWizard({
 
                 <button
                   type="button"
-                  onClick={() => date && time && setStep(2)}
+                  onClick={() => date && time && setStep(3)}
                   disabled={!date || !time}
                   className="w-full bg-accent px-6 py-3 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
                 >
@@ -778,14 +849,14 @@ export function BookingWizard({
           </div>
         )}
 
-        {/* ======================= STEG 2: KONTAKT ========================== */}
-        {step === 2 && (
+        {/* ======================= STEG 3: KONTAKT ========================== */}
+        {step === 3 && (
           <form onSubmit={submit} noValidate className="relative space-y-4">
             <div className="flex items-center justify-between">
               <p className="block text-xs font-semibold tracking-wide text-muted uppercase">
                 {t("wiz.yourDetails")}
               </p>
-              <button type="button" onClick={() => setStep(1)} className="text-xs text-accent-soft hover:underline">
+              <button type="button" onClick={() => setStep(2)} className="text-xs text-accent-soft hover:underline">
                 {t("wiz.editTime")}
               </button>
             </div>
@@ -922,6 +993,22 @@ export function BookingWizard({
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label htmlFor="bk-note" className={FIELD_LABEL}>
+                {t("wiz.note.label")}
+              </label>
+              <textarea
+                id="bk-note"
+                name="note"
+                value={note}
+                onChange={(e) => setNote(e.target.value.slice(0, 500))}
+                rows={3}
+                maxLength={500}
+                placeholder={t("wiz.note.placeholder")}
+                className={FIELD + " resize-y"}
+              />
             </div>
 
             <label className="flex items-start gap-2 text-xs text-muted">

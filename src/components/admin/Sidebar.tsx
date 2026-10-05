@@ -46,6 +46,7 @@ const groups: Group[] = [
     items: [
       { label: "Rating", href: "/admin/rating" },
       { label: "Nettside", href: "/admin/nettside" },
+      { label: "Bilder", href: "/admin/bilder" },
     ],
   },
 ];

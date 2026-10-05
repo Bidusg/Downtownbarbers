@@ -22,7 +22,12 @@ export const dictionary: Dict = {
 
   // ---- Booking: steg-faner ----
   "step.services": { no: "Tjenester", en: "Services" },
+  "step.barber": { no: "Barber", en: "Barber" },
   "step.time": { no: "Tid", en: "Time" },
+  "wiz.whoCuts": { no: "Hvem vil du booke hos?", en: "Who would you like to book with?" },
+  "wiz.anyBarberHint": { no: "Første ledige", en: "First available" },
+  "wiz.toBarber": { no: "Velg barber →", en: "Choose barber →" },
+  "wiz.editBarber": { no: "← Endre barber", en: "← Change barber" },
   "step.contact": { no: "Kontakt", en: "Contact" },
 
   // ---- Booking: generelt ----
@@ -139,6 +144,12 @@ export const dictionary: Dict = {
   // ---- Forside: team ----
   "home.team.eyebrow": { no: "Teamet", en: "The Team" },
   "home.team.title": { no: "Håndverkerne", en: "The Craftsmen" },
+  "home.team.book": { no: "Book nå", en: "Book now" },
+  "wiz.note.label": { no: "Notat til barberen (valgfritt)", en: "Note to the barber (optional)" },
+  "wiz.note.placeholder": {
+    no: "F.eks. ønsker, allergier eller noe vi bør vite før du kommer",
+    en: "E.g. wishes, allergies or anything we should know before you arrive",
+  },
 
   // ---- Forside: åpningstider + kontakt ----
   "home.hours.eyebrow": { no: "Åpningstider", en: "Opening hours" },
@@ -164,8 +175,8 @@ export const dictionary: Dict = {
   "booking.eyebrow": { no: "Bestill time", en: "Book appointment" },
   "booking.heading": { no: "Sett deg ned.", en: "Have a seat." },
   "booking.intro": {
-    no: "Tre steg: tjenester, tid og kontakt. Bekreftelse på e-post med en gang.",
-    en: "Three steps: services, time and contact. Email confirmation right away.",
+    no: "Fire steg: tjenester, barber, tid og kontakt. Bekreftelse på e-post med en gang.",
+    en: "Four steps: services, barber, time and contact. Email confirmation right away.",
   },
 
   // ---- Butikk-side ----

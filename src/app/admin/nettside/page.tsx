@@ -1,19 +1,13 @@
 import { getSiteSettings } from "@/lib/site-settings";
-import { getSiteImages, getSiteCraft } from "@/lib/site-images";
 import { SiteSettingsForm } from "@/components/admin/SiteSettingsForm";
-import { SiteImagesManager } from "@/components/admin/SiteImagesManager";
-import { SiteCraftManager } from "@/components/admin/SiteCraftManager";
+import Link from "next/link";
 import { SitePreview } from "@/components/admin/SitePreview";
 import { PageHeader } from "@/components/ui/PageHeader";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminNettside() {
-  const [settings, images, craft] = await Promise.all([
-    getSiteSettings(),
-    getSiteImages(true),
-    getSiteCraft(true),
-  ]);
+  const settings = await getSiteSettings();
 
   return (
     <div className="mx-auto max-w-4xl space-y-10">
@@ -24,29 +18,19 @@ export default async function AdminNettside() {
 
       <SiteSettingsForm initial={settings} />
 
-      <section className="space-y-4">
-        <div>
-          <h2 className="font-display text-xl font-bold">Bilder</h2>
-          <p className="text-sm text-muted">
-            Legg til, omordne, skjul eller slett bilder i hero-karusellen og
-            galleriet. Nye bilder legger seg bakerst – bruk ↑/↓ for å endre
-            rekkefølge. «Skjul» tar et bilde av forsiden uten å slette det (det
-            vises fortsatt i forhåndsvisningen).
-          </p>
-        </div>
-        <SiteImagesManager images={images} />
-      </section>
-
-      <section className="space-y-4">
-        <div>
-          <h2 className="font-display text-xl font-bold">Håndverket</h2>
-          <p className="text-sm text-muted">
-            Blokkene (bilde + tittel + tekst) i «Håndverket»-seksjonen. Rediger
-            tekst, omordne med ↑/↓, skjul eller slett. Uten egne blokker viser
-            forsiden standardinnholdet.
-          </p>
-        </div>
-        <SiteCraftManager blocks={craft} />
+      <section className="space-y-3">
+        <h2 className="font-display text-xl font-bold">Bilder</h2>
+        <p className="text-sm text-muted">
+          Bildene på forsiden (hero, galleri, «Om oss», banner og Håndverket)
+          styres nå fra et eget bildegalleri der du ser alt som er lastet opp og
+          velger hva som vises hvor.
+        </p>
+        <Link
+          href="/admin/bilder"
+          className="inline-block border border-line-2 px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
+        >
+          Åpne bildegalleriet →
+        </Link>
       </section>
 
       <section className="space-y-4">

@@ -76,6 +76,8 @@ export type AgendaBooking = {
   group_id?: string | null;
   person_label?: string | null;
   addons?: AgendaAddon[];
+  notes?: string | null; // kundens notat fra bookingen
+  group_size?: number; // antall bookinger i samme gruppe (1 = vanlig booking)
 };
 
 export async function getDayAgenda(date: string): Promise<AgendaBooking[]> {
@@ -89,7 +91,7 @@ export async function getDayAgenda(date: string): Promise<AgendaBooking[]> {
 
     // Gruppe/person-merkelapp + tillegg hentes separat (admin/shop har RLS).
     const [{ data: meta }, { data: addons }] = await Promise.all([
-      sb.from("bookings").select("id, group_id, person_label").in("id", ids),
+      sb.from("bookings").select("id, group_id, person_label, notes").in("id", ids),
       sb
         .from("booking_addons")
         .select("booking_id, name, price_nok")
@@ -103,9 +105,16 @@ export async function getDayAgenda(date: string): Promise<AgendaBooking[]> {
         {
           group_id: (m.group_id as string | null) ?? null,
           person_label: (m.person_label as string | null) ?? null,
+          notes: (m.notes as string | null) ?? null,
         },
       ]),
     );
+    // Gruppe-størrelse: en «gruppe» på én booking er bare en vanlig booking.
+    const groupCount = new Map<string, number>();
+    for (const m of meta ?? []) {
+      const g = m.group_id as string | null;
+      if (g) groupCount.set(g, (groupCount.get(g) ?? 0) + 1);
+    }
     const addonsById = new Map<string, AgendaAddon[]>();
     for (const a of addons ?? []) {
       const key = a.booking_id as string;
@@ -118,9 +127,58 @@ export async function getDayAgenda(date: string): Promise<AgendaBooking[]> {
       ...b,
       group_id: metaById.get(b.id)?.group_id ?? null,
       person_label: metaById.get(b.id)?.person_label ?? null,
+      notes: metaById.get(b.id)?.notes ?? null,
+      group_size: groupCount.get(metaById.get(b.id)?.group_id ?? "") ?? 1,
       addons: addonsById.get(b.id) ?? [],
     }));
   } catch {
     return [];
+  }
+}
+
+/**
+ * Barbere på vakt en gitt dag (navn). Regel: turnus (staff_hours) for ukedagen
+ * ELLER konkret vakt (shifts, ikke fri) den datoen, minus fravær og «fri»-vakter.
+ * Returnerer null når ingen har turnus/vakter i det hele tatt – da viser
+ * kalenderen alle aktive barbere som før.
+ */
+export async function getBarbersOnDuty(date: string): Promise<string[] | null> {
+  try {
+    const sb = await createClient();
+    const weekday = new Date(date + "T12:00:00Z").getUTCDay();
+    const [{ data: staff }, { data: hours }, { data: shifts }, { data: absences }] =
+      await Promise.all([
+        sb.from("staff").select("id, full_name").eq("active", true),
+        sb.from("staff_hours").select("staff_id, weekday"),
+        sb.from("shifts").select("staff_id, is_off").eq("work_date", date),
+        sb.from("absences").select("staff_id").lte("from_date", date).gte("to_date", date),
+      ]);
+    const anyRota = (hours?.length ?? 0) > 0 || (shifts?.length ?? 0) > 0;
+    if (!anyRota) return null;
+
+    const hasHours = new Set(
+      (hours ?? []).filter((h) => Number(h.weekday) === weekday).map((h) => h.staff_id as string),
+    );
+    const onShift = new Set<string>();
+    const offShift = new Set<string>();
+    for (const sh of shifts ?? []) {
+      if (sh.is_off) offShift.add(sh.staff_id as string);
+      else onShift.add(sh.staff_id as string);
+    }
+    const absent = new Set((absences ?? []).map((a) => a.staff_id as string));
+    const anyHoursAtAll = new Set((hours ?? []).map((h) => h.staff_id as string));
+
+    return (staff ?? [])
+      .filter((s) => {
+        const id = s.id as string;
+        if (absent.has(id) || offShift.has(id)) return false;
+        if (onShift.has(id)) return true;
+        // Uten turnus i det hele tatt → regnes som tilgjengelig alle dager (som booking gjør).
+        if (!anyHoursAtAll.has(id)) return true;
+        return hasHours.has(id);
+      })
+      .map((s) => s.full_name as string);
+  } catch {
+    return null;
   }
 }

@@ -81,3 +81,31 @@ export async function sendTestSms(
           "Kunne ikke sende. Sjekk leverandør, nøkkel, avsendernavn og nummerformat (+47…).",
       };
 }
+
+/* ------------------------ VARSLING VED NY BOOKING ------------------------ */
+
+export type BookingNotify = { enabled: boolean; email: string };
+
+export async function getBookingNotify(): Promise<BookingNotify> {
+  try {
+    const sb = await createClient();
+    const { data } = await sb.from("settings").select("value").eq("key", "booking_notify").maybeSingle();
+    const v = (data?.value ?? {}) as Partial<BookingNotify>;
+    return { enabled: !!v.enabled, email: v.email ?? "" };
+  } catch {
+    return { enabled: false, email: "" };
+  }
+}
+
+/** Lagre e-postvarsling ved ny nettbooking. Kun admin/eier. */
+export async function saveBookingNotify(formData: FormData): Promise<void> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return;
+  const enabled = formData.get("enabled") === "on";
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const sb = await createClient();
+  await sb
+    .from("settings")
+    .upsert({ key: "booking_notify", value: { enabled: enabled && !!email, email } }, { onConflict: "key" });
+  revalidatePath("/admin/integrasjoner");
+}

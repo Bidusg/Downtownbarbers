@@ -300,3 +300,131 @@ oversettelsen og EN-modus viser norsk.
 - Fallback-verdier i koden satt til 2013 + ny tekst (brukes hvis DB ikke svarer).
 - EN-oversettelse av den nye «Om oss»-teksten i content-map (den gamle beholdes).
 - JSON-LD får `foundingDate` fra «Etablert», så Google ser 2013.
+
+---
+
+# ENDRINGER — Bygg 9 (6. okt 2026): eiers ønsker + feil funnet etter go-live
+
+## Commit-tittel
+
+```
+Bygg 9: tidsfeil i nettbooking (+2 t), barber-steg, kundenotat, bildegalleri, nye brukere, annuller salg, grunnlønn per ansatt, m.m.
+```
+
+## Kjør i Supabase FØR push (idempotent)
+
+`KJØR-I-SUPABASE-BYGG9.sql` – gjør alt dette:
+1. Maskinklipp/Lineup og Lineup/skjeggtrim: **fra 299** (Barber 299, Senior 399, Master 549).
+2. Kategorirekkefølge: **Klipp → Skjegg → Kombo → Barbering**.
+3. Tjenester per ansatt: **avhuket = leverer, uavhuket = leverer ikke** (ingen
+   «tomt = alt»-unntak lenger). Alle som i dag leverer «alt» får rader for alle
+   tjenester, så ingenting endrer seg for kundene.
+4. `create_booking_line` får `p_notes` (kundenotat). Gammel signatur droppes.
+5. `void_sale` + `sale_voids` (annuller salg med logg).
+6. `staff.base_salary_nok` (grunnlønn per ansatt).
+7. `site_media` (bildegalleri) + `media_id` på plasseringer og håndverk-blokker,
+   og de innebygde bildene (hero 1–14, galleri, om oss, banner, håndverket)
+   registreres så de kan styres fra admin.
+8. `settings.booking_notify` (varsel ved ny booking, standard post@…).
+
+## FEILRETTINGER
+
+- **Nettbooking kl. 13 ble lagret kl. 15.** Årsak: serveren (Vercel) kjører i
+  UTC, og `new Date("2026-10-06T13:00")` ble tolket som UTC. Ny
+  `src/lib/oslo-time.ts` regner Oslo-tid (inkl. sommertid) riktig uansett
+  server. Kassa/admin var ikke rammet (kjører i nettleseren). **Bookinger
+  lagt inn på nett før dette bygget ligger 2 timer feil i kalenderen** – flytt
+  dem manuelt (dra/«Flytt») hvis det er noen.
+- **«Gruppe: Del av gruppebooking» på vanlige bookinger.** Alle nettbookinger
+  fikk gruppe-ID, også med én tjeneste. Nå får bare bestillinger med flere
+  linjer gruppe-ID, og kassa viser «gruppe» bare når gruppen faktisk har >1
+  booking (gjelder også gamle rader).
+- **Google-lenken ga 404** (`/nb-no?...` er gammel Wix-adresse). `next.config.ts`
+  sender nå /nb-no, /en, /book-online m.fl. med 308 til / eller /booking.
+  Google oppdaterer selve søketreffet når den re-crawler – meld inn
+  downtownbarbers.no i Search Console og send inn sitemap.xml, så går det fort.
+  **Logoen i Google-treffet** er Googles cache av den gamle siden; den nye
+  favicon/OG-bildet plukkes opp ved neste crawl. Logoen i selve bedrifts-
+  kortet (høyre side) endres i Google Business Profile → Bilder → Logo.
+- **Utlogging «hele tiden».** Supabase roterer innloggingsnøkkelen ved hver
+  fornyelse; når to personer bruker samme konto (jobb@) på hver sin maskin,
+  ugyldiggjør den ene den andres. Løsning: egen bruker per person – se
+  «Brukere & roller» under.
+- **iPad-sveip i kalenderen** virket ikke (pointer-events + nettleserens
+  scroll kansellerte). Nå touch-basert: følger fingeren med «gummistrikk»,
+  bytter én dag per sveip, spretter på plass (bounce), og spretter tilbake
+  om du slipper for tidlig. Mus-sveip som før.
+- **Kalender: tomrom til høyre.** Kolonnene fyller nå bredden, og bare
+  barbere som er **på vakt** den dagen får kolonne (turnus/vakter/fravær;
+  barbere med bookinger den dagen vises alltid). Uten turnus på noen vises
+  alle som før.
+- **E-post lys på mobil / mørk på PC.** Skjermbildet viste Gmail-appen i mørk
+  modus: den inverterer mørke e-poster selv og ignorerer color-scheme-meta.
+  Løst ved å gjøre malen **lys** (samme krem/espresso som nettsiden i lys
+  modus, ny mørk logo-variant `downtown-logo-email-dark.png`) – lyse e-poster
+  lar alle klienter stå i fred, så den ser lik ut overalt. Samtidig: luft
+  mellom «Tjeneste» og verdien, dato som «Mandag 5. oktober 2026» (ikke ISO),
+  og barber-blokken viser faktisk barber (navn/tittel/bilde) i stedet for «DB».
+
+## NYTT (eiers ønsker)
+
+- **Forside-rekkefølge:** Hero → Team → Tjenester → Håndverket → Galleri →
+  Om oss → Banner → Anmeldelser → CTA → Åpningstider/Kontakt. Menyen følger.
+- **«Book nå» under hver ansatt** → åpner booking med barberen forhåndsvalgt
+  (`?barber=` ble aldri koblet i veiviseren før – nå er det det).
+- **Booking: eget steg «Barber»** (Tjenester → Barber → Tid → Kontakt) med
+  kort per barber (bilde, tittel, pris for valgt kurv) + «Hvilken som helst /
+  første ledige». Gruppe-modus (flere personer) ligger på samme steg.
+- **Kundenotat** i bookingen (valgfritt, maks 500 tegn) → vises i kassa:
+  📝 på blokken i kalenderen og eget felt i bookingdetaljene. Tas også med i
+  varsel-e-posten til salongen.
+- **Varsel ved ny nettbooking** (e-post med kunde/tid/tjeneste/notat + lenke
+  til kalenderen). Slås på / mottaker settes under Admin → Integrasjoner.
+  Standard: post@downtownbarbers.no.
+- **Google Maps tilbake i bunnteksten** (innebygd kart + «Åpne i Google
+  Maps»). CSP åpnet for google.com i frame-src.
+- **Logg inn som popup** over siden (desktop og mobilmeny). /logg-inn finnes
+  fortsatt som egen side (tilgangsvakter og e-postlenker peker dit).
+- **Bildegalleri: Admin → Bilder (/admin/bilder).** Last opp flere bilder om
+  gangen, se ALT som finnes (også de innebygde), legg bilder i Hero/Galleri/
+  Om oss/Banner, dra for rekkefølge, vis/skjul, fjern fra seksjon, rediger
+  navn/alt-tekst, slett. Håndverket-blokkene velger bilde fra galleriet.
+  Admin → Nettside lenker hit (gammel bildeseksjon er fjernet).
+- **Brukere & roller: opprett og slett brukere.** «+ Opprett bruker» (e-post,
+  navn, rolle) → midlertidig passord vises én gang og sendes på e-post;
+  brukeren bytter via «Glemt passord». Krever `SUPABASE_SERVICE_ROLE_KEY` i
+  Vercel (den finnes allerede – brukes av booking-vernet).
+  → **Opprett egen bruker til deg (admin) og la Dawit beholde jobb@ (eller
+  opprett eier-bruker til ham).** Da slutter utloggingen.
+- **Annuller salg** (Admin → Regnskap → Omsetning → dag → «Annuller» på
+  raden): bekreftelse + årsak; salget fjernes fra omsetningen, lager og
+  gavekort tilbakeføres, booking settes tilbake til bekreftet, og en kopi
+  logges i `sale_voids` (hvem/når/hvorfor). Nektes hvis dagen allerede er
+  sendt til Tripletex – da korrigeres bilaget der. Revisor ser ikke knappen.
+- **Grunnlønn per ansatt:** Admin → Ansatte → Rediger → «Grunnlønn per måned»
+  (tom = standard 27 000). Brukes i Lønn og lønnsoversiktene. Uten
+  «gjelder fra»-dato (enklest; si fra hvis dere trenger historikk).
+- **Tjenester per ansatt:** avhuket = tilbys hos denne, uavhuket = ikke.
+  Ny ansatt får alle tjenester avhuket; ny tjeneste legges på alle.
+
+## IKKE gjort (med vilje) – si fra
+
+- **Varsel ved hvert besøk på nettsiden:** fraråder. Det blir fort
+  hundrevis av e-poster/dag, og varsler uten handling blir ignorert – da
+  drukner booking-varslene. Alternativ: besøksstatistikk (Vercel Analytics,
+  cookiefritt) med tall i admin-dashboardet. Vil dere ha det, sier dere ja.
+- **Engelsk i admin/kasse for eieren:** større jobb (hele back-office er
+  norsk i koden). Kan gjøres som eget bygg: språkknapp i admin/kasse +
+  ordbok for menyer, knapper og etiketter. Anslag: 1 bygg. Ja/nei?
+
+## Test etter push
+
+1. Book på nett kl. 13:00 → kalenderen viser 13:00 (ikke 15:00).
+2. Booking: steg 2 «Barber» – velg en, pris oppdateres; «Hvilken som helst»
+   fungerer. Skriv notat → 📝 i kassa.
+3. Forside: Team rett under hero, «Book nå» → booking med barber valgt.
+4. Admin → Bilder: last opp, legg i Galleri, dra rekkefølge, skjul, fjern.
+5. Admin → Brukere: opprett bruker → logg inn med midlertidig passord.
+6. Admin → Omsetning → dag → Annuller testsalget.
+7. Ansatte → Rediger → sett grunnlønn → Lønn viser den.
+8. iPad: sveip i kalenderen.

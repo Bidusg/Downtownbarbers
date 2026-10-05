@@ -5,20 +5,29 @@ import { createClient } from "@/lib/supabase/server";
  * timelister, kampanjer og budsjett. Alt degraderer til tomt ved feil.
  * ===================================================================== */
 
-export type StaffOption = { id: string; full_name: string; title: string | null };
+export type StaffOption = {
+  id: string;
+  full_name: string;
+  title: string | null;
+  base_salary_nok: number | null; // null = standard (PAYROLL.BASE_NOK)
+};
 
 export async function getStaffOptions(): Promise<StaffOption[]> {
   try {
     const sb = await createClient();
     const { data } = await sb
       .from("staff")
-      .select("id, full_name, title, active")
+      .select("id, full_name, title, active, base_salary_nok")
       .eq("active", true)
       .order("employee_number");
     return (data ?? []).map((r) => ({
       id: r.id as string,
       full_name: r.full_name as string,
       title: (r.title as string) ?? null,
+      base_salary_nok:
+        r.base_salary_nok === null || r.base_salary_nok === undefined
+          ? null
+          : Number(r.base_salary_nok),
     }));
   } catch {
     return [];
@@ -28,7 +37,7 @@ export async function getStaffOptions(): Promise<StaffOption[]> {
 /* ------------------------------- LØNN ------------------------------- */
 // Modell (bekreftet med Kidus): grunnlønn + provisjon på eks-mva-omsetning.
 export const PAYROLL = {
-  BASE_NOK: 27000, // fast grunnlønn per barber/mnd
+  BASE_NOK: 27000, // standard grunnlønn per barber/mnd (overstyres per ansatt: staff.base_salary_nok)
   THRESHOLD_NOK: 72000, // budsjett-terskel (eks. mva)
   RATE: 0.4, // andel til barber over terskel
   MVA: 0.25, // norsk standardsats – sales.total_nok antas inkl. mva
@@ -80,6 +89,7 @@ export async function getPayroll(
       const net = gross / (1 + PAYROLL.MVA);
       const commissionBase = Math.max(0, net - PAYROLL.THRESHOLD_NOK);
       const commission = commissionBase * PAYROLL.RATE;
+      const base = st.base_salary_nok ?? PAYROLL.BASE_NOK;
       return {
         staffId: st.id,
         name: st.full_name,
@@ -88,8 +98,8 @@ export async function getPayroll(
         netNok: net,
         commissionBaseNok: commissionBase,
         commissionNok: commission,
-        baseNok: PAYROLL.BASE_NOK,
-        totalNok: PAYROLL.BASE_NOK + commission,
+        baseNok: base,
+        totalNok: base + commission,
       };
     });
   } catch {

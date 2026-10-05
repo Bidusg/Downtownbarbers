@@ -144,9 +144,12 @@ function StaffForm({
 export function LoginForm({
   accessDenied = false,
   passwordReset = false,
+  compact = false,
 }: {
   accessDenied?: boolean;
   passwordReset?: boolean;
+  /** compact = inne i en popup (ingen helsides ramme). */
+  compact?: boolean;
 }) {
   // Ansatte som blir sendt hit av en tilgangsvakt (feil=tilgang) eller etter
   // passordbytte havner rett på ansatt-fanen; ellers er kunde-fanen standard.
@@ -155,7 +158,13 @@ export function LoginForm({
   );
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-canvas px-5 py-16 text-fg">
+    <div
+      className={
+        compact
+          ? "text-fg"
+          : "flex min-h-screen items-center justify-center bg-canvas px-5 py-16 text-fg"
+      }
+    >
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <p className="font-display text-2xl font-bold">Downtown Barbers</p>

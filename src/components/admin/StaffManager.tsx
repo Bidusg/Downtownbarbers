@@ -41,15 +41,12 @@ function EditStaffModal({
   const [title, setTitle] = useState(staff.title ?? "");
   const [empNo, setEmpNo] = useState(staff.employee_number ?? "");
   const [levelId, setLevelId] = useState(staff.level_id ?? "");
-  // Tomt sett fra før = leverer alt (ny ansatt). Da starter vi med alt huket av
-  // så et lagret valg ikke utilsiktet tømmer tilbudet.
+  const [baseSalary, setBaseSalary] = useState(
+    staff.base_salary_nok != null ? String(staff.base_salary_nok) : "",
+  );
+  // Avhuket = leverer tjenesten. Uavhuket = leverer ikke (strengt, siden bygg 9).
   const [serviceIds, setServiceIds] = useState<Set<string>>(
-    () =>
-      new Set(
-        currentServiceIds.length > 0
-          ? currentServiceIds
-          : services.map((s) => s.id),
-      ),
+    () => new Set(currentServiceIds),
   );
   const [err, setErr] = useState<string | null>(null);
   const [photoSaved, setPhotoSaved] = useState(false);
@@ -82,6 +79,7 @@ function EditStaffModal({
         email,
         title,
         employee_number: empNo,
+        base_salary_nok: baseSalary,
       });
       if (r.error) {
         setErr(r.error);
@@ -141,6 +139,14 @@ function EditStaffModal({
           </Field>
           <Field label="Ansattnr">
             <Input value={empNo} onChange={(e) => setEmpNo(e.target.value)} placeholder="DB-007" />
+          </Field>
+          <Field label="Grunnlønn per måned (kr)" hint="(tom = standard 27 000; provisjon kommer i tillegg)">
+            <Input
+              value={baseSalary}
+              onChange={(e) => setBaseSalary(e.target.value)}
+              inputMode="numeric"
+              placeholder="27000"
+            />
           </Field>
 
           {/* Profilbilde – kunne tidligere bare settes ved opprettelse. */}
@@ -245,7 +251,7 @@ function EditStaffModal({
               ))}
             </div>
             <p className="mt-1 text-xs text-muted">
-              Ingen avhukede = leverer alt (standard for ny ansatt).
+              Avhuket = kan bookes for tjenesten. Uavhuket = tilbys ikke hos denne barberen.
             </p>
           </div>
 

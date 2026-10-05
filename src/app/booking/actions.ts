@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { osloToUtcISO } from "@/lib/oslo-time";
 import { sendBookingConfirmation } from "@/lib/email";
 import { siteUrl } from "@/lib/site-url";
 import { isValidEmail, isValidNorwegianPhone, titleCase } from "@/lib/validate";
@@ -38,7 +39,7 @@ export async function createBooking(
 
   try {
     const sb = await createClient();
-    const startIso = new Date(`${input.date}T${input.time}:00`).toISOString();
+    const startIso = osloToUtcISO(input.date, input.time);
 
     const { data: bookingId, error } = await sb.rpc("create_booking", {
       p_service: input.serviceName,

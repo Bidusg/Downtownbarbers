@@ -51,6 +51,7 @@ export async function getPayrollForMonth(
       const net = gross / (1 + PAYROLL.MVA);
       const commissionBase = Math.max(0, net - PAYROLL.THRESHOLD_NOK);
       const commission = commissionBase * PAYROLL.RATE;
+      const base = st.base_salary_nok ?? PAYROLL.BASE_NOK;
       return {
         staffId: st.id,
         name: st.full_name,
@@ -59,8 +60,8 @@ export async function getPayrollForMonth(
         netNok: net,
         commissionBaseNok: commissionBase,
         commissionNok: commission,
-        baseNok: PAYROLL.BASE_NOK,
-        totalNok: PAYROLL.BASE_NOK + commission,
+        baseNok: base,
+        totalNok: base + commission,
       };
     });
   } catch {

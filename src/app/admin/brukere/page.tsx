@@ -6,6 +6,7 @@ import { Table, THead, TBody, Tr, Th, Td, TableEmpty } from "@/components/ui/Tab
 import { Select } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { setUserRole } from "./actions";
+import { CreateUserForm, DeleteUserButton } from "@/components/admin/CreateUserForm";
 
 export const dynamic = "force-dynamic";
 
@@ -42,8 +43,10 @@ export default async function AdminBrukere() {
     <div className="mx-auto max-w-4xl space-y-6">
       <PageHeader
         title="Brukere & roller"
-        description="Styr hvem som har tilgang til hva. Nye brukere opprettes i Supabase Auth (inviter på e-post) — her setter du rollen deres."
+        description="Styr hvem som har tilgang til hva. Opprett én innlogging per person og sett rollen deres her."
       />
+
+      <CreateUserForm />
 
       <Card className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted">
         <span><strong className="text-fg">Admin</strong> — full tilgang</span>
@@ -62,11 +65,12 @@ export default async function AdminBrukere() {
               <Th className="px-4">Rolle</Th>
               <Th className="px-4">Endre til</Th>
               <Th className="px-4">Opprettet</Th>
+              <Th className="px-4"> </Th>
             </Tr>
           </THead>
           <TBody>
             {users.length === 0 ? (
-              <TableEmpty colSpan={4}>Ingen brukere funnet.</TableEmpty>
+              <TableEmpty colSpan={5}>Ingen brukere funnet.</TableEmpty>
             ) : (
               users.map((u) => {
                 const isMe = me?.userId === u.id;
@@ -107,6 +111,9 @@ export default async function AdminBrukere() {
                       )}
                     </Td>
                     <Td className="px-4 whitespace-nowrap" muted>{fmt(u.created_at)}</Td>
+                    <Td className="px-4">
+                      {!isMe && <DeleteUserButton userId={u.id} email={u.email} />}
+                    </Td>
                   </Tr>
                 );
               })

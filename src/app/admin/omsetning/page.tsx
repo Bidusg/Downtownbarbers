@@ -15,6 +15,7 @@ export default async function AdminOmsetning({
       basePath="/admin/omsetning"
       backHref="/admin/regnskap"
       backLabel="Tilbake til regnskap"
+      canVoid
     />
   );
 }

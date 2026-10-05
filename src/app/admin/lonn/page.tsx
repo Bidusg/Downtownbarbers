@@ -33,7 +33,7 @@ export default async function AdminLonn({
     <div className="mx-auto max-w-6xl space-y-8">
       <PageHeader
         title="Lønn"
-        description={`Grunnlønn ${kr(PAYROLL.BASE_NOK)} + ${Math.round(
+        description={`Grunnlønn (standard ${kr(PAYROLL.BASE_NOK)}, settes per ansatt under Ansatte → Rediger) + ${Math.round(
           PAYROLL.RATE * 100,
         )} % provisjon av omsetning (eks. mva) over ${kr(PAYROLL.THRESHOLD_NOK)}.`}
       />
@@ -118,7 +118,7 @@ export default async function AdminLonn({
       <Card className="text-sm text-muted">
         <p className="mb-2 font-semibold text-fg">Slik regnes lønnen</p>
         <p className="font-display text-fg">
-          lønn = {kr(PAYROLL.BASE_NOK)} + {PAYROLL.RATE.toString().replace(".", ",")} × maks(0, omsetning eks. mva − {kr(PAYROLL.THRESHOLD_NOK)})
+          lønn = grunnlønn + {PAYROLL.RATE.toString().replace(".", ",")} × maks(0, omsetning eks. mva − {kr(PAYROLL.THRESHOLD_NOK)})
         </p>
         <p className="mt-3">
           Omsetningen hentes fra registrert salg i kassen per barber for valgt

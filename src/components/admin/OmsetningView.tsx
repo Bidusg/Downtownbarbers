@@ -4,6 +4,7 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Card } from "@/components/ui/Card";
 import { Table, THead, TBody, Tr, Th, Td } from "@/components/ui/Table";
 import { getSalesForPeriod, getDaysInMonth } from "@/lib/dashboard-queries";
+import { VoidSaleButton } from "@/components/admin/VoidSaleButton";
 
 const nok = (n: number) => n.toLocaleString("nb-NO") + " kr";
 
@@ -84,12 +85,15 @@ export async function OmsetningView({
   basePath,
   backHref,
   backLabel,
+  canVoid = false,
 }: {
   dag?: string;
   mnd?: string;
   basePath: string;
   backHref: string;
   backLabel: string;
+  /** Admin/eier kan annullere enkeltsalg (testsalg, feilregistrering). */
+  canVoid?: boolean;
 }) {
   const now = new Date();
   const validDag = dag?.match(/^\d{4}-\d{2}-\d{2}$/) ? dag : undefined;
@@ -152,6 +156,7 @@ export async function OmsetningView({
                   <Th>Kunde</Th>
                   <Th>Betaling</Th>
                   <Th align="right">Beløp</Th>
+                  {canVoid && <Th> </Th>}
                 </Tr>
               </THead>
               <TBody>
@@ -162,6 +167,11 @@ export async function OmsetningView({
                     <Td className="text-fg-soft">{r.customer}</Td>
                     <Td className="text-fg-soft">{r.method}</Td>
                     <Td align="right" nums className="font-medium">{nok(r.nok)}</Td>
+                    {canVoid && (
+                      <Td align="right">
+                        <VoidSaleButton saleId={r.id} label={`Salget kl. ${r.time} (${nok(r.nok)}, ${r.barber})`} />
+                      </Td>
+                    )}
                   </Tr>
                 ))}
               </TBody>

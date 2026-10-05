@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { CraftBlock } from "@/lib/site-images";
+import type { CraftBlock } from "@/lib/site-sections";
 import {
   createCraft,
   saveCraftText,
@@ -9,6 +9,8 @@ import {
   toggleCraft,
   moveCraft,
 } from "@/app/admin/nettside/actions";
+import { setCraftImage, createCraftFromMedia } from "@/app/admin/bilder/actions";
+import type { SiteMedia } from "@/lib/site-sections";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -19,14 +21,67 @@ import { EmptyState } from "@/components/ui/EmptyState";
 const inputCls =
   "w-full border border-line-2 bg-canvas px-3 py-2 text-sm text-fg outline-none focus:border-accent-soft";
 
+function MediaPicker({
+  media,
+  value,
+  onPick,
+  disabled,
+}: {
+  media: SiteMedia[];
+  value: string | null;
+  onPick: (id: string) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="text-xs font-semibold text-accent-soft hover:underline"
+      >
+        {open ? "Lukk bildevalg" : "Bytt bilde (fra galleriet)"}
+      </button>
+      {open && (
+        <div className="mt-2 grid max-h-48 grid-cols-5 gap-1.5 overflow-y-auto border border-line-2 bg-canvas p-2 sm:grid-cols-8">
+          {media.length === 0 && (
+            <p className="col-span-full text-xs text-muted">Ingen bilder i galleriet ennå – last opp under «Bilder».</p>
+          )}
+          {media.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              disabled={disabled}
+              onClick={() => {
+                onPick(m.id);
+                setOpen(false);
+              }}
+              title={m.label ?? m.alt ?? ""}
+              className={
+                "overflow-hidden rounded border transition-colors " +
+                (value === m.id ? "border-accent-soft ring-1 ring-accent-soft" : "border-line hover:border-accent-soft")
+              }
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={m.url} alt="" loading="lazy" className="aspect-square w-full object-cover" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function BlockRow({
   block,
   isTop,
   isBottom,
+  media,
 }: {
   block: CraftBlock;
   isTop: boolean;
   isBottom: boolean;
+  media: SiteMedia[];
 }) {
   const [title, setTitle] = useState(block.title);
   const [body, setBody] = useState(block.body ?? "");
@@ -124,15 +179,24 @@ function BlockRow({
             <Badge tone="neutral">Skjult (kun forhåndsvisning)</Badge>
           )}
         </div>
+        <MediaPicker
+          media={media}
+          value={block.mediaId}
+          disabled={pending}
+          onPick={(id) => run(() => setCraftImage(block.id, id))}
+        />
       </div>
     </div>
   );
 }
 
-function AddBlock() {
+function AddBlock({ media }: { media: SiteMedia[] }) {
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [mediaId, setMediaId] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
 
   if (!open) {
     return (
@@ -151,26 +215,40 @@ function AddBlock() {
         action={(fd) =>
           start(async () => {
             setErr(null);
-            const r = await createCraft(fd);
+            const file = fd.get("file") as File | null;
+            // Enten et bilde fra galleriet, eller en ny fil (lastes opp).
+            const r = mediaId
+              ? await createCraftFromMedia(mediaId, title, body)
+              : file && file.size > 0
+                ? await createCraft(fd)
+                : { error: "Velg et bilde fra galleriet eller last opp et nytt." };
             if (r.error) setErr(r.error);
-            else setOpen(false);
+            else {
+              setOpen(false);
+              setMediaId(null);
+              setTitle("");
+              setBody("");
+            }
           })
         }
         className="space-y-3"
       >
         <p className="text-sm font-semibold text-fg">Ny håndverk-blokk</p>
+      <MediaPicker media={media} value={mediaId} onPick={setMediaId} disabled={pending} />
+      {mediaId && (
+        <p className="text-xs text-muted">Bilde valgt fra galleriet ✓</p>
+      )}
       <label className="block text-xs text-muted">
-        Bilde
+        … eller last opp nytt bilde
         <input
           name="file"
           type="file"
           accept="image/*"
-          required
           className="mt-1 block text-xs text-fg file:mr-2 file:border file:border-line-2 file:bg-canvas file:px-2 file:py-1 file:text-xs"
         />
       </label>
-      <Input name="title" placeholder="Tittel" required />
-      <textarea name="body" placeholder="Kort tekst" rows={2} className={inputCls} />
+      <Input name="title" placeholder="Tittel" required value={title} onChange={(e) => setTitle(e.target.value)} />
+      <textarea name="body" placeholder="Kort tekst" rows={2} className={inputCls} value={body} onChange={(e) => setBody(e.target.value)} />
       <div className="flex items-center gap-3">
         <Button
           type="submit"
@@ -195,7 +273,7 @@ function AddBlock() {
   );
 }
 
-export function SiteCraftManager({ blocks }: { blocks: CraftBlock[] }) {
+export function SiteCraftManager({ blocks, media = [] }: { blocks: CraftBlock[]; media?: SiteMedia[] }) {
   return (
     <div className="space-y-3">
       {blocks.length === 0 ? (
@@ -207,10 +285,11 @@ export function SiteCraftManager({ blocks }: { blocks: CraftBlock[] }) {
             block={b}
             isTop={i === 0}
             isBottom={i === blocks.length - 1}
+            media={media}
           />
         ))
       )}
-      <AddBlock />
+      <AddBlock media={media} />
     </div>
   );
 }

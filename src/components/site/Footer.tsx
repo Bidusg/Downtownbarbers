@@ -94,30 +94,29 @@ export async function Footer() {
           </ul>
         </div>
 
-        {/* Kart: lenke-kort i stedet for Google-iframe – ingen tredjepartskall
-            (og dermed ingen Google-cookies) før besøkende selv klikker. */}
-        <a
-          href={mapLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group relative flex min-h-64 flex-col items-center justify-center overflow-hidden rounded-lg border border-line bg-surface text-center transition-colors hover:border-accent-soft"
-          aria-label={`Åpne ${s.address} i Google Maps`}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            className="h-10 w-10 text-accent-soft transition-transform group-hover:-translate-y-1"
-            fill="currentColor"
-            aria-hidden
+        {/* Kart: innebygd Google Maps (eiers ønske) + lenke for å åpne i appen. */}
+        <div className="overflow-hidden rounded-lg border border-line bg-surface">
+          <iframe
+            title={`Kart: ${s.address}`}
+            src={`https://www.google.com/maps?q=${encodeURIComponent(
+              `${s.name}, ${s.address}`,
+            )}&output=embed&hl=no`}
+            className="block h-64 w-full"
+            loading="lazy"
+            allowFullScreen
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+          <a
+            href={mapLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1.5 border-t border-line px-4 py-2.5 text-xs font-semibold text-fg transition-colors hover:text-accent-soft"
+            aria-label={`Åpne ${s.address} i Google Maps`}
           >
-            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z" />
-          </svg>
-          <p className="mt-3 font-display text-lg font-bold text-fg">{s.name}</p>
-          <p className="mt-1 text-sm text-muted">{s.address}</p>
-          <span className="mt-4 inline-flex items-center gap-1.5 border border-line-2 px-4 py-2 text-xs font-semibold text-fg transition-colors group-hover:border-accent-soft group-hover:text-accent-soft">
             <T k="footer.openMap" />
             <span aria-hidden>↗</span>
-          </span>
-        </a>
+          </a>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-line px-5 py-5 text-center text-xs text-muted">

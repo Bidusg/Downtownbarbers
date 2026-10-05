@@ -252,42 +252,98 @@ export default async function Home({
           </div>
         </section>
 
-        {/* ===================== OM OSS ===================== */}
-        <section className="border-b border-line">
-          <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 md:grid-cols-2 md:py-24">
-            <FadeUp>
-              <Label>
-                <T k="home.about.eyebrow" />
-              </Label>
-              <p className="mt-6 font-display text-2xl leading-[1.2] sm:text-3xl">
-                <TDyn text={s.about_text} map="settings" />
-              </p>
-              <a
-                href="/booking"
-                className="group mt-9 inline-flex items-center gap-2 text-sm font-semibold text-accent-soft transition-colors hover:text-fg"
-              >
-                <T k="home.about.cta" />
-                <span aria-hidden className="transition-transform group-hover:translate-x-1">
-                  →
-                </span>
-              </a>
-            </FadeUp>
-            <FadeUp delay={0.1}>
-              <div className="relative aspect-[4/5] overflow-hidden">
-                <Parallax className="absolute inset-x-0 -top-[12%] h-[124%]" amount={10}>
-                  <img
-                    src={aboutImg}
-                    alt="Barber som renser nakkelinjen hos Downtown Barbers"
-                    loading="lazy"
-                    className="h-full w-full object-cover"
-                  />
-                </Parallax>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-                <span className="absolute bottom-5 left-5 text-[10px] font-semibold tracking-[0.34em] text-white/90 uppercase">
-                  Osterhaus&apos; gate 10 · Oslo
-                </span>
-              </div>
-            </FadeUp>
+        {/* ===================== TEAM ===================== */}
+        <section id="team" className="scroll-mt-20 border-b border-line bg-surface">
+          <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
+            <Label>
+              <T k="home.team.eyebrow" />
+            </Label>
+            <SplitRevealT
+              as="h2"
+              k="home.team.title"
+              className="mt-4 font-display text-3xl font-bold sm:text-4xl"
+            />
+            <div className="mt-14 grid grid-cols-3 gap-x-4 gap-y-8 sm:grid-cols-4 sm:gap-6 md:grid-cols-6">
+              {team.map((m, i) => (
+                <FadeUp key={m.name} delay={i * 0.05}>
+                  <div className="group text-center">
+                    <div className="mx-auto aspect-square w-full max-w-[96px] overflow-hidden rounded-full bg-surface-2 ring-1 ring-line transition-all duration-500 group-hover:-translate-y-1 group-hover:ring-accent-soft">
+                      {m.photo ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={m.photo}
+                          alt={m.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center font-display text-xl font-bold text-fg group-hover:text-accent-soft sm:text-3xl">
+                          {m.name.charAt(0)}
+                        </div>
+                      )}
+                    </div>
+                    <p className="mt-3 font-medium text-fg">{m.name}</p>
+                    <p className="text-xs text-muted">
+                      <TDyn text={m.title} map="titles" />
+                    </p>
+                    <a
+                      href={`/booking?barber=${encodeURIComponent(m.name)}`}
+                      className="mt-3 inline-block border border-line px-3 py-1.5 text-[11px] font-semibold tracking-[0.12em] text-fg uppercase transition-colors hover:border-accent-soft hover:bg-accent-soft hover:text-[#211E1A]"
+                      aria-label={`${m.name}`}
+                    >
+                      <T k="home.team.book" />
+                    </a>
+                  </div>
+                </FadeUp>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ===================== TJENESTER ===================== */}
+        <section id="tjenester" className="scroll-mt-20 border-b border-line">
+          <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
+            <Label>
+              <T k="home.services.eyebrow" />
+            </Label>
+            <SplitRevealT
+              as="h2"
+              k="home.services.title"
+              className="mt-4 font-display text-3xl font-bold sm:text-4xl"
+            />
+            <div className="mt-12 gap-6 sm:columns-2 lg:columns-3">
+              {serviceCategories.map((cat, ci) => (
+                <div key={cat.name} className="mb-6 break-inside-avoid">
+                  <FadeUp delay={ci * 0.08}>
+                    <div className="border border-line bg-surface p-7 transition-all duration-500 hover:-translate-y-1.5 hover:border-accent-soft">
+                      <h3 className="mb-5 text-sm font-semibold tracking-[0.12em] text-accent-soft uppercase">
+                        <TDyn text={cat.name} map="services" />
+                      </h3>
+                      <ul className="space-y-4">
+                        {cat.services.map((sv) => (
+                          <li
+                            key={sv.name}
+                            className="border-b border-line pb-4 last:border-0 last:pb-0"
+                          >
+                            <div className="flex items-baseline justify-between gap-4">
+                              <span className="font-medium text-fg">
+                                <TDyn text={sv.name} map="services" />
+                              </span>
+                              <span className="font-display text-sm whitespace-nowrap text-accent-soft">
+                                {sv.price}
+                              </span>
+                            </div>
+                            <p className="mt-1.5 text-sm leading-relaxed text-muted">
+                              <TDyn text={sv.description} map="services" />
+                            </p>
+                            <p className="mt-1 text-xs text-muted">{sv.duration}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </FadeUp>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
@@ -361,6 +417,45 @@ export default async function Home({
           </div>
         </section>
 
+        {/* ===================== OM OSS ===================== */}
+        <section className="border-b border-line">
+          <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 md:grid-cols-2 md:py-24">
+            <FadeUp>
+              <Label>
+                <T k="home.about.eyebrow" />
+              </Label>
+              <p className="mt-6 font-display text-2xl leading-[1.2] sm:text-3xl">
+                <TDyn text={s.about_text} map="settings" />
+              </p>
+              <a
+                href="/booking"
+                className="group mt-9 inline-flex items-center gap-2 text-sm font-semibold text-accent-soft transition-colors hover:text-fg"
+              >
+                <T k="home.about.cta" />
+                <span aria-hidden className="transition-transform group-hover:translate-x-1">
+                  →
+                </span>
+              </a>
+            </FadeUp>
+            <FadeUp delay={0.1}>
+              <div className="relative aspect-[4/5] overflow-hidden">
+                <Parallax className="absolute inset-x-0 -top-[12%] h-[124%]" amount={10}>
+                  <img
+                    src={aboutImg}
+                    alt="Barber som renser nakkelinjen hos Downtown Barbers"
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                  />
+                </Parallax>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                <span className="absolute bottom-5 left-5 text-[10px] font-semibold tracking-[0.34em] text-white/90 uppercase">
+                  Osterhaus&apos; gate 10 · Oslo
+                </span>
+              </div>
+            </FadeUp>
+          </div>
+        </section>
+
         {/* ===================== BANNER (parallax) ===================== */}
         <section className="cine-vignette relative flex min-h-[80vh] items-center justify-center overflow-hidden border-b border-line">
           <Parallax className="absolute inset-x-0 -top-[15%] h-[130%]" amount={16}>
@@ -380,54 +475,6 @@ export default async function Home({
               <TDyn text={s.slogan} map="settings" />
             </p>
           </FadeUp>
-        </section>
-
-        {/* ===================== TJENESTER ===================== */}
-        <section id="tjenester" className="scroll-mt-20 border-b border-line">
-          <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
-            <Label>
-              <T k="home.services.eyebrow" />
-            </Label>
-            <SplitRevealT
-              as="h2"
-              k="home.services.title"
-              className="mt-4 font-display text-3xl font-bold sm:text-4xl"
-            />
-            <div className="mt-12 gap-6 sm:columns-2 lg:columns-3">
-              {serviceCategories.map((cat, ci) => (
-                <div key={cat.name} className="mb-6 break-inside-avoid">
-                  <FadeUp delay={ci * 0.08}>
-                    <div className="border border-line bg-surface p-7 transition-all duration-500 hover:-translate-y-1.5 hover:border-accent-soft">
-                      <h3 className="mb-5 text-sm font-semibold tracking-[0.12em] text-accent-soft uppercase">
-                        <TDyn text={cat.name} map="services" />
-                      </h3>
-                      <ul className="space-y-4">
-                        {cat.services.map((sv) => (
-                          <li
-                            key={sv.name}
-                            className="border-b border-line pb-4 last:border-0 last:pb-0"
-                          >
-                            <div className="flex items-baseline justify-between gap-4">
-                              <span className="font-medium text-fg">
-                                <TDyn text={sv.name} map="services" />
-                              </span>
-                              <span className="font-display text-sm whitespace-nowrap text-accent-soft">
-                                {sv.price}
-                              </span>
-                            </div>
-                            <p className="mt-1.5 text-sm leading-relaxed text-muted">
-                              <TDyn text={sv.description} map="services" />
-                            </p>
-                            <p className="mt-1 text-xs text-muted">{sv.duration}</p>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </FadeUp>
-                </div>
-              ))}
-            </div>
-          </div>
         </section>
 
         {/* ===================== ANMELDELSER ===================== */}
@@ -450,46 +497,6 @@ export default async function Home({
                 <T k="home.cta.button" />
               </a>
             </FadeUp>
-          </div>
-        </section>
-
-        {/* ===================== TEAM ===================== */}
-        <section id="team" className="scroll-mt-20 border-b border-line bg-surface">
-          <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
-            <Label>
-              <T k="home.team.eyebrow" />
-            </Label>
-            <SplitRevealT
-              as="h2"
-              k="home.team.title"
-              className="mt-4 font-display text-3xl font-bold sm:text-4xl"
-            />
-            <div className="mt-14 grid grid-cols-3 gap-x-4 gap-y-8 sm:grid-cols-4 sm:gap-6 md:grid-cols-6">
-              {team.map((m, i) => (
-                <FadeUp key={m.name} delay={i * 0.05}>
-                  <div className="group text-center">
-                    <div className="mx-auto aspect-square w-full max-w-[96px] overflow-hidden rounded-full bg-surface-2 ring-1 ring-line transition-all duration-500 group-hover:-translate-y-1 group-hover:ring-accent-soft">
-                      {m.photo ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={m.photo}
-                          alt={m.name}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center font-display text-xl font-bold text-fg group-hover:text-accent-soft sm:text-3xl">
-                          {m.name.charAt(0)}
-                        </div>
-                      )}
-                    </div>
-                    <p className="mt-3 font-medium text-fg">{m.name}</p>
-                    <p className="text-xs text-muted">
-                      <TDyn text={m.title} map="titles" />
-                    </p>
-                  </div>
-                </FadeUp>
-              ))}
-            </div>
           </div>
         </section>
 

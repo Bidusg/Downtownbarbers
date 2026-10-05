@@ -79,6 +79,7 @@ export function DayCalendar({
   basePath = "/kasse/kalender",
   canBlock = false,
   canResize = false,
+  onDuty,
 }: {
   date: string;
   agenda: AgendaBooking[];
@@ -87,8 +88,84 @@ export function DayCalendar({
   basePath?: string;
   canBlock?: boolean;
   canResize?: boolean;
+  /** Navn på barbere som er på vakt denne dagen. Uten = alle aktive vises. */
+  onDuty?: string[] | null;
 }) {
   const router = useRouter();
+
+  // ---- Sveip mellom dager (touch) med «bounce» -------------------------------
+  // dragX: live forskyvning mens fingeren er på skjermen (gummistrikk).
+  // slide: utgående/innkommende animasjon rundt dagsbyttet.
+  const [dragX, setDragX] = useState(0);
+  const [slide, setSlide] = useState<{ dir: 1 | -1; phase: "out" | "in" } | null>(null);
+  const touch = useRef<{ x: number; y: number; axis: "x" | "y" | null; fired: boolean } | null>(null);
+  const prevDate = useRef(date);
+  useEffect(() => {
+    // Ny dag kom fra serveren → la den gli inn fra motsatt side og «sprette» på plass.
+    if (prevDate.current !== date) {
+      prevDate.current = date;
+      setSlide((s) => (s && s.phase === "out" ? { dir: s.dir, phase: "in" } : null));
+      setDragX(0);
+      const t = setTimeout(() => setSlide(null), 420);
+      return () => clearTimeout(t);
+    }
+  }, [date]);
+  function goDay(dir: 1 | -1) {
+    if (slide) return; // én dag per sveip
+    setSlide({ dir, phase: "out" });
+    setDragX(0);
+    setTimeout(() => router.push(`${basePath}?date=${addDays(date, dir)}`), 180);
+    // Sikkerhetsnett: hvis ny dag aldri kommer (f.eks. nettfeil), slipp animasjonen.
+    setTimeout(() => setSlide((s) => (s && s.phase === "out" ? null : s)), 2500);
+  }
+  function onTouchStart(e: React.TouchEvent) {
+    if (e.touches.length !== 1 || slide) return;
+    touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, axis: null, fired: false };
+  }
+  function onTouchMove(e: React.TouchEvent) {
+    const t = touch.current;
+    if (!t || t.fired || e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - t.x;
+    const dy = e.touches[0].clientY - t.y;
+    if (!t.axis) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      t.axis = Math.abs(dx) > Math.abs(dy) * 1.3 ? "x" : "y";
+    }
+    if (t.axis !== "x") return;
+    // Gummistrikk: følger fingeren, men dempet.
+    setDragX(Math.max(-140, Math.min(140, dx * 0.45)));
+  }
+  function onTouchEnd(e: React.TouchEvent) {
+    const t = touch.current;
+    touch.current = null;
+    if (!t || t.axis !== "x") {
+      setDragX(0);
+      return;
+    }
+    const dx = e.changedTouches[0].clientX - t.x;
+    if (Math.abs(dx) > 70) {
+      t.fired = true;
+      goDay(dx > 0 ? -1 : 1); // sveip mot høyre = forrige dag
+    } else {
+      setDragX(0); // spretter tilbake
+    }
+  }
+  const slideStyle: React.CSSProperties = slide
+    ? slide.phase === "out"
+      ? {
+          transform: `translateX(${slide.dir === 1 ? "-110%" : "110%"})`,
+          opacity: 0,
+          transition: "transform 180ms ease-in, opacity 180ms ease-in",
+        }
+      : {
+          transform: "translateX(0)",
+          opacity: 1,
+          transition: "transform 420ms cubic-bezier(.22,1.35,.36,1), opacity 200ms ease-out",
+        }
+    : {
+        transform: `translateX(${dragX}px)`,
+        transition: dragX === 0 ? "transform 320ms cubic-bezier(.22,1.4,.36,1)" : "none",
+      };
   const [selected, setSelected] = useState<AgendaBooking | null>(null);
   const [blockOpen, setBlockOpen] = useState(false);
   const [, startCancel] = useTransition();
@@ -146,7 +223,11 @@ export function DayCalendar({
 
   const columns = useMemo(() => {
     const map = new Map<string, { barber: ShopBarber; items: AgendaBooking[] }>();
-    barbers.forEach((b) => map.set(b.full_name, { barber: b, items: [] }));
+    // Kun barbere på vakt får kolonne (pluss alle som faktisk har bookinger).
+    const duty = onDuty && onDuty.length > 0 ? new Set(onDuty) : null;
+    barbers
+      .filter((b) => !duty || duty.has(b.full_name))
+      .forEach((b) => map.set(b.full_name, { barber: b, items: [] }));
     for (const a of agenda) {
       if (a.status === "cancelled") continue;
       const key = a.barber ?? "Uten barber";
@@ -155,7 +236,7 @@ export function DayCalendar({
       map.get(key)!.items.push(a);
     }
     return Array.from(map.values());
-  }, [agenda, barbers]);
+  }, [agenda, barbers, onDuty]);
 
   const colorFor = (name: string) => {
     const i = barbers.findIndex((b) => b.full_name === name);
@@ -179,6 +260,7 @@ export function DayCalendar({
   })();
 
   function onDown(e: React.PointerEvent) {
+    if (e.pointerType === "touch") return; // touch-sveip håndteres av onTouch*
     down.current = { x: e.clientX, y: e.clientY };
     moved.current = false;
   }
@@ -200,7 +282,7 @@ export function DayCalendar({
     const dy = e.clientY - down.current.y;
     down.current = null;
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.4) {
-      router.push(`${basePath}?date=${addDays(date, dx > 0 ? -1 : 1)}`);
+      goDay(dx > 0 ? -1 : 1);
     }
   }
 
@@ -390,12 +472,19 @@ export function DayCalendar({
       {/* Rutenett */}
       <div
         className="relative overflow-auto rounded-xl border border-line bg-surface"
-        style={{ maxHeight: "72vh", touchAction: "pan-y" }}
+        style={{ maxHeight: "72vh", touchAction: "pan-y", ...slideStyle }}
         onPointerDown={onDown}
         onPointerMove={onMove}
         onPointerUp={onUp}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={() => {
+          touch.current = null;
+          setDragX(0);
+        }}
       >
-        <div className="flex min-w-max">
+        <div className="flex min-w-full">
           <div className="sticky left-0 z-20 w-12 shrink-0 bg-surface">
             <div style={{ height: HEADER_H }} className="border-b border-line" />
             <div className="relative" style={{ height: SPAN * PX }}>
@@ -416,7 +505,7 @@ export function DayCalendar({
             return (
               <div
                 key={col.barber.id}
-                className="w-44 shrink-0 border-l border-line"
+                className="min-w-[150px] flex-1 border-l border-line"
                 onDragOver={(e) => {
                   if (dragId) e.preventDefault();
                 }}
@@ -598,13 +687,22 @@ export function DayCalendar({
                             <span className="truncate text-xs font-semibold text-fg">
                               {minToHHMM(startMin)} {b.customer ?? "—"}
                             </span>
-                            {b.group_id && (
+                            {(b.group_size ?? 1) > 1 && (
                               <span
                                 className="shrink-0 text-[10px] text-accent-soft"
                                 title={b.person_label ?? "Gruppebooking"}
                                 aria-label="Gruppebooking"
                               >
                                 👥
+                              </span>
+                            )}
+                            {b.notes && (
+                              <span
+                                className="shrink-0 text-[10px]"
+                                title={b.notes}
+                                aria-label="Notat fra kunden"
+                              >
+                                📝
                               </span>
                             )}
                           </div>

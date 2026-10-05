@@ -25,7 +25,8 @@ const csp = [
   `connect-src 'self' ${supabaseSrc}`,
   "media-src 'self' blob:",
   "worker-src 'self' blob:",
-  "frame-src 'self' blob:", // PDF-forhåndsvisning (blob)
+  // PDF-forhåndsvisning (blob) + innebygd Google Maps i bunnteksten.
+  "frame-src 'self' blob: https://www.google.com https://maps.google.com",
   // 'self': admin-forhåndsvisningen av forsiden (SitePreview) er en iframe på egen origin.
   "frame-ancestors 'self'",
   "object-src 'none'",
@@ -47,6 +48,24 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
+  },
+  // Gamle Wix-adresser (Google har fortsatt /nb-no osv. i indeksen) sendes til
+  // riktig side med 308, så søketreff og gamle lenker ikke ender i 404.
+  async redirects() {
+    const home = ["/nb-no", "/nb-no/:path*", "/en", "/en/:path*", "/en-us", "/en-us/:path*", "/home"];
+    const booking = [
+      "/book-online",
+      "/book-online/:path*",
+      "/booking-calendar/:path*",
+      "/bookings-checkout/:path*",
+      "/service-page/:path*",
+      "/bestill",
+      "/bestill-time",
+    ];
+    return [
+      ...home.map((source) => ({ source, destination: "/", permanent: true })),
+      ...booking.map((source) => ({ source, destination: "/booking", permanent: true })),
+    ];
   },
   // @react-pdf/renderer (og fontkit) skal kjøre som ekstern Node-pakke på
   // serveren, ikke bundles – gir stabil PDF-generering på Vercel.

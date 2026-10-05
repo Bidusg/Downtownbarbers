@@ -50,7 +50,7 @@ export default async function RevisorLonnslipper({
     <div className="mx-auto max-w-6xl space-y-8">
       <PageHeader
         title="Lønnsoversikt (foreløpig)"
-        description={`Grunnlønn ${kr(PAYROLL.BASE_NOK)} + ${Math.round(
+        description={`Grunnlønn (standard ${kr(PAYROLL.BASE_NOK)}, kan være satt per ansatt) + ${Math.round(
           PAYROLL.RATE * 100,
         )} % provisjon av omsetning (eks. mva) over ${kr(
           PAYROLL.THRESHOLD_NOK,
@@ -205,7 +205,7 @@ export default async function RevisorLonnslipper({
       <Card className="text-sm text-muted">
         <p className="mb-2 font-semibold text-fg">Slik regnes lønnen</p>
         <p className="font-display text-fg">
-          lønn = {kr(PAYROLL.BASE_NOK)} +{" "}
+          lønn = grunnlønn +{" "}
           {PAYROLL.RATE.toString().replace(".", ",")} × maks(0, omsetning eks.
           mva − {kr(PAYROLL.THRESHOLD_NOK)})
         </p>

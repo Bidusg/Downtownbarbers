@@ -5,6 +5,7 @@ import type { SVGProps } from "react";
 import Link from "next/link";
 import { LogoMark } from "@/components/site/LogoMark";
 import { salon } from "@/lib/data/salon";
+import { LoginModal } from "@/components/site/LoginModal";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 function PhoneIcon(props: SVGProps<SVGSVGElement>) {
@@ -26,10 +27,10 @@ function PinIcon(props: SVGProps<SVGSVGElement>) {
 // Rekkefølge følger hvor seksjonene ligger på forsiden (topp → bunn).
 // labelKey slås opp i ordboken slik at navigasjonen bytter språk.
 const nav = [
+  { labelKey: "nav.team", href: "/#team" },
+  { labelKey: "nav.tjenester", href: "/#tjenester" },
   { labelKey: "nav.handverket", href: "/#handverket" },
   { labelKey: "nav.galleri", href: "/#galleri" },
-  { labelKey: "nav.tjenester", href: "/#tjenester" },
-  { labelKey: "nav.team", href: "/#team" },
   { labelKey: "nav.butikk", href: "/butikk" },
   { labelKey: "nav.kontakt", href: "/#kontakt" },
 ];
@@ -45,6 +46,7 @@ export function Header({
 }) {
   const { lang, setLang, t } = useLanguage();
   const [open, setOpen] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
   const telHref = `tel:${phone.replace(/\s/g, "")}`;
@@ -72,6 +74,7 @@ export function Header({
   const bar = solid ? "bg-fg" : "bg-white";
 
   return (
+    <>
     <header
       style={{ paddingTop: "env(safe-area-inset-top)" }}
       className={
@@ -163,8 +166,12 @@ export function Header({
             </button>
           </div>
 
-          <Link
+          <a
             href="/logg-inn"
+            onClick={(e) => {
+              e.preventDefault();
+              setLoginOpen(true);
+            }}
             className={
               "hidden items-center gap-1.5 text-[13px] font-medium transition-colors sm:inline-flex " +
               navText
@@ -174,7 +181,7 @@ export function Header({
               <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" />
             </svg>
             {t("header.login")}
-          </Link>
+          </a>
           <Link
             href="/booking"
             className="shine-btn hidden bg-accent-soft px-5 py-2.5 text-[13px] font-semibold text-[#211E1A] transition-transform hover:-translate-y-0.5 sm:inline-block"
@@ -236,13 +243,17 @@ export function Header({
             >
               {t("header.book")}
             </Link>
-            <Link
+            <a
               href="/logg-inn"
-              onClick={() => setOpen(false)}
+              onClick={(e) => {
+                e.preventDefault();
+                setOpen(false);
+                setLoginOpen(true);
+              }}
               className="mt-2 border border-line-2 px-5 py-3 text-center text-sm font-semibold text-fg"
             >
               {t("header.login")}
-            </Link>
+            </a>
             <a
               href={telHref}
               onClick={() => setOpen(false)}
@@ -265,5 +276,7 @@ export function Header({
         </nav>
       )}
     </header>
+    <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
+    </>
   );
 }

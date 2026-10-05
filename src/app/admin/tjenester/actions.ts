@@ -19,23 +19,15 @@ export async function createService(formData: FormData) {
     .select("id")
     .single();
 
-  // Ny tjeneste leveres av alle aktive ansatte som standard (bevarer «alle
-  // leverer med mindre annet er valgt»-oppførselen fra ekskluderingsmodellen).
-  // Ansatte som leverer «alt» (ingen rader) forblir uendret.
+  // Ny tjeneste leveres av alle aktive ansatte som standard (fjern avhukingen
+  // per ansatt under Ansatte → Rediger).
   if (inserted?.id) {
     const { data: staff } = await sb
       .from("staff")
       .select("id")
       .eq("active", true);
-    const withRows = new Set<string>();
-    const { data: existing } = await sb
-      .from("staff_services")
-      .select("staff_id");
-    for (const r of (existing ?? []) as { staff_id: string }[])
-      withRows.add(r.staff_id);
     const rows = (staff ?? [])
       .map((s) => s.id as string)
-      .filter((sid) => withRows.has(sid))
       .map((sid) => ({ staff_id: sid, service_id: inserted.id as string }));
     if (rows.length > 0) {
       await sb
@@ -68,9 +60,8 @@ export async function toggleService(id: string, active: boolean) {
   await sb.from("services").update({ active }).eq("id", id);
 
   // Aktivering: hvis ingen leverer tjenesten (0 staff_services-rader, f.eks. en
-  // gammel/reaktivert tjeneste), knytt den til alle ansatte som har en positiv
-  // tjenesteliste – så den ikke blir usynlig i booking. Ansatte som leverer
-  // «alt» (ingen rader) berøres ikke.
+  // gammel/reaktivert tjeneste), knytt den til alle aktive ansatte – så den
+  // ikke blir usynlig i booking.
   if (active) {
     const { data: existingForService } = await sb
       .from("staff_services")
@@ -78,12 +69,11 @@ export async function toggleService(id: string, active: boolean) {
       .eq("service_id", id)
       .limit(1);
     if (!existingForService || existingForService.length === 0) {
-      const { data: withRows } = await sb
-        .from("staff_services")
-        .select("staff_id");
-      const staffIds = Array.from(
-        new Set((withRows ?? []).map((r) => r.staff_id as string)),
-      );
+      const { data: activeStaff } = await sb
+        .from("staff")
+        .select("id")
+        .eq("active", true);
+      const staffIds = (activeStaff ?? []).map((r) => r.id as string);
       const rows = staffIds.map((sid) => ({ staff_id: sid, service_id: id }));
       if (rows.length > 0) {
         await sb

@@ -3,6 +3,7 @@ import { config } from "@/lib/config";
 import { getSmsConfigAdmin } from "@/lib/sms";
 import { getReviewConfigAdmin } from "@/lib/reviews";
 import { SmsConfigForm } from "@/components/admin/SmsConfigForm";
+import { getBookingNotify, saveBookingNotify } from "./actions";
 import { TripletexCard } from "@/components/admin/TripletexCard";
 import { TRIPLETEX, tripletexConfigured } from "@/lib/tripletex/config";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -42,9 +43,10 @@ function IntegrationCard({
 }
 
 export default async function AdminIntegrasjoner() {
-  const [sms, review] = await Promise.all([
+  const [sms, review, notify] = await Promise.all([
     getSmsConfigAdmin(),
     getReviewConfigAdmin(),
+    getBookingNotify(),
   ]);
 
   const resendSet = Boolean(process.env.RESEND_API_KEY);
@@ -122,6 +124,36 @@ export default async function AdminIntegrasjoner() {
         postingEnabled={TRIPLETEX.postingEnabled}
         env={TRIPLETEX.env}
       />
+
+      {/* Varsling ved ny booking */}
+      <div className="border border-line bg-surface p-6">
+        <div className="mb-4">
+          <h2 className="font-display text-lg font-bold">Varsling ved ny booking</h2>
+          <p className="mt-1 text-sm text-muted">
+            Send en e-post til salongen hver gang en kunde booker på nett, med
+            kunde, tid, tjeneste og evt. notat – og lenke rett til kalenderen.
+          </p>
+        </div>
+        <form action={saveBookingNotify} className="flex flex-wrap items-end gap-3">
+          <label className="flex items-center gap-2 text-sm text-fg">
+            <input type="checkbox" name="enabled" defaultChecked={notify.enabled} className="accent-accent" />
+            Slå på varsling
+          </label>
+          <label className="text-xs text-muted">
+            Send til
+            <input
+              type="email"
+              name="email"
+              defaultValue={notify.email}
+              placeholder="post@downtownbarbers.no"
+              className="mt-1 block w-64 border border-line-2 bg-canvas px-3 py-2 text-sm text-fg"
+            />
+          </label>
+          <button type="submit" className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg">
+            Lagre
+          </button>
+        </form>
+      </div>
 
       {/* SMS-konfig */}
       <div className="border border-line bg-surface p-6">

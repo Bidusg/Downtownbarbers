@@ -4,8 +4,9 @@ import { randomUUID } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { getPublicBarbers } from "@/lib/queries";
 import { getPublicServiceExclusions } from "@/lib/service-catalog-queries";
-import { sendBookingConfirmation } from "@/lib/email";
+import { sendBookingConfirmation, sendNewBookingAlert } from "@/lib/email";
 import { siteUrl } from "@/lib/site-url";
+import { osloToUtcISO } from "@/lib/oslo-time";
 import { isValidEmail, isValidNorwegianPhone, titleCase } from "@/lib/validate";
 import { customerBookingLimited, ipRateLimited, isHoneypotTripped } from "@/lib/abuse-guard";
 
@@ -136,6 +137,7 @@ export type CartBookingInput = {
   phone: string;
   source?: string;
   marketingConsent?: boolean;
+  note?: string; // kundens notat til barberen (vises i kassa)
   /** Honeypot – skal alltid være tomt. */
   website?: string;
 };
@@ -176,8 +178,12 @@ export async function createBookingGroup(
     const sb = await createClient();
     const barbers = await getPublicBarbers();
     const exclusions = await getPublicServiceExclusions();
-    const group = randomUUID();
-    const baseStart = new Date(`${input.date}T${input.time}:00`);
+    // Gruppe-ID kun når det faktisk er flere linjer (ellers vises «Del av
+    // gruppebooking» i kassa på helt vanlige enkeltbookinger).
+    const group = input.lines.length > 1 ? randomUUID() : null;
+    const noteClean = (input.note ?? "").trim().slice(0, 500) || null;
+    // Starttid tolkes som Oslo-tid uansett hvor serveren kjører (Vercel = UTC).
+    const baseStart = new Date(osloToUtcISO(input.date, input.time));
 
     // Resolve «hvilken som helst» til konkret barber (single-modus).
     async function resolveSingleBarber(total: number): Promise<string | null> {
@@ -204,11 +210,13 @@ export async function createBookingGroup(
     }
 
     const created: string[] = [];
+    let resolvedBarber: string | null = null; // faktisk barber (single-modus)
 
     if (input.mode === "single") {
       const total = input.lines.reduce((s, l) => s + lineMinutes(l), 0);
       const barber = await resolveSingleBarber(total);
       if (!barber) return { error: "Ingen barber tilgjengelig for valget." };
+      resolvedBarber = barber;
       let cursor = new Date(baseStart);
       for (const l of input.lines) {
         const addonIds = await addonServiceIds(sb, l.addonNames);
@@ -224,6 +232,7 @@ export async function createBookingGroup(
           p_person: l.person || null,
           p_addons: addonIds,
           p_extra_min: l.addonMinutes || 0,
+          p_notes: noteClean,
         });
         if (error) {
           console.error("create_booking_line feilet:", error.message);
@@ -250,6 +259,7 @@ export async function createBookingGroup(
           p_person: l.person || null,
           p_addons: addonIds,
           p_extra_min: l.addonMinutes || 0,
+          p_notes: noteClean,
         });
         if (error) {
           console.error("create_booking_line feilet:", error.message);
@@ -292,7 +302,11 @@ export async function createBookingGroup(
         to: input.email.trim(),
         name,
         service: summary,
-        barber: input.mode === "group" ? "Flere barbere" : "",
+        barber: input.mode === "group" ? "Flere barbere" : (resolvedBarber ?? ""),
+        barberTitle:
+          input.mode === "group" ? undefined : barbers.find((b) => b.name === resolvedBarber)?.title,
+        barberPhotoUrl:
+          input.mode === "group" ? undefined : (barbers.find((b) => b.name === resolvedBarber)?.photo ?? undefined),
         date: input.date,
         time: input.time,
         price: "",
@@ -301,6 +315,43 @@ export async function createBookingGroup(
       });
     } catch {
       /* e-post skal aldri velte en lagret booking */
+    }
+
+    // Varsle salongen (innstilling: settings.booking_notify). Aldri blokkerende.
+    try {
+      const { data: cfg } = await sb
+        .from("settings")
+        .select("value")
+        .eq("key", "booking_notify")
+        .maybeSingle();
+      const v = (cfg?.value ?? null) as { enabled?: boolean; email?: string } | null;
+      if (v?.enabled && v.email) {
+        const barberFor = (l: CartLineInput) =>
+          input.mode === "group" ? l.barberName : (input.lines.find((x) => x.barberName)?.barberName ?? null);
+        const whenDate = new Date(`${input.date}T12:00:00Z`).toLocaleDateString("nb-NO", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          timeZone: "UTC",
+        });
+        await sendNewBookingAlert({
+          to: v.email,
+          customer: name,
+          phone: input.phone.trim(),
+          email: input.email.trim(),
+          when: `${whenDate.charAt(0).toUpperCase()}${whenDate.slice(1)} kl. ${input.time}`,
+          lines: input.lines.map(
+            (l) =>
+              l.serviceName +
+              (l.addonNames.length ? ` + ${l.addonNames.join(", ")}` : "") +
+              ` – ${barberFor(l) ?? "første ledige"}`,
+          ),
+          note: noteClean,
+          calendarUrl: `${base}/kasse/kalender?date=${input.date}`,
+        });
+      }
+    } catch {
+      /* varsling skal aldri velte en lagret booking */
     }
 
     return { ok: true, portalUrl, cancelUrl };

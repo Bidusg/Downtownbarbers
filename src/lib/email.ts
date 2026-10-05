@@ -16,15 +16,19 @@ import { siteUrl } from "@/lib/site-url";
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
 /* ---- Merkevare-paletten (speiler nettsiden) ---------------------------- */
+// Lys palett (som nettsiden i lys modus). Valgt bevisst: Gmail-appen i mørk
+// modus inverterer MØRKE e-poster på egen hånd (og ignorerer color-scheme-
+// metaene), så en mørk mal så lys ut på mobil og mørk på PC. En lys mal lar
+// alle klienter stå i fred → samme utseende overalt.
 const C = {
-  bg: "#1b1714", // dyp espresso (ytre bakgrunn)
-  card: "#221f1b", // kort
-  cream: "#F8F5EF",
-  soft: "#cfc7bf",
-  muted: "#9b9289",
-  line: "#3a342d",
-  accent: "#F47721",
-  ink: "#211E1A",
+  bg: "#ECE7DF", // ytre bakgrunn (varm beige)
+  card: "#FBF9F5", // kort (krem)
+  cream: "#211E1A", // primærtekst (espresso)
+  soft: "#4A433C", // sekundærtekst
+  muted: "#7A7168", // dempet tekst
+  line: "#DDD6CC", // linjer
+  accent: "#C8531C", // brent oransje (god kontrast på lyst)
+  ink: "#FFFFFF", // tekst på oransje knapp/avatar
 };
 
 /* siteUrl() hentes nå fra @/lib/site-url (auto-faller tilbake til Vercels
@@ -61,6 +65,19 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
   } catch {
     return false;
   }
+}
+
+/** «2026-10-05» → «Mandag 5. oktober 2026» (ISO-datoer uendret ellers). */
+function prettyDate(d: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  const t = new Date(d + "T12:00:00Z").toLocaleDateString("nb-NO", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
 function escapeHtml(s: string): string {
@@ -108,14 +125,14 @@ function footerHtml(): string {
 function pageWrap(inner: string): string {
   const site = siteUrl();
   return `<!DOCTYPE html>
-<html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"></head>
-<body style="margin:0;padding:0;background:${C.bg};-webkit-text-size-adjust:100%">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.bg}">
-    <tr><td align="center" style="padding:30px 14px">
-      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:100%;background:${C.card};border:1px solid ${C.line}">
+<html lang="nb" xmlns="http://www.w3.org/1999/xhtml"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><style>:root{color-scheme:light;supported-color-schemes:light}</style></head>
+<body bgcolor="${C.bg}" style="margin:0;padding:0;background:${C.bg};background-color:${C.bg};-webkit-text-size-adjust:100%">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.bg}" style="background:${C.bg};background-color:${C.bg}">
+    <tr><td align="center" bgcolor="${C.bg}" style="padding:30px 14px;background-color:${C.bg}">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="${C.card}" class="card" style="width:600px;max-width:100%;background:${C.card};background-color:${C.card};border:1px solid ${C.line}">
         <tr><td align="center" style="padding:38px 32px 0">
           <a href="${site}" style="text-decoration:none">
-            <img src="${site}/downtown-logo-email.png" width="168" alt="Downtown Barbers" style="display:block;width:168px;max-width:58%;height:auto;border:0;outline:none;text-decoration:none">
+            <img src="${site}/downtown-logo-email-dark.png" width="168" alt="Downtown Barbers" style="display:block;width:168px;max-width:58%;height:auto;border:0;outline:none;text-decoration:none">
           </a>
         </td></tr>
         <tr><td style="padding:0 32px">
@@ -203,7 +220,7 @@ function shell(
     .map(
       ([k, v]) =>
         `<tr>
-           <td style="padding:12px 0;border-bottom:1px solid ${C.line};color:${C.muted};font-family:Arial,Helvetica,sans-serif;font-size:13px;vertical-align:top">${k}</td>
+           <td style="padding:12px 16px 12px 0;border-bottom:1px solid ${C.line};color:${C.muted};font-family:Arial,Helvetica,sans-serif;font-size:13px;vertical-align:top;white-space:nowrap">${k}</td>
            <td style="padding:12px 0;border-bottom:1px solid ${C.line};text-align:right;color:${C.cream};font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;vertical-align:top">${v}</td>
          </tr>`,
     )
@@ -211,7 +228,7 @@ function shell(
   const table = rows.length
     ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:22px 0 2px;border-collapse:collapse">${tr}</table>`
     : "";
-  const barber = opts.barber ? barberBlock(opts.barber) : "";
+  const barber = opts.barber && opts.barber.name.trim() ? barberBlock(opts.barber) : "";
   return pageWrap(`
     <h1 style="font-family:Georgia,'Times New Roman',serif;font-size:25px;line-height:1.28;margin:0 0 14px;color:${C.cream}">${heading}</h1>
     <p style="font-family:Arial,Helvetica,sans-serif;color:${C.soft};line-height:1.7;font-size:15px;margin:0">${intro}</p>
@@ -253,7 +270,7 @@ export async function sendBookingConfirmation(opts: {
   const cta = portalLink + cancelLink;
   const rows: [string, string][] = [
     ["Tjeneste", escapeHtml(opts.service)],
-    ["Dato", escapeHtml(opts.date)],
+    ["Dato", escapeHtml(prettyDate(opts.date))],
     ["Tid", escapeHtml(opts.time)],
   ];
   if (opts.price) rows.push(["Pris", escapeHtml(opts.price)]);
@@ -275,6 +292,37 @@ export async function sendBookingConfirmation(opts: {
     "Din time hos Downtown Barbers er bekreftet",
     html,
   );
+}
+
+/**
+ * Varsel til salongen når en kunde booker på nett. Mottaker settes under
+ * Admin → Integrasjoner («Varsling ved ny booking»).
+ */
+export async function sendNewBookingAlert(opts: {
+  to: string;
+  customer: string;
+  phone: string;
+  email: string;
+  when: string; // f.eks. «Tirsdag 6. oktober kl. 13:00»
+  lines: string[]; // «Herreklipp 30' + Voks – Soren»
+  note?: string | null;
+  calendarUrl: string;
+}): Promise<boolean> {
+  const rows: [string, string][] = [
+    ["Kunde", escapeHtml(opts.customer)],
+    ["Telefon", `<a href="tel:${escapeHtml(opts.phone.replace(/[^\d+]/g, ""))}" style="color:${C.cream};text-decoration:none">${escapeHtml(opts.phone)}</a>`],
+    ["E-post", escapeHtml(opts.email)],
+    ["Når", escapeHtml(opts.when)],
+    ["Hva", opts.lines.map(escapeHtml).join("<br>")],
+  ];
+  if (opts.note) rows.push(["Notat", escapeHtml(opts.note)]);
+  const html = shell(
+    "Ny booking på nett",
+    "En kunde har nettopp booket time. Sjekk at det ser riktig ut i kalenderen:",
+    rows,
+    ctaButton(opts.calendarUrl, "Åpne kalenderen"),
+  );
+  return sendEmail(opts.to, `Ny booking: ${opts.customer} – ${opts.when}`, html);
 }
 
 /** Kvittering etter fullført/betalt time. */

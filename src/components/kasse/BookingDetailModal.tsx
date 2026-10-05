@@ -118,11 +118,19 @@ export function BookingDetailModal({
               </span>
             </div>
           )}
-          {(b.group_id || b.person_label) && (
+          {((b.group_size ?? 1) > 1 || b.person_label) && (
             <div className="flex justify-between">
               <span className="text-muted">Gruppe</span>
               <span className="text-accent-soft">
-                {b.person_label ?? "Del av gruppebooking"}
+                {b.person_label ?? `Del av gruppebooking (${b.group_size ?? 2} personer)`}
+              </span>
+            </div>
+          )}
+          {b.notes && (
+            <div className="flex flex-col gap-1">
+              <span className="text-muted">Notat fra kunden</span>
+              <span className="whitespace-pre-wrap rounded-md border border-accent-soft/40 bg-accent-soft/10 px-3 py-2 text-fg">
+                {b.notes}
               </span>
             </div>
           )}

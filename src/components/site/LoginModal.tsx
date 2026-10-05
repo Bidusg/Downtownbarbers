@@ -1,0 +1,46 @@
+"use client";
+
+import { useEffect } from "react";
+import { LoginForm } from "@/app/logg-inn/LoginForm";
+
+/**
+ * Innlogging som popup over den offentlige siden (i stedet for egen side),
+ * slik at besøkende fortsatt ser nettsiden i bakgrunnen. /logg-inn finnes
+ * fortsatt som fallback (tilgangsvakter og e-postlenker peker dit).
+ */
+export function LoginModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Logg inn"
+    >
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="relative max-h-[92vh] w-full max-w-md overflow-y-auto border border-line bg-canvas p-6 shadow-2xl sm:rounded-lg">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Lukk"
+          className="absolute top-3 right-3 text-2xl leading-none text-muted hover:text-fg"
+        >
+          ×
+        </button>
+        <LoginForm compact />
+      </div>
+    </div>
+  );
+}
