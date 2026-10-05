@@ -590,19 +590,19 @@ body {
 }
 
 /* Sideovergang på ruteendring (key = pathname). */
+/* Kort og lett inntoning (ingen blur – blur på hele siden koster mye GPU
+   og føltes som «latency» ved sidebytte). */
 .bo-page {
-  animation: bo-page-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: bo-page-in 0.18s ease-out both;
 }
 @keyframes bo-page-in {
   from {
     opacity: 0;
-    transform: translateY(14px);
-    filter: blur(6px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
     transform: none;
-    filter: none;
   }
 }
 

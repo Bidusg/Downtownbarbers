@@ -3,8 +3,10 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import type { SiteImage, SiteMedia, SiteSection } from "@/lib/site-sections";
 import { SECTION_META } from "@/lib/site-sections";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import {
-  uploadMedia,
+  registerUploadedMedia,
   updateMedia,
   deleteMedia,
   placeMedia,
@@ -37,47 +39,114 @@ const SECTION_LABEL: Record<SiteSection, string> = {
 /* ------------------------------------------------------------------ */
 /* Opplasting                                                          */
 /* ------------------------------------------------------------------ */
+type UpItem = { name: string; pct: number; status: "venter" | "laster" | "ok" | "feil"; msg?: string };
+
+function slugName(name: string): string {
+  return (
+    name
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9.]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || "fil"
+  );
+}
+
+/**
+ * Opplasting rett fra nettleseren til Supabase Storage (ikke via serveren):
+ * ingen 4 MB-grense, videoer og mange filer om gangen går fint, og hver fil
+ * får egen fremdrift. Etterpå registreres fila via en server action.
+ */
 function Uploader() {
-  const [pending, start] = useTransition();
-  const [msg, setMsg] = useState<string | null>(null);
-  const [err, setErr] = useState(false);
-  const formRef = useRef<HTMLFormElement>(null);
+  const router = useRouter();
+  const [items, setItems] = useState<UpItem[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [section, setSection] = useState<SiteSection | "">("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function uploadAll(files: File[]) {
+    if (!files.length) return;
+    setBusy(true);
+    setItems(files.map((f) => ({ name: f.name, pct: 0, status: "venter" })));
+    const sb = createClient();
+    const MAX = 200 * 1024 * 1024;
+    // 3 filer parallelt – raskt, men uten å kvele nettet på mobil.
+    let next = 0;
+    const worker = async () => {
+      while (next < files.length) {
+        const idx = next++;
+        const file = files[idx];
+        const set = (patch: Partial<UpItem>) =>
+          setItems((list) => list.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+        if (file.size > MAX) {
+          set({ status: "feil", msg: "over 200 MB" });
+          continue;
+        }
+        const kind = file.type.startsWith("video/") ? "video" : "image";
+        if (kind === "image" && !file.type.startsWith("image/")) {
+          set({ status: "feil", msg: "ikke bilde/video" });
+          continue;
+        }
+        const path = `media/${crypto.randomUUID()}-${slugName(file.name)}`;
+        set({ status: "laster", pct: 5 });
+        // Fremdrift: Storage-SDK-en gir ikke progress på upload, så vi
+        // simulerer jevn fremdrift ut fra filstørrelse til svaret kommer.
+        const est = Math.max(1500, file.size / 400); // ~400 kB/s pessimistisk
+        const t0 = Date.now();
+        const tick = setInterval(() => {
+          const p = Math.min(90, 5 + ((Date.now() - t0) / est) * 85);
+          set({ pct: Math.round(p) });
+        }, 200);
+        const { error } = await sb.storage.from("site").upload(path, file, {
+          upsert: false,
+          contentType: file.type || undefined,
+        });
+        clearInterval(tick);
+        if (error) {
+          set({ status: "feil", msg: error.message.includes("row-level") ? "ingen tilgang" : "opplasting feilet" });
+          continue;
+        }
+        const r = await registerUploadedMedia({
+          path,
+          kind,
+          label: file.name.replace(/\.[a-z0-9]+$/i, "").replace(/[-_]+/g, " "),
+          section,
+        });
+        if (r.error) set({ status: "feil", msg: r.error });
+        else set({ status: "ok", pct: 100 });
+      }
+    };
+    await Promise.all([worker(), worker(), worker()]);
+    setBusy(false);
+    if (inputRef.current) inputRef.current.value = "";
+    router.refresh();
+  }
+
+  const done = items.filter((i) => i.status === "ok").length;
+  const failed = items.filter((i) => i.status === "feil").length;
+
   return (
     <Card>
-      <form
-        ref={formRef}
-        action={(fd) =>
-          start(async () => {
-            setMsg(null);
-            setErr(false);
-            const r = await uploadMedia(fd);
-            if (r.error) {
-              setErr(true);
-              setMsg(r.error);
-            } else {
-              setMsg(`${r.count} fil${(r.count ?? 0) === 1 ? "" : "er"} lastet opp.`);
-              formRef.current?.reset();
-            }
-          })
-        }
-        className="flex flex-wrap items-end gap-3"
-      >
+      <div className="flex flex-wrap items-end gap-3">
         <label className="text-xs text-muted">
-          Last opp bilder (flere om gangen)
+          Last opp bilder/klipp (velg gjerne mange – lastes rett til lagring)
           <input
-            name="files"
+            ref={inputRef}
             type="file"
             accept="image/*,video/*"
             multiple
-            required
+            disabled={busy}
+            onChange={(e) => uploadAll(Array.from(e.target.files ?? []))}
             className="mt-1 block text-xs text-fg file:mr-2 file:border file:border-line-2 file:bg-canvas file:px-2 file:py-1 file:text-xs"
           />
         </label>
         <label className="text-xs text-muted">
           Legg rett i seksjon (valgfritt)
           <select
-            name="section"
-            defaultValue=""
+            value={section}
+            onChange={(e) => setSection(e.target.value as SiteSection | "")}
+            disabled={busy}
             className="mt-1 block border border-line-2 bg-canvas px-2 py-1.5 text-xs text-fg"
           >
             <option value="">Bare til galleriet</option>
@@ -88,11 +157,30 @@ function Uploader() {
             ))}
           </select>
         </label>
-        <Button type="submit" disabled={pending} className="px-3 py-1.5 text-sm">
-          {pending ? "Laster opp …" : "Last opp"}
-        </Button>
-        {msg && <p className={"w-full text-xs " + (err ? "text-danger" : "text-muted")}>{msg}</p>}
-      </form>
+        {items.length > 0 && (
+          <p className="text-xs text-muted">
+            {busy ? `Laster opp … ${done}/${items.length}` : `${done} ferdig${failed ? `, ${failed} feilet` : ""}`}
+          </p>
+        )}
+      </div>
+      {items.length > 0 && (
+        <ul className="mt-3 max-h-48 space-y-1 overflow-y-auto text-xs">
+          {items.map((it, i) => (
+            <li key={i} className="flex items-center gap-2">
+              <span className="w-40 truncate text-fg sm:w-64">{it.name}</span>
+              <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
+                <span
+                  className={"block h-full transition-[width] " + (it.status === "feil" ? "bg-danger" : "bg-accent-soft")}
+                  style={{ width: `${it.status === "feil" ? 100 : it.pct}%` }}
+                />
+              </span>
+              <span className={"w-24 text-right " + (it.status === "feil" ? "text-danger" : "text-muted")}>
+                {it.status === "ok" ? "✓" : it.status === "feil" ? (it.msg ?? "feil") : it.status === "laster" ? `${it.pct}%` : "venter"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </Card>
   );
 }

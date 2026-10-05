@@ -277,3 +277,31 @@ export async function createCraftFromMedia(
   refresh();
   return { ok: true };
 }
+
+/**
+ * Registrer en fil som nettleseren allerede har lastet opp direkte til
+ * Storage (bøtta 'site', sti `media/…`). Omgår serverens 4 MB-grense, så
+ * store bilder og videoer går fint – og mange om gangen.
+ */
+export async function registerUploadedMedia(input: {
+  path: string;
+  kind: "image" | "video";
+  label: string;
+  section?: SiteSection | "";
+}): Promise<Result> {
+  if (!(await adminGuard())) return { error: "Ingen tilgang." };
+  if (!/^media\/[a-f0-9-]{36}-[a-z0-9.-]+$/i.test(input.path)) return { error: "Ugyldig filsti." };
+  const sb = await createClient();
+  const label = input.label.trim().slice(0, 120) || null;
+  const { data: row, error } = await sb
+    .from("site_media")
+    .insert({ path: input.path, kind: input.kind, alt: label, label })
+    .select("id")
+    .single();
+  if (error || !row) return { error: "Kunne ikke registrere fila." };
+  if (input.section && (VALID_SECTIONS as string[]).includes(input.section)) {
+    await placeMediaInternal(sb, row.id as string, input.section as SiteSection);
+  }
+  refresh();
+  return { ok: true };
+}

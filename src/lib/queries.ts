@@ -22,9 +22,9 @@ const kr = (n: number) => `${n} kr`;
  * Viser kun tjenester som er `active = true` OG `online_bookable = true`.
  *
  * Sorteringsregel: kategori-gruppering bevares (kategoriens sort_order først),
- * og innen hver kategori sorteres tjenestene på POPULARITET (flest fullførte
- * bookinger siste 90 dager) synkende, med tjenestens sort_order som manuell
- * overstyring/tiebreak (stigende), deretter navn. Resultatet er en flat liste
+ * og innen hver kategori sorteres tjenestene på sort_order (settes i admin →
+ * Tjenester), med popularitet (fullførte bookinger siste 90 dager) som
+ * tiebreak, deretter navn. Resultatet er en flat liste
  * der kategoriene er sammenhengende og i riktig rekkefølge.
  */
 export async function getPublicServices(): Promise<PublicService[]> {
@@ -57,12 +57,14 @@ export async function getPublicServices(): Promise<PublicService[]> {
           popularity: popularity.get(r.id as string) ?? 0,
         };
       });
+      // Rekkefølgen innen kategori styres manuelt (sort_order i admin);
+      // popularitet brukes bare som tiebreak når to har samme sort_order.
       rows.sort(
         (a, b) =>
           a.catSort - b.catSort ||
           a.category.localeCompare(b.category) ||
-          b.popularity - a.popularity ||
           a.serviceSort - b.serviceSort ||
+          b.popularity - a.popularity ||
           a.name.localeCompare(b.name),
       );
       return rows.map(({ name, description, price, duration, category }) => ({

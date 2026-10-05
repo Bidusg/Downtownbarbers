@@ -540,3 +540,44 @@ Ingen SQL.
 Kjør `KJØR-I-SUPABASE-HAARKLIPP.sql` (døper om «Klipp» → «Hårklipp»).
 EN-oversettelse «Haircuts» lagt i content-map (dekker både gammelt og nytt navn).
 Kategori-overskriftene i booking er uendret (plain), prislappene som før.
+
+---
+
+# ENDRINGER — Bygg 9g: rekkefølge på tjenester
+
+Kjør `KJØR-I-SUPABASE-KATEGORIER.sql` (rydder dubletter → Hårklipp/Skjegg/
+Kombo/Barbering/Tillegg) og `KJØR-I-SUPABASE-REKKEFOLGE-KLIPP.sql`.
+
+- Rekkefølgen innen en kategori styres nå av sort_order (Admin → Tjenester),
+  ikke popularitet. Popularitet er bare tiebreak. Før overstyrte popularitet
+  rekkefølgen, så Maskinklipp/Lineup havnet øverst uansett.
+- Hårklipp: Herreklipp 30' → Herreklipp 45' → Maskinklipp/Lineup → Barneklipp.
+
+---
+
+# ENDRINGER — Bygg 9h: dag-sveip, bulk-opplasting, hastighet
+
+## Commit-tittel
+
+```
+Kalender: dag-bytte virket ikke (tidssonefeil i addDays); bilder lastes rett til Storage (bulk/video); raskere sidebytte
+```
+
+Ingen SQL.
+
+- **Sveip/piler byttet ikke dag.** Hjelperen `addDays` regnet «neste dag» i
+  lokal tid og formaterte i UTC: lokal midnatt 7. okt = 6. okt 22:00 UTC →
+  «2026-10-06» igjen. Fremover sto stille, bakover hoppet to dager.
+  Animasjonen spilte, men URL-en ble den samme. Fikset (UTC-regning).
+- **Opplasting av mange filer/videoer ga «This page couldn't load».** Alle
+  filene gikk gjennom serveren i én forespørsel (grense 4,5 MB på Vercel).
+  Nå lastes hver fil **rett fra nettleseren til Supabase Storage** (ingen
+  servergrense, inntil 200 MB per fil, 3 parallelt) med egen fremdriftslinje
+  per fil, og registreres etterpå. Fungerer for 20+ filer og videoer.
+  NB: Supabase har en global filgrense per prosjekt (Storage → Settings →
+  «Upload file size limit», standard 50 MB) – sett den til 200 MB hvis
+  videoer over 50 MB skal inn.
+- **Treg/«laggy» sidebytte i admin/kasse:** sideanimasjonen brukte 0,5 s
+  blur på hele siden (tungt). Nå 0,18 s enkel inntoning, og alle admin-/kasse-/
+  revisor-sider viser et skjelett med én gang mens data hentes (streaming),
+  så det ikke «henger» på forrige side.

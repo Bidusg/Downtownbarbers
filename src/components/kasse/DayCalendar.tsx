@@ -63,8 +63,10 @@ function minToHHMM(min: number) {
 }
 
 function addDays(date: string, days: number): string {
-  const d = new Date(date + "T00:00:00");
-  d.setDate(d.getDate() + days);
+  // Regn i UTC: med lokal midnatt (Oslo, UTC+1/+2) ga toISOString() dagen
+  // FØR – så «neste dag» ble samme dato, og «forrige» hoppet to dager.
+  const d = new Date(date + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
 
