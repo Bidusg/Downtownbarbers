@@ -17,10 +17,7 @@ export const metadata: Metadata = {
   // metadataBase gjør at OG-bilde/ikoner får absolutte URL-er (kreves av
   // Facebook/Instagram/LinkedIn/iMessage for forhåndsvisning av lenker).
   metadataBase: new URL(siteUrl()),
-  title: {
-    default: "Downtown Barbers | Oslo",
-    template: "%s | Downtown Barbers",
-  },
+  title: "Downtown Barbers | Oslo",
   description: DESCRIPTION,
   keywords: ["barbershop", "oslo", "hårklipp", "fade", "skjegg", "grooming", "barber oslo"],
   applicationName: "Downtown Barbers",

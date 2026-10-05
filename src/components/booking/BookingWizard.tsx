@@ -78,7 +78,9 @@ export function BookingWizard({
   const { lang, t } = useLanguage();
   const locale = lang === "en" ? "en-GB" : "nb-NO";
   // Oversett DB-innhold (tjenester/kategorier/tillegg/titler); norsk fallback.
-  const tc = (s: string) => translateContent("services", s, lang);
+  // Tjenestenavn får et usynlig brytepunkt etter «/» («Maskinklipp/Lineup»),
+  // så navnet brytes pent ved skråstreken på smale skjermer – ikke midt i ordet.
+  const tc = (s: string) => translateContent("services", s, lang).replace(/\//g, "/\u200B");
   const tt = (s: string) => translateContent("titles", s, lang);
   // «Mandag 5. oktober kl. 14:00» i stedet for «2026-10-05 kl. 14:00».
   const fmtWhen = (iso: string, hhmm: string) => {
@@ -410,7 +412,7 @@ export function BookingWizard({
                                 <div className="min-w-0 flex-1">
                                   {/* break-words: «Maskinklipp/Lineup» har ikke mellomrom og
                                       kolliderte ellers med knappen på smale skjermer. */}
-                                  <p className="font-semibold break-words text-fg [overflow-wrap:anywhere]">
+                                  <p className="font-semibold break-words text-fg">
                                     {tc(s.name)}
                                   </p>
                                   <p className="mt-0.5 text-xs text-muted italic">
@@ -541,7 +543,7 @@ export function BookingWizard({
                     <div key={it.id} className="border border-line bg-surface p-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <p className="font-semibold break-words text-fg [overflow-wrap:anywhere]">
+                          <p className="font-semibold break-words text-fg">
                             {tc(it.service.name)}
                           </p>
                           <p className="text-xs text-muted">~{it.service.duration}</p>
