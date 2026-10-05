@@ -593,3 +593,40 @@ Ingen SQL.
   ved datoen. Pauser mens en booking dras/forlenges eller en dialog er åpen,
   så ingenting hopper midt i en handling.
 - Kasse-forsiden (stemplingstavla) oppdateres også hvert minutt.
+
+---
+
+# ENDRINGER — Bygg 9j: markedsføring i bakgrunnen (kø)
+
+## Kjør i Supabase FØR push
+
+`KJØR-I-SUPABASE-UTSENDING-KO.sql` (status/total på utsendinger + kø-tabell).
+
+## Hva som var galt
+
+- «Send til segment» sendte alle e-postene **synkront i én forespørsel**:
+  skjermen sto stille til alt var sendt. Den var dessuten kappet på 500, og
+  mottakerlista stoppet i praksis på 1000 (PostgREST-grense) – derfor «500».
+- Resend tillater ~2 forespørsler/sek; 20 parallelle enkeltsendinger ga
+  rate-limit (429), og koden telte 429 som «sendt». Tallet 500 var dermed
+  trolig for høyt.
+- Ingen dobbeltklikk-vern: utsendingen 5. okt 14:07 ble startet to ganger.
+
+## Løsning
+
+- **Kø:** alle mottakerne (nå hele lista, f.eks. 6 169) legges i
+  `marketing_queue` med én gang → skjermen svarer på et sekund: «Utsending
+  startet til 6 169 mottakere».
+- **Bakgrunnsjobb** (`/api/marketing/worker`) sender e-post via Resends
+  batch-API (100 per kall, ~200/sek) og SMS 5 parallelt, inntil ~50 s per
+  runde, og starter seg selv på nytt til køen er tom. 6 000 e-poster tar
+  1–3 minutter. Feil (rate-limit o.l.) logges per mottaker, og «Fortsett»-
+  knapp i lista gjenopptar.
+- **Fremdrift** under «Sendt før»: «Sender … 43 %» og «2 650 / 6 169», siden
+  oppdaterer seg selv hvert 5. sekund mens noe sendes.
+- **Bekreftelse før sending** (kanal, segment, antall) + knappen låses mens
+  den starter + server nekter identisk utsending innen 15 min.
+- Teller nå bare faktisk aksepterte e-poster (sjekker svaret fra Resend).
+
+Env: bruker `CRON_SECRET` hvis satt i Vercel (fallback utledet av service-
+nøkkelen) til å beskytte arbeider-ruten. Ingenting nytt må settes.

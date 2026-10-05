@@ -53,7 +53,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
   const key = process.env.RESEND_API_KEY;
   if (!key || !to) return false;
   try {
-    await fetch(RESEND_ENDPOINT, {
+    const res = await fetch(RESEND_ENDPOINT, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${key}`,
@@ -61,9 +61,41 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
       },
       body: JSON.stringify({ from: fromAddress(), to, subject, html }),
     });
-    return true;
+    // 429 (rate limit) og 4xx/5xx regnes som ikke sendt.
+    return res.ok;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Send inntil 100 e-poster i ÉN forespørsel (Resend batch-API). Brukes av
+ * markedsførings-køen: Resend tillater ~2 forespørsler/sek, så enkeltsending
+ * av tusenvis ville stoppet på rate-limit – batch gir 200 e-poster/sek.
+ * Returnerer { ok: antall akseptert, error } – ved feil er ingen sendt.
+ */
+export async function sendEmailBatch(
+  items: { to: string; subject: string; html: string }[],
+): Promise<{ ok: number; error?: string }> {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return { ok: 0, error: "RESEND_API_KEY mangler" };
+  if (items.length === 0) return { ok: 0 };
+  try {
+    const res = await fetch(`${RESEND_ENDPOINT}/batch`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify(
+        items.slice(0, 100).map((it) => ({ from: fromAddress(), to: it.to, subject: it.subject, html: it.html })),
+      ),
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      return { ok: 0, error: `Resend ${res.status}: ${txt.slice(0, 200)}` };
+    }
+    const json = (await res.json().catch(() => null)) as { data?: unknown[] } | null;
+    return { ok: Array.isArray(json?.data) ? json!.data!.length : items.length };
+  } catch (e) {
+    return { ok: 0, error: e instanceof Error ? e.message : "nettverksfeil" };
   }
 }
 
@@ -620,12 +652,12 @@ export async function sendPayslipEmail(opts: {
  * Markedsførings-e-post (DM). Samtykke-først: kalles kun for kunder som
  * har marketing_consent. Hver e-post har en obligatorisk avmeldingslenke.
  */
-export async function sendMarketingEmail(opts: {
-  to: string;
+/** HTML for en markedsførings-e-post (logo, emne som tittel, tekst, «Bestill time», avmelding). */
+export function renderMarketingEmail(opts: {
   subject: string;
   body: string;
   unsubscribeUrl: string;
-}): Promise<boolean> {
+}): string {
   const site = siteUrl();
   const paragraphs = opts.body
     .split(/\n{2,}/)
@@ -647,5 +679,14 @@ export async function sendMarketingEmail(opts: {
       Du får denne e-posten fordi du har sagt ja til tilbud fra oss.
       <a href="${opts.unsubscribeUrl}" style="color:${C.muted};text-decoration:underline">Meld deg av</a>.
     </p>`;
-  return sendEmail(opts.to, opts.subject, pageWrap(inner));
+  return pageWrap(inner);
+}
+
+export async function sendMarketingEmail(opts: {
+  to: string;
+  subject: string;
+  body: string;
+  unsubscribeUrl: string;
+}): Promise<boolean> {
+  return sendEmail(opts.to, opts.subject, renderMarketingEmail(opts));
 }

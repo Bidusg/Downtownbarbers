@@ -60,13 +60,21 @@ export async function getMarketingRecipients(
 ): Promise<Recipient[]> {
   try {
     const sb = await createClient();
-    const q = sb
-      .from("customers")
-      .select("id, full_name, email, phone, portal_token")
-      .eq("marketing_consent", true)
-      .not(channel === "sms" ? "phone" : "email", "is", null)
-      .limit(100000);
-    const { data: custs } = await q;
+    // PostgREST leverer maks 1000 rader per kall – hent i sider, ellers
+    // stopper lista på 1000 selv om 6 000 har samtykke.
+    const custs: Record<string, unknown>[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data } = await sb
+        .from("customers")
+        .select("id, full_name, email, phone, portal_token")
+        .eq("marketing_consent", true)
+        .not(channel === "sms" ? "phone" : "email", "is", null)
+        .order("id")
+        .range(from, from + 999);
+      if (!data || data.length === 0) break;
+      custs.push(...(data as Record<string, unknown>[]));
+      if (data.length < 1000) break;
+    }
     const base: Recipient[] = (custs ?? [])
       .filter((c) =>
         channel === "sms"
@@ -128,8 +136,12 @@ export type MarketingSend = {
   id: string;
   subject: string;
   segment: string | null;
-  recipient_count: number;
+  recipient_count: number; // sendt så langt
   created_at: string;
+  status?: string; // queued | sending | done | failed
+  total?: number;
+  failed?: number;
+  channel?: string;
 };
 
 export async function getMarketingSends(limit = 20): Promise<MarketingSend[]> {
@@ -137,7 +149,7 @@ export async function getMarketingSends(limit = 20): Promise<MarketingSend[]> {
     const sb = await createClient();
     const { data } = await sb
       .from("marketing_sends")
-      .select("id, subject, segment, recipient_count, created_at")
+      .select("id, subject, segment, recipient_count, created_at, status, total, failed, channel")
       .order("created_at", { ascending: false })
       .limit(limit);
     return (data as MarketingSend[]) ?? [];

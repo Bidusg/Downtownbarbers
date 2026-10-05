@@ -1,6 +1,5 @@
 import { StatTile } from "@/components/ui/StatTile";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Table, THead, TBody, Tr, Th, Td } from "@/components/ui/Table";
 import { Badge } from "@/components/ui/Badge";
@@ -11,7 +10,9 @@ import {
   getRecentInbound,
   SEGMENTS,
 } from "@/lib/dm-queries";
-import { sendMarketing } from "./actions";
+import { sendMarketing, resumeMarketing } from "./actions";
+import { SendMarketingButton } from "@/components/admin/SendMarketingButton";
+import { AutoRefresh } from "@/components/kasse/AutoRefresh";
 
 const INBOUND_LABEL: Record<string, string> = {
   stop: "STOPP – avmeldt",
@@ -40,7 +41,7 @@ function fmt(iso: string) {
 export default async function AdminMarkedsforing({
   searchParams,
 }: {
-  searchParams: Promise<{ sendt?: string; feil?: string; kanal?: string }>;
+  searchParams: Promise<{ sendt?: string; startet?: string; feil?: string; kanal?: string }>;
 }) {
   const sp = await searchParams;
   const [stats, sends, inbound] = await Promise.all([
@@ -51,6 +52,7 @@ export default async function AdminMarkedsforing({
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
+      {sends.some((x) => x.status === "queued" || x.status === "sending") && <AutoRefresh seconds={5} />}
       <PageHeader
         title="Markedsføring"
         description="Send tilbud og nyheter på e-post eller SMS — kun til kunder som har sagt ja (markedsføringsloven §15). Hver utsending har en avmeldingslenke."
@@ -68,9 +70,35 @@ export default async function AdminMarkedsforing({
           </p>
         </div>
       )}
+      {sp.startet !== undefined && (
+        <div className="flex items-start gap-3 border border-accent-soft/30 bg-accent-soft/5 px-4 py-3 text-sm">
+          <span className="mt-0.5 text-accent-soft">●</span>
+          <p className="text-muted">
+            <strong className="text-fg">
+              Utsending startet {sp.kanal === "sms" ? "på SMS" : "på e-post"} til {Number(sp.startet).toLocaleString("nb-NO")} mottakere.
+            </strong>{" "}
+            Sendes i bakgrunnen – fremdriften oppdateres under «Sendt før».
+          </p>
+        </div>
+      )}
       {sp.feil === "tomt" && (
         <div className="border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
           Emne og tekst må fylles ut.
+        </div>
+      )}
+      {sp.feil === "dobbel" && (
+        <div className="border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+          En identisk utsending (samme emne, kanal og segment) ble startet for under 15 minutter siden – ikke sendt igjen.
+        </div>
+      )}
+      {sp.feil === "ingen" && (
+        <div className="border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+          Ingen i valgt segment har samtykke + riktig kontaktinfo.
+        </div>
+      )}
+      {sp.feil === "db" && (
+        <div className="border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+          Kunne ikke opprette køen. Er KJØR-I-SUPABASE-UTSENDING-KO.sql kjørt?
         </div>
       )}
 
@@ -129,9 +157,7 @@ export default async function AdminMarkedsforing({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit" className="px-5 py-2 text-sm">
-            Send til segment
-          </Button>
+          <SendMarketingButton emailCount={stats.reachable} smsCount={stats.smsReachable} />
           <span className="text-xs text-muted">Sender kun til kunder med samtykke.</span>
         </div>
       </form>
@@ -151,7 +177,8 @@ export default async function AdminMarkedsforing({
                 <Th>Tid</Th>
                 <Th>Emne</Th>
                 <Th>Segment</Th>
-                <Th align="right">Mottakere</Th>
+                <Th>Status</Th>
+                <Th align="right">Sendt</Th>
               </Tr>
             </THead>
             <TBody>
@@ -160,7 +187,24 @@ export default async function AdminMarkedsforing({
                   <Td muted className="whitespace-nowrap">{fmt(s.created_at)}</Td>
                   <Td>{s.subject}</Td>
                   <Td muted>{SEG_LABEL[s.segment ?? ""] ?? s.segment ?? "—"}</Td>
-                  <Td align="right" nums>{s.recipient_count}</Td>
+                  <Td>
+                    {s.status === "done" || !s.status ? (
+                      <span className="text-xs text-muted">Ferdig{s.failed ? ` · ${s.failed} feilet` : ""}</span>
+                    ) : s.status === "failed" ? (
+                      <form action={resumeMarketing.bind(null, s.id)}>
+                        <span className="text-xs text-danger">Stoppet</span>{" "}
+                        <button type="submit" className="text-xs text-accent-soft hover:underline">Fortsett</button>
+                      </form>
+                    ) : (
+                      <span className="inline-flex items-center gap-2 text-xs text-accent-soft">
+                        <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent-soft" />
+                        Sender … {Math.round(((s.recipient_count ?? 0) / Math.max(1, s.total ?? 1)) * 100)} %
+                      </span>
+                    )}
+                  </Td>
+                  <Td align="right" nums>
+                    {s.total ? `${s.recipient_count} / ${s.total}` : s.recipient_count}
+                  </Td>
                 </Tr>
               ))}
             </TBody>
