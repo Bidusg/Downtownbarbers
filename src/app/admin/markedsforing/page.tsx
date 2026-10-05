@@ -119,7 +119,9 @@ export default async function AdminMarkedsforing({
       )}
       {sp.feil === "resendlogg" && (
         <div className="border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
-          Fikk ikke lest Resend-loggen, så vi vet ikke hvem som har fått den – ingenting sendt. Prøv igjen om litt.
+          Fikk ikke lest Resend-loggen, så vi vet ikke hvem som har fått den – ingenting sendt.
+          Nøkkelen har trolig bare «Sending access»: lag en nøkkel med «Full access» i Resend → API Keys,
+          legg den inn i Vercel som <code>RESEND_LOG_KEY</code> og redeploy. Å prøve igjen uten det hjelper ikke.
         </div>
       )}
       {sp.feil === "alleharfatt" && (
