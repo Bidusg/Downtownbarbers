@@ -149,7 +149,10 @@ async function alreadyReceived(
   let resendDetail: string | undefined;
   // Lesing av loggen krever en nøkkel med «Full access». Sendenøkkelen har
   // ofte bare «Sending access» – da kan en egen RESEND_LOG_KEY settes.
-  const key = process.env.RESEND_LOG_KEY || process.env.RESEND_API_KEY;
+  // Rens nøkkelen: mellomrom/linjeskift/anførselstegn fra innliming i Vercel
+  // gir «API key is invalid» fra Resend.
+  const clean = (v?: string) => (v ?? "").trim().replace(/^Bearer\s+/i, "").replace(/^["']|["']$/g, "").trim();
+  const key = clean(process.env.RESEND_LOG_KEY) || clean(process.env.RESEND_API_KEY);
   if (key) {
     resendStatus = "error";
     const cutoff = new Date(since).getTime() - 24 * 3600_000;
