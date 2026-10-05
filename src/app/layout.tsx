@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
+import { siteUrl } from "@/lib/site-url";
 
 export const viewport: Viewport = {
   themeColor: "#F8F5EF",
@@ -9,11 +10,35 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+const DESCRIPTION =
+  "Barbershop i Osterhaus' gate, Oslo. Skarpe fades, skjegg og klassisk barbering — walk-in eller book på sekunder.";
+
 export const metadata: Metadata = {
-  title: "Downtown Barbers | Oslo",
-  description:
-    "Barbershop i Osterhaus' gate, Oslo. Skarpe fades, skjegg og klassisk barbering — walk-in eller book på sekunder.",
-  keywords: ["barbershop", "oslo", "hårklipp", "fade", "skjegg", "grooming"],
+  // metadataBase gjør at OG-bilde/ikoner får absolutte URL-er (kreves av
+  // Facebook/Instagram/LinkedIn/iMessage for forhåndsvisning av lenker).
+  metadataBase: new URL(siteUrl()),
+  title: {
+    default: "Downtown Barbers | Oslo",
+    template: "%s | Downtown Barbers",
+  },
+  description: DESCRIPTION,
+  keywords: ["barbershop", "oslo", "hårklipp", "fade", "skjegg", "grooming", "barber oslo"],
+  applicationName: "Downtown Barbers",
+  openGraph: {
+    type: "website",
+    siteName: "Downtown Barbers",
+    locale: "nb_NO",
+    alternateLocale: ["en_GB"],
+    title: "Downtown Barbers | Oslo",
+    description: DESCRIPTION,
+    // Selve bildet leveres av src/app/opengraph-image.jpg (Next kobler det på).
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Downtown Barbers | Oslo",
+    description: DESCRIPTION,
+  },
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

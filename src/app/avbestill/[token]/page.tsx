@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { T, TDyn } from "@/lib/i18n/T";
+import { PortalDate } from "@/components/portal/PortalDate";
 
 export const dynamic = "force-dynamic";
 
@@ -11,20 +13,6 @@ type BookingRow = {
   status: string | null;
   customer_name: string | null;
 };
-
-function fmt(iso: string) {
-  try {
-    return new Date(iso).toLocaleString("nb-NO", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
-}
 
 async function cancelAction(formData: FormData) {
   "use server";
@@ -58,19 +46,15 @@ export default async function AvbestillPage({
 
   // Resultat etter avbestilling
   if (status) {
-    const msg: Record<string, { h: string; p: string }> = {
-      ok: { h: "Timen er avbestilt ✓", p: "Takk for at du ga oss beskjed. Velkommen tilbake en annen gang!" },
-      already: { h: "Allerede avbestilt", p: "Denne timen er allerede avbestilt." },
-      too_late: { h: "For sent å avbestille", p: "Timen har allerede vært, eller er i gang. Ta kontakt med oss om noe er feil." },
-      not_found: { h: "Fant ikke timen", p: "Lenken ser ut til å være ugyldig eller utløpt." },
-    };
-    const m = msg[status] ?? msg.not_found;
+    const known = ["ok", "already", "too_late", "not_found"];
+    const key = known.includes(status) ? status : "not_found";
+    const bodyKey = key === "not_found" ? "portal.linkInvalid" : `cancelpage.${key}.p`;
     return (
       <Card>
-        <h1 className="font-display text-2xl font-bold text-fg">{m.h}</h1>
-        <p className="mt-3 text-sm text-muted">{m.p}</p>
+        <h1 className="font-display text-2xl font-bold text-fg"><T k={`cancelpage.${key}.h`} /></h1>
+        <p className="mt-3 text-sm text-muted"><T k={bodyKey} /></p>
         <Link href="/" className="mt-6 inline-block text-sm text-accent-soft hover:underline">
-          Til forsiden
+          <T k="common.toFront" />
         </Link>
       </Card>
     );
@@ -83,9 +67,9 @@ export default async function AvbestillPage({
   if (!b || !b.start_at) {
     return (
       <Card>
-        <h1 className="font-display text-2xl font-bold text-fg">Fant ikke timen</h1>
-        <p className="mt-3 text-sm text-muted">Lenken ser ut til å være ugyldig eller utløpt.</p>
-        <Link href="/" className="mt-6 inline-block text-sm text-accent-soft hover:underline">Til forsiden</Link>
+        <h1 className="font-display text-2xl font-bold text-fg"><T k="cancelpage.not_found.h" /></h1>
+        <p className="mt-3 text-sm text-muted"><T k="portal.linkInvalid" /></p>
+        <Link href="/" className="mt-6 inline-block text-sm text-accent-soft hover:underline"><T k="common.toFront" /></Link>
       </Card>
     );
   }
@@ -93,9 +77,9 @@ export default async function AvbestillPage({
   if (b.status === "cancelled") {
     return (
       <Card>
-        <h1 className="font-display text-2xl font-bold text-fg">Allerede avbestilt</h1>
-        <p className="mt-3 text-sm text-muted">Denne timen er allerede avbestilt.</p>
-        <Link href="/booking" className="mt-6 inline-block text-sm text-accent-soft hover:underline">Bestill ny time</Link>
+        <h1 className="font-display text-2xl font-bold text-fg"><T k="cancelpage.already.h" /></h1>
+        <p className="mt-3 text-sm text-muted"><T k="cancelpage.already.p" /></p>
+        <Link href="/booking" className="mt-6 inline-block text-sm text-accent-soft hover:underline"><T k="common.bookNew" /></Link>
       </Card>
     );
   }
@@ -107,26 +91,25 @@ export default async function AvbestillPage({
       <p className="text-[11px] font-semibold tracking-[0.3em] text-accent-soft uppercase">
         Downtown Barbers
       </p>
-      <h1 className="mt-2 font-display text-2xl font-bold text-fg">Avbestille time?</h1>
+      <h1 className="mt-2 font-display text-2xl font-bold text-fg"><T k="cancelpage.title" /></h1>
       <div className="mx-auto mt-6 max-w-xs space-y-2 text-left text-sm">
         <div className="flex justify-between border-b border-line pb-2">
-          <span className="text-muted">Tjeneste</span>
-          <span className="font-medium text-fg">{b.service_name ?? "—"}</span>
+          <span className="text-muted"><T k="cancelpage.service" /></span>
+          <span className="font-medium text-fg">{b.service_name ? <TDyn text={b.service_name} map="services" /> : "—"}</span>
         </div>
         <div className="flex justify-between border-b border-line pb-2">
-          <span className="text-muted">Barber</span>
+          <span className="text-muted"><T k="cancelpage.barber" /></span>
           <span className="font-medium text-fg">{b.barber_name ?? "—"}</span>
         </div>
         <div className="flex justify-between border-b border-line pb-2">
-          <span className="text-muted">Tid</span>
-          <span className="font-medium capitalize text-fg">{fmt(b.start_at)}</span>
+          <span className="text-muted"><T k="cancelpage.time" /></span>
+          <span className="font-medium capitalize text-fg"><PortalDate iso={b.start_at} withTime /></span>
         </div>
       </div>
 
       {past ? (
         <p className="mt-6 text-sm text-muted">
-          Denne timen kan ikke avbestilles på nett lenger. Ta kontakt med oss på
-          +47 463 58 764.
+          <T k="cancelpage.pastNote" />
         </p>
       ) : (
         <form action={cancelAction} className="mt-8">
@@ -135,10 +118,10 @@ export default async function AvbestillPage({
             type="submit"
             className="w-full bg-danger px-6 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
           >
-            Ja, avbestill timen
+            <T k="cancelpage.yes" />
           </button>
           <Link href="/" className="mt-4 inline-block text-sm text-muted hover:text-fg">
-            Nei, behold timen
+            <T k="cancelpage.no" />
           </Link>
         </form>
       )}

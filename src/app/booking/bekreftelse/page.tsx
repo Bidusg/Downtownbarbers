@@ -1,6 +1,7 @@
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { Button } from "@/components/ui/Button";
+import { T } from "@/lib/i18n/T";
 
 export const metadata = { title: "Bekreftelse | Downtown Barbers" };
 
@@ -19,25 +20,23 @@ export default async function Bekreftelse({
       <section className="mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center px-5 py-20 text-center">
         {failed ? (
           <>
-            <p className="font-display text-3xl font-bold">Betalingen ble avbrutt</p>
+            <p className="font-display text-3xl font-bold"><T k="confirm.failedTitle" /></p>
             <p className="mt-4 text-muted">
-              Timen din er fortsatt reservert – du kan betale i salongen.
+              <T k="confirm.failedBody" />
             </p>
           </>
         ) : (
           <>
             <p className="font-display text-4xl font-bold">
-              {paid ? "Betalt og bekreftet! 💈" : "Timen er bekreftet! 💈"}
+              {paid ? <T k="confirm.paidTitle" /> : <T k="confirm.title" />}
             </p>
             <p className="mt-4 text-muted">
-              {paid
-                ? "Depositumet er registrert. Vi gleder oss til å se deg."
-                : "Vi sender en bekreftelse på e-post. Vi gleder oss til å se deg."}
+              {paid ? <T k="confirm.paidBody" /> : <T k="confirm.body" />}
             </p>
           </>
         )}
         <Button variant="subtle" href="/" className="mt-10 px-6 py-3 text-sm">
-          Til forsiden
+          <T k="common.toFront" />
         </Button>
       </section>
       <Footer />

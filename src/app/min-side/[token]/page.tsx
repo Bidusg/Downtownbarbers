@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getCustomerMembershipByToken, remainingToNext } from "@/lib/membership-queries";
 import { TierBadge } from "@/components/membership/TierBadge";
 import { UpcomingBookings } from "@/components/portal/UpcomingBookings";
+import { T, TDyn } from "@/lib/i18n/T";
+import { PortalDate } from "@/components/portal/PortalDate";
 
 export const dynamic = "force-dynamic";
 
@@ -23,27 +25,16 @@ type Portal = {
   bookings: Booking[];
 };
 
-const STATUS: Record<string, string> = {
-  pending: "Venter", confirmed: "Bekreftet", completed: "Fullført",
-  cancelled: "Avbestilt", no_show: "Ikke møtt",
-};
-
-function fmtDate(iso: string) {
-  try {
-    return new Date(iso).toLocaleDateString("nb-NO", { day: "2-digit", month: "short", year: "numeric" });
-  } catch {
-    return iso;
-  }
-}
+const STATUS_KEYS = new Set(["pending", "confirmed", "completed", "cancelled", "no_show"]);
 const nok = (n: number) => Math.round(n).toLocaleString("nb-NO") + " kr";
 
 function NotFound() {
   return (
     <main className="mx-auto flex min-h-[70vh] max-w-lg items-center px-5 py-16">
       <div className="w-full border border-line bg-surface p-8 text-center">
-        <h1 className="font-display text-2xl font-bold text-fg">Fant ikke siden</h1>
-        <p className="mt-3 text-sm text-muted">Lenken ser ut til å være ugyldig eller utløpt.</p>
-        <Link href="/" className="mt-6 inline-block text-sm text-accent-soft hover:underline">Til forsiden</Link>
+        <h1 className="font-display text-2xl font-bold text-fg"><T k="portal.notFoundTitle" /></h1>
+        <p className="mt-3 text-sm text-muted"><T k="portal.linkInvalid" /></p>
+        <Link href="/" className="mt-6 inline-block text-sm text-accent-soft hover:underline"><T k="common.toFront" /></Link>
       </div>
     </main>
   );
@@ -88,18 +79,20 @@ export default async function MinSide({ params }: { params: Promise<{ token: str
           Downtown Barbers
         </p>
         <h1 className="mt-2 font-display text-3xl font-bold text-fg">
-          Hei {p.full_name.split(" ")[0]} 👋
+          <T k="portal.hi" /> {p.full_name.split(" ")[0]} 👋
         </h1>
-        <p className="mt-1 text-sm text-muted">Din side · medlem siden {fmtDate(p.member_since)}</p>
+        <p className="mt-1 text-sm text-muted">
+          <T k="portal.memberSince" /> <PortalDate iso={p.member_since} />
+        </p>
       </div>
 
       {/* Klippekort */}
       <div className="mb-6 border border-line bg-surface p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-display text-lg font-bold">Klippekort</h2>
+          <h2 className="font-display text-lg font-bold"><T k="portal.loyalty" /></h2>
           {rewardDue ? (
             <span className="bg-accent-soft/15 px-3 py-1 text-xs font-semibold text-accent-soft">
-              Gratis klipp klart! 🎉
+              <T k="portal.rewardDue" />
             </span>
           ) : (
             <span className="text-sm text-muted">{progress} / {required}</span>
@@ -121,9 +114,13 @@ export default async function MinSide({ params }: { params: Promise<{ token: str
           ))}
         </div>
         <p className="mt-4 text-xs text-muted">
-          {rewardDue
-            ? "Si ifra i kassen ved neste besøk, så trekker vi fra det gratis klippet."
-            : `Kom ${required - progress} gang(er) til, så er neste klipp gratis.`}
+          {rewardDue ? (
+            <T k="portal.rewardHint" />
+          ) : (
+            <>
+              <T k="portal.moreVisits.pre" /> {required - progress} <T k="portal.moreVisits.post" />
+            </>
+          )}
         </p>
       </div>
 
@@ -131,28 +128,28 @@ export default async function MinSide({ params }: { params: Promise<{ token: str
       {membership && (
         <div className="mb-6 border border-line bg-surface p-6">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-display text-lg font-bold">Din medlemsstatus</h2>
+            <h2 className="font-display text-lg font-bold"><T k="portal.membership" /></h2>
             <TierBadge name={membership.tierName} color={membership.color} />
           </div>
           {membership.benefit && (
             <p className="text-sm text-fg">
-              <span className="text-muted">Ditt medlemsgode: </span>
+              <span className="text-muted"><T k="portal.benefit" /></span>
               {membership.benefit}
             </p>
           )}
           <p className="mt-3 text-xs text-muted">
-            {nok(membership.spend)} brukt · {membership.visits} fullførte besøk
+            {nok(membership.spend)} <T k="portal.spent" /> · {membership.visits} <T k="portal.completedVisits" />
           </p>
           {membership.nextTierName && membershipLeft ? (
             <p className="mt-3 border-t border-line pt-3 text-sm text-fg">
               {membershipLeft.spendLeft > 0 ? nok(membershipLeft.spendLeft) : "0 kr"}
-              {" eller "}
-              {membershipLeft.visitsLeft > 0 ? membershipLeft.visitsLeft : 0} besøk igjen til{" "}
+              {" "}<T k="portal.or" />{" "}
+              {membershipLeft.visitsLeft > 0 ? membershipLeft.visitsLeft : 0} <T k="portal.visitsLeftTo" />{" "}
               <span className="font-semibold text-accent-soft">{membership.nextTierName}</span>.
             </p>
           ) : (
             <p className="mt-3 border-t border-line pt-3 text-sm font-semibold text-accent-soft">
-              Du er på vårt høyeste nivå 🏆
+              <T k="portal.topTier" />
             </p>
           )}
         </div>
@@ -162,11 +159,11 @@ export default async function MinSide({ params }: { params: Promise<{ token: str
       <div className="mb-6 grid grid-cols-2 gap-4">
         <div className="border border-line bg-surface p-4 text-center">
           <p className="font-display text-2xl font-bold text-fg">{p.visits}</p>
-          <p className="text-xs text-muted">fullførte besøk</p>
+          <p className="text-xs text-muted"><T k="portal.completedVisits" /></p>
         </div>
         <div className="border border-line bg-surface p-4 text-center">
           <p className="font-display text-2xl font-bold text-fg">{nok(p.total_spent)}</p>
-          <p className="text-xs text-muted">brukt hos oss</p>
+          <p className="text-xs text-muted"><T k="portal.spentWithUs" /></p>
         </div>
       </div>
 
@@ -184,9 +181,9 @@ export default async function MinSide({ params }: { params: Promise<{ token: str
 
       {/* Historikk */}
       <div className="mb-8 border border-line bg-surface">
-        <h2 className="border-b border-line px-6 py-4 font-display text-lg font-bold">Historikk</h2>
+        <h2 className="border-b border-line px-6 py-4 font-display text-lg font-bold"><T k="portal.history" /></h2>
         {history.length === 0 ? (
-          <p className="px-6 py-8 text-center text-sm text-muted">Ingen tidligere timer enda.</p>
+          <p className="px-6 py-8 text-center text-sm text-muted"><T k="portal.noHistory" /></p>
         ) : (
           <ul className="divide-y divide-line">
             {history.slice(0, 30).map((b) => {
@@ -196,16 +193,31 @@ export default async function MinSide({ params }: { params: Promise<{ token: str
               return (
                 <li key={b.id} className="flex items-center justify-between gap-3 px-6 py-3 text-sm">
                   <div className="min-w-0">
-                    <span className="text-fg">{b.service ?? "Time"}</span>
-                    <span className="block text-xs text-muted">{fmtDate(b.start_at)}{b.barber ? ` · ${b.barber}` : ""}</span>
+                    <span className="text-fg">
+                      {b.service ? <TDyn text={b.service} map="services" /> : <T k="portal.appointment" />}
+                    </span>
+                    <span className="block text-xs text-muted">
+                      <PortalDate iso={b.start_at} />
+                      {b.barber ? ` · ${b.barber}` : ""}
+                    </span>
                     {(addonsByBooking.get(b.id)?.length ?? 0) > 0 && (
-                      <span className="block text-xs text-muted">+ {addonsByBooking.get(b.id)!.join(", ")}</span>
+                      <span className="block text-xs text-muted">
+                        +{" "}
+                        {addonsByBooking.get(b.id)!.map((a, i) => (
+                          <span key={a}>
+                            {i > 0 ? ", " : ""}
+                            <TDyn text={a} map="services" />
+                          </span>
+                        ))}
+                      </span>
                     )}
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
-                    <span className="text-xs text-muted">{STATUS[b.status] ?? b.status}</span>
+                    <span className="text-xs text-muted">
+                      {STATUS_KEYS.has(b.status) ? <T k={`portal.status.${b.status}`} /> : b.status}
+                    </span>
                     <Link href={rebook} className="text-xs font-semibold text-accent-soft hover:underline">
-                      Book på nytt
+                      <T k="portal.rebook" />
                     </Link>
                   </div>
                 </li>
@@ -220,7 +232,7 @@ export default async function MinSide({ params }: { params: Promise<{ token: str
           href="/booking"
           className="inline-block bg-accent px-6 py-3 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90"
         >
-          Bestill ny time
+          <T k="common.bookNew" />
         </a>
         {p.visits > 0 && (
           <a
@@ -230,7 +242,7 @@ export default async function MinSide({ params }: { params: Promise<{ token: str
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            Last ned kjøpshistorikk (PDF)
+            <T k="portal.downloadHistory" />
           </a>
         )}
       </div>

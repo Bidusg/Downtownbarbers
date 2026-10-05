@@ -21,6 +21,8 @@ import { getSiteSettings } from "@/lib/site-settings";
 import { getSiteImages, getSiteCraft } from "@/lib/site-images";
 import { getUserRole, isAdminRole } from "@/lib/auth";
 import { getPublicReviewsSummary } from "@/lib/reviews";
+import { siteUrl } from "@/lib/site-url";
+import { salon } from "@/lib/data/salon";
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
@@ -136,6 +138,53 @@ export default async function Home({
   const ratingCount =
     omdomme.blendedCount > 0 ? omdomme.blendedCount : s.rating_count;
 
+  // Strukturerte data (schema.org HairSalon) for Google: åpningstider, adresse,
+  // telefon og bookinglenke → «rich result» i søk/Maps. Bygget fra samme
+  // site_settings som siden viser, så det aldri spriker.
+  const DAY_CODE = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const openingHoursSpecification = Object.entries(s.hours ?? {})
+    .filter(([, h]) => h && h.open && h.close)
+    .map(([dow, h]) => ({
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: DAY_CODE[Number(dow)],
+      opens: h!.open,
+      closes: h!.close,
+    }));
+  const [streetAddress, rest] = s.address.split(",").map((x) => x.trim());
+  const postalMatch = (rest ?? "").match(/^(\d{4})\s+(.+)$/);
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "HairSalon",
+    name: s.name || "Downtown Barbers",
+    url: siteUrl(),
+    telephone: s.phone,
+    email: s.email ?? undefined,
+    image: `${siteUrl()}/opengraph-image.jpg`,
+    priceRange: "kr",
+    address: {
+      "@type": "PostalAddress",
+      streetAddress,
+      postalCode: postalMatch?.[1],
+      addressLocality: postalMatch?.[2] ?? "Oslo",
+      addressCountry: "NO",
+    },
+    openingHoursSpecification,
+    sameAs: [salon.social.instagram, salon.social.tiktok, salon.social.facebook].filter(Boolean),
+    potentialAction: {
+      "@type": "ReserveAction",
+      target: `${siteUrl()}/booking`,
+    },
+    ...(omdomme.blendedCount > 0
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: Number(omdomme.blendedRating.toFixed(1)),
+            reviewCount: omdomme.blendedCount,
+          },
+        }
+      : {}),
+  };
+
   return (
     <SmoothScroll>
       <div
@@ -143,6 +192,11 @@ export default async function Home({
         className="cine cine-grain bg-canvas text-fg"
         style={accentStyle}
       >
+        <script
+          type="application/ld+json"
+          // JSON er generert server-side fra egne innstillinger (ingen brukerinput).
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         <ScrollProgress />
         <Header overlay phone={s.phone} address={s.address} />
 
@@ -237,7 +291,7 @@ export default async function Home({
         </section>
 
         {/* ===================== HÅNDVERKET ===================== */}
-        <section id="handverket" className="border-b border-line">
+        <section id="handverket" className="scroll-mt-20 border-b border-line">
           <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
             <Label>
               <T k="home.craft.eyebrow" />
@@ -277,7 +331,7 @@ export default async function Home({
         </section>
 
         {/* ===================== GALLERI ===================== */}
-        <section id="galleri" className="border-b border-line bg-surface">
+        <section id="galleri" className="scroll-mt-20 border-b border-line bg-surface">
           <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
             <Label>
               <T k="home.gallery.eyebrow" />
@@ -328,7 +382,7 @@ export default async function Home({
         </section>
 
         {/* ===================== TJENESTER ===================== */}
-        <section id="tjenester" className="border-b border-line">
+        <section id="tjenester" className="scroll-mt-20 border-b border-line">
           <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
             <Label>
               <T k="home.services.eyebrow" />
@@ -399,7 +453,7 @@ export default async function Home({
         </section>
 
         {/* ===================== TEAM ===================== */}
-        <section id="team" className="border-b border-line bg-surface">
+        <section id="team" className="scroll-mt-20 border-b border-line bg-surface">
           <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
             <Label>
               <T k="home.team.eyebrow" />
@@ -428,7 +482,9 @@ export default async function Home({
                       )}
                     </div>
                     <p className="mt-3 font-medium text-fg">{m.name}</p>
-                    <p className="text-xs text-muted">{m.title}</p>
+                    <p className="text-xs text-muted">
+                      <TDyn text={m.title} map="titles" />
+                    </p>
                   </div>
                 </FadeUp>
               ))}
@@ -437,7 +493,7 @@ export default async function Home({
         </section>
 
         {/* ===================== ÅPNINGSTIDER + KONTAKT ===================== */}
-        <section id="apningstider" className="border-b border-line">
+        <section id="apningstider" className="scroll-mt-20 border-b border-line">
           <div className="mx-auto grid max-w-6xl gap-14 px-5 py-16 md:grid-cols-2 md:py-24">
             <FadeUp>
               <Label>
@@ -459,7 +515,7 @@ export default async function Home({
                 ))}
               </ul>
             </FadeUp>
-            <FadeUp delay={0.1} id="kontakt">
+            <FadeUp delay={0.1} id="kontakt" className="scroll-mt-28">
               <Label>
                 <T k="home.contact.eyebrow" />
               </Label>

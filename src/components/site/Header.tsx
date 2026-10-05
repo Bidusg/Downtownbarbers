@@ -115,13 +115,13 @@ export function Header({
           <a
             href={telHref}
             aria-label={`Ring Downtown Barbers på ${phone}`}
+            title={phone}
             className={
               "inline-flex items-center gap-1.5 text-[13px] font-medium transition-colors " +
               navText
             }
           >
-            <PhoneIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">{phone}</span>
+            <PhoneIcon className="h-5 w-5" />
           </a>
           {/* Språkbytte NO | EN */}
           <div

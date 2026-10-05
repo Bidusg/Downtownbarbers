@@ -1,4 +1,5 @@
 import { RatingForm } from "@/components/RatingForm";
+import { T } from "@/lib/i18n/T";
 
 export const metadata = { title: "Vurder besøket | Downtown Barbers" };
 
@@ -14,12 +15,12 @@ export default async function VurderPage({
         <div className="mb-8 text-center">
           <p className="font-display text-2xl font-bold">Downtown Barbers</p>
           <p className="mt-1 text-[10px] font-semibold tracking-[0.3em] text-accent-soft uppercase">
-            Hvordan var besøket?
+            <T k="rate.eyebrow" />
           </p>
         </div>
         <RatingForm bookingId={id} />
         <p className="mt-5 text-center text-xs text-muted">
-          Din vurdering hjelper barberen din å bli enda bedre.
+          <T k="rate.hint" />
         </p>
       </div>
     </div>

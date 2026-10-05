@@ -36,7 +36,7 @@ export default async function ButikkPage() {
     <SmoothScroll>
       <div className="cine cine-grain min-h-screen bg-canvas text-fg">
         <Header />
-        <section className="mx-auto max-w-6xl px-5 pt-28 pb-20 sm:pt-32">
+        <section className="mx-auto max-w-6xl px-5 pt-10 pb-20 sm:pt-16">
           <FadeUp>
             <p className="text-[10px] font-semibold tracking-[0.34em] text-accent-soft uppercase">
               <T k="butikk.eyebrow" />

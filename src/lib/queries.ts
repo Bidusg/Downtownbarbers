@@ -86,6 +86,24 @@ export async function getPublicServices(): Promise<PublicService[]> {
   );
 }
 
+/**
+ * Normaliser stillingstittel fra admin («barber», «MASTER barber», «senior»)
+ * til én konsistent form («Barber», «Master Barber», «Senior Barber»), slik at
+ * Teamet og barber-valget i booking ser likt ut uansett hvordan tittelen ble
+ * skrevet inn – og slik at EN-oversettelsen (content-map «titles») treffer.
+ */
+export function normalizeTitle(raw: string | null | undefined): string {
+  const t = (raw ?? "").trim();
+  if (!t) return "Barber";
+  const l = t.toLowerCase();
+  if (l === "barber" || l === "barberer") return "Barber";
+  if (/^junior( barber)?$/.test(l)) return "Junior Barber";
+  if (/^senior( barber)?$/.test(l)) return "Senior Barber";
+  if (/^master( barber)?$/.test(l)) return "Master Barber";
+  // Ellers: stor forbokstav på hvert ord, resten urørt.
+  return t.replace(/\p{L}+/gu, (w) => w.charAt(0).toUpperCase() + w.slice(1));
+}
+
 /** Barbere fra Supabase (aktive), fallback til statiske data. */
 export async function getPublicBarbers(): Promise<PublicBarber[]> {
   try {
@@ -98,14 +116,14 @@ export async function getPublicBarbers(): Promise<PublicBarber[]> {
     if (data && data.length) {
       return data.map((r) => ({
         name: r.full_name as string,
-        title: (r.title as string) ?? "Barber",
+        title: normalizeTitle(r.title as string | null),
         photo: (r.photo_url as string | null) ?? null,
       }));
     }
   } catch {
     // fallback under
   }
-  return staticTeam.map((b) => ({ name: b.name, title: b.title }));
+  return staticTeam.map((b) => ({ name: b.name, title: normalizeTitle(b.title) }));
 }
 
 export type PublicProduct = {

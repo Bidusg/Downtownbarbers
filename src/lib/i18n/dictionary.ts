@@ -164,8 +164,8 @@ export const dictionary: Dict = {
   "booking.eyebrow": { no: "Bestill time", en: "Book appointment" },
   "booking.heading": { no: "Sett deg ned.", en: "Have a seat." },
   "booking.intro": {
-    no: "Fire steg: tjeneste, barber, tid og kontakt. Bekreftelse på e-post med en gang.",
-    en: "Four steps: service, barber, time and contact. Email confirmation right away.",
+    no: "Tre steg: tjenester, tid og kontakt. Bekreftelse på e-post med en gang.",
+    en: "Three steps: services, time and contact. Email confirmation right away.",
   },
 
   // ---- Butikk-side ----
@@ -197,4 +197,167 @@ export const dictionary: Dict = {
   "product.badge.gift": { no: "Gavekort · i salongen", en: "Gift card · in salon" },
   "product.badge.inStore": { no: "I salongen", en: "In the salon" },
   "product.buyInStore": { no: "Kjøp i salongen", en: "Buy in salon" },
+
+  // ---- Booking: tillegg (kurv, oppsummering, skjema, tilgjengelighet) ----
+  "wiz.viewCart": { no: "Se handlekurv", en: "View cart" },
+  "wiz.addMore": { no: "+ Legg til flere", en: "+ Add more" },
+  "wiz.close": { no: "Lukk", en: "Close" },
+  "wiz.addService": { no: "Legg til", en: "Add" },
+  "wiz.inCart": { no: "I kurven", en: "In cart" },
+  "wiz.total": { no: "Totalt", en: "Total" },
+  "wiz.estimateNote": {
+    no: "«fra»-pris: endelig pris avhenger av hvilken barber du får.",
+    en: "“from” price: the final price depends on which barber you get.",
+  },
+  "wiz.goToStep": { no: "Gå til steg", en: "Go to step" },
+  "wiz.summary.when": { no: "Når", en: "When" },
+  "wiz.summary.barber": { no: "Barber", en: "Barber" },
+  "wiz.summary.price": { no: "Pris", en: "Price" },
+  "wiz.summary.addons": { no: "Tillegg", en: "Add-ons" },
+  "wiz.fillToConfirm": {
+    no: "Fyll inn navn, e-post og telefon for å bekrefte.",
+    en: "Fill in name, email and phone to confirm.",
+  },
+  "wiz.source.placeholder": { no: "Velg …", en: "Choose …" },
+  "wiz.source.google": { no: "Google-søk / Google Maps", en: "Google search / Google Maps" },
+  "wiz.source.social": { no: "Instagram / TikTok / Facebook", en: "Instagram / TikTok / Facebook" },
+  "wiz.source.friend": { no: "Anbefalt av venn eller familie", en: "Recommended by a friend or family" },
+  "wiz.source.walkby": { no: "Gikk forbi / så skiltet", en: "Walked by / saw the sign" },
+  "wiz.source.returning": { no: "Har vært kunde før", en: "Returning customer" },
+  "wiz.source.other": { no: "Annet", en: "Other" },
+  "wiz.slotsOn": { no: "ledige tider", en: "available times" },
+  "wiz.noSlotsShort": { no: "ingen ledige", en: "fully booked" },
+
+  // ---- Bekreftelse-side (/booking/bekreftelse) ----
+  "confirm.paidTitle": { no: "Betalt og bekreftet! 💈", en: "Paid and confirmed! 💈" },
+  "confirm.title": { no: "Timen er bekreftet! 💈", en: "Your appointment is confirmed! 💈" },
+  "confirm.paidBody": {
+    no: "Depositumet er registrert. Vi gleder oss til å se deg.",
+    en: "Your deposit is registered. We look forward to seeing you.",
+  },
+  "confirm.body": {
+    no: "Vi sender en bekreftelse på e-post. Vi gleder oss til å se deg.",
+    en: "We'll send a confirmation by email. We look forward to seeing you.",
+  },
+  "confirm.failedTitle": { no: "Betalingen ble avbrutt", en: "Payment was cancelled" },
+  "confirm.failedBody": {
+    no: "Timen din er fortsatt reservert – du kan betale i salongen.",
+    en: "Your appointment is still reserved – you can pay in the salon.",
+  },
+  "common.toFront": { no: "Til forsiden", en: "Back to home" },
+  "common.bookNew": { no: "Bestill ny time", en: "Book a new appointment" },
+
+  // ---- 404 ----
+  "notfound.title": { no: "Siden finnes ikke", en: "Page not found" },
+  "notfound.body": {
+    no: "Vi fant ikke siden du lette etter. Den kan ha blitt flyttet, eller så skrev du kanskje feil adresse.",
+    en: "We couldn't find the page you were looking for. It may have moved, or the address may be misspelled.",
+  },
+
+  // ---- Vurdering (/vurder) ----
+  "rate.eyebrow": { no: "Hvordan var besøket?", en: "How was your visit?" },
+  "rate.hint": {
+    no: "Din vurdering hjelper barberen din å bli enda bedre.",
+    en: "Your rating helps your barber get even better.",
+  },
+  "rate.thanks": { no: "Takk for tilbakemeldingen! 🙏", en: "Thanks for your feedback! 🙏" },
+  "rate.thanksBody": { no: "Den hjelper oss å bli enda skarpere.", en: "It helps us get even sharper." },
+  "rate.comment": { no: "Kommentar (valgfritt)", en: "Comment (optional)" },
+  "rate.sending": { no: "Sender …", en: "Sending …" },
+  "rate.send": { no: "Send vurdering", en: "Send rating" },
+  "rate.stars": { no: "stjerner", en: "stars" },
+
+  // ---- Min side (/min-side) ----
+  "portal.notFoundTitle": { no: "Fant ikke siden", en: "Page not found" },
+  "portal.linkInvalid": {
+    no: "Lenken ser ut til å være ugyldig eller utløpt.",
+    en: "The link seems to be invalid or expired.",
+  },
+  "portal.hi": { no: "Hei", en: "Hi" },
+  "portal.memberSince": { no: "Din side · medlem siden", en: "Your page · member since" },
+  "portal.loyalty": { no: "Klippekort", en: "Loyalty card" },
+  "portal.rewardDue": { no: "Gratis klipp klart! 🎉", en: "Free haircut ready! 🎉" },
+  "portal.rewardHint": {
+    no: "Si ifra i kassen ved neste besøk, så trekker vi fra det gratis klippet.",
+    en: "Let us know at the till on your next visit and we'll deduct the free haircut.",
+  },
+  "portal.moreVisits.pre": { no: "Kom", en: "Visit" },
+  "portal.moreVisits.post": {
+    no: "gang(er) til, så er neste klipp gratis.",
+    en: "more time(s) and your next haircut is free.",
+  },
+  "portal.membership": { no: "Din medlemsstatus", en: "Your membership" },
+  "portal.benefit": { no: "Ditt medlemsgode: ", en: "Your member benefit: " },
+  "portal.spent": { no: "brukt", en: "spent" },
+  "portal.completedVisits": { no: "fullførte besøk", en: "completed visits" },
+  "portal.or": { no: "eller", en: "or" },
+  "portal.visitsLeftTo": { no: "besøk igjen til", en: "visits left until" },
+  "portal.topTier": { no: "Du er på vårt høyeste nivå 🏆", en: "You're at our highest tier 🏆" },
+  "portal.spentWithUs": { no: "brukt hos oss", en: "spent with us" },
+  "portal.history": { no: "Historikk", en: "History" },
+  "portal.noHistory": { no: "Ingen tidligere timer enda.", en: "No previous appointments yet." },
+  "portal.appointment": { no: "Time", en: "Appointment" },
+  "portal.rebook": { no: "Book på nytt", en: "Book again" },
+  "portal.downloadHistory": { no: "Last ned kjøpshistorikk (PDF)", en: "Download purchase history (PDF)" },
+  "portal.upcoming": { no: "Kommende timer", en: "Upcoming appointments" },
+  "portal.with": { no: "hos", en: "with" },
+  "portal.reschedule": { no: "Endre tid", en: "Reschedule" },
+  "portal.cancel": { no: "Avbestill", en: "Cancel" },
+  "portal.cancelQ": { no: "Avbestille denne timen?", en: "Cancel this appointment?" },
+  "portal.yesCancel": { no: "Ja, avbestill", en: "Yes, cancel" },
+  "portal.noKeep": { no: "Nei, behold", en: "No, keep it" },
+  "portal.newDate": { no: "Ny dato", en: "New date" },
+  "portal.loadingSlots": { no: "Henter ledige tider …", en: "Loading available times …" },
+  "portal.noSlotsDay": {
+    no: "Ingen ledige tider denne dagen. Prøv en annen dato.",
+    en: "No available times this day. Try another date.",
+  },
+  "portal.close": { no: "Lukk", en: "Close" },
+  "portal.status.pending": { no: "Venter", en: "Pending" },
+  "portal.status.confirmed": { no: "Bekreftet", en: "Confirmed" },
+  "portal.status.completed": { no: "Fullført", en: "Completed" },
+  "portal.status.cancelled": { no: "Avbestilt", en: "Cancelled" },
+  "portal.status.no_show": { no: "Ikke møtt", en: "No-show" },
+  "portal.msg.cancel.already": { no: "Timen er allerede avbestilt.", en: "This appointment is already cancelled." },
+  "portal.msg.cancel.too_late": {
+    no: "Timen kan ikke avbestilles på nett lenger. Ring oss på +47 463 58 764.",
+    en: "This appointment can no longer be cancelled online. Call us on +47 463 58 764.",
+  },
+  "portal.msg.resched.too_late": {
+    no: "Timen kan ikke endres på nett lenger. Ring oss på +47 463 58 764.",
+    en: "This appointment can no longer be changed online. Call us on +47 463 58 764.",
+  },
+  "portal.msg.resched.past": { no: "Velg et tidspunkt fram i tid.", en: "Choose a time in the future." },
+  "portal.msg.resched.taken": { no: "Den tiden ble nettopp opptatt. Velg en annen.", en: "That time was just taken. Choose another." },
+  "portal.msg.resched.invalid": { no: "Ugyldig valg. Prøv en annen tid.", en: "Invalid choice. Try another time." },
+  "portal.msg.not_found": {
+    no: "Noe gikk galt. Last siden på nytt og prøv igjen.",
+    en: "Something went wrong. Reload the page and try again.",
+  },
+  "portal.msg.error": { no: "Noe gikk galt. Prøv igjen om litt.", en: "Something went wrong. Try again shortly." },
+
+  // ---- Avbestilling (/avbestill) ----
+  "cancelpage.ok.h": { no: "Timen er avbestilt ✓", en: "Appointment cancelled ✓" },
+  "cancelpage.ok.p": {
+    no: "Takk for at du ga oss beskjed. Velkommen tilbake en annen gang!",
+    en: "Thanks for letting us know. Welcome back another time!",
+  },
+  "cancelpage.already.h": { no: "Allerede avbestilt", en: "Already cancelled" },
+  "cancelpage.already.p": { no: "Denne timen er allerede avbestilt.", en: "This appointment is already cancelled." },
+  "cancelpage.too_late.h": { no: "For sent å avbestille", en: "Too late to cancel" },
+  "cancelpage.too_late.p": {
+    no: "Timen har allerede vært, eller er i gang. Ta kontakt med oss om noe er feil.",
+    en: "The appointment has already taken place or is in progress. Contact us if something is wrong.",
+  },
+  "cancelpage.not_found.h": { no: "Fant ikke timen", en: "Appointment not found" },
+  "cancelpage.title": { no: "Avbestille time?", en: "Cancel appointment?" },
+  "cancelpage.service": { no: "Tjeneste", en: "Service" },
+  "cancelpage.barber": { no: "Barber", en: "Barber" },
+  "cancelpage.time": { no: "Tid", en: "Time" },
+  "cancelpage.pastNote": {
+    no: "Denne timen kan ikke avbestilles på nett lenger. Ta kontakt med oss på +47 463 58 764.",
+    en: "This appointment can no longer be cancelled online. Contact us on +47 463 58 764.",
+  },
+  "cancelpage.yes": { no: "Ja, avbestill timen", en: "Yes, cancel the appointment" },
+  "cancelpage.no": { no: "Nei, behold timen", en: "No, keep the appointment" },
 };

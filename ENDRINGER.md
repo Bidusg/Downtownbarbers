@@ -1,68 +1,76 @@
-# ENDRINGER — UI: forenklet åpningstider (23. sept 2026)
+# ENDRINGER — Go-live-polish: forside + booking + språk (5. okt 2026)
 
-Dette er **bygg 18**, oppå det som allerede er levert. Del av «UI & ytelse»:
-åpningstider-redigeringen (i Nettside-innstillingene) var for kronglete — sju
-rader med to klokkeslett hver og en «Stengt»-avkrysning der *avkrysset = stengt*
-(motsatt av hva folk forventer). Nå er den raskere å fylle ut og lettere å lese.
+Dette bygget retter funnene fra den fulle gjennomgangen av forsiden og
+booking-veiviseren (testet live på Vercel-prod, mobil + desktop), og utvider
+språkbyttet NO/EN til **alle** kundevendte sider.
 
 ## Commit-tittel (lim inn i GitHub Desktop)
 
 ```
-UI: forenklet åpningstider (rask utfylling + tydelig åpen/stengt)
+Go-live-polish: booking-fiks, NO/EN på alle kundesider, favicon/SEO, header med kun telefon-ikon
 ```
 
 ## Commit-beskrivelse (valgfri)
 
 ```
-Åpningstider i Nettside-innstillingene er forenklet:
-- Rask utfylling: sett fra/til én gang og trykk «Bruk på man–fre» eller
-  «Bruk på alle dager» for å fylle flere dager i ett grep.
-- Hver dag har nå en tydelig Åpen/Stengt-bryter i stedet for en «Stengt»-
-  avkrysning (der avkrysset betydde stengt — motsatt av forventet).
-- Stengte dager viser «Ingen ledige timer» i stedet for to nedtonede felt.
+Booking-veiviser
+- «Maskinklipp/Lineup» kolliderte med «+ Legg til» på mobil (ord uten mellomrom) – fikset.
+- Intro: «Tre steg: tjenester, tid og kontakt» (var «Fire steg»).
+- Oppsummering før bekreftelse: «Mandag 5. oktober kl. 14:00», én linje per
+  tjeneste med barber + tillegg + pris, og totalsum (var ISO-dato uten tillegg).
+- Kurven har totalsum + forklaring på «fra»-pris; «✓ I kurven» på tjenestekort.
+- Kontaktsteget er et ekte <form>: synlige labels, autocomplete (navn/e-post/
+  telefon), Enter sender, og en hint-tekst når knappen er deaktivert.
+- «Hvordan hørte du om oss?» er nedtrekk (Google / sosiale medier / venn /
+  gikk forbi / fast kunde / annet) – tellbar for anbefaling-%-KPI-en.
+- Stegfanene (1/2/3) kan klikkes for å gå tilbake; dag-/tid-knapper har
+  tilgjengelige navn og aria-pressed.
+- Tjenestenavn, kategorier, beskrivelser, tillegg og barber-titler oversettes
+  nå også i veiviseren (var norsk i EN-modus).
+- Mindre topp-luft på /booking og /butikk (headeren er ikke overlay der).
 
-Samme datamodell (HoursMap, dager 0–6). Ingen migrasjon, ingen oppførselsendring
-mot forsiden eller booking.
+Forside
+- Header: kun telefon-ikon (ingen nummer) – nummeret ligger i aria-label/title.
+- Ankerlenker (Team, Tjenester …) lander ikke lenger under den faste headeren.
+- Stillingstitler normaliseres («barber» → «Barber», «senior» → «Senior Barber»)
+  og oversettes i Teamet.
+- Barneklipp-beskrivelsen («under 12 år») treffer nå EN-oversettelsen.
+- JSON-LD HairSalon (adresse, telefon, åpningstider, bookinglenke) for Google.
+
+Språk NO/EN – nye sider dekket
+- /booking/bekreftelse, 404, /vurder, /min-side (inkl. kommende timer og
+  feilmeldinger), /avbestill. Datoer formateres etter valgt språk.
+- Back-office (admin/kasse/ansatt/revisor) og logg-inn forblir norsk med vilje.
+
+Favicon / deling / SEO
+- Ekte favicon fra logoen (favicon.ico + icon.svg + apple-icon.png) – erstatter
+  Next.js-standardikonet.
+- OpenGraph/Twitter-metadata + opengraph-image.jpg (forhåndsvisning når lenken
+  deles på Instagram/Facebook/iMessage), robots.txt og sitemap.xml.
 ```
 
 ---
 
 ## Ingen migrasjon
 
-Ren UI – ingen database-endring. Du trenger IKKE kjøre noe i Supabase.
+Ingen SQL. Ingen nye env-variabler (OG-/sitemap-URL bruker `siteUrl()` som
+allerede følger `NEXT_PUBLIC_SITE_URL` → Vercel-prod-domene → downtownbarbers.no).
 
-## Hva som er nytt
+## Å gjøre i admin (ikke kode)
 
-- **Rask utfylling**: øverst i åpningstider-boksen kan du sette et felles fra/til
-  og trykke «Bruk på man–fre» eller «Bruk på alle dager». Da slipper du å skrive
-  samme klokkeslett sju ganger.
-- **Tydelig Åpen/Stengt-bryter** per dag erstatter den forvirrende «Stengt»-
-  avkrysningen. «Åpen» fyller dagen med det du har satt i rask utfylling; «Stengt»
-  fjerner tidene.
-- Stengte dager viser teksten «Ingen ledige timer» i stedet for to nedtonede
-  klokkeslettfelt.
+- Deaktiver test-barbererne **David, Vani, Soren** under /admin/ansatte (de er
+  bookbare live og vises i Teamet), og legg inn Dawit + Riccardo.
+- Last opp bilder på barberne som fortsatt viser initial.
+- Sett nivå per barber (Kochari = Barber, Qasim + Riccardo = Senior, Dawit = Master).
+- Google Places-nøkkel + Place-ID på /admin/rating → ekte stjerner/antall i hero
+  (i dag vises fallback «4,5 / 5 · 6 vurderinger»).
 
-## Testsjekkliste
+## Test etter push
 
-- [ ] Åpne Admin → Nettside. Sett fra 09:00 / til 18:00, trykk «Bruk på man–fre»
-      → mandag–fredag får 09:00–18:00, lørdag/søndag urørt.
-- [ ] Trykk «Stengt» på en dag → feltene forsvinner, «Ingen ledige timer» vises.
-      Trykk «Åpen» igjen → tidene kommer tilbake.
-- [ ] Lagre → forsiden og booking viser de nye tidene (uendret lagrings-logikk).
-
-## Filer i denne leveransen (bygg 18)
-
-- `src/components/admin/SiteSettingsForm.tsx` — forenklet åpningstider-UI.
-- denne fila.
-
-Ingen migrasjon.
-
-## UI & ytelse videre
-
-Reskin er komplett (admin/revisor/ansatt), og åpningstider er nå forenklet.
-Gjenstår siste punkt i denne delen: **lette tunge sider** (gjøre de tyngste
-sidene raskere/lettere). Si ifra når du vil ta den.
-
-**Verifisert i sky-klone:** `tsc --noEmit` 0 feil, `next build` grønn (alle ruter
-kompilerer), eslint uendret fra baseline (24 problemer: 14 feil, 10 advarsler).
-Kun UI i redigeringsskjemaet — ingen data- eller oppførselsendring.
+- /booking på mobil: ingen kollisjon på «Maskinklipp/Lineup»; legg til tjeneste +
+  tillegg → velg tid → sjekk at oppsummeringen viser dato i klartekst, barber,
+  tillegg og totalsum; bekreft én ekte booking.
+- Bytt til EN: tjenestenavn/tillegg i veiviseren skal være engelske.
+- Forside: klikk «Team» i menyen → «TEAMET»-etiketten skal være synlig under headeren.
+- Del forsidelenken i en melding/iMessage → bilde + tittel skal vises.
+- Fanen i nettleseren skal vise Downtown-logoen (hard-refresh/ny fane).

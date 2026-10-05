@@ -43,8 +43,8 @@ const services: ContentMap = {
       en: "For when you want a little extra time – first-time client, skin fade, classic cut, mullet or more demanding styles, with thinning, texturising and detailing along the way.",
     },
   Barneklipp: { en: "Kids' haircut" },
-  "Klipp for barn under 13 år, hos hvilken som helst barber.": {
-    en: "A haircut for children under 13, with any barber.",
+  "Klipp for barn under 12 år, hos hvilken som helst barber.": {
+    en: "A haircut for children under 12, with any barber.",
   },
 
   // Kombo
@@ -96,10 +96,26 @@ const services: ContentMap = {
   // Tillegg (tilleggstjenester – navnene settes i admin; disse er vanlige valg,
   // og ukjente verdier faller trygt tilbake til norsk).
   Hårvask: { en: "Hair wash" },
+  Hodebunnsmassasje: { en: "Scalp massage" },
+  Ansiktsmassasje: { en: "Face massage" },
+  Voks: { en: "Wax" },
   "Vask & styling": { en: "Wash & styling" },
   Styling: { en: "Styling" },
   "Hot towel": { en: "Hot towel" },
   Augbryn: { en: "Eyebrows" },
+  Øyenbryn: { en: "Eyebrows" },
+};
+
+// ------------------------------------------------------------------ TITLER
+// Stillingstitler på ansatte (vises i Teamet + barber-valg i booking).
+// Nøklene er normalisert (se normalizeTitle i queries.ts).
+const titles: ContentMap = {
+  Barber: { en: "Barber" },
+  "Junior Barber": { en: "Junior Barber" },
+  "Senior Barber": { en: "Senior Barber" },
+  "Master Barber": { en: "Master Barber" },
+  Lærling: { en: "Apprentice" },
+  Frisør: { en: "Hairdresser" },
 };
 
 // ----------------------------------------------------- SITE-SETTINGS + CRAFT
@@ -156,6 +172,7 @@ export const contentMaps: Record<string, ContentMap> = {
   services,
   settings,
   days,
+  titles,
 };
 
 /**
