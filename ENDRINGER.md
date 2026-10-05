@@ -190,3 +190,29 @@ være kjørt før Vercel bygger – ellers feiler hurtigsalg med «function not 
 3. Sjekk (499 + 179 = 678 kr): Admin → Gavekort viser saldo 0 på kortet,
    Kasseoppgjør viser både «Gavekort 200» og «Kort 478», og salget har to
    behandlingslinjer (Omsetning → klikk dagen).
+
+---
+
+# ENDRINGER — Lønnsbekreftelse + «ingen tilgang»-side + oppdatert sluttrapport (5. okt 2026, bygg 5)
+
+## Commit-tittel
+
+```
+Revisor: bekreftelse med mottakere før lønnsutsending; egen «ingen tilgang»-side; oppdatert SLUTTRAPPORT
+```
+
+## Innhold
+
+- **Lønnsoversikter:** «Generer og send» viser nå en bekreftelse inne i siden
+  med måned, hver mottaker og beløp, og «Ja, generer og send til N» – før noe
+  sendes. Erstatter nettleserens window.confirm (som ikke kunne vise navn).
+- **/ingen-tilgang:** en innlogget bruker som åpner en side rollen ikke har
+  (kasse → /admin) får en side som sier hvem hen er logget inn som, hvilken
+  rolle, med knapp tilbake til egen side og Logg ut – i stedet for å havne på
+  innloggingsskjemaet mens hen fortsatt er logget inn. Gjelder alle
+  rollevakter (`requireRole` + admin-layout). Ikke innlogget → fortsatt /logg-inn.
+- **SLUTTRAPPORT.md** er skrevet om med status per 5. okt, alt levert i dag,
+  admin-oppgavene før live (inkl. avklaringen om at David/Vani/Soren/Mehetabel
+  er ekte barberer og augustsalget er ekte), go-live-blokkere og åpne punkter.
+
+Ingen migrasjon. Ingen nye env-variabler.

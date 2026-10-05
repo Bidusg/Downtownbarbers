@@ -197,6 +197,7 @@ export default async function RevisorLonnslipper({
             month={month}
             monthLabel={monthLabel}
             staffCount={rows.length}
+            recipients={rows.map((r) => ({ name: r.name, totalNok: r.totalNok }))}
           />
         </div>
       </Card>

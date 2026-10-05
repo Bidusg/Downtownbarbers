@@ -15,7 +15,7 @@ export default async function AdminLayout({
   const me = await getUserRole();
   if (!me) redirect("/logg-inn");
   // Eier (Dawit) har full tilgang på linje med admin – samme regel som requireRole.
-  if (!isAdminRole(me.role)) redirect("/logg-inn?feil=tilgang");
+  if (!isAdminRole(me.role)) redirect("/ingen-tilgang");
 
   const initial = (me.email ?? "K").charAt(0).toUpperCase();
   const notices = await getActiveNotices("admin");

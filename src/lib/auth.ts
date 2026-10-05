@@ -47,8 +47,29 @@ export async function requireRole(allowed: Role[]): Promise<Role> {
   const ok =
     allowed.includes(me.role) ||
     (isAdminRole(me.role) && allowed.includes("admin"));
-  if (!ok) redirect("/logg-inn?feil=tilgang");
+  // Innlogget, men feil rolle: egen side med vei tilbake (ikke innloggingsskjema).
+  if (!ok) redirect("/ingen-tilgang");
   return me.role;
+}
+
+/** Lesbar rolle-etikett (til «ingen tilgang»-siden m.m.). */
+export function roleLabel(role: Role | string | null | undefined): string {
+  switch (role) {
+    case "admin":
+      return "Admin";
+    case "eier":
+      return "Eier";
+    case "shop":
+      return "Kasse";
+    case "staff":
+      return "Ansatt";
+    case "revisor":
+      return "Revisor";
+    case "customer":
+      return "Kunde";
+    default:
+      return String(role ?? "ukjent");
+  }
 }
 
 /** Standard landingsside etter innlogging, basert på rolle. */
