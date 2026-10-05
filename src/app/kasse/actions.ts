@@ -470,10 +470,22 @@ export async function listSellableServices(): Promise<SellableService[]> {
   }
 }
 
+export type GiftCardPayment = {
+  /** Gavekort-kode eller strekkode. */
+  code: string;
+  /** Ønsket trekk i kr. Utelatt = så mye som mulig (saldo / hele beløpet). */
+  amount?: number;
+};
+
 export type WalkinInput = {
   staffId?: string;
   paymentMethod: string;
+  /** Hovedbehandling (bakoverkompatibel – brukes hvis `services` mangler). */
   service?: string;
+  /** Alle behandlingslinjer: hovedbehandling + tillegg (navn). */
+  services?: string[];
+  /** Betal (helt/delvis) med gavekort. Resten tas med paymentMethod/payments. */
+  gift?: GiftCardPayment;
   products?: SaleProduct[];
   customer?: { name?: string; email?: string; phone?: string };
   /** Valgt eksisterende kunde (fra telefonsøk). Knytter salget til denne raden.
@@ -560,16 +572,34 @@ export async function recordWalkinSale(
       return { error: "Registrer kunde – drop-in uten kunde er slått av." };
     }
 
-    const { data: saleId, error } = await sb.rpc("record_walkin_sale", {
+    // Behandlingslinjer: eksplisitt liste, ellers den gamle enkelt-tjenesten.
+    const serviceNames = (
+      input.services && input.services.length > 0
+        ? input.services
+        : input.service
+          ? [input.service]
+          : []
+    )
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const giftCode = input.gift?.code?.trim() || null;
+    const giftAmount =
+      input.gift && typeof input.gift.amount === "number" && input.gift.amount > 0
+        ? Math.round(input.gift.amount)
+        : null;
+
+    const { data: saleId, error } = await sb.rpc("record_walkin_sale_v2", {
       p_staff: input.staffId || null,
       p_payment_method: input.paymentMethod ?? null,
-      p_service: input.service?.trim() || null,
+      p_services: serviceNames,
       p_products: products,
       p_customer: customer,
       p_make_member: !!input.makeMember,
       p_discount: discountNok,
       p_payments: payments.length > 0 ? payments : null,
       p_campaign: input.campaignId || null,
+      p_gift_code: giftCode,
+      p_gift_amount: giftAmount,
     });
     if (error) {
       return {
@@ -615,7 +645,7 @@ export async function recordWalkinSale(
         await sendReceiptEmail({
           to: receiptEmail,
           name: customer?.name ?? "",
-          service: input.service?.trim() || "Varekjøp",
+          service: serviceNames.length > 0 ? serviceNames.join(" + ") : "Varekjøp",
           barber: barberName,
           date: fmtDay(new Date().toISOString()),
           price: `${Number(sale?.total_nok) || 0} kr`,

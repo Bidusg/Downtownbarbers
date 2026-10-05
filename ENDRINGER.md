@@ -148,3 +148,45 @@ Admin/kasse: kundeklubb-telling, grupperte tjenester i kassa, telefon i bookingd
 - Flere behandlingslinjer (tjeneste + tillegg) i ett hurtigsalg – krever ny
   RPC-signatur (`record_walkin_sale` tar i dag én `service`).
 - Gavekort som betalingsmåte direkte i hurtigsalg (i dag: egen Gavekort-side).
+
+---
+
+# ENDRINGER — Hurtigsalg v2: flere linjer + gavekort (5. okt 2026, bygg 4)
+
+## Commit-tittel
+
+```
+Hurtigsalg v2: behandling + tillegg i samme salg, gavekort som betaling (ny RPC record_walkin_sale_v2)
+```
+
+## Kjør i Supabase → SQL Editor FØR push (idempotent)
+
+`KJØR-I-SUPABASE-HURTIGSALG-V2.sql` – ny funksjon `record_walkin_sale_v2`
+(den gamle beholdes), ny loggtabell `gift_card_redemptions`, og sperre mot
+negativ gavekortsaldo. Kassa kaller v2 fra og med dette bygget, så SQL-en må
+være kjørt før Vercel bygger – ellers feiler hurtigsalg med «function not found».
+
+## Hva er nytt i kassa
+
+- **Tjeneste-steget:** hovedbehandling som før (gruppert per kategori), og
+  under den et «Tillegg»-felt med chips (Hårvask, Hodebunnsmassasje …) som kan
+  hukes av flere av. Hver blir egen linje på salget (`sale_items`), så
+  rapportene per behandlingskategori blir riktige. Auto-hopp videre skjer nå
+  bare ved «Ingen behandling» – ellers står man til Neste, så tillegg kan velges.
+- **Betalingssteget: «Betal med gavekort».** Skann/skriv kode → saldo vises →
+  trekk (standard: så mye som mulig) → resten betales med Kontant/Kort/Vipps
+  eller splitt. Dekker gavekortet alt, er det én knapp «Registrer salg».
+  Trekket skjer i samme transaksjon som salget (feiler salget, røres ikke
+  kortet), logges som betalingslinje «Gavekort» (synlig i kasseoppgjør / per
+  betalingsmåte) og i `gift_card_redemptions`.
+- Kvitterings-e-posten lister alle behandlingslinjene («Herreklipp 30' + Hårvask»).
+
+## Test etter SQL + push
+
+1. Admin → Gavekort → Nytt gavekort på f.eks. 200 kr (noter koden).
+2. Kasse → Hurtigsalg: velg barber, Herreklipp 30' + huk av Hårvask → Neste
+   gjennom til Betaling → «Betal med gavekort» → lim inn koden → trekk 200 →
+   rest betales med Kort.
+3. Sjekk (499 + 179 = 678 kr): Admin → Gavekort viser saldo 0 på kortet,
+   Kasseoppgjør viser både «Gavekort 200» og «Kort 478», og salget har to
+   behandlingslinjer (Omsetning → klikk dagen).

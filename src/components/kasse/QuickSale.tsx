@@ -19,6 +19,8 @@ import {
   type MemberCampaignOffer,
 } from "@/app/kasse/actions";
 import { BarcodeScanner } from "@/components/ui/BarcodeScanner";
+import { findGiftCard, type GiftCardHit } from "@/app/admin/gavekort/actions";
+import { isAddonCategory } from "@/lib/service-categories";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CouponPicker, couponDiscount } from "@/components/kasse/CouponPicker";
 
@@ -72,7 +74,17 @@ export function QuickSale({
 
   const [barberId, setBarberId] = useState("");
   const [serviceName, setServiceName] = useState("");
+  // Tillegg (kategori «Tillegg») – flere kan velges i samme salg.
+  const [addonNames, setAddonNames] = useState<string[]>([]);
   const [cart, setCart] = useState<Record<string, number>>({});
+
+  // Gavekort som (del)betaling i betalingssteget.
+  const [giftOpen, setGiftOpen] = useState(false);
+  const [giftCode, setGiftCode] = useState("");
+  const [giftHit, setGiftHit] = useState<GiftCardHit | null>(null);
+  const [giftMsg, setGiftMsg] = useState<string | null>(null);
+  const [giftAmt, setGiftAmt] = useState("");
+  const [giftLooking, startGift] = useTransition();
 
   // Kunde: enten valgt eksisterende (fra søk) eller manuelt innfylt.
   const [picked, setPicked] = useState<SelectedCustomer | null>(null);
@@ -106,7 +118,13 @@ export function QuickSale({
     setStep(0);
     setBarberId("");
     setServiceName("");
+    setAddonNames([]);
     setCart({});
+    setGiftOpen(false);
+    setGiftCode("");
+    setGiftHit(null);
+    setGiftMsg(null);
+    setGiftAmt("");
     setPicked(null);
     setCustQuery("");
     setHits([]);
@@ -169,6 +187,28 @@ export function QuickSale({
     () => services.find((s) => s.name === serviceName)?.price_nok ?? 0,
     [services, serviceName],
   );
+  const addonServices = useMemo(
+    () => services.filter((s) => isAddonCategory(s.category)),
+    [services],
+  );
+  const mainServices = useMemo(
+    () => services.filter((s) => !isAddonCategory(s.category)),
+    [services],
+  );
+  const addonTotal = useMemo(
+    () =>
+      addonNames.reduce(
+        (sum, n) => sum + (services.find((s) => s.name === n)?.price_nok ?? 0),
+        0,
+      ),
+    [services, addonNames],
+  );
+  const allServiceNames = useMemo(
+    () => [...(serviceName ? [serviceName] : []), ...addonNames],
+    [serviceName, addonNames],
+  );
+  const toggleAddon = (n: string) =>
+    setAddonNames((cur) => (cur.includes(n) ? cur.filter((x) => x !== n) : [...cur, n]));
   const cartLines = useMemo(
     () =>
       products
@@ -177,7 +217,7 @@ export function QuickSale({
     [products, cart],
   );
   const productTotal = cartLines.reduce((a, l) => a + l.price_nok * l.qty, 0);
-  const gross = servicePrice + productTotal;
+  const gross = servicePrice + addonTotal + productTotal;
   // Venn/familie-rabatt beregnes LIVE av gross; fri rabatt tas fra feltet.
   const discountNum = relationType
     ? Math.round((gross * (allow?.friendFamilyPct ?? 0)) / 100)
@@ -187,7 +227,7 @@ export function QuickSale({
   const couponDisc = coupon ? couponDiscount(coupon, gross) : 0;
   const totalDiscount = Math.min(discountNum + couponDisc, Math.round(gross));
   const total = Math.max(0, Math.round(gross) - totalDiscount);
-  const hasSomething = !!serviceName || cartLines.length > 0;
+  const hasSomething = allServiceNames.length > 0 || cartLines.length > 0;
   const hasCustomer = !!picked || !!(name.trim() || email.trim() || phone.trim());
   const customerRequired = allow ? !allow.dropinWithoutCustomerAllowed : false;
   // Kvittering kan sendes til en oppslått kunde (serveren har e-posten) eller
@@ -199,7 +239,37 @@ export function QuickSale({
     amount: Math.max(0, Math.round(Number(splitAmts[m]) || 0)),
   })).filter((e) => e.amount > 0);
   const splitSum = splitEntries.reduce((a, e) => a + e.amount, 0);
-  const splitOk = splitSum === total && total > 0;
+  // Gavekort: hvor mye som trekkes (visning) og hva som gjenstår.
+  const giftUsable = giftHit && !giftHit.expired ? Math.max(0, Math.round(giftHit.balanceNok)) : 0;
+  const giftWanted = giftAmt.trim() === "" ? Math.min(giftUsable, total) : Math.max(0, Math.round(Number(giftAmt) || 0));
+  const giftTake = giftHit ? Math.min(giftWanted, giftUsable, total) : 0;
+  const restAfterGift = Math.max(0, total - giftTake);
+  const splitOk = splitSum === (giftHit ? restAfterGift : total) && splitSum > 0;
+
+  function lookupGift(code: string) {
+    const c = code.trim();
+    if (!c) return;
+    setGiftMsg(null);
+    setGiftHit(null);
+    startGift(async () => {
+      const hit = await findGiftCard(c);
+      if (!hit) {
+        setGiftMsg("Fant ikke gavekortet.");
+        return;
+      }
+      if (hit.expired) {
+        setGiftMsg("Gavekortet er utløpt.");
+        return;
+      }
+      if (hit.balanceNok <= 0) {
+        setGiftMsg("Gavekortet er tomt.");
+        return;
+      }
+      setGiftCode(hit.code);
+      setGiftHit(hit);
+      setGiftAmt("");
+    });
+  }
 
   // Strekkode-skanning i produkt-steget.
   const [showScan, setShowScan] = useState(false);
@@ -249,7 +319,12 @@ export function QuickSale({
   }
   function pickService(nameSel: string) {
     setServiceName(nameSel);
-    go(2);
+    // Uten tillegg i katalogen (eller «Ingen behandling»): rett videre som før.
+    // Med tillegg: bli stående så kassa kan huke av Hårvask o.l. før Neste.
+    if (!nameSel || addonServices.length === 0) {
+      if (!nameSel) setAddonNames([]);
+      go(2);
+    }
   }
   function selectCustomer(h: CustomerHit) {
     setPicked({ id: h.id, name: h.full_name });
@@ -279,7 +354,7 @@ export function QuickSale({
       return;
     }
     if (useSplit && !splitOk) {
-      setError(`Betalingen (${kr(splitSum)}) må stemme med totalen (${kr(total)}).`);
+      setError(`Betalingen (${kr(splitSum)}) må stemme med ${giftHit ? "resten" : "totalen"} (${kr(giftHit ? restAfterGift : total)}).`);
       return;
     }
     setError(null);
@@ -288,6 +363,8 @@ export function QuickSale({
         staffId: barberId || undefined,
         paymentMethod: useSplit ? (splitEntries[0]?.method ?? "Delt") : method,
         service: serviceName || undefined,
+        services: allServiceNames,
+        gift: giftHit && giftTake > 0 ? { code: giftCode, amount: giftTake } : undefined,
         products: cartLines.map((l) => ({ id: l.id, qty: l.qty })),
         customerId: picked?.id,
         customer: picked
@@ -413,15 +490,10 @@ export function QuickSale({
                     >
                       Ingen behandling
                     </button>
-                    {groupServices(services).map((g) => (
+                    {groupServices(mainServices).map((g) => (
                       <div key={g.cat} className="pt-2">
                         <p className="mb-1.5 text-[10px] font-semibold tracking-wide text-accent-soft uppercase">
                           {g.cat}
-                          {g.cat.toLowerCase() === "tillegg" && (
-                            <span className="ml-1 normal-case tracking-normal text-muted">
-                              · kun som eneste behandling – flere linjer kommer
-                            </span>
-                          )}
                         </p>
                         <div className="space-y-1.5">
                           {g.rows.map((s) => (
@@ -446,6 +518,48 @@ export function QuickSale({
                         </div>
                       </div>
                     ))}
+
+                    {/* Tillegg: flere kan velges, legges som egne linjer på salget */}
+                    {addonServices.length > 0 && (
+                      <div className="pt-3">
+                        <p className="mb-1.5 text-[10px] font-semibold tracking-wide text-accent-soft uppercase">
+                          Tillegg
+                          <span className="ml-1 normal-case tracking-normal text-muted">
+                            · velg flere, trykk Neste
+                          </span>
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {addonServices.map((a) => {
+                            const on = addonNames.includes(a.name);
+                            return (
+                              <button
+                                key={a.name}
+                                type="button"
+                                onClick={() => toggleAddon(a.name)}
+                                aria-pressed={on}
+                                className={
+                                  "rounded-full border px-3 py-1.5 text-xs transition-colors " +
+                                  (on
+                                    ? "border-accent-soft bg-accent-soft/15 text-fg"
+                                    : "border-line text-muted hover:border-accent-soft")
+                                }
+                              >
+                                {on ? "✓ " : "+ "}
+                                {a.name} ({kr(a.price_nok)})
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {(serviceName || addonNames.length > 0) && (
+                          <p className="mt-3 text-right text-xs text-muted">
+                            Behandling{addonNames.length > 0 ? " + tillegg" : ""}:{" "}
+                            <span className="font-display font-bold text-fg">
+                              {kr(servicePrice + addonTotal)}
+                            </span>
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -729,6 +843,9 @@ export function QuickSale({
                       <Row label="Barber" value={barberName} />
                     )}
                     {serviceName && <Row label="Behandling" value={serviceName} />}
+                    {addonNames.length > 0 && (
+                      <Row label="Tillegg" value={addonNames.join(", ")} />
+                    )}
                     {cartLines.length > 0 && (
                       <Row label="Varer" value={`${cartLines.length}`} />
                     )}
@@ -755,9 +872,104 @@ export function QuickSale({
                     </p>
                   )}
 
+                  {/* Gavekort (hel eller delvis betaling) */}
+                  <div className="mb-3 rounded-lg border border-line p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold tracking-wide text-muted uppercase">
+                        Gavekort
+                      </span>
+                      {giftHit ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setGiftHit(null);
+                            setGiftCode("");
+                            setGiftAmt("");
+                            setGiftMsg(null);
+                          }}
+                          className="text-xs text-muted hover:text-danger"
+                        >
+                          Fjern
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setGiftOpen((v) => !v)}
+                          className="text-xs font-semibold text-accent-soft hover:underline"
+                        >
+                          {giftOpen ? "Skjul" : "Betal med gavekort"}
+                        </button>
+                      )}
+                    </div>
+                    {giftOpen && !giftHit && (
+                      <div className="mt-2">
+                        <div className="flex gap-2">
+                          <input
+                            value={giftCode}
+                            onChange={(e) => setGiftCode(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                lookupGift(giftCode);
+                              }
+                            }}
+                            placeholder="Skann eller skriv kode …"
+                            aria-label="Gavekortkode"
+                            autoFocus
+                            className={inputCls}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => lookupGift(giftCode)}
+                            disabled={giftLooking || !giftCode.trim()}
+                            className="shrink-0 rounded-md border border-line px-3 py-2 text-sm text-fg hover:border-accent-soft disabled:opacity-40"
+                          >
+                            {giftLooking ? "…" : "Slå opp"}
+                          </button>
+                        </div>
+                        {giftMsg && <p className="mt-1.5 text-xs text-danger">{giftMsg}</p>}
+                      </div>
+                    )}
+                    {giftHit && (
+                      <div className="mt-2 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted">
+                            {giftHit.code} · saldo {kr(giftHit.balanceNok)}
+                          </span>
+                          <label className="flex items-center gap-2 text-xs text-muted">
+                            Trekk
+                            <input
+                              value={giftAmt}
+                              onChange={(e) => setGiftAmt(e.target.value.replace(/[^0-9]/g, ""))}
+                              placeholder={String(Math.min(giftUsable, total))}
+                              inputMode="numeric"
+                              aria-label="Beløp fra gavekort"
+                              className="w-20 rounded-md border border-line bg-canvas px-2 py-1 text-right text-sm text-fg outline-none focus:border-accent-soft"
+                            />
+                            kr
+                          </label>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between border-t border-line pt-2">
+                          <span className="text-xs text-muted">
+                            Gavekort dekker {kr(giftTake)} · ny saldo {kr(giftHit.balanceNok - giftTake)}
+                          </span>
+                          <span className="text-xs font-semibold text-fg">
+                            Rest: {kr(restAfterGift)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="mb-2 flex items-center justify-between">
                     <span className="text-xs text-muted">
-                      {split ? "Del betalingen:" : "Betalt med:"}
+                      {giftHit && restAfterGift === 0
+                        ? "Hele beløpet dekkes av gavekortet:"
+                        : split
+                          ? "Del resten:"
+                          : giftHit
+                            ? "Resten betalt med:"
+                            : "Betalt med:"}
                     </span>
                     <button
                       type="button"
@@ -796,7 +1008,7 @@ export function QuickSale({
                       ))}
                       <div className="flex items-center justify-between border-t border-line pt-2 text-xs">
                         <span className={splitOk ? "text-accent-soft" : "text-muted"}>
-                          Fordelt: {kr(splitSum)} / {kr(total)}
+                          Fordelt: {kr(splitSum)} / {kr(giftHit ? restAfterGift : total)}
                         </span>
                         <button
                           type="button"
@@ -808,16 +1020,26 @@ export function QuickSale({
                         </button>
                       </div>
                     </div>
+                  ) : giftHit && restAfterGift === 0 ? (
+                    <button
+                      type="button"
+                      disabled={pending || !hasSomething}
+                      onClick={() => submit("", false)}
+                      className="w-full rounded-md bg-accent px-3 py-2.5 text-sm font-semibold text-accent-fg hover:opacity-90 disabled:opacity-50"
+                    >
+                      {pending ? "…" : `Registrer salg · gavekort ${kr(giftTake)}`}
+                    </button>
                   ) : (
                     <div className="flex flex-wrap items-center gap-2">
                       {PAYMENTS.map((p) => (
                         <button
                           key={p}
+                          type="button"
                           disabled={pending || !hasSomething}
                           onClick={() => submit(p, false)}
                           className="flex-1 rounded-md bg-accent px-3 py-2.5 text-sm font-semibold text-accent-fg hover:opacity-90 disabled:opacity-50"
                         >
-                          {pending ? "…" : p}
+                          {pending ? "…" : giftHit ? `${p} ${kr(restAfterGift)}` : p}
                         </button>
                       ))}
                     </div>
