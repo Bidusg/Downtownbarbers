@@ -129,6 +129,12 @@ async function methodTotals(
  * Aggregert periode-rapport (for revisor: kvartal/halvår/helår). Totaler,
  * antall og fordeling per barber / betalingsmåte / måned — uten rad-tak som
  * ville kappet et helt år (bruker et høyt tak og aggregerer server-side i JS).
+ *
+ * Fixit-historikk: totalen og månedsfordelingen bruker samme skille som
+ * grafene (dager t.o.m. FIXIT_CUTOVER fra fixit_turnover_daily, etter fra
+ * kassesalg), så perioderapporten viser omsetningen fra Fixit-tiden også.
+ * Antall salg, per barber og per betalingsmåte finnes bare der det ligger
+ * salgsrader (kassa + august-importen) – Fixit-dagstotalene har ikke det.
  */
 export async function getPeriodReport(
   startIso: string,
@@ -139,8 +145,17 @@ export async function getPeriodReport(
   byBarber: { name: string; nok: number }[];
   byMethod: { method: string; nok: number }[];
   byMonth: { key: string; nok: number; count: number }[];
+  /** Kr av totalen som kommer fra Fixit-historikk (dager t.o.m. cutover). */
+  fixitNok: number;
 }> {
-  const empty = { total: 0, count: 0, byBarber: [], byMethod: [], byMonth: [] };
+  const empty = {
+    total: 0,
+    count: 0,
+    byBarber: [],
+    byMethod: [],
+    byMonth: [],
+    fixitNok: 0,
+  };
   try {
     const sb = await createClient();
     const { data } = await sb
@@ -156,15 +171,29 @@ export async function getPeriodReport(
     const month = new Map<string, { nok: number; count: number }>();
     for (const s of sales) {
       const amt = Number(s.total_nok) || 0;
-      total += amt;
       count += 1;
       const st = s.staff as { full_name?: string } | null;
       const bname = st?.full_name ?? "Ukjent";
       const mk = osloMonthKey(s.sold_at as string);
       barber.set(bname, (barber.get(bname) ?? 0) + amt);
       const cm = month.get(mk) ?? { nok: 0, count: 0 };
-      cm.nok += amt;
       cm.count += 1;
+      month.set(mk, cm);
+    }
+    // Totaler per dag: Fixit t.o.m. cutover, kassesalg etter (ingen dobbelt-telling).
+    const startKey = osloDayKey(startIso);
+    const endExclKey = osloDayKey(endIso);
+    const endDate = new Date(endExclKey + "T00:00:00Z");
+    endDate.setUTCDate(endDate.getUTCDate() - 1);
+    const endKey = endDate.toISOString().slice(0, 10);
+    const daily = await blendedDailyTotals(sb, startKey, endKey);
+    let fixitNok = 0;
+    for (const [dayKey, nok] of daily) {
+      total += nok;
+      if (dayKey <= FIXIT_CUTOVER) fixitNok += nok;
+      const mk = dayKey.slice(0, 7);
+      const cm = month.get(mk) ?? { nok: 0, count: 0 };
+      cm.nok += nok;
       month.set(mk, cm);
     }
     // Betalingsmåte: fordel splittsalg per faktisk måte (sale_payments).
@@ -183,6 +212,7 @@ export async function getPeriodReport(
         nok: Math.round(v.nok),
         count: v.count,
       })),
+      fixitNok: Math.round(fixitNok),
     };
   } catch {
     return empty;

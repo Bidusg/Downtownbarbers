@@ -29,7 +29,8 @@ export default async function RevisorRapport({
   const inkl = rep.total;
   const eks = Math.round(inkl / (1 + PAYROLL.MVA));
   const mva = inkl - eks;
-  const snitt = rep.count ? Math.round(inkl / rep.count) : 0;
+  // Snitt kun av salgslinjene (Fixit-dagstotaler har ikke antall).
+  const snitt = rep.count ? Math.round((inkl - rep.fixitNok) / rep.count) : 0;
   const monthMap = new Map(rep.byMonth.map((m) => [m.key, m]));
   const maxMonth = Math.max(1, ...p.months.map((m) => monthMap.get(m.key)?.nok ?? 0));
   const maxBarber = Math.max(1, ...rep.byBarber.map((b) => b.nok));
@@ -133,11 +134,23 @@ export default async function RevisorRapport({
 
       {/* Nøkkeltall */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatTile label="Omsetning inkl. mva" value={nok(inkl)} sub={p.label} />
+        <StatTile
+          label="Omsetning inkl. mva"
+          value={nok(inkl)}
+          sub={rep.fixitNok > 0 ? `${p.label} · inkl. Fixit-historikk` : p.label}
+        />
         <StatTile label="Omsetning eks. mva" value={nok(eks)} sub={`${Math.round(PAYROLL.MVA * 100)} % mva`} />
         <StatTile label="Utgående mva" value={nok(mva)} sub="beregnet, standard sats" />
-        <StatTile label="Antall salg" value={String(rep.count)} />
-        <StatTile label="Snitt per salg" value={nok(snitt)} />
+        <StatTile
+          label="Antall salg"
+          value={String(rep.count)}
+          sub={rep.fixitNok > 0 ? "kun salgslinjer (ikke Fixit-dagstotaler)" : undefined}
+        />
+        <StatTile
+          label="Snitt per salg"
+          value={nok(snitt)}
+          sub={rep.fixitNok > 0 ? "av salgslinjene" : undefined}
+        />
         <StatTile label="Antall barbere" value={String(rep.byBarber.length)} sub="med salg i perioden" />
       </div>
 
@@ -167,6 +180,15 @@ export default async function RevisorRapport({
           })}
         </ul>
       </Card>
+
+      {rep.fixitNok > 0 && (
+        <p className="text-xs text-muted">
+          Omsetningen inkluderer Fixit-historikk ({nok(rep.fixitNok)}) for dager til og med
+          3. oktober 2026 – Fixit-eksporten har kun dagstotaler, så «Per barber», «Per
+          betalingsmåte» og antall salg dekker bare dager med salgslinjer (august-importen
+          og kassa).
+        </p>
+      )}
 
       {/* Per barber + per betalingsmåte */}
       <div className="grid gap-6 md:grid-cols-2">

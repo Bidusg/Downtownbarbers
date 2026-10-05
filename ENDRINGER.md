@@ -216,3 +216,21 @@ Revisor: bekreftelse med mottakere før lønnsutsending; egen «ingen tilgang»-
   er ekte barberer og augustsalget er ekte), go-live-blokkere og åpne punkter.
 
 Ingen migrasjon. Ingen nye env-variabler.
+
+---
+
+# ENDRINGER — Perioderapport med Fixit-historikk (5. okt 2026, bygg 6)
+
+## Commit-tittel
+
+```
+Revisor: perioderapport (kvartal/halvår/helår) tar med Fixit-historikk i omsetning og per måned
+```
+
+Perioderapporten brukte bare `sales`, så Fixit-tiden (dagstotaler i
+`fixit_turnover_daily` t.o.m. 3. okt) manglet – Q3 2026 viste f.eks. bare
+august-importen. Nå bruker omsetning og månedsfordelingen samme skille som
+grafene og måneds-KPI-en (Fixit t.o.m. cutover, kassa etter). Antall salg,
+snitt, per barber og per betalingsmåte dekker fortsatt bare dager med
+salgslinjer, og siden sier det eksplisitt når Fixit-tall er med.
+Ingen migrasjon.
