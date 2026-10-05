@@ -234,3 +234,45 @@ grafene og måneds-KPI-en (Fixit t.o.m. cutover, kassa etter). Antall salg,
 snitt, per barber og per betalingsmåte dekker fortsatt bare dager med
 salgslinjer, og siden sier det eksplisitt når Fixit-tall er med.
 Ingen migrasjon.
+
+---
+
+# ENDRINGER — Sikkerhet & personvern før live (5. okt 2026, bygg 7)
+
+## Commit-tittel
+
+```
+Sikkerhet/personvern: CSP + sikkerhetsheadere, selvhostede fonter, kart uten Google-iframe, personvernside, honeypot + rate-limit på booking
+```
+
+## Innhold
+
+- **Sikkerhetsheadere** (`next.config.ts`): Content-Security-Policy (eksterne
+  script sperret, frame-ancestors 'self' – admin-forhåndsvisningen trenger
+  egen origin), X-Frame-Options SAMEORIGIN, X-Content-Type-Options nosniff,
+  Referrer-Policy, Permissions-Policy (kamera kun egen origin – strekkode-
+  skanneren). Verifisert lokalt: ingen CSP-brudd på forsiden.
+- **Fonter serveres fra eget domene** (`src/fonts`, variable Inter + Playfair
+  Display, OFL-lisens vedlagt) via `next/font/local`. Null kall til Google fra
+  besøkende, og bygget er ikke lenger avhengig av nett.
+- **Kart i footer** er et klikk-kort som åpner Google Maps i ny fane – ingen
+  Google-iframe/cookies før besøkende selv klikker.
+  → Med disse to er siden banner-fri med god samvittighet: eneste cookie er
+  Supabase-innlogging for ansatte (strengt nødvendig).
+- **/personvern** (NO/EN) – beskriver faktisk praksis (booking, kasse,
+  min-side-token, vurderinger, markedsføring m/samtykke, databehandlere
+  Supabase/Vercel/Resend/SMS/Tripletex, 5 års bokføring, rettigheter, cookies).
+  Lenke i footer og under bookingskjemaet («Ved å bestille godtar du …»).
+  **Kidus/Dawit må lese gjennom** – særlig e-postadressen (bruker
+  site_settings.email, fallback post@) og at leverandørlista stemmer.
+- **Misbruksvern på booking** (`src/lib/abuse-guard.ts`): skjult honeypot-felt
+  (roboter som fyller det får «ok» uten at noe lagres), maks 12 innsendinger
+  per IP per time (minnebasert, beste-innsats), og maks 8 kommende aktive
+  bookinger per kunde (e-post/telefon, databasebasert – robust).
+- `sitemap.xml` inkluderer /personvern.
+
+Ingen migrasjon. Ingen nye env-variabler.
+
+## Rydd (manuelt)
+
+- Slett `src/app/api/debug-email/route.ts` (nøytralisert 404-stub, kan fjernes).

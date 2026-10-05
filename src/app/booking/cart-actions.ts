@@ -7,6 +7,7 @@ import { getPublicServiceExclusions } from "@/lib/service-catalog-queries";
 import { sendBookingConfirmation } from "@/lib/email";
 import { siteUrl } from "@/lib/site-url";
 import { isValidEmail, isValidNorwegianPhone, titleCase } from "@/lib/validate";
+import { customerBookingLimited, ipRateLimited, isHoneypotTripped } from "@/lib/abuse-guard";
 
 export type CartMode = "single" | "group";
 
@@ -135,6 +136,8 @@ export type CartBookingInput = {
   phone: string;
   source?: string;
   marketingConsent?: boolean;
+  /** Honeypot – skal alltid være tomt. */
+  website?: string;
 };
 
 /**
@@ -153,6 +156,21 @@ export async function createBookingGroup(
     return { error: "Ugyldig telefonnummer." };
   if (!input.date || !input.time) return { error: "Dato og tid må velges." };
   if (!input.lines.length) return { error: "Kurven er tom." };
+
+  // Misbruksvern (se src/lib/abuse-guard.ts).
+  if (isHoneypotTripped(input.website)) {
+    // Robot: lat som alt gikk bra, lagre ingenting.
+    return { ok: true };
+  }
+  if (await ipRateLimited()) {
+    return { error: "For mange forsøk på kort tid. Prøv igjen om en liten stund, eller ring oss." };
+  }
+  if (await customerBookingLimited(input.email, input.phone)) {
+    return {
+      error:
+        "Du har allerede mange kommende timer hos oss. Ring oss på +47 463 58 764 hvis du trenger flere.",
+    };
+  }
 
   try {
     const sb = await createClient();

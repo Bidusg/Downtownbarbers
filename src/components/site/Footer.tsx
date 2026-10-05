@@ -1,4 +1,5 @@
 import type { SVGProps } from "react";
+import Link from "next/link";
 import { salon } from "@/lib/data/salon";
 import { getSiteSettings } from "@/lib/site-settings";
 import { LogoMark } from "@/components/site/LogoMark";
@@ -39,9 +40,6 @@ export async function Footer() {
   // Samme kilde som forsiden (DB → fallback), slik at åpningstider,
   // adresse og telefon aldri spriker mellom hero og footer.
   const s = await getSiteSettings();
-  const mapSrc = `https://www.google.com/maps?q=${encodeURIComponent(
-    s.address,
-  )}&output=embed`;
   const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
     s.address,
   )}`;
@@ -96,20 +94,39 @@ export async function Footer() {
           </ul>
         </div>
 
-        {/* Kart */}
-        <div className="overflow-hidden rounded-lg border border-line">
-          <iframe
-            title={`Kart til ${s.name}`}
-            src={mapSrc}
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-            className="h-full min-h-64 w-full border-0"
-          />
-        </div>
+        {/* Kart: lenke-kort i stedet for Google-iframe – ingen tredjepartskall
+            (og dermed ingen Google-cookies) før besøkende selv klikker. */}
+        <a
+          href={mapLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group relative flex min-h-64 flex-col items-center justify-center overflow-hidden rounded-lg border border-line bg-surface text-center transition-colors hover:border-accent-soft"
+          aria-label={`Åpne ${s.address} i Google Maps`}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className="h-10 w-10 text-accent-soft transition-transform group-hover:-translate-y-1"
+            fill="currentColor"
+            aria-hidden
+          >
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z" />
+          </svg>
+          <p className="mt-3 font-display text-lg font-bold text-fg">{s.name}</p>
+          <p className="mt-1 text-sm text-muted">{s.address}</p>
+          <span className="mt-4 inline-flex items-center gap-1.5 border border-line-2 px-4 py-2 text-xs font-semibold text-fg transition-colors group-hover:border-accent-soft group-hover:text-accent-soft">
+            <T k="footer.openMap" />
+            <span aria-hidden>↗</span>
+          </span>
+        </a>
       </div>
 
-      <div className="border-t border-line py-5 text-center text-xs text-muted">
-        © {s.established}–2026 {s.name}. <T k="footer.rights" />
+      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-line px-5 py-5 text-center text-xs text-muted">
+        <span>
+          © {s.established}–2026 {s.name}. <T k="footer.rights" />
+        </span>
+        <Link href="/personvern" className="underline-offset-2 hover:text-fg hover:underline">
+          <T k="footer.privacy" />
+        </Link>
       </div>
     </footer>
   );

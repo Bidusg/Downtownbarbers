@@ -127,6 +127,8 @@ export function BookingWizard({
   const [countryCode, setCountryCode] = useState("+47");
   const [source, setSource] = useState("");
   const [marketingConsent, setMarketingConsent] = useState(false);
+  // Honeypot-felt (skal alltid være tomt for ekte kunder).
+  const [website, setWebsite] = useState("");
 
   const [done, setDone] = useState(false);
   const [confirmLinks, setConfirmLinks] = useState<{ portalUrl?: string; cancelUrl?: string }>({});
@@ -296,6 +298,7 @@ export function BookingWizard({
       phone: `${countryCode} ${phone.trim()}`,
       source,
       marketingConsent,
+      website,
     });
     setPending(false);
     if (res?.error) setError(res.error);
@@ -777,7 +780,7 @@ export function BookingWizard({
 
         {/* ======================= STEG 2: KONTAKT ========================== */}
         {step === 2 && (
-          <form onSubmit={submit} noValidate className="space-y-4">
+          <form onSubmit={submit} noValidate className="relative space-y-4">
             <div className="flex items-center justify-between">
               <p className="block text-xs font-semibold tracking-wide text-muted uppercase">
                 {t("wiz.yourDetails")}
@@ -931,6 +934,29 @@ export function BookingWizard({
               />
               <span>{t("wiz.marketingConsent")}</span>
             </label>
+
+            <p className="text-[11px] leading-relaxed text-muted">
+              {t("wiz.privacyNote.pre")}
+              <a href="/personvern" target="_blank" rel="noopener" className="underline underline-offset-2 hover:text-fg">
+                {t("wiz.privacyNote.link")}
+              </a>
+              {t("wiz.privacyNote.post")}
+            </p>
+
+            {/* Honeypot: usynlig for mennesker, roboter fyller det ut. */}
+            <div aria-hidden="true" className="absolute -left-[9999px] top-auto h-px w-px overflow-hidden">
+              <label>
+                Nettside
+                <input
+                  type="text"
+                  name="website"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                />
+              </label>
+            </div>
 
             {error && (
               <p role="alert" className="text-sm text-danger">

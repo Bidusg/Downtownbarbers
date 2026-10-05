@@ -360,4 +360,14 @@ export const dictionary: Dict = {
   },
   "cancelpage.yes": { no: "Ja, avbestill timen", en: "Yes, cancel the appointment" },
   "cancelpage.no": { no: "Nei, behold timen", en: "No, keep the appointment" },
+
+  // ---- Footer / personvern ----
+  "footer.openMap": { no: "Åpne i Google Maps", en: "Open in Google Maps" },
+  "footer.privacy": { no: "Personvern", en: "Privacy" },
+  "wiz.privacyNote.pre": {
+    no: "Ved å bestille godtar du at vi lagrer opplysningene dine for å håndtere timen. Les mer i ",
+    en: "By booking you accept that we store your details to manage the appointment. Read more in our ",
+  },
+  "wiz.privacyNote.link": { no: "personvernerklæringen", en: "privacy policy" },
+  "wiz.privacyNote.post": { no: ".", en: "." },
 };

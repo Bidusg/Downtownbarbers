@@ -1,7 +1,33 @@
 import type { Metadata, Viewport } from "next";
+import localFont from "next/font/local";
 import "./globals.css";
 import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
 import { siteUrl } from "@/lib/site-url";
+
+// Fontene ligger i repoet (src/fonts, OFL-lisens) og serveres fra vårt eget
+// domene: null kall til Google fra besøkendes nettleser → ingen IP-deling,
+// ingen cookie-/samtykkespørsmål for fonter – og bygget er ikke avhengig av
+// nett. Variable fonter (ett filsett dekker alle vekter). Variablene plukkes
+// opp i globals.css (--font-sans / --font-display).
+const inter = localFont({
+  src: [
+    { path: "../fonts/inter-latin-wght-normal.woff2", style: "normal" },
+    { path: "../fonts/inter-latin-ext-wght-normal.woff2", style: "normal" },
+  ],
+  weight: "100 900",
+  variable: "--font-inter",
+  display: "swap",
+});
+const playfair = localFont({
+  src: [
+    { path: "../fonts/playfair-display-latin-wght-normal.woff2", style: "normal" },
+    { path: "../fonts/playfair-display-latin-ext-wght-normal.woff2", style: "normal" },
+    { path: "../fonts/playfair-display-latin-wght-italic.woff2", style: "italic" },
+  ],
+  weight: "400 900",
+  variable: "--font-playfair",
+  display: "swap",
+});
 
 export const viewport: Viewport = {
   themeColor: "#F8F5EF",
@@ -40,20 +66,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="nb">
-      <head>
-        {/* Fonter lastes via <link> (kjøretid) i stedet for next/font, så bygg ikke er avhengig av nett. */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,700;1,500&display=swap"
-        />
-      </head>
+    <html lang="nb" className={`${inter.variable} ${playfair.variable}`}>
       <body className="min-h-full">
         <LanguageProvider>{children}</LanguageProvider>
       </body>
