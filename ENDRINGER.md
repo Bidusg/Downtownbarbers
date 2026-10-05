@@ -581,3 +581,15 @@ Ingen SQL.
   blur på hele siden (tungt). Nå 0,18 s enkel inntoning, og alle admin-/kasse-/
   revisor-sider viser et skjelett med én gang mens data hentes (streaming),
   så det ikke «henger» på forrige side.
+
+---
+
+# ENDRINGER — Bygg 9i: auto-oppdatering
+
+Ingen SQL.
+
+- **Kalenderen (kasse + admin → Bookinger) henter nye bookinger selv** hvert
+  minutt og hver gang fanen får fokus igjen. Liten indikator «Oppdatert 14:32»
+  ved datoen. Pauser mens en booking dras/forlenges eller en dialog er åpen,
+  så ingenting hopper midt i en handling.
+- Kasse-forsiden (stemplingstavla) oppdateres også hvert minutt.

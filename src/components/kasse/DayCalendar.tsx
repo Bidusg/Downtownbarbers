@@ -112,6 +112,29 @@ export function DayCalendar({
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
   }, []);
+  // ---- Bakgrunnsoppdatering ---------------------------------------------
+  // Henter dagens agenda på nytt hvert minutt (og når fanen får fokus igjen),
+  // så nye nettbookinger dukker opp uten å trykke oppdater. Pauser mens noe
+  // dras/redigeres, så vi ikke river teppet under en gest eller en dialog.
+  const [lastSync, setLastSync] = useState<Date | null>(null);
+  const busyRef = useRef(false);
+  useEffect(() => {
+    const tick = () => {
+      if (document.visibilityState !== "visible" || busyRef.current) return;
+      router.refresh();
+      setLastSync(new Date());
+    };
+    const id = setInterval(tick, 60_000);
+    const onVis = () => document.visibilityState === "visible" && tick();
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", onVis);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("focus", onVis);
+    };
+  }, [router]);
+
   // Hold-og-dra på touch: timer før flyttemodus, og kolonnen under fingeren.
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hoverCol, setHoverCol] = useState<string | null>(null);
@@ -246,6 +269,11 @@ export function DayCalendar({
   });
   const isToday = date === today;
   const nowMin = osloMinutes(new Date().toISOString());
+
+  // Pause auto-oppdatering mens en dialog er åpen eller en gest pågår.
+  useEffect(() => {
+    busyRef.current = !!(selected || blockOpen || transfer || move || resize || dragId || slide);
+  }, [selected, blockOpen, transfer, move, resize, dragId, slide]);
 
   const columns = useMemo(() => {
     const map = new Map<string, { barber: ShopBarber; items: AgendaBooking[] }>();
@@ -574,6 +602,15 @@ export function DayCalendar({
         <div className="flex items-center gap-2">
           <span className="hidden text-xs text-muted lg:inline">
             ← sveip for å bytte dag →
+          </span>
+          <span
+            className="text-[11px] text-muted"
+            title="Kalenderen henter nye bookinger automatisk hvert minutt"
+          >
+            <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-accent-soft align-middle" aria-hidden />
+            {lastSync
+              ? `Oppdatert ${lastSync.toLocaleTimeString("nb-NO", { hour: "2-digit", minute: "2-digit" })}`
+              : "Auto-oppdatering på"}
           </span>
           {canBlock && (
             <button
