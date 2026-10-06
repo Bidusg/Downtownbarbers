@@ -93,7 +93,7 @@ export const dictionary: Dict = {
     no: "Ingen ledige tider denne dagen – velg en annen.",
     en: "No available times this day – choose another.",
   },
-  "wiz.toContact": { no: "Videre til kontakt →", en: "Continue to contact →" },
+  "wiz.toContact": { no: "Videre til info →", en: "Continue to details →" },
 
   // ---- Booking: steg 2 (kontakt) ----
   "wiz.yourDetails": { no: "Dine opplysninger", en: "Your details" },
@@ -187,8 +187,8 @@ export const dictionary: Dict = {
   "booking.eyebrow": { no: "Bestill time", en: "Book appointment" },
   "booking.heading": { no: "Sett deg ned.", en: "Have a seat." },
   "booking.intro": {
-    no: "Velg tjeneste, barber og tid – ferdig på under ett minutt. Bekreftelse på e-post med en gang.",
-    en: "Pick a service, a barber and a time – done in under a minute. Email confirmation right away.",
+    no: "Fire steg: tjeneste, barber, tid og info. Bekreftelse på e-post med en gang.",
+    en: "Four steps: service, barber, time and details. Email confirmation right away.",
   },
 
   // ---- Butikk-side ----
@@ -408,4 +408,7 @@ export const dictionary: Dict = {
   "wiz.addNote": { no: "Legg til en beskjed til barberen", en: "Add a note for the barber" },
   "wiz.remembered": { no: "Vi har fylt inn opplysningene fra sist.", en: "We filled in your details from last time." },
   "wiz.notYou": { no: "Ikke deg?", en: "Not you?" },
+  "wiz.swapTo": { no: "Bytt til", en: "Switch to" },
+  "wiz.addPerson": { no: "Legg til for en person til", en: "Add for another person" },
+  "wiz.addingFor": { no: "Velg tjeneste for person", en: "Choose a service for person" },
 };
