@@ -58,7 +58,7 @@ export default async function BookingPage({
           <div className="mt-10">
             <BookingWizard
               services={services}
-              barbers={barbers.filter((b) => b.bookable !== false)}
+              barbers={barbers}
               addons={addons}
               exclusions={exclusions}
               levelPrices={levelPrices}

@@ -8,7 +8,7 @@ språkbyttet NO/EN til **alle** kundevendte sider.
 
 - KJØR-I-SUPABASE-TURNUS-FRA-DATO.sql: turnus kan starte på en dato (staff_hours.valid_from/valid_to). Alle turnus-funksjoner (ledige tider, på vakt, hvem kan bookes, Min side, kapasitet, kopier uke) respekterer datoene. Legger også til staff.display_name hvis den mangler.
 - Admin → Timelister: «Gjelder fra» i bulk-turnus og enkeltvakt. Med «Erstatt» + dato går den gamle turnusen frem til dagen før. Merker «Fra d.m» / «Til d.m» på vaktene; avsluttede vakter skjules.
-- «Book nå» / barberkort: vises for alle med turnus som ikke er avsluttet – også når turnusen starter frem i tid eller barberen har fri/fravær nå. Kun barbere uten noen turnus (og uten ekstravakter) skjules.
+- «Book nå» / barberkort: vises ALLTID for alle aktive barbere. Bookingen viser kun tider innenfor turnus/ekstravakter – uten turnus står det «ingen ledige tider», og «Finn neste ledige tid» finner første åpnede tid.
 - Booking → Tid: ny knapp «Finn neste ledige tid». Velger første ledige tid; finnes ingen de neste 4 ukene, leter den opptil ~6 mnd frem og utvider dagvelgeren dit.
 - Visningsnavn: lagring oppdaterer forsiden/booking med en gang; tydelig feilmelding om SQL mangler; ansattlista og Teamet tåler at kolonnen mangler.
 - Filer: KJØR-I-SUPABASE-TURNUS-FRA-DATO.sql, src/app/booking/cart-actions.ts, src/components/booking/BookingWizard.tsx, src/lib/i18n/dictionary.ts, src/app/admin/timelister/actions.ts, src/lib/ops-queries.ts, src/components/admin/BulkTurnusForm.tsx, src/components/admin/StaffHoursManager.tsx, src/lib/queries.ts, src/app/admin/ansatte/actions.ts, src/lib/admin-queries.ts.
