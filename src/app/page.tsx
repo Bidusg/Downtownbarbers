@@ -292,6 +292,7 @@ export default async function Home({
                     <p className="text-xs text-muted">
                       <TDyn text={m.title} map="titles" />
                     </p>
+                    {m.bookable !== false && (
                     <a
                       href={`/booking?barber=${encodeURIComponent(m.name)}`}
                       className="mt-3 inline-block border border-line px-3 py-1.5 text-[11px] font-semibold tracking-[0.12em] text-fg uppercase transition-colors hover:border-accent-soft hover:bg-accent-soft hover:text-[#211E1A]"
@@ -299,6 +300,7 @@ export default async function Home({
                     >
                       <T k="home.team.book" />
                     </a>
+                    )}
                   </div>
                 </FadeUp>
               ))}

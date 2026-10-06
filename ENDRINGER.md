@@ -4,6 +4,14 @@ Dette bygget retter funnene fra den fulle gjennomgangen av forsiden og
 booking-veiviseren (testet live på Vercel-prod, mobil + desktop), og utvider
 språkbyttet NO/EN til **alle** kundevendte sider.
 
+## Bygg 9n – fjerne blokkering i timeboken
+
+- Krysset for å fjerne en blokk var usynlig til man holdt musa over (finnes ikke på iPad/mobil) og veldig lite. Nå er hele blokken trykkbar: trykk → dialog med barber, tid, årsak og knappen «Fjern blokkering».
+- Feil fra serveren vises i dialogen i stedet for å forsvinne stille.
+- Blokken forsvinner med én gang etter fjerning (venter ikke på oppdatering).
+- Blokken viser nå fra–til og årsak.
+- Fil: src/components/kasse/DayCalendar.tsx (bygger på 9m).
+
 ## Commit-tittel (lim inn i GitHub Desktop)
 
 ```
@@ -677,3 +685,33 @@ banner øverst, lett å overse.
   mens admin-siden er åpen, dyttes den i gang igjen. «Fortsett» legger
   feilede mottakere tilbake i køen.
 - **Fremdriftslinje** og feilmelding (f.eks. rate-limit) vises på raden.
+
+---
+
+# ENDRINGER — Bygg 9m: ingen turnus = ikke bookbar
+
+## Kjør i Supabase FØR push
+
+`KJØR-I-SUPABASE-TURNUS-STRENG.sql`. Se resultatet nederst: lista over
+aktive barbere **uten turnus** – de kan ikke bookes etter dette. Legg inn
+turnus på dem som skal kunne bookes (Ansatte → Turnus).
+
+## Hva som var galt
+
+Ledighetsfunksjonene hadde en regel «har ikke barberen turnus i det hele
+tatt → ledig 09–21 hver dag». Derfor var Dawit bookbar uten å ha timer.
+
+## Nå
+
+- **Ingen turnus = ikke bookbar.** Én linje endret i begge ledighets-
+  funksjonene (`available_slots`, `available_slots_dur`) – resten er
+  identisk med dagens. Ekstravakter (Ansatte → Unntak, «extra») gjelder
+  fortsatt, så Dawit kan åpnes for enkeltdager uten fast turnus.
+- **Nettsiden:** barbere uten turnus/kommende ekstravakt vises ikke i
+  barber-steget i booking, og har ikke «Book nå» i Teamet (står der fortsatt
+  med bilde og navn).
+- **Kalenderen:** «på vakt»-kolonnene bruker nå samme regler som bookingen
+  (turnus inkl. uke A/B, ekstravakt, fravær). Rettet samtidig en feil der
+  uke A/B ble ignorert. Barbere med bookinger vises alltid.
+- Kassa (Ny booking) følger samme regel – trengs en time utenfor turnus,
+  legg inn en ekstravakt først.

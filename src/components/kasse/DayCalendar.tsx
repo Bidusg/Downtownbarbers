@@ -217,7 +217,12 @@ export function DayCalendar({
       };
   const [selected, setSelected] = useState<AgendaBooking | null>(null);
   const [blockOpen, setBlockOpen] = useState(false);
-  const [, startCancel] = useTransition();
+  // Valgt blokk (trykk på en blokk → dialog med «Fjern blokkering»).
+  const [blockSel, setBlockSel] = useState<AgendaBooking | null>(null);
+  const [blockErr, setBlockErr] = useState<string | null>(null);
+  // Blokker som er fjernet, men som serveren ikke har oppdatert ennå.
+  const [hiddenBlocks, setHiddenBlocks] = useState<Set<string>>(new Set());
+  const [removingBlock, startCancel] = useTransition();
   const [dragId, setDragId] = useState<string | null>(null);
 
   // Dra-for-lengde: aktiv resize + live sluttid (minutter etter midnatt, Oslo).
@@ -272,25 +277,25 @@ export function DayCalendar({
 
   // Pause auto-oppdatering mens en dialog er åpen eller en gest pågår.
   useEffect(() => {
-    busyRef.current = !!(selected || blockOpen || transfer || move || resize || dragId || slide);
-  }, [selected, blockOpen, transfer, move, resize, dragId, slide]);
+    busyRef.current = !!(selected || blockOpen || blockSel || transfer || move || resize || dragId || slide);
+  }, [selected, blockOpen, blockSel, transfer, move, resize, dragId, slide]);
 
   const columns = useMemo(() => {
     const map = new Map<string, { barber: ShopBarber; items: AgendaBooking[] }>();
     // Kun barbere på vakt får kolonne (pluss alle som faktisk har bookinger).
-    const duty = onDuty && onDuty.length > 0 ? new Set(onDuty) : null;
+    const duty = onDuty ? new Set(onDuty) : null;
     barbers
       .filter((b) => !duty || duty.has(b.full_name))
       .forEach((b) => map.set(b.full_name, { barber: b, items: [] }));
     for (const a of agenda) {
-      if (a.status === "cancelled") continue;
+      if (a.status === "cancelled" || hiddenBlocks.has(a.id)) continue;
       const key = a.barber ?? "Uten barber";
       if (!map.has(key))
         map.set(key, { barber: { id: key, full_name: key }, items: [] });
       map.get(key)!.items.push(a);
     }
     return Array.from(map.values());
-  }, [agenda, barbers, onDuty]);
+  }, [agenda, barbers, onDuty, hiddenBlocks]);
 
   const colorFor = (name: string) => {
     const i = barbers.findIndex((b) => b.full_name === name);
@@ -341,9 +346,20 @@ export function DayCalendar({
   }
 
   function removeBlock(id: string) {
+    setBlockErr(null);
     startCancel(async () => {
-      await cancelBooking(id);
-      router.refresh();
+      try {
+        const res = await cancelBooking(id);
+        if (res?.error) {
+          setBlockErr(res.error);
+          return;
+        }
+        setHiddenBlocks((prev) => new Set(prev).add(id));
+        setBlockSel(null);
+        router.refresh();
+      } catch {
+        setBlockErr("Kunne ikke fjerne blokkeringen. Sjekk nettet og prøv igjen.");
+      }
     });
   }
 
@@ -625,6 +641,12 @@ export function DayCalendar({
         </div>
       </div>
 
+      {columns.length === 0 && (
+        <p className="mb-3 rounded-md border border-line bg-surface px-3 py-2 text-xs text-muted">
+          Ingen er satt opp på vakt denne dagen (turnus/ekstravakt), og det er ingen bookinger.
+        </p>
+      )}
+
       {resizeMsg && (
         <p className="mb-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
           {resizeMsg}
@@ -747,30 +769,48 @@ export function DayCalendar({
                     const top = (s - OPEN) * PX;
                     const height = Math.max((e - s) * PX, 26);
 
-                    // Blokk / pause – egen visning
+                    // Blokk / pause – egen visning. Hele blokken er trykkbar
+                    // (åpner dialog med «Fjern blokkering»), så det virker
+                    // også på iPad/mobil der det ikke finnes «hover».
                     if (isBlock(b)) {
                       return (
                         <div
                           key={b.id}
-                          className="group absolute right-1 left-1 overflow-hidden rounded-md border border-dashed border-line-2 px-2 py-1 text-left"
+                          role="button"
+                          tabIndex={0}
+                          onPointerDown={(ev) => ev.stopPropagation()}
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            setBlockErr(null);
+                            setBlockSel(b);
+                          }}
+                          onKeyDown={(ev) => {
+                            if (ev.key === "Enter" || ev.key === " ") {
+                              ev.preventDefault();
+                              setBlockErr(null);
+                              setBlockSel(b);
+                            }
+                          }}
+                          className="group absolute right-1 left-1 z-[3] cursor-pointer overflow-hidden rounded-md border border-dashed border-line-2 px-2 py-1 text-left hover:border-danger/60"
                           style={{
                             top,
                             height,
                             background:
                               "repeating-linear-gradient(45deg, oklch(var(--surface-2)), oklch(var(--surface-2)) 6px, transparent 6px, transparent 12px)",
                           }}
+                          title="Trykk for å fjerne blokkeringen"
                         >
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between gap-1">
                             <span className="truncate text-[11px] font-semibold text-muted">
-                              ⛔ {hhmm(b.start_at)} Blokkert
+                              ⛔ {hhmm(b.start_at)}–{hhmm(b.end_at)}{" "}
+                              {b.notes && b.notes !== "Blokkert" ? b.notes : "Blokkert"}
                             </span>
-                            <button
-                              onClick={() => removeBlock(b.id)}
-                              className="ml-1 shrink-0 text-xs text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger"
-                              aria-label="Fjern blokk"
+                            <span
+                              aria-hidden
+                              className="-my-1 -mr-1 shrink-0 rounded px-1.5 py-1 text-xs text-muted group-hover:text-danger"
                             >
                               ✕
-                            </button>
+                            </span>
                           </div>
                         </div>
                       );
@@ -950,6 +990,65 @@ export function DayCalendar({
           barberColor={colorFor(selected.barber ?? "")}
           onClose={() => setSelected(null)}
         />
+      )}
+
+      {blockSel && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => !removingBlock && setBlockSel(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl border border-line bg-surface p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-display text-lg font-bold">⛔ Blokkert tid</h2>
+              <button
+                onClick={() => setBlockSel(null)}
+                className="p-1 text-muted hover:text-fg"
+                aria-label="Lukk"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between gap-3">
+                <span className="text-muted">Barber</span>
+                <span className="text-fg">{blockSel.barber ?? "—"}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted">Tid</span>
+                <span className="text-fg tabular-nums">
+                  {hhmm(blockSel.start_at)}–{hhmm(blockSel.end_at)}
+                </span>
+              </div>
+              {blockSel.notes && blockSel.notes !== "Blokkert" && (
+                <div className="flex justify-between gap-3">
+                  <span className="text-muted">Årsak</span>
+                  <span className="text-right text-fg">{blockSel.notes}</span>
+                </div>
+              )}
+            </div>
+            {blockErr && <p className="mt-3 text-sm text-danger">{blockErr}</p>}
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setBlockSel(null)}
+                className="rounded-md border border-line-2 px-4 py-2 text-sm text-fg"
+              >
+                Behold
+              </button>
+              <button
+                onClick={() => removeBlock(blockSel.id)}
+                disabled={removingBlock}
+                className="rounded-md bg-danger px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {removingBlock ? "Fjerner …" : "Fjern blokkering"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {blockOpen && (

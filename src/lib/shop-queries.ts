@@ -145,39 +145,13 @@ export async function getDayAgenda(date: string): Promise<AgendaBooking[]> {
 export async function getBarbersOnDuty(date: string): Promise<string[] | null> {
   try {
     const sb = await createClient();
-    const weekday = new Date(date + "T12:00:00Z").getUTCDay();
-    const [{ data: staff }, { data: hours }, { data: shifts }, { data: absences }] =
-      await Promise.all([
-        sb.from("staff").select("id, full_name").eq("active", true),
-        sb.from("staff_hours").select("staff_id, weekday"),
-        sb.from("shifts").select("staff_id, is_off").eq("work_date", date),
-        sb.from("absences").select("staff_id").lte("from_date", date).gte("to_date", date),
-      ]);
-    const anyRota = (hours?.length ?? 0) > 0 || (shifts?.length ?? 0) > 0;
-    if (!anyRota) return null;
-
-    const hasHours = new Set(
-      (hours ?? []).filter((h) => Number(h.weekday) === weekday).map((h) => h.staff_id as string),
+    // Samme regler som ledigheten i booking (turnus inkl. uke A/B, ekstravakt,
+    // fravær, heldags fri). Ingen turnus = ikke på vakt.
+    const { data, error } = await sb.rpc("staff_on_duty", { p_date: date });
+    if (error || !Array.isArray(data)) return null; // før SQL er kjørt: vis alle
+    return (data as unknown[]).map((x) =>
+      typeof x === "string" ? x : String((x as Record<string, unknown>).staff_on_duty ?? ""),
     );
-    const onShift = new Set<string>();
-    const offShift = new Set<string>();
-    for (const sh of shifts ?? []) {
-      if (sh.is_off) offShift.add(sh.staff_id as string);
-      else onShift.add(sh.staff_id as string);
-    }
-    const absent = new Set((absences ?? []).map((a) => a.staff_id as string));
-    const anyHoursAtAll = new Set((hours ?? []).map((h) => h.staff_id as string));
-
-    return (staff ?? [])
-      .filter((s) => {
-        const id = s.id as string;
-        if (absent.has(id) || offShift.has(id)) return false;
-        if (onShift.has(id)) return true;
-        // Uten turnus i det hele tatt → regnes som tilgjengelig alle dager (som booking gjør).
-        if (!anyHoursAtAll.has(id)) return true;
-        return hasHours.has(id);
-      })
-      .map((s) => s.full_name as string);
   } catch {
     return null;
   }

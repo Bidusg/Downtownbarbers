@@ -13,7 +13,14 @@ export type PublicService = {
   category: string;
 };
 /** name = fullt navn (nøkkel mot staff/RPC-er), display = det kundene ser. */
-export type PublicBarber = { name: string; display: string; title: string; photo?: string | null };
+export type PublicBarber = {
+  name: string;
+  display: string;
+  title: string;
+  photo?: string | null;
+  /** Har turnus (eller kommende ekstravakt) – kan bookes på nett. */
+  bookable?: boolean;
+};
 
 const kr = (n: number) => `${n} kr`;
 
@@ -117,11 +124,23 @@ export async function getPublicBarbers(): Promise<PublicBarber[]> {
       .eq("active", true)
       .order("employee_number");
     if (data && data.length) {
+      // Hvem kan bookes (turnus/ekstravakt)? Feiler RPC-en (før SQL er
+      // kjørt) regnes alle som bookbare, som før.
+      let bookable: Set<string> | null = null;
+      const { data: bk, error: bkErr } = await sb.rpc("bookable_staff_names");
+      if (!bkErr && Array.isArray(bk)) {
+        bookable = new Set(
+          (bk as unknown[]).map((x) =>
+            typeof x === "string" ? x : String((x as Record<string, unknown>).bookable_staff_names ?? ""),
+          ),
+        );
+      }
       return data.map((r) => ({
         name: r.full_name as string,
         display: ((r.display_name as string | null) ?? "").trim() || (r.full_name as string),
         title: normalizeTitle(r.title as string | null),
         photo: (r.photo_url as string | null) ?? null,
+        bookable: bookable ? bookable.has(r.full_name as string) : true,
       }));
     }
   } catch {
