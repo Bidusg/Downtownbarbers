@@ -6,6 +6,7 @@ import { getCartSlots, createBookingGroup, findNextCartSlot } from "@/app/bookin
 import { isValidEmail, isValidNorwegianPhone } from "@/lib/validate";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { translateContent } from "@/lib/i18n/content-map";
+import { CountryCodePicker } from "@/components/booking/CountryCodePicker";
 
 export type WizService = {
   name: string;
@@ -52,12 +53,6 @@ function PriceTag({
 }
 
 const STEP_KEYS = ["step.services", "step.barber", "step.time", "step.contact"];
-
-const COUNTRY_CODES: [string, string][] = [
-  ["+47", "NO"], ["+46", "SE"], ["+45", "DK"], ["+358", "FI"], ["+354", "IS"],
-  ["+44", "UK"], ["+48", "PL"], ["+49", "DE"], ["+33", "FR"], ["+34", "ES"],
-  ["+39", "IT"], ["+31", "NL"], ["+1", "US"],
-];
 
 const ANY = "__any__";
 
@@ -130,15 +125,9 @@ export function BookingWizard({
     return `${label.charAt(0).toUpperCase()}${label.slice(1)} ${t("common.at")} ${hhmm}`;
   };
 
-  // Tilleggene (hårvask, massasje, voks) velges i kurven – ikke som egne
-  // behandlinger i lista, ellers kunne et tillegg «bytte ut» selve klippen.
-  const mainServices = useMemo(() => {
-    const addonNames = new Set(addons.map((a) => a.name));
-    return services.filter((s) => !addonNames.has(s.name));
-  }, [services, addons]);
   const cats = useMemo(
-    () => Array.from(new Set(mainServices.map((s) => s.category))),
-    [mainServices],
+    () => Array.from(new Set(services.map((s) => s.category))),
+    [services],
   );
   const [openCat, setOpenCat] = useState<string | null>(
     () => services[0]?.category ?? null,
@@ -167,9 +156,6 @@ export function BookingWizard({
       : [];
   });
   const [nextId, setNextId] = useState(2);
-  // «Legg til for en person til»: da legges neste valg TIL i kurven. Ellers
-  // BYTTER et nytt valg ut det som ligger der – kurven vokser aldri i det skjulte.
-  const [adding, setAdding] = useState(false);
   const [mode, setMode] = useState<"single" | "group">("single");
   // Barber for hele besøket i «én person»-modus (ANY = hvilken som helst).
   const [singleBarber, setSingleBarber] = useState<string>(() =>
@@ -284,17 +270,7 @@ export function BookingWizard({
 
   // ---- Kurv-operasjoner ----------------------------------------------------
   const addToCart = (service: WizService) => {
-    const line = { id: nextId, service, barberName: null, person: "", addons: [] as string[] };
-    if (adding && cart.length > 0) {
-      // Ekstra person: legg til, og book som «flere personer» (hver sin barber/navn).
-      setCart((c) => [...c, line]);
-      setMode("group");
-      setAdding(false);
-    } else {
-      // Vanlig: ett valg om gangen – et nytt valg erstatter det gamle.
-      setCart([line]);
-      setMode("single");
-    }
+    setCart((c) => [...c, { id: nextId, service, barberName: null, person: "", addons: [] }]);
     setNextId((n) => n + 1);
     setCartOpen(true); // vis handlekurv-popup med en gang
   };
@@ -302,7 +278,6 @@ export function BookingWizard({
     setCart((c) => {
       const next = c.filter((l) => l.id !== id);
       if (next.length === 0) setCartOpen(false); // tom kurv → lukk popupen
-      if (next.length <= 1) setMode("single");
       return next;
     });
   const patchLine = (id: number, patch: Partial<CartItem>) =>
@@ -515,28 +490,11 @@ export function BookingWizard({
         {/* ======================= STEG 0: TJENESTER + KURV ================= */}
         {step === 0 && (
           <div className="space-y-6">
-            {adding && cart.length > 0 && (
-              <div className="flex flex-wrap items-center justify-between gap-2 border border-accent-soft/60 bg-accent-soft/10 px-4 py-3 text-sm">
-                <span className="text-fg">
-                  {t("wiz.addingFor")} {cart.length + 1}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAdding(false);
-                    setCartOpen(true);
-                  }}
-                  className="text-xs font-semibold text-accent-soft hover:underline"
-                >
-                  {t("wiz.cancelAdd")}
-                </button>
-              </div>
-            )}
             {/* Trekkspill med tjenester */}
             <div className="space-y-2.5">
               {cats.map((cat) => {
                 const open = openCat === cat;
-                const items = mainServices.filter((s) => s.category === cat);
+                const items = services.filter((s) => s.category === cat);
                 return (
                   <div key={cat} className="border border-line bg-surface">
                     <button
@@ -585,27 +543,14 @@ export function BookingWizard({
                                     )}
                                   </p>
                                 </div>
-                                {(() => {
-                                  // Valgt → «✓ Valgt» (åpner kurven). Noe annet valgt → «Bytt til»
-                                  // (sier tydelig at det erstatter). Ingenting valgt → «+ Legg til».
-                                  const chosen = inCart > 0 && !adding;
-                                  const swap = !adding && cart.length > 0 && inCart === 0;
-                                  return (
-                                    <button
-                                      type="button"
-                                      onClick={() => (chosen ? setCartOpen(true) : addToCart(s))}
-                                      aria-label={`${chosen ? t("wiz.selected") : swap ? t("wiz.swapTo") : t("wiz.addService")} ${tc(s.name)}`}
-                                      className={
-                                        "shrink-0 border px-4 py-2 text-sm font-semibold transition-colors " +
-                                        (chosen
-                                          ? "border-accent-soft bg-accent-soft/15 text-accent-soft"
-                                          : "border-line-2 text-fg hover:border-accent-soft hover:text-accent-soft")
-                                      }
-                                    >
-                                      {chosen ? `✓ ${t("wiz.selected")}` : swap ? t("wiz.swapTo") : t("wiz.add")}
-                                    </button>
-                                  );
-                                })()}
+                                <button
+                                  type="button"
+                                  onClick={() => addToCart(s)}
+                                  aria-label={`${t("wiz.addService")} ${tc(s.name)}`}
+                                  className="shrink-0 border border-line-2 px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft hover:text-accent-soft"
+                                >
+                                  {t("wiz.add")}
+                                </button>
                               </div>
                               {s.description && (
                                 <p className="mt-2 text-sm leading-relaxed text-muted">{tc(s.description)}</p>
@@ -740,17 +685,6 @@ export function BookingWizard({
                   ))}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAdding(true);
-                    setCartOpen(false);
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-line-2 px-3 py-1.5 text-xs font-semibold text-fg transition-colors hover:border-accent-soft hover:text-accent-soft"
-                >
-                  <span aria-hidden className="text-accent-soft">+</span> {t("wiz.addPerson")}
-                </button>
-
                 {/* Sum for hele kurven */}
                 <div className="flex items-center justify-between border-t border-line pt-3">
                   <span className="text-xs font-semibold tracking-wide text-muted uppercase">
@@ -769,7 +703,7 @@ export function BookingWizard({
                           onClick={() => setCartOpen(false)}
                           className="flex-1 border border-line-2 px-4 py-3 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
                         >
-                          {t("wiz.changeService")}
+                          {t("wiz.addMore")}
                         </button>
                         <button
                           type="button"
@@ -1145,19 +1079,12 @@ export function BookingWizard({
                 {t("wiz.phone")}
               </label>
               <div className="flex gap-2">
-                <select
-                  aria-label={t("wiz.countryCode")}
-                  autoComplete="tel-country-code"
+                <CountryCodePicker
+                  ariaLabel={t("wiz.countryCode")}
                   value={countryCode}
-                  onChange={(e) => setCountryCode(e.target.value)}
-                  className="shrink-0 border border-line-2 bg-canvas px-2 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
-                >
-                  {COUNTRY_CODES.map(([code, abbr]) => (
-                    <option key={code} value={code}>
-                      {code} {abbr}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setCountryCode}
+                  locale={locale}
+                />
                 <input
                   id="bk-phone"
                   name="phone"
