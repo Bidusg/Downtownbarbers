@@ -372,9 +372,14 @@ export async function updateStaff(
   const sb = await createClient();
   const { error } = await sb.from("staff").update(patch).eq("id", id);
   if (error) {
+    if (/display_name/.test(error.message))
+      return { error: "Visningsnavn krever SQL: kjør KJØR-I-SUPABASE-TURNUS-FRA-DATO.sql i Supabase." };
     return { error: `Kunne ikke lagre: ${error.message}` };
   }
   revalidatePath("/admin/ansatte");
+  // Navnet vises på forsiden og i booking – oppdater dem med en gang.
+  revalidatePath("/");
+  revalidatePath("/booking");
   return { ok: true };
 }
 

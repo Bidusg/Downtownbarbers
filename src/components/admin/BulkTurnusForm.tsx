@@ -126,11 +126,19 @@ export function BulkTurnusForm({
               Til
               <Input type="time" name="end_time" defaultValue="17:00" required />
             </label>
+            <label className="flex flex-col gap-1 text-xs text-muted">
+              Gjelder fra (valgfritt)
+              <Input type="date" name="valid_from" />
+            </label>
             <label className="flex items-center gap-2 text-xs text-muted">
               <input type="checkbox" name="replace" className="accent-accent" />
               Erstatt eksisterende for valgte dager
             </label>
           </div>
+          <p className="text-xs text-muted">
+            Tom dato = gjelder med en gang. Med dato starter turnusen den dagen – kunder kan
+            booke fra da av. Kryss av «Erstatt» for å la den gamle turnusen gå frem til dagen før.
+          </p>
 
           <div className="flex items-center gap-3">
             <Button

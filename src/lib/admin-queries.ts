@@ -115,12 +115,18 @@ export async function getServicesAdmin(): Promise<AdminService[]> {
 export async function getStaffAdmin(): Promise<AdminStaff[]> {
   try {
     const sb = await createClient();
-    const { data } = await sb
-      .from("staff")
-      .select(
-        "id, employee_number, full_name, title, bio, photo_url, contract_url, active, email, postnummer, profile_id, pin_hash, level_id, base_salary_nok, display_name",
-      )
-      .order("employee_number");
+    const cols =
+      "id, employee_number, full_name, title, bio, photo_url, contract_url, active, email, postnummer, profile_id, pin_hash, level_id, base_salary_nok, display_name";
+    let { data, error } = await sb.from("staff").select(cols).order("employee_number");
+    if (error) {
+      // En nyere kolonne mangler (SQL ikke kjørt) → vis lista uten den.
+      const fb = await sb
+        .from("staff")
+        .select("id, employee_number, full_name, title, bio, photo_url, contract_url, active, email, postnummer, profile_id, pin_hash, level_id")
+        .order("employee_number");
+      data = (fb.data ?? []) as unknown as typeof data;
+      error = fb.error;
+    }
     return (data ?? []).map((r) => {
       const { pin_hash, ...rest } = r as Record<string, unknown>;
       return { ...rest, has_pin: pin_hash != null } as AdminStaff;

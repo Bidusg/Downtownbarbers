@@ -4,6 +4,23 @@ Dette bygget retter funnene fra den fulle gjennomgangen av forsiden og
 booking-veiviseren (testet live på Vercel-prod, mobil + desktop), og utvider
 språkbyttet NO/EN til **alle** kundevendte sider.
 
+## Bygg 9r – turnus fra dato, visningsnavn, Book nå, «Finn neste ledige tid»
+
+- KJØR-I-SUPABASE-TURNUS-FRA-DATO.sql: turnus kan starte på en dato (staff_hours.valid_from/valid_to). Alle turnus-funksjoner (ledige tider, på vakt, hvem kan bookes, Min side, kapasitet, kopier uke) respekterer datoene. Legger også til staff.display_name hvis den mangler.
+- Admin → Timelister: «Gjelder fra» i bulk-turnus og enkeltvakt. Med «Erstatt» + dato går den gamle turnusen frem til dagen før. Merker «Fra d.m» / «Til d.m» på vaktene; avsluttede vakter skjules.
+- «Book nå» / barberkort: vises for alle med turnus som ikke er avsluttet – også når turnusen starter frem i tid eller barberen har fri/fravær nå. Kun barbere uten noen turnus (og uten ekstravakter) skjules.
+- Booking → Tid: ny knapp «Finn neste ledige tid». Velger første ledige tid; finnes ingen de neste 4 ukene, leter den opptil ~6 mnd frem og utvider dagvelgeren dit.
+- Visningsnavn: lagring oppdaterer forsiden/booking med en gang; tydelig feilmelding om SQL mangler; ansattlista og Teamet tåler at kolonnen mangler.
+- Filer: KJØR-I-SUPABASE-TURNUS-FRA-DATO.sql, src/app/booking/cart-actions.ts, src/components/booking/BookingWizard.tsx, src/lib/i18n/dictionary.ts, src/app/admin/timelister/actions.ts, src/lib/ops-queries.ts, src/components/admin/BulkTurnusForm.tsx, src/components/admin/StaffHoursManager.tsx, src/lib/queries.ts, src/app/admin/ansatte/actions.ts, src/lib/admin-queries.ts.
+
+## Bygg 9q – ekte anmeldelser fra Google og Tripadvisor på forsiden
+
+- Anmeldelses-seksjonen henter nå fra BÅDE Google og Tripadvisor, med nøklene som legges inn i admin → Rating (eller env i Vercel som før). Før leste den bare Google-env og ignorerte admin-oppsettet.
+- Viser snitt + antall per kilde (klikkbare «chips»), opptil 6 anmeldelser flettet Google/Tripadvisor (4–5 stjerner med tekst), forfatter + kilde + lenke tilbake (krav i vilkårene), «Se alle på Google / Tripadvisor».
+- Google: originalteksten vises (ikke Googles oversettelse), med profilbilde. Tripadvisor: henter både norske og engelske anmeldelser.
+- Cachet 6 timer → godt innenfor gratiskvotene. Seksjonen skjules til minst én kilde er satt opp.
+- Filer: src/lib/reviews.ts, src/components/site/GoogleReviews.tsx, src/lib/i18n/dictionary.ts, src/app/page.tsx.
+
 ## Bygg 9p – innlogging kun som popup
 
 - Egen innloggingsside er fjernet. /logg-inn sender nå til forsiden med innloggings-popupen åpen (gamle lenker i e-poster og bokmerker virker fortsatt).

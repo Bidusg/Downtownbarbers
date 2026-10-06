@@ -23,6 +23,12 @@ const WEEKDAYS = [
 // Mandag først i visningen (DB bruker 0 = søndag).
 const ORDER = [1, 2, 3, 4, 5, 6, 0];
 
+const todayIso = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" });
+const fmtDm = (iso: string) => {
+  const [, m, d] = iso.split("-");
+  return `${Number(d)}.${Number(m)}`;
+};
+
 export function StaffHoursManager({
   hours,
   staff,
@@ -139,6 +145,10 @@ export function StaffHoursManager({
               Til
               <Input name="end_time" type="time" required className="mt-1 block w-full" defaultValue="19:00" />
             </label>
+            <label className="text-xs text-muted">
+              Gjelder fra (valgfritt)
+              <Input name="valid_from" type="date" className="mt-1 block w-full" />
+            </label>
             <Button
               type="submit"
               className="px-4 py-2 text-sm sm:col-span-2 lg:col-span-4"
@@ -232,12 +242,20 @@ export function StaffHoursManager({
                       <span className="font-display text-muted">
                         {h.start_time}–{h.end_time}
                       </span>
-                      <Badge
-                        tone={h.week_parity === 0 ? "neutral" : "accent"}
-                        className="text-[10px] uppercase tracking-wide"
-                      >
-                        {parityLabel(h.week_parity)}
-                      </Badge>
+                      <span className="flex items-center gap-1.5">
+                        <Badge
+                          tone={h.week_parity === 0 ? "neutral" : "accent"}
+                          className="text-[10px] uppercase tracking-wide"
+                        >
+                          {parityLabel(h.week_parity)}
+                        </Badge>
+                        {h.valid_from && h.valid_from > todayIso && (
+                          <Badge tone="accent" className="text-[10px]">Fra {fmtDm(h.valid_from)}</Badge>
+                        )}
+                        {h.valid_to && (
+                          <Badge tone="neutral" className="text-[10px]">Til {fmtDm(h.valid_to)}</Badge>
+                        )}
+                      </span>
                       <div className="flex items-center gap-3">
                         <Button
                           variant="ghost"

@@ -127,6 +127,37 @@ export async function getCartSlots(
   }
 }
 
+/**
+ * «Finn neste ledige tid»: leter fremover i bolker på 4 uker (maks ~6 mnd)
+ * fra og med `fromISO` og returnerer første ledige dato + klokkeslett
+ * (hel/halv time, samme som veiviseren viser). null = ingenting funnet.
+ */
+export async function findNextCartSlot(
+  lines: CartLineInput[],
+  mode: CartMode,
+  fromISO: string,
+): Promise<{ date: string; time: string } | null> {
+  if (!lines.length || !/^\d{4}-\d{2}-\d{2}$/.test(fromISO)) return null;
+  const add = (iso: string, n: number) => {
+    const d = new Date(iso + "T12:00:00Z");
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+  let start = fromISO;
+  for (let chunk = 0; chunk < 7; chunk++) {
+    const end = add(start, 27);
+    const res = await getCartSlots(lines, mode, start, end);
+    if (res.error) return null;
+    const dates = Object.keys(res.byDate).sort();
+    for (const d of dates) {
+      const t = (res.byDate[d] ?? []).filter((x) => x.endsWith(":00") || x.endsWith(":30")).sort()[0];
+      if (t) return { date: d, time: t };
+    }
+    start = add(end, 1);
+  }
+  return null;
+}
+
 export type CartBookingInput = {
   lines: CartLineInput[];
   mode: CartMode;

@@ -118,11 +118,22 @@ export function normalizeTitle(raw: string | null | undefined): string {
 export async function getPublicBarbers(): Promise<PublicBarber[]> {
   try {
     const sb = await createClient();
-    const { data } = await sb
+    let { data, error } = await sb
       .from("staff")
       .select("full_name, display_name, title, photo_url")
       .eq("active", true)
       .order("employee_number");
+    if (error) {
+      // display_name-kolonnen mangler (SQL ikke kjørt) → hent uten, i stedet
+      // for å falle tilbake til de statiske navnene.
+      const fb = await sb
+        .from("staff")
+        .select("full_name, title, photo_url")
+        .eq("active", true)
+        .order("employee_number");
+      data = (fb.data ?? []).map((r) => ({ ...r, display_name: null })) as typeof data;
+      error = fb.error;
+    }
     if (data && data.length) {
       // Hvem kan bookes (turnus/ekstravakt)? Feiler RPC-en (før SQL er
       // kjørt) regnes alle som bookbare, som før.

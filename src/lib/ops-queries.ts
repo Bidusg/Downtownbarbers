@@ -465,6 +465,8 @@ export type StaffHour = {
   start_time: string;
   end_time: string;
   week_parity: number; // 0 = hver uke, 1 = uke A, 2 = uke B
+  valid_from?: string | null; // turnus starter (YYYY-MM-DD), null = alltid
+  valid_to?: string | null; // turnus slutter, null = løpende
 };
 
 export const WEEKDAYS = [
@@ -480,11 +482,25 @@ export const WEEKDAYS = [
 export async function getStaffHours(): Promise<StaffHour[]> {
   try {
     const sb = await createClient();
-    const { data } = await sb
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" });
+    const first = await sb
       .from("staff_hours")
-      .select("id, staff_id, weekday, start_time, end_time, week_parity, staff(full_name)")
-      .order("weekday");
-    return (data ?? []).map((r) => {
+      .select("id, staff_id, weekday, start_time, end_time, week_parity, valid_from, valid_to, staff(full_name)")
+      .order("weekday")
+      .order("valid_from", { ascending: true, nullsFirst: true });
+    let data: Record<string, unknown>[] | null = first.data as Record<string, unknown>[] | null;
+    if (first.error) {
+      // Før TURNUS-FRA-DATO er kjørt finnes ikke datokolonnene.
+      const fb = await sb
+        .from("staff_hours")
+        .select("id, staff_id, weekday, start_time, end_time, week_parity, staff(full_name)")
+        .order("weekday");
+      data = fb.data as Record<string, unknown>[] | null;
+    }
+    return (data ?? [])
+      // Avsluttede vakter (til-dato passert) vises ikke lenger.
+      .filter((r) => !(r as { valid_to?: string | null }).valid_to || String((r as { valid_to?: string }).valid_to) >= today)
+      .map((r) => {
       const st = r.staff as { full_name?: string } | null;
       return {
         id: r.id as string,
@@ -494,6 +510,8 @@ export async function getStaffHours(): Promise<StaffHour[]> {
         start_time: (r.start_time as string).slice(0, 5),
         end_time: (r.end_time as string).slice(0, 5),
         week_parity: Number(r.week_parity ?? 0),
+        valid_from: ((r as { valid_from?: string | null }).valid_from ?? null) as string | null,
+        valid_to: ((r as { valid_to?: string | null }).valid_to ?? null) as string | null,
       };
     });
   } catch {

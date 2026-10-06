@@ -70,6 +70,16 @@ export const dictionary: Dict = {
     en: "No open days available right now.",
   },
   "wiz.loadingSlots": { no: "Henter ledige tider …", en: "Loading available times …" },
+  "wiz.findNext": { no: "Finn neste ledige tid", en: "Find next available time" },
+  "wiz.findingNext": { no: "Leter etter neste ledige tid …", en: "Looking for the next available time …" },
+  "wiz.noNextSlot": {
+    no: "Fant ingen ledige tider det neste halvåret. Prøv en annen barber eller ring oss.",
+    en: "No available times in the next six months. Try another barber or call us.",
+  },
+  "wiz.tryFindNext": {
+    no: "Trykk «Finn neste ledige tid» for å lete lenger frem.",
+    en: "Tap “Find next available time” to search further ahead.",
+  },
   "wiz.slotsError": {
     no: "Kunne ikke hente ledige tider akkurat nå. Prøv igjen om litt.",
     en: "Could not load available times right now. Please try again shortly.",
@@ -164,6 +174,7 @@ export const dictionary: Dict = {
   },
   "reviews.fromGoogle": { no: "Anmeldelser fra Google", en: "Reviews from Google" },
   "reviews.seeAll": { no: "Se alle på Google", en: "See all on Google" },
+  "reviews.seeAllTa": { no: "Se alle på Tripadvisor", en: "See all on Tripadvisor" },
 
   // ---- Footer ----
   "footer.rights": {

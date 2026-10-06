@@ -495,7 +495,7 @@ export default async function Home({
         </section>
 
         {/* ===================== ANMELDELSER ===================== */}
-        <GoogleReviews />
+        <GoogleReviews summary={omdomme} />
 
         {/* ===================== CTA (cream «intermisjon») ===================== */}
         <section className="border-b border-line bg-accent text-accent-fg">

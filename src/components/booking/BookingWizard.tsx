@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
-import { getCartSlots, createBookingGroup } from "@/app/booking/cart-actions";
+import { getCartSlots, createBookingGroup, findNextCartSlot } from "@/app/booking/cart-actions";
 import { isValidEmail, isValidNorwegianPhone } from "@/lib/validate";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { translateContent } from "@/lib/i18n/content-map";
@@ -191,6 +191,13 @@ export function BookingWizard({
   const [slotsByDate, setSlotsByDate] = useState<Record<string, string[]>>({});
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slotsError, setSlotsError] = useState(false);
+  // Hvor langt frem (kalenderdager) dagvelgeren viser. Utvides av «Finn neste
+  // ledige tid» hvis første ledige tid ligger lenger frem.
+  const [horizon, setHorizon] = useState(28);
+  // Tid som skal velges når de nye tidene er hentet (etter utvidelse).
+  const [jumpTo, setJumpTo] = useState<{ date: string; time: string } | null>(null);
+  const [findingNext, setFindingNext] = useState(false);
+  const [nextMsg, setNextMsg] = useState<string | null>(null);
 
   const addonByName = useMemo(() => {
     const m = new Map<string, WizAddon>();
@@ -202,7 +209,7 @@ export function BookingWizard({
   const openDays = useMemo(() => {
     const out: { iso: string; weekday: string; dayNum: string; month: string }[] = [];
     const today = new Date();
-    for (let i = 0; i < 28 && out.length < 21; i++) {
+    for (let i = 0; i < horizon; i++) {
       const day = new Date(today);
       day.setDate(today.getDate() + i);
       if (closedWeekdays.includes(day.getDay())) continue;
@@ -214,7 +221,7 @@ export function BookingWizard({
       });
     }
     return out;
-  }, [closedWeekdays, locale]);
+  }, [closedWeekdays, locale, horizon]);
 
   // ---- Priser --------------------------------------------------------------
   const serviceMinPrice = (name: string) => {
@@ -313,6 +320,11 @@ export function BookingWizard({
         if (cancelled) return;
         if (res.error) setSlotsError(true);
         setSlotsByDate(res.byDate ?? {});
+        if (jumpTo && (res.byDate?.[jumpTo.date] ?? []).includes(jumpTo.time)) {
+          showSlot(jumpTo.date, jumpTo.time);
+          setJumpTo(null);
+          return;
+        }
         const firstWithSlots = openDays.find((d) => (res.byDate?.[d.iso] ?? []).length > 0);
         setViewDay(firstWithSlots?.iso ?? openDays[0]?.iso ?? "");
       })
@@ -322,7 +334,49 @@ export function BookingWizard({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
+  }, [step, horizon]);
+
+  /** Vis og velg en bestemt tid (dag + klokkeslett), og rull dagen frem. */
+  function showSlot(d: string, tm: string) {
+    setViewDay(d);
+    setDate(d);
+    setTime(tm);
+    setNextMsg(null);
+    requestAnimationFrame(() =>
+      document.getElementById(`wiz-day-${d}`)?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" }),
+    );
+  }
+
+  /** «Finn neste ledige tid»: først i det som er hentet, ellers lenger frem. */
+  async function findNext() {
+    setNextMsg(null);
+    for (const d of openDays) {
+      const first = halfHourSlots(d.iso)[0];
+      if (first) return showSlot(d.iso, first);
+    }
+    if (openDays.length === 0) return;
+    setFindingNext(true);
+    try {
+      const last = openDays[openDays.length - 1].iso;
+      const next = new Date(last + "T12:00:00");
+      next.setDate(next.getDate() + 1);
+      const found = await findNextCartSlot(cartLines, mode, isoDate(next));
+      if (!found) {
+        setNextMsg(t("wiz.noNextSlot"));
+        return;
+      }
+      // Utvid dagvelgeren så den funne dagen er med, og velg tiden når tidene er hentet.
+      const days = Math.ceil(
+        (new Date(found.date + "T12:00:00").getTime() - new Date(isoDate(new Date()) + "T12:00:00").getTime()) / 86400000,
+      );
+      setJumpTo(found);
+      setHorizon(Math.max(horizon, days + 7));
+    } catch {
+      setNextMsg(t("wiz.slotsError"));
+    } finally {
+      setFindingNext(false);
+    }
+  }
 
   const halfHourSlots = (iso: string) =>
     (slotsByDate[iso] ?? []).filter((t) => t.endsWith(":00") || t.endsWith(":30"));
@@ -803,6 +857,24 @@ export function BookingWizard({
               </button>
             </div>
 
+            {openDays.length > 0 && !slotsError && (
+              <div>
+                <button
+                  type="button"
+                  onClick={findNext}
+                  disabled={loadingSlots || findingNext}
+                  className="flex w-full items-center justify-center gap-2 rounded-md border border-accent-soft bg-accent-soft/10 px-4 py-3 text-sm font-semibold text-fg transition-colors hover:bg-accent-soft/20 disabled:opacity-50"
+                >
+                  <svg viewBox="0 0 24 24" className="h-4 w-4 text-accent-soft" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="m20 20-3.5-3.5" />
+                  </svg>
+                  {findingNext ? t("wiz.findingNext") : t("wiz.findNext")}
+                </button>
+                {nextMsg && <p className="mt-2 text-center text-sm text-muted">{nextMsg}</p>}
+              </div>
+            )}
+
             {openDays.length === 0 ? (
               <p className="text-sm text-muted">{t("wiz.noOpenDays")}</p>
             ) : loadingSlots ? (
@@ -813,7 +885,7 @@ export function BookingWizard({
               </p>
             ) : openDays.every((d) => halfHourSlots(d.iso).length === 0) ? (
               <p className="text-sm text-muted">
-                {t("wiz.noSlotsPeriod")}
+                {t("wiz.noSlotsPeriod")} {t("wiz.tryFindNext")}
               </p>
             ) : (
               <>
@@ -826,6 +898,7 @@ export function BookingWizard({
                       return (
                         <button
                           key={d.iso}
+                          id={`wiz-day-${d.iso}`}
                           type="button"
                           onClick={() => !empty && setViewDay(d.iso)}
                           disabled={empty}

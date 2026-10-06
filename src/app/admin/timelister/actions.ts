@@ -25,6 +25,9 @@ export async function bulkSetStaffHours(
     week_parity = 0;
   const replace = formData.get("replace") === "on";
   const days = WEEKDAYS.filter((d) => formData.get(`d${d}`) === "on");
+  // Gjelder fra (valgfri): turnusen starter denne datoen. Tom = med en gang.
+  const rawFrom = String(formData.get("valid_from") ?? "").trim();
+  const valid_from = /^\d{4}-\d{2}-\d{2}$/.test(rawFrom) ? rawFrom : null;
 
   if (!staff_id) return { error: "Velg en ansatt." };
   if (days.length === 0) return { error: "Velg minst én ukedag." };
@@ -33,9 +36,31 @@ export async function bulkSetStaffHours(
 
   const sb = await createClient();
 
-  // Erstatt: slett eksisterende vakter for valgte dager med samme paritet
-  // (0 = «hver uke» treffer begge, ellers kun den valgte pariteten).
-  if (replace) {
+  // Erstatt FRA en dato: eksisterende vakter for de valgte dagene avsluttes
+  // dagen før (historikk og bookinger frem til da beholdes), og vakter som
+  // selv skulle starte på/etter datoen fjernes.
+  if (replace && valid_from) {
+    const dayBefore = new Date(valid_from + "T12:00:00Z");
+    dayBefore.setUTCDate(dayBefore.getUTCDate() - 1);
+    const until = dayBefore.toISOString().slice(0, 10);
+    let del = sb.from("staff_hours").delete().eq("staff_id", staff_id).in("weekday", days).gte("valid_from", valid_from);
+    del = week_parity === 0 ? del : del.in("week_parity", [0, week_parity]);
+    const { error: e1 } = await del;
+    if (e1) return { error: `Kunne ikke rydde eksisterende: ${e1.message}` };
+    let upd = sb
+      .from("staff_hours")
+      .update({ valid_to: until })
+      .eq("staff_id", staff_id)
+      .in("weekday", days)
+      .or(`valid_to.is.null,valid_to.gte.${valid_from}`);
+    upd = week_parity === 0 ? upd : upd.in("week_parity", [0, week_parity]);
+    const { error: e2 } = await upd;
+    if (e2) return { error: `Kunne ikke avslutte gammel turnus: ${e2.message}` };
+  }
+
+  // Erstatt med en gang: slett eksisterende vakter for valgte dager med samme
+  // paritet (0 = «hver uke» treffer begge, ellers kun den valgte pariteten).
+  if (replace && !valid_from) {
     let del = sb.from("staff_hours").delete().eq("staff_id", staff_id).in("weekday", days);
     del = week_parity === 0 ? del : del.in("week_parity", [0, week_parity]);
     const { error: delErr } = await del;
@@ -48,9 +73,16 @@ export async function bulkSetStaffHours(
     start_time,
     end_time,
     week_parity,
+    ...(valid_from ? { valid_from } : {}),
   }));
   const { error } = await sb.from("staff_hours").insert(rows);
-  if (error) return { error: `Kunne ikke lagre turnus: ${error.message}` };
+  if (error) {
+    if (/valid_from|valid_to/.test(error.message))
+      return { error: "Kjør KJØR-I-SUPABASE-TURNUS-FRA-DATO.sql i Supabase først (startdato-støtte)." };
+    return { error: `Kunne ikke lagre turnus: ${error.message}` };
+  }
+  revalidatePath("/");
+  revalidatePath("/booking");
 
   revalidatePath("/admin/timelister");
   return { ok: true };
@@ -109,12 +141,16 @@ export async function createStaffHour(formData: FormData) {
   let week_parity = Number(formData.get("week_parity"));
   if (!(Number.isInteger(week_parity) && week_parity >= 0 && week_parity <= 6))
     week_parity = 0;
+  const rawFrom = String(formData.get("valid_from") ?? "").trim();
+  const valid_from = /^\d{4}-\d{2}-\d{2}$/.test(rawFrom) ? rawFrom : null;
   if (!staff_id || Number.isNaN(weekday) || !start_time || !end_time) return;
   if (end_time <= start_time) return;
   await sb
     .from("staff_hours")
-    .insert({ staff_id, weekday, start_time, end_time, week_parity });
+    .insert({ staff_id, weekday, start_time, end_time, week_parity, ...(valid_from ? { valid_from } : {}) });
   revalidatePath("/admin/timelister");
+  revalidatePath("/");
+  revalidatePath("/booking");
 }
 
 export async function deleteStaffHour(id: string) {

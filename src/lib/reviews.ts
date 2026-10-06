@@ -87,6 +87,10 @@ export type AggregatedReview = {
   text: string;
   when: string;
   url: string | null;
+  /** Profilbilde (Google gir det; ellers null → initial vises). */
+  photo?: string | null;
+  /** For sortering/fletting (ms), 0 hvis ukjent. */
+  ts?: number;
 };
 
 export type ReviewsSummary = {
@@ -127,7 +131,8 @@ type GooglePlaces = {
     text?: { text?: string };
     originalText?: { text?: string };
     relativePublishTimeDescription?: string;
-    authorAttribution?: { displayName?: string; uri?: string };
+    publishTime?: string;
+    authorAttribution?: { displayName?: string; uri?: string; photoUri?: string };
   }>;
 };
 
@@ -145,7 +150,7 @@ async function googleSource(cfg: ReviewConfig): Promise<{
         headers: {
           "X-Goog-Api-Key": key,
           "X-Goog-FieldMask":
-            "rating,userRatingCount,googleMapsUri,reviews.rating,reviews.text,reviews.originalText,reviews.relativePublishTimeDescription,reviews.authorAttribution",
+            "rating,userRatingCount,googleMapsUri,reviews.rating,reviews.text,reviews.originalText,reviews.relativePublishTimeDescription,reviews.publishTime,reviews.authorAttribution",
         },
         next: { revalidate: REVALIDATE },
       },
@@ -159,9 +164,12 @@ async function googleSource(cfg: ReviewConfig): Promise<{
         sourceLabel: "Google",
         author: r.authorAttribution?.displayName ?? "Google-bruker",
         rating: r.rating ?? 0,
-        text: (r.text?.text ?? r.originalText?.text ?? "").trim(),
+        // Originalteksten (slik kunden skrev den), ikke Googles oversettelse.
+        text: (r.originalText?.text ?? r.text?.text ?? "").trim(),
         when: r.relativePublishTimeDescription ?? "",
         url: r.authorAttribution?.uri ?? url,
+        photo: r.authorAttribution?.photoUri ?? null,
+        ts: r.publishTime ? Date.parse(r.publishTime) || 0 : 0,
       }))
       .filter((r) => r.text.length > 0);
     return {
@@ -200,17 +208,14 @@ async function tripadvisorSource(cfg: ReviewConfig): Promise<{
   const loc = cfg.taLoc;
   if (!cfg.taEnabled || !key || !loc) return null;
   const base = `https://api.content.tripadvisor.com/api/v1/location/${encodeURIComponent(loc)}`;
-  const auth = `key=${encodeURIComponent(key)}&language=no`;
+  const k = `key=${encodeURIComponent(key)}`;
+  const opts = { headers: { accept: "application/json" }, next: { revalidate: REVALIDATE } };
   try {
-    const [dRes, rRes] = await Promise.all([
-      fetch(`${base}/details?${auth}`, {
-        headers: { accept: "application/json" },
-        next: { revalidate: REVALIDATE },
-      }),
-      fetch(`${base}/reviews?${auth}`, {
-        headers: { accept: "application/json" },
-        next: { revalidate: REVALIDATE },
-      }),
+    // Reviews-endepunktet filtrerer på språk – hent både norske og engelske.
+    const [dRes, rNo, rEn] = await Promise.all([
+      fetch(`${base}/details?${k}&language=no`, opts),
+      fetch(`${base}/reviews?${k}&language=no`, opts),
+      fetch(`${base}/reviews?${k}&language=en`, opts),
     ]);
     if (!dRes.ok) return null;
     const d = (await dRes.json()) as TaDetails;
@@ -218,25 +223,36 @@ async function tripadvisorSource(cfg: ReviewConfig): Promise<{
     const count = Number(d.num_reviews) || 0;
     const url = d.web_url ?? null;
 
-    let recent: AggregatedReview[] = [];
-    if (rRes.ok) {
-      const rv = (await rRes.json()) as TaReviews;
-      recent = (rv.data ?? [])
-        .map((r) => ({
-          source: "tripadvisor" as const,
-          sourceLabel: "TripAdvisor",
-          author: r.user?.username ?? "TripAdvisor-bruker",
-          rating: Number(r.rating) || 0,
-          text: (r.text ?? "").trim(),
-          when: r.published_date ? relTime(r.published_date) : "",
-          url: r.url ?? url,
-        }))
-        .filter((r) => r.text.length > 0);
+    const rows: NonNullable<TaReviews["data"]> = [];
+    for (const res of [rNo, rEn]) {
+      if (!res.ok) continue;
+      const rv = (await res.json()) as TaReviews;
+      rows.push(...(rv.data ?? []));
     }
+    const seen = new Set<string>();
+    const recent: AggregatedReview[] = rows
+      .map((r) => ({
+        source: "tripadvisor" as const,
+        sourceLabel: "Tripadvisor",
+        author: r.user?.username ?? "Tripadvisor-bruker",
+        rating: Number(r.rating) || 0,
+        text: (r.text ?? "").trim(),
+        when: r.published_date ? relTime(r.published_date) : "",
+        url: r.url ?? url,
+        photo: null,
+        ts: r.published_date ? Date.parse(r.published_date) || 0 : 0,
+      }))
+      .filter((r) => {
+        const id = r.author + "|" + r.text.slice(0, 40);
+        if (!r.text || seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      })
+      .sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0));
     return {
       source: {
         key: "tripadvisor",
-        label: "TripAdvisor",
+        label: "Tripadvisor",
         configured: true,
         rating,
         count,
@@ -349,15 +365,19 @@ export async function getPublicReviewsSummary(): Promise<ReviewsSummary> {
   ]);
 
   const sources: ReviewSource[] = [];
-  const recent: AggregatedReview[] = [];
   if (internal) sources.push(internal);
-  if (google) {
-    sources.push(google.source);
-    recent.push(...google.recent);
-  }
-  if (tripadvisor) {
-    sources.push(tripadvisor.source);
-    recent.push(...tripadvisor.recent);
+  if (google) sources.push(google.source);
+  if (tripadvisor) sources.push(tripadvisor.source);
+  // Flett Google og Tripadvisor (G, T, G, T …) så begge kildene synes.
+  // Kun gode anmeldelser (4–5 stjerner) med litt tekst på forsiden.
+  const good = (list: AggregatedReview[]) =>
+    list.filter((r) => r.rating >= 4 && r.text.length >= 20);
+  const g = good(google?.recent ?? []);
+  const t = good(tripadvisor?.recent ?? []);
+  const recent: AggregatedReview[] = [];
+  for (let i = 0; i < Math.max(g.length, t.length); i++) {
+    if (g[i]) recent.push(g[i]);
+    if (t[i]) recent.push(t[i]);
   }
 
   let wSum = 0;
