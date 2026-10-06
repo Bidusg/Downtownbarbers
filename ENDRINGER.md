@@ -10,6 +10,7 @@ språkbyttet NO/EN til **alle** kundevendte sider.
 - Fravær: velg type når du registrerer; typen kan endres på eksisterende fravær (eksisterende blir «Annet» til du endrer). Ulønnet permisjon og ugyldig fravær er merket «trekkes i lønn».
 - Lønn: trekk = grunnlønn × fraværsdager ÷ arbeidsdager i måneden (turnusdager inkl. ekstravakter; uten turnus man–fre). Vises som egen kolonne «Fravær-trekk» i Admin → Lønn, er med i totalen, i revisors lønnsoversikt og som egen linje på lønnsslipp-PDF-en.
 - Admin → Lønn har fått «Send ut lønnsslipper» (samme knapp som revisor-siden, med bekreftelse).
+- Admin → Lønn viser «Fravær i <måned>»: hvert fravær med type og om/hvorfor det trekkes, og en rød melding hvis trekket ikke kan beregnes (f.eks. SQL ikke kjørt).
 - Filer: KJØR-I-SUPABASE-FRAVAER-LONN.sql, src/lib/absence-pay.ts, src/lib/absence-kinds.ts, src/lib/ops-queries.ts, src/lib/payroll-slips.ts, src/components/revisor/PayslipDocument.tsx, src/app/admin/lonn/page.tsx, src/app/admin/fravaer/actions.ts, src/components/admin/AbsenceManager.tsx.
 
 ## Bygg 9t – historiske tall (import fra gammelt kassesystem)

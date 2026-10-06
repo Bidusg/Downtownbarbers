@@ -9,12 +9,29 @@ import { createClient } from "@/lib/supabase/server";
 
 export type AbsenceDays = { workdays: number; absentDays: number };
 
+/** Status for siste oppslag – vises i Lønn hvis trekk ikke kan beregnes. */
+export async function absenceDeductionStatus(year: number, month: number): Promise<string | null> {
+  try {
+    const sb = await createClient();
+    const { error } = await sb.rpc("absence_deduction_by_staff", { p_year: year, p_month: month });
+    if (!error) return null;
+    if (/absence_deduction_by_staff|function|schema cache/i.test(error.message))
+      return "Fravær-trekk er ikke aktivert: kjør KJØR-I-SUPABASE-FRAVAER-LONN.sql i Supabase.";
+    return `Fravær-trekk kunne ikke beregnes: ${error.message}`;
+  } catch {
+    return "Fravær-trekk kunne ikke beregnes.";
+  }
+}
+
 export async function getAbsenceDays(year: number, month: number): Promise<Map<string, AbsenceDays>> {
   const out = new Map<string, AbsenceDays>();
   try {
     const sb = await createClient();
     const { data, error } = await sb.rpc("absence_deduction_by_staff", { p_year: year, p_month: month });
-    if (error) return out;
+    if (error) {
+      console.error("absence_deduction_by_staff:", error.message);
+      return out;
+    }
     for (const r of (data as { staff_id: string; workdays: number; absent_days: number }[] | null) ?? []) {
       out.set(r.staff_id, { workdays: Number(r.workdays) || 0, absentDays: Number(r.absent_days) || 0 });
     }

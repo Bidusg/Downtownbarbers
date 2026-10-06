@@ -3,7 +3,9 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Table, THead, TBody, Tr, Th, Td, TableEmpty } from "@/components/ui/Table";
 import { Field, Select } from "@/components/ui/Input";
-import { getPayroll, PAYROLL } from "@/lib/ops-queries";
+import { getPayroll, getAbsences, PAYROLL } from "@/lib/ops-queries";
+import { absenceDeductionStatus } from "@/lib/absence-pay";
+import { ABSENCE_KINDS } from "@/lib/absence-kinds";
 import { GeneratePayslipsButton } from "@/components/revisor/GeneratePayslipsButton";
 
 // Lønnsslipp-PDF (@react-pdf) kjøres i server-action fra denne siden – krever Node.
@@ -27,7 +29,16 @@ export default async function AdminLonn({
   const year = Number(sp.year) || now.getFullYear();
   const month = Number(sp.month) || now.getMonth() + 1;
 
-  const rows = await getPayroll(year, month);
+  const [rows, allAbsences, deductionError] = await Promise.all([
+    getPayroll(year, month),
+    getAbsences(),
+    absenceDeductionStatus(year, month),
+  ]);
+  // Fravær som overlapper måneden (for forklaring under tabellen).
+  const mStart = `${year}-${String(month).padStart(2, "0")}-01`;
+  const mEnd = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+  const monthAbsences = allAbsences.filter((a) => a.from_date <= mEnd && a.to_date >= mStart);
+  const fmtD = (iso: string) => `${Number(iso.slice(8, 10))}.${Number(iso.slice(5, 7))}`;
   const totalPay = rows.reduce((s, r) => s + r.totalNok, 0);
   const totalNet = rows.reduce((s, r) => s + r.netNok, 0);
   const overThreshold = rows.filter((r) => r.commissionBaseNok > 0).length;
@@ -143,6 +154,43 @@ export default async function AdminLonn({
             </tfoot>
           )}
         </Table>
+      </Card>
+
+      {/* Fravær denne måneden – hva som trekkes og hvorfor */}
+      <Card>
+        <h2 className="font-display text-lg font-bold">Fravær i {MONTHS[month - 1].toLowerCase()}</h2>
+        {deductionError && (
+          <p className="mt-2 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
+            {deductionError}
+          </p>
+        )}
+        {monthAbsences.length === 0 ? (
+          <p className="mt-2 text-sm text-muted">Ingen fravær registrert i måneden.</p>
+        ) : (
+          <ul className="mt-3 divide-y divide-line text-sm">
+            {monthAbsences.map((a) => {
+              const k = ABSENCE_KINDS.find((x) => x.value === a.kind);
+              const row = rows.find((r) => r.staffId === a.staff_id);
+              return (
+                <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                  <span className="text-fg">
+                    <span className="font-medium">{a.staffName}</span>{" "}
+                    <span className="text-muted">
+                      {fmtD(a.from_date)}–{fmtD(a.to_date)} · {k?.label ?? a.kind}
+                    </span>
+                  </span>
+                  <span className={k?.deduct ? "text-danger" : "text-muted"}>
+                    {k?.deduct
+                      ? row && (row.absenceDays ?? 0) > 0
+                        ? `trekkes (${row.absenceDays} av ${row.workdays} arbeidsdager totalt i måneden)`
+                        : "trekkes – men ingen av dagene er arbeidsdager i turnusen"
+                      : "trekkes ikke (endre type under Fravær hvis det skal trekkes)"}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </Card>
 
       {/* Generer + send lønnsoversikter (samme som revisor-siden) */}
