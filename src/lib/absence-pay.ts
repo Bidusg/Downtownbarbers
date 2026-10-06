@@ -46,3 +46,47 @@ export function absenceDeduction(base: number, d: AbsenceDays | undefined): numb
   if (!d || d.absentDays <= 0 || d.workdays <= 0) return 0;
   return Math.min(base, Math.round((base * d.absentDays) / d.workdays));
 }
+
+
+/**
+ * Ansettelse i måneden (start/sluttdato). Grunnlønnen avkortes etter
+ * kalenderdager: grunnlønn × dager ansatt ÷ dager i måneden.
+ */
+export function employmentInMonth(
+  year: number,
+  month: number,
+  start?: string | null,
+  end?: string | null,
+): { employedDays: number; daysInMonth: number } {
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const mm = String(month).padStart(2, "0");
+  const first = `${year}-${mm}-01`;
+  const last = `${year}-${mm}-${String(daysInMonth).padStart(2, "0")}`;
+  const from = start && start > first ? start : first;
+  const to = end && end < last ? end : last;
+  if (from > to) return { employedDays: 0, daysInMonth };
+  const employedDays = Number(to.slice(8, 10)) - Number(from.slice(8, 10)) + 1;
+  return { employedDays, daysInMonth };
+}
+
+/** Samlet grunnlønn-beregning for én ansatt/måned. */
+export function baseSalaryForMonth(
+  base: number,
+  year: number,
+  month: number,
+  start: string | null | undefined,
+  end: string | null | undefined,
+  absence: AbsenceDays | undefined,
+) {
+  const emp = employmentInMonth(year, month, start, end);
+  const employmentDeduction =
+    emp.employedDays >= emp.daysInMonth ? 0 : Math.round(base * (1 - emp.employedDays / emp.daysInMonth));
+  const remaining = base - employmentDeduction;
+  const absenceDed = Math.min(remaining, absenceDeduction(base, absence));
+  return {
+    ...emp,
+    employmentDeduction,
+    absenceDeduction: absenceDed,
+    effectiveBase: remaining - absenceDed,
+  };
+}

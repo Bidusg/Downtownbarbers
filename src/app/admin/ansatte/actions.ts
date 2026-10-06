@@ -340,6 +340,8 @@ export async function updateStaff(
     employee_number?: string;
     base_salary_nok?: string; // tom = standard grunnlønn
     display_name?: string; // navn kundene ser (tom = fullt navn)
+    start_date?: string; // YYYY-MM-DD eller tom
+    end_date?: string; // YYYY-MM-DD eller tom (sluttdato ved oppsigelse)
   },
 ): Promise<{ ok?: true; error?: string }> {
   await requireRole(["admin"]);
@@ -367,16 +369,32 @@ export async function updateStaff(
     patch.display_name = fields.display_name.trim().slice(0, 60) || null;
   if (fields.employee_number !== undefined)
     patch.employee_number = fields.employee_number.trim() || null;
+  const isDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v);
+  if (fields.start_date !== undefined) {
+    const v = fields.start_date.trim();
+    if (v && !isDate(v)) return { error: "Ugyldig startdato." };
+    patch.start_date = v || null;
+  }
+  if (fields.end_date !== undefined) {
+    const v = fields.end_date.trim();
+    if (v && !isDate(v)) return { error: "Ugyldig sluttdato." };
+    patch.end_date = v || null;
+  }
+  if (patch.start_date && patch.end_date && String(patch.end_date) < String(patch.start_date))
+    return { error: "Sluttdato kan ikke være før startdato." };
 
   if (Object.keys(patch).length === 0) return { ok: true };
   const sb = await createClient();
   const { error } = await sb.from("staff").update(patch).eq("id", id);
   if (error) {
+    if (/start_date|end_date/.test(error.message))
+      return { error: "Start-/sluttdato krever SQL: kjør KJØR-I-SUPABASE-ANSATT-START-SLUTT.sql i Supabase." };
     if (/display_name/.test(error.message))
       return { error: "Visningsnavn krever SQL: kjør KJØR-I-SUPABASE-TURNUS-FRA-DATO.sql i Supabase." };
     return { error: `Kunne ikke lagre: ${error.message}` };
   }
   revalidatePath("/admin/ansatte");
+  revalidatePath("/admin/lonn");
   // Navnet vises på forsiden og i booking – oppdater dem med en gang.
   revalidatePath("/");
   revalidatePath("/booking");

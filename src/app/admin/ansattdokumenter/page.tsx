@@ -32,6 +32,7 @@ const GROUPS: { key: DocCategory; label: string; hint: string }[] = [
     label: "Lønnsoversikt",
     hint: "Genereres av revisor – kun visning her.",
   },
+  { key: "oppsigelse", label: "Oppsigelse", hint: "Oppsigelser (last opp her eller under Ansatte → Rediger)." },
   { key: "annet", label: "Andre dokumenter", hint: "Øvrige vedlegg." },
 ];
 

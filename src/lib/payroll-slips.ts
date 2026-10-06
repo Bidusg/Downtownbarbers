@@ -4,7 +4,7 @@ import {
   PAYROLL,
   type PayrollRow,
 } from "@/lib/ops-queries";
-import { getAbsenceDays, absenceDeduction } from "@/lib/absence-pay";
+import { getAbsenceDays, baseSalaryForMonth, employmentInMonth } from "@/lib/absence-pay";
 
 /* =====================================================================
  * Lønnsberegning for revisor.
@@ -48,12 +48,15 @@ export async function getPayrollForMonth(
     }
 
     const absence = await getAbsenceDays(year, month);
-    return staff.map((st) => {
+    return staff
+      .filter((st) => employmentInMonth(year, month, st.start_date, st.end_date).employedDays > 0)
+      .map((st) => {
       const gross = grossByStaff.get(st.id) ?? 0;
       const net = gross / (1 + PAYROLL.MVA);
       const commissionBase = Math.max(0, net - PAYROLL.THRESHOLD_NOK);
       const commission = commissionBase * PAYROLL.RATE;
       const base = st.base_salary_nok ?? PAYROLL.BASE_NOK;
+      const bs = baseSalaryForMonth(base, year, month, st.start_date, st.end_date, absence.get(st.id));
       return {
         staffId: st.id,
         name: st.full_name,
@@ -63,10 +66,13 @@ export async function getPayrollForMonth(
         commissionBaseNok: commissionBase,
         commissionNok: commission,
         baseNok: base,
-        totalNok: base - absenceDeduction(base, absence.get(st.id)) + commission,
+        totalNok: bs.effectiveBase + commission,
         absenceDays: absence.get(st.id)?.absentDays ?? 0,
         workdays: absence.get(st.id)?.workdays ?? 0,
-        deductionNok: absenceDeduction(base, absence.get(st.id)),
+        deductionNok: bs.absenceDeduction,
+        employedDays: bs.employedDays,
+        daysInMonth: bs.daysInMonth,
+        employmentDeductionNok: bs.employmentDeduction,
       };
     });
   } catch {

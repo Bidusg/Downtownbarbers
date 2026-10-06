@@ -72,3 +72,32 @@ export async function decideLeaveRequest(
     return { ok: false, error: "Noe gikk galt." };
   }
 }
+
+
+/** Rediger et registrert fravær (datoer, type, kommentar). Lønn regnes om. */
+export async function updateAbsence(
+  id: string,
+  input: { from_date: string; to_date: string; kind: string; reason: string },
+): Promise<{ ok?: true; error?: string }> {
+  await requireRole(["admin"]);
+  const isDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v);
+  if (!isDate(input.from_date) || !isDate(input.to_date)) return { error: "Velg gyldige datoer." };
+  if (input.to_date < input.from_date) return { error: "Til-dato kan ikke være før fra-dato." };
+  if (!KINDS.includes(input.kind)) return { error: "Velg type." };
+  const sb = await createClient();
+  const { error } = await sb
+    .from("absences")
+    .update({
+      from_date: input.from_date,
+      to_date: input.to_date,
+      kind: input.kind,
+      reason: input.reason.trim() || null,
+    })
+    .eq("id", id);
+  if (error) return { error: /kind/.test(error.message) ? "Kjør KJØR-I-SUPABASE-FRAVAER-LONN.sql først." : error.message };
+  revalidatePath("/admin/fravaer");
+  revalidatePath("/admin/lonn");
+  revalidatePath("/admin/bookinger");
+  revalidatePath("/booking");
+  return { ok: true };
+}

@@ -3,6 +3,7 @@
 import { createPortal } from "react-dom";
 
 import { useState, useTransition } from "react";
+import { uploadStaffDocument } from "@/app/admin/ansattdokumenter/actions";
 import type { AdminStaff } from "@/lib/admin-queries";
 import type { StaffLevel, PickerService } from "@/lib/levels-queries";
 import { FileInput } from "@/components/ui/FileInput";
@@ -47,6 +48,9 @@ function EditStaffModal({
   const [baseSalary, setBaseSalary] = useState(
     staff.base_salary_nok != null ? String(staff.base_salary_nok) : "",
   );
+  const [startDate, setStartDate] = useState(staff.start_date ?? "");
+  const [endDate, setEndDate] = useState(staff.end_date ?? "");
+  const [docMsg, setDocMsg] = useState<string | null>(null);
   // Avhuket = leverer tjenesten. Uavhuket = leverer ikke (strengt, siden bygg 9).
   const [serviceIds, setServiceIds] = useState<Set<string>>(
     () => new Set(currentServiceIds),
@@ -84,6 +88,8 @@ function EditStaffModal({
         employee_number: empNo,
         base_salary_nok: baseSalary,
         display_name: displayName,
+        start_date: startDate,
+        end_date: endDate,
       });
       if (r.error) {
         setErr(r.error);
@@ -163,6 +169,47 @@ function EditStaffModal({
               inputMode="numeric"
               placeholder="27000"
             />
+          </Field>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Startdato" hint="(første arbeidsdag)">
+              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            </Field>
+            <Field label="Sluttdato" hint="(siste arbeidsdag)">
+              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            </Field>
+          </div>
+          <p className="-mt-1 text-[11px] text-muted">
+            Før startdato og etter sluttdato kan ansatte ikke bookes, vises ikke på vakt, og
+            grunnlønnen avkortes for dagene i måneden utenfor ansettelsen.
+          </p>
+
+          {/* Oppsigelse – lagres privat i ansattens dokumenter */}
+          <Field label="Oppsigelse" hint="(PDF/bilde – lagres i ansattens dokumentmappe)">
+            <form
+              className="flex flex-wrap items-center gap-3"
+              action={(fd) =>
+                start(async () => {
+                  setDocMsg(null);
+                  fd.set("staff_id", staff.id);
+                  fd.set("category", "oppsigelse");
+                  const r = await uploadStaffDocument(fd);
+                  setDocMsg(r.error ? r.error : "Oppsigelse lastet opp ✓ (se Ansattdokumenter)");
+                })
+              }
+            >
+              <input
+                type="file"
+                name="file"
+                accept="application/pdf,image/*"
+                required
+                className="max-w-full text-xs text-muted file:mr-2 file:rounded-md file:border file:border-line-2 file:bg-canvas file:px-3 file:py-1.5 file:text-xs file:text-fg"
+              />
+              <Button type="submit" variant="subtle" disabled={pending} className="px-3 py-1.5 text-xs">
+                Last opp
+              </Button>
+              {docMsg && <span className="text-xs text-muted">{docMsg}</span>}
+            </form>
           </Field>
 
           {/* Profilbilde – kunne tidligere bare settes ved opprettelse. */}

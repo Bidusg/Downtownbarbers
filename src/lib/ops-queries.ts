@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { AbsenceKind } from "@/lib/absence-kinds";
 import { getHistoricalForMonth } from "@/lib/historical-revenue";
-import { getAbsenceDays, absenceDeduction } from "@/lib/absence-pay";
+import { getAbsenceDays, baseSalaryForMonth, employmentInMonth } from "@/lib/absence-pay";
 
 /* =====================================================================
  * Query-lag for admin-drift: lønn, gavekort, kasseoppgjør, fravær,
@@ -13,16 +13,28 @@ export type StaffOption = {
   full_name: string;
   title: string | null;
   base_salary_nok: number | null; // null = standard (PAYROLL.BASE_NOK)
+  start_date?: string | null; // ansatt fra (YYYY-MM-DD)
+  end_date?: string | null; // siste arbeidsdag (oppsigelse)
 };
 
 export async function getStaffOptions(): Promise<StaffOption[]> {
   try {
     const sb = await createClient();
-    const { data } = await sb
+    const first = await sb
       .from("staff")
-      .select("id, full_name, title, active, base_salary_nok")
+      .select("id, full_name, title, active, base_salary_nok, start_date, end_date")
       .eq("active", true)
       .order("employee_number");
+    let data = first.data as Record<string, unknown>[] | null;
+    if (first.error) {
+      // start/slutt-kolonnene mangler (SQL ikke kjørt)
+      const fb = await sb
+        .from("staff")
+        .select("id, full_name, title, active, base_salary_nok")
+        .eq("active", true)
+        .order("employee_number");
+      data = fb.data as Record<string, unknown>[] | null;
+    }
     return (data ?? []).map((r) => ({
       id: r.id as string,
       full_name: r.full_name as string,
@@ -31,6 +43,8 @@ export async function getStaffOptions(): Promise<StaffOption[]> {
         r.base_salary_nok === null || r.base_salary_nok === undefined
           ? null
           : Number(r.base_salary_nok),
+      start_date: (r.start_date as string | null | undefined) ?? null,
+      end_date: (r.end_date as string | null | undefined) ?? null,
     }));
   } catch {
     return [];
@@ -60,6 +74,9 @@ export type PayrollRow = {
   absenceDays?: number; // dager med trekk-fravær (ulønnet/ugyldig)
   workdays?: number; // arbeidsdager i måneden (turnus, ellers man–fre)
   deductionNok?: number; // trekk i grunnlønn for fravær
+  employedDays?: number; // dager ansatt i måneden
+  daysInMonth?: number;
+  employmentDeductionNok?: number; // avkorting: ikke ansatt hele måneden
 };
 
 function monthRange(year: number, month: number) {
@@ -98,14 +115,18 @@ export async function getPayroll(
     }
 
     const absence = await getAbsenceDays(year, month);
-    return staff.map((st) => {
+    return staff
+      // Ikke ansatt noen dag i måneden (ikke startet / sluttet) → ikke med.
+      .filter((st) => employmentInMonth(year, month, st.start_date, st.end_date).employedDays > 0)
+      .map((st) => {
       const gross = grossByStaff.get(st.id) ?? 0;
       const net = gross / (1 + PAYROLL.MVA);
       const commissionBase = Math.max(0, net - PAYROLL.THRESHOLD_NOK);
       const commission = commissionBase * PAYROLL.RATE;
       const base = st.base_salary_nok ?? PAYROLL.BASE_NOK;
       const ab = absence.get(st.id);
-      const deduction = absenceDeduction(base, ab);
+      const bs = baseSalaryForMonth(base, year, month, st.start_date, st.end_date, ab);
+      const deduction = bs.absenceDeduction;
       return {
         staffId: st.id,
         name: st.full_name,
@@ -115,11 +136,14 @@ export async function getPayroll(
         commissionBaseNok: commissionBase,
         commissionNok: commission,
         baseNok: base,
-        totalNok: base - deduction + commission,
+        totalNok: bs.effectiveBase + commission,
         importedNok: importedByStaff.get(st.id) ?? 0,
         absenceDays: ab?.absentDays ?? 0,
         workdays: ab?.workdays ?? 0,
         deductionNok: deduction,
+        employedDays: bs.employedDays,
+        daysInMonth: bs.daysInMonth,
+        employmentDeductionNok: bs.employmentDeduction,
       };
     });
   } catch {

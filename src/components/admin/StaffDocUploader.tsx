@@ -40,6 +40,7 @@ export function StaffDocUploader({ staffId }: { staffId: string }) {
         <Field label="Kategori">
           <Select name="category" defaultValue="kontrakt" required>
             <option value="kontrakt">Kontrakt</option>
+            <option value="oppsigelse">Oppsigelse</option>
             <option value="annet">Annet</option>
           </Select>
         </Field>

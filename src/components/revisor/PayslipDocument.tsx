@@ -157,6 +157,12 @@ function PayslipDoc({
         {/* Lønnslinjer */}
         <Text style={s.sectionTitle}>Beregning</Text>
         <Line label="Grunnlønn" value={kr(row.baseNok)} />
+        {(row.employmentDeductionNok ?? 0) > 0 && (
+          <Line
+            label={`Ansatt ${row.employedDays} av ${row.daysInMonth} dager i måneden`}
+            value={`− ${kr(row.employmentDeductionNok ?? 0)}`}
+          />
+        )}
         {(row.deductionNok ?? 0) > 0 && (
           <Line
             label={`Trekk fravær (${row.absenceDays} av ${row.workdays} arbeidsdager)`}

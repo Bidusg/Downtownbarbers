@@ -30,6 +30,8 @@ export type AdminStaff = {
   level_id: string | null;
   base_salary_nok: number | null;
   display_name: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
 };
 
 export type AdminBooking = {
@@ -117,7 +119,13 @@ export async function getStaffAdmin(): Promise<AdminStaff[]> {
     const sb = await createClient();
     const cols =
       "id, employee_number, full_name, title, bio, photo_url, contract_url, active, email, postnummer, profile_id, pin_hash, level_id, base_salary_nok, display_name";
-    let { data, error } = await sb.from("staff").select(cols).order("employee_number");
+    const withDates = await sb
+      .from("staff")
+      .select(cols + ", start_date, end_date")
+      .order("employee_number");
+    let { data, error } = withDates.error
+      ? await sb.from("staff").select(cols).order("employee_number")
+      : (withDates as unknown as { data: Record<string, unknown>[] | null; error: null });
     if (error) {
       // En nyere kolonne mangler (SQL ikke kjørt) → vis lista uten den.
       const fb = await sb

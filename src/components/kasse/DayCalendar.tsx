@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 import type { AgendaBooking, ShopBarber, ShopService } from "@/lib/shop-queries";
 import { colorAt } from "@/lib/colors";
 import { Avatar } from "@/components/ui/Avatar";
-import { DeskBooking } from "@/components/kasse/DeskBooking";
+import { DeskBooking, DeskBookingDialog } from "@/components/kasse/DeskBooking";
 import { QuickSale } from "@/components/kasse/QuickSale";
 import { BookingDetailModal } from "@/components/kasse/BookingDetailModal";
 import {
@@ -222,6 +222,9 @@ export function DayCalendar({
   const [blockOpen, setBlockOpen] = useState(false);
   // Valgt blokk (trykk på en blokk → dialog med «Fjern blokkering»).
   const [blockSel, setBlockSel] = useState<AgendaBooking | null>(null);
+  // Klikk i ledig felt i en kolonne → booking-popup med barber + tid forhåndsvalgt.
+  const [slotPick, setSlotPick] = useState<{ barber: string; time: string } | null>(null);
+  const [hoverSlot, setHoverSlot] = useState<{ col: string; min: number } | null>(null);
   const [blockErr, setBlockErr] = useState<string | null>(null);
   // Blokker som er fjernet, men som serveren ikke har oppdatert ennå.
   const [hiddenBlocks, setHiddenBlocks] = useState<Set<string>>(new Set());
@@ -280,8 +283,8 @@ export function DayCalendar({
 
   // Pause auto-oppdatering mens en dialog er åpen eller en gest pågår.
   useEffect(() => {
-    busyRef.current = !!(selected || blockOpen || blockSel || transfer || move || resize || dragId || slide);
-  }, [selected, blockOpen, blockSel, transfer, move, resize, dragId, slide]);
+    busyRef.current = !!(selected || blockOpen || blockSel || slotPick || transfer || move || resize || dragId || slide);
+  }, [selected, blockOpen, blockSel, slotPick, transfer, move, resize, dragId, slide]);
 
   const columns = useMemo(() => {
     const map = new Map<string, { barber: ShopBarber; items: AgendaBooking[] }>();
@@ -750,7 +753,43 @@ export function DayCalendar({
                   </span>
                 </div>
 
-                <div className="relative" style={{ height: SPAN * PX }}>
+                <div
+                  className="relative cursor-pointer"
+                  style={{ height: SPAN * PX }}
+                  onClick={(e) => {
+                    if (moved.current || dragId || move || resize) return;
+                    const el = e.target as HTMLElement;
+                    if (el.closest("button, [role=button], a, input, select")) return;
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const min = OPEN + Math.floor((e.clientY - rect.top) / PX / 15) * 15;
+                    const clamped = Math.max(OPEN, Math.min(CLOSE - 15, min));
+                    const hh = String(Math.floor(clamped / 60)).padStart(2, "0");
+                    const mm = String(clamped % 60).padStart(2, "0");
+                    setSlotPick({ barber: col.barber.full_name, time: `${hh}:${mm}` });
+                  }}
+                  onMouseMove={(e) => {
+                    if (dragId || move || resize) return;
+                    const el = e.target as HTMLElement;
+                    if (el.closest("button, [role=button], a")) {
+                      if (hoverSlot) setHoverSlot(null);
+                      return;
+                    }
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const min = OPEN + Math.floor((e.clientY - rect.top) / PX / 15) * 15;
+                    if (!hoverSlot || hoverSlot.col !== col.barber.full_name || hoverSlot.min !== min)
+                      setHoverSlot({ col: col.barber.full_name, min });
+                  }}
+                  onMouseLeave={() => setHoverSlot(null)}
+                >
+                  {/* «+ 14:15»-markør der man kan klikke for ny booking (mus) */}
+                  {hoverSlot && hoverSlot.col === col.barber.full_name && hoverSlot.min >= OPEN && hoverSlot.min < CLOSE && (
+                    <div
+                      className="pointer-events-none absolute right-1 left-1 z-[1] flex items-center rounded border border-dashed border-accent-soft/70 bg-accent-soft/10 px-2 text-[11px] font-semibold text-accent-soft"
+                      style={{ top: (hoverSlot.min - OPEN) * PX, height: 15 * PX * 2 }}
+                    >
+                      + {String(Math.floor(hoverSlot.min / 60)).padStart(2, "0")}:{String(hoverSlot.min % 60).padStart(2, "0")}
+                    </div>
+                  )}
                   {hours.map((h) => (
                     <div
                       key={h}
@@ -1071,6 +1110,18 @@ export function DayCalendar({
             </div>
           </div>
         </div>
+      )}
+
+      {slotPick && (
+        <DeskBookingDialog
+          services={services}
+          barbers={barbers}
+          prefill={{ barber: slotPick.barber, date, time: slotPick.time }}
+          onClose={() => {
+            setSlotPick(null);
+            router.refresh();
+          }}
+        />
       )}
 
       {blockOpen && (

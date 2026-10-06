@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export const STAFF_DOCS_BUCKET = "staff-docs";
 
-export type DocCategory = "kontrakt" | "lonnslipp" | "annet";
+export type DocCategory = "kontrakt" | "lonnslipp" | "annet" | "oppsigelse";
 
 export type StaffDocument = {
   id: string;

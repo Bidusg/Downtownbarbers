@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import type { Absence, StaffOption } from "@/lib/ops-queries";
 import { ABSENCE_KINDS } from "@/lib/absence-kinds";
-import { createAbsence, deleteAbsence, updateAbsenceKind } from "@/app/admin/fravaer/actions";
+import { createAbsence, deleteAbsence, updateAbsenceKind, updateAbsence } from "@/app/admin/fravaer/actions";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { Card } from "@/components/ui/Card";
 import {
@@ -33,6 +33,8 @@ export function AbsenceManager({
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [ed, setEd] = useState({ from_date: "", to_date: "", kind: "ulonnet", reason: "" });
 
   return (
     <div className="space-y-6">
@@ -66,10 +68,7 @@ export function AbsenceManager({
                 </option>
               ))}
             </Select>
-            <Select name="kind" required defaultValue="">
-              <option value="" disabled>
-                Type fravær …
-              </option>
+            <Select name="kind" required defaultValue="ulonnet">
               {ABSENCE_KINDS.map((k) => (
                 <option key={k.value} value={k.value}>
                   {k.label}
@@ -112,7 +111,55 @@ export function AbsenceManager({
             {absences.length === 0 && (
               <TableEmpty colSpan={6}>Ingen fravær registrert enda.</TableEmpty>
             )}
-            {absences.map((a) => (
+            {absences.map((a) =>
+              editId === a.id ? (
+                <Tr key={a.id}>
+                  <Td className="font-medium text-fg">{a.staffName}</Td>
+                  <Td>
+                    <Input type="date" value={ed.from_date} onChange={(e) => setEd({ ...ed, from_date: e.target.value })} />
+                  </Td>
+                  <Td>
+                    <Input type="date" value={ed.to_date} onChange={(e) => setEd({ ...ed, to_date: e.target.value })} />
+                  </Td>
+                  <Td>
+                    <select
+                      value={ed.kind}
+                      onChange={(e) => setEd({ ...ed, kind: e.target.value })}
+                      className="rounded-md border border-line-2 bg-canvas px-2 py-1 text-xs text-fg"
+                    >
+                      {ABSENCE_KINDS.map((k) => (
+                        <option key={k.value} value={k.value}>
+                          {k.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Td>
+                  <Td>
+                    <Input value={ed.reason} onChange={(e) => setEd({ ...ed, reason: e.target.value })} placeholder="Kommentar" />
+                  </Td>
+                  <Td align="right">
+                    <span className="flex justify-end gap-3 text-xs">
+                      <button
+                        className="font-semibold text-accent-soft hover:underline"
+                        disabled={pending}
+                        onClick={() =>
+                          start(async () => {
+                            setErr(null);
+                            const res = await updateAbsence(a.id, ed);
+                            if (res.error) setErr(res.error);
+                            else setEditId(null);
+                          })
+                        }
+                      >
+                        {pending ? "Lagrer …" : "Lagre"}
+                      </button>
+                      <button className="text-muted hover:underline" onClick={() => setEditId(null)}>
+                        Avbryt
+                      </button>
+                    </span>
+                  </Td>
+                </Tr>
+              ) : (
               <Tr key={a.id}>
                 <Td className="font-medium text-fg">{a.staffName}</Td>
                 <Td muted>{no(a.from_date)}</Td>
@@ -145,16 +192,29 @@ export function AbsenceManager({
                 </Td>
                 <Td muted>{a.reason ?? "—"}</Td>
                 <Td align="right">
-                  <ConfirmButton
-                    label="Slett"
-                    confirmLabel="Ja, slett"
-                    pendingLabel="Sletter …"
-                    disabled={pending}
-                    onConfirm={() => deleteAbsence(a.id)}
-                  />
+                  <span className="flex items-center justify-end gap-3">
+                    <button
+                      className="text-xs text-accent-soft hover:underline"
+                      onClick={() => {
+                        setErr(null);
+                        setEditId(a.id);
+                        setEd({ from_date: a.from_date, to_date: a.to_date, kind: a.kind, reason: a.reason ?? "" });
+                      }}
+                    >
+                      Rediger
+                    </button>
+                    <ConfirmButton
+                      label="Slett"
+                      confirmLabel="Ja, slett"
+                      pendingLabel="Sletter …"
+                      disabled={pending}
+                      onConfirm={() => deleteAbsence(a.id)}
+                    />
+                  </span>
                 </Td>
               </Tr>
-            ))}
+              ),
+            )}
           </TBody>
         </Table>
       </Card>

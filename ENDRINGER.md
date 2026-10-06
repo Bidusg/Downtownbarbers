@@ -4,6 +4,21 @@ Dette bygget retter funnene fra den fulle gjennomgangen av forsiden og
 booking-veiviseren (testet live på Vercel-prod, mobil + desktop), og utvider
 språkbyttet NO/EN til **alle** kundevendte sider.
 
+## Bygg 10b – start-/sluttdato, oppsigelse, fravær slår rett inn i lønn, rediger fravær
+
+- KJØR-I-SUPABASE-ANSATT-START-SLUTT.sql: staff.start_date / end_date, dokumentkategori «oppsigelse», og ledige tider / «på vakt» / fravær-trekk respekterer ansettelsesperioden.
+- Ansatte → Rediger: «Startdato» og «Sluttdato» + «Oppsigelse» (last opp PDF/bilde – havner i ansattens dokumenter under «Oppsigelse»).
+- Lønn: grunnlønn avkortes når den ansatte ikke er ansatt hele måneden (grunnlønn × dager ansatt ÷ dager i måneden). Ansatte som ikke er ansatt noen dag i måneden vises ikke. Kolonnen heter nå «Trekk» (avkorting + fravær), også som egne linjer på lønnsslippen.
+- Fravær: ny registrering har «Ulønnet permisjon / fri» forhåndsvalgt, så lagring gir trekk i lønn med en gang. «Rediger»-knapp på hvert fravær (datoer, type, kommentar). Boksen «Fravær i måneden» på Lønn er fjernet (feilmelding vises fortsatt hvis trekk ikke kan beregnes).
+- Filer: KJØR-I-SUPABASE-ANSATT-START-SLUTT.sql, src/lib/ops-queries.ts, src/lib/absence-pay.ts, src/lib/payroll-slips.ts, src/components/revisor/PayslipDocument.tsx, src/app/admin/lonn/page.tsx, src/lib/admin-queries.ts, src/app/admin/ansatte/actions.ts, src/components/admin/StaffManager.tsx, src/app/admin/ansattdokumenter/actions.ts, src/app/admin/ansattdokumenter/page.tsx, src/components/admin/StaffDocUploader.tsx, src/lib/staff-documents.ts, src/app/admin/fravaer/actions.ts, src/components/admin/AbsenceManager.tsx.
+
+## Bygg 10a – klikk i timeboken for å booke
+
+- Dagskalenderen (Bookinger og kasse): klikk i et ledig felt i en barbers kolonne → booking-popupen åpnes med barber, dato og tid (avrundet til nærmeste kvarter) forhåndsvalgt. Velg kunde og behandling og bekreft som vanlig. Er tiden ikke ledig, velges nærmeste ledige tid med en forklaring.
+- Med mus vises en «+ 14:15»-markør der du peker. Klikk på bookinger/blokker åpner dem som før.
+- Booking-popupen vises nå over alt (portal).
+- Filer: src/components/kasse/DayCalendar.tsx, src/components/kasse/DeskBooking.tsx.
+
 ## Bygg 9z – bytt fraværstype rett fra Lønn
 
 - Admin → Lønn → «Fravær i <måned>»: hvert fravær har nå en type-velger. Velg «Ulønnet permisjon» eller «Ugyldig fravær» → lønnen regnes om med en gang (Fravær-trekk og Total lønn oppdateres).

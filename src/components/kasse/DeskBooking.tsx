@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import type { ShopBarber, ShopService } from "@/lib/shop-queries";
 import { isAddonCategory } from "@/lib/service-categories";
@@ -17,6 +18,10 @@ type Prefill = {
   customerName?: string;
   service?: string;
   barber?: string;
+  /** Forhåndsvalgt dato (YYYY-MM-DD) – f.eks. ved klikk i kalenderen. */
+  date?: string;
+  /** Ønsket klokkeslett (HH:MM); nærmeste ledige tid fra og med velges. */
+  time?: string;
 };
 
 
@@ -80,6 +85,17 @@ export function DeskBooking({
   );
 }
 
+/** Selve booking-popupen – brukes også ved klikk i dagskalenderen. */
+export function DeskBookingDialog(props: {
+  services: ShopService[];
+  barbers: ShopBarber[];
+  prefill?: Prefill;
+  onClose: () => void;
+}) {
+  if (typeof document === "undefined") return null;
+  return createPortal(<Dialog mode="new" {...props} />, document.body);
+}
+
 function Dialog({
   services,
   barbers,
@@ -119,7 +135,10 @@ function Dialog({
   const [barber, setBarber] = useState(
     prefill?.barber ?? barbers[0]?.full_name ?? "",
   );
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(prefill?.date ?? "");
+  // Ønsket tid (fra klikk i kalenderen) – brukes første gang tidene hentes.
+  const [wantTime, setWantTime] = useState<string | undefined>(prefill?.time);
+  const [timeNote, setTimeNote] = useState<string | null>(null);
   const [slots, setSlots] = useState<string[]>([]);
   const [time, setTime] = useState("");
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -156,6 +175,19 @@ function Dialog({
       if (live) {
         setSlots(r);
         setLoadingSlots(false);
+        if (wantTime) {
+          // Velg ønsket tid, ellers nærmeste ledige etter (eller siste før).
+          const exact = r.find((x) => x === wantTime);
+          const after = r.find((x) => x >= wantTime);
+          const pick = exact ?? after ?? r[r.length - 1];
+          if (pick) {
+            setTime(pick);
+            setTimeNote(pick === wantTime ? null : `${wantTime} er ikke ledig – nærmeste ledige tid er valgt (${pick}).`);
+          } else {
+            setTimeNote(`Ingen ledige tider for ${barber} denne dagen.`);
+          }
+          setWantTime(undefined);
+        }
       }
     });
     return () => {
@@ -381,6 +413,7 @@ function Dialog({
         {date && (
           <div className="mb-4">
             <label className="mb-1 block text-xs text-muted">Ledig tid</label>
+            {timeNote && <p className="mb-2 text-xs text-accent-soft">{timeNote}</p>}
             {loadingSlots ? (
               <p className="text-sm text-muted">Henter ledige tider…</p>
             ) : slots.length === 0 ? (

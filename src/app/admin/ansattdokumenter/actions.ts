@@ -9,7 +9,7 @@ import { STAFF_DOCS_BUCKET } from "@/lib/staff-documents";
 const PUBLIC_BUCKET = "staff-files";
 
 const MAX_BYTES = 4 * 1024 * 1024; // 4 MB
-const ADMIN_CATEGORIES = ["kontrakt", "annet"] as const;
+const ADMIN_CATEGORIES = ["kontrakt", "annet", "oppsigelse"] as const;
 type AdminCategory = (typeof ADMIN_CATEGORIES)[number];
 
 /** Enkel, trygg slug for filnavn (beholder bokstaver/tall/bindestrek + ev. filtype). */
