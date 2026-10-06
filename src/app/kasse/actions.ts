@@ -945,6 +945,34 @@ export async function createDeskBooking(
     const sb = await createClient();
     let newId: string | null = null;
 
+    // Kun kollisjon med barberens andre bookinger stopper lagring – turnus,
+    // fravær og passert tid gjør det ikke (drop-in / etterregistrering).
+    {
+      const [{ data: svc }, { data: st }] = await Promise.all([
+        sb.from("services").select("duration_min").eq("name", input.service).maybeSingle(),
+        sb.from("staff").select("id").eq("full_name", input.barber).maybeSingle(),
+      ]);
+      if (!st) return { error: "Fant ikke barberen." };
+      const startMs = new Date(input.start).getTime();
+      if (Number.isNaN(startMs)) return { error: "Ugyldig tid." };
+      const endIso = new Date(startMs + (Number(svc?.duration_min) || 30) * 60000).toISOString();
+      const { data: clash } = await sb
+        .from("bookings")
+        .select("start_at, end_at, customers(full_name)")
+        .eq("staff_id", st.id as string)
+        .in("status", ["pending", "confirmed", "completed"])
+        .lt("start_at", endIso)
+        .gt("end_at", input.start)
+        .limit(1);
+      if (clash && clash.length) {
+        const c = clash[0];
+        const who = (c.customers as { full_name?: string } | null)?.full_name ?? "blokkering";
+        return {
+          error: `${input.barber} er allerede booket ${fmtClock(c.start_at as string)}–${fmtClock(c.end_at as string)} (${who}). Velg en annen tid.`,
+        };
+      }
+    }
+
     if (input.customerId) {
       const { data, error } = await sb.rpc("create_booking_for_customer", {
         p_customer: input.customerId,
@@ -968,8 +996,9 @@ export async function createDeskBooking(
       newId = (data as string) ?? null;
     }
 
-    // Send bekreftelse på e-post hvis kunden har e-post (også rebooking).
-    if (newId) {
+    // Send bekreftelse på e-post hvis kunden har e-post (også rebooking) –
+    // ikke for bookinger som legges inn i etterkant (tiden har passert).
+    if (newId && new Date(input.start).getTime() > Date.now()) {
       const { data: bk } = await sb
         .from("bookings")
         .select(

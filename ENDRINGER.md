@@ -4,6 +4,14 @@ Dette bygget retter funnene fra den fulle gjennomgangen av forsiden og
 booking-veiviseren (testet live på Vercel-prod, mobil + desktop), og utvider
 språkbyttet NO/EN til **alle** kundevendte sider.
 
+## Bygg 10c – drop-in og bookinger i etterkant (admin og shop)
+
+- Ny booking (kassen/timeboken): feltet «Annen tid (drop-in / legges inn i etterkant)» med «Nå»-knapp. Tiden kan være utenfor turnus, under fravær eller allerede passert – den lagres så lenge barberen ikke har en annen booking samtidig (serveren sjekker kollisjon og sier hvem/hva den krasjer med).
+- Klikk i timeboken bruker nå nøyaktig tiden du klikket på (ikke «nærmeste ledige»), med forklaring hvis den er utenfor vanlige tider.
+- «Drop-in»-knapp ved Kunde fyller inn ny kunde «Drop-in». Datovelgeren tillater tidligere datoer.
+- Ingen bekreftelses-e-post for bookinger som legges inn etter at tiden har passert.
+- Filer: src/components/kasse/DeskBooking.tsx, src/app/kasse/actions.ts.
+
 ## Bygg 10b – start-/sluttdato, oppsigelse, fravær slår rett inn i lønn, rediger fravær
 
 - KJØR-I-SUPABASE-ANSATT-START-SLUTT.sql: staff.start_date / end_date, dokumentkategori «oppsigelse», og ledige tider / «på vakt» / fravær-trekk respekterer ansettelsesperioden.

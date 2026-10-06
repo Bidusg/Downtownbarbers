@@ -139,6 +139,8 @@ function Dialog({
   // Ønsket tid (fra klikk i kalenderen) – brukes første gang tidene hentes.
   const [wantTime, setWantTime] = useState<string | undefined>(prefill?.time);
   const [timeNote, setTimeNote] = useState<string | null>(null);
+  // Fri tid (drop-in / etterregistrering): HH:MM, uavhengig av ledige tider.
+  const [manualTime, setManualTime] = useState("");
   const [slots, setSlots] = useState<string[]>([]);
   const [time, setTime] = useState("");
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -176,16 +178,15 @@ function Dialog({
         setSlots(r);
         setLoadingSlots(false);
         if (wantTime) {
-          // Velg ønsket tid, ellers nærmeste ledige etter (eller siste før).
-          const exact = r.find((x) => x === wantTime);
-          const after = r.find((x) => x >= wantTime);
-          const pick = exact ?? after ?? r[r.length - 1];
-          if (pick) {
-            setTime(pick);
-            setTimeNote(pick === wantTime ? null : `${wantTime} er ikke ledig – nærmeste ledige tid er valgt (${pick}).`);
-          } else {
-            setTimeNote(`Ingen ledige tider for ${barber} denne dagen.`);
-          }
+          // Klikket tid brukes som den er (også utenfor turnus / i fortiden).
+          // Lagringen stopper bare hvis barberen har en annen booking da.
+          setTime(wantTime);
+          setManualTime(wantTime);
+          setTimeNote(
+            r.includes(wantTime)
+              ? null
+              : "Tiden er utenfor de vanlige ledige tidene (turnus, fravær eller passert) – den kan likevel lagres hvis barberen ikke har en annen booking da.",
+          );
           setWantTime(undefined);
         }
       }
@@ -230,7 +231,6 @@ function Dialog({
         ? "Book ny time"
         : "Ny booking";
 
-  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <div
@@ -262,6 +262,19 @@ function Dialog({
           <div className="mb-4">
             <div className="mb-1 flex items-center justify-between">
               <label className="text-xs text-muted">Kunde</label>
+              <span className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setNewCustomer(true);
+                  setCustomerId(undefined);
+                  setCustomerName("");
+                  setNyNavn("Drop-in");
+                }}
+                className="text-xs font-semibold text-muted hover:text-fg hover:underline"
+              >
+                Drop-in
+              </button>
               <button
                 onClick={() => {
                   setNewCustomer((v) => !v);
@@ -272,6 +285,7 @@ function Dialog({
               >
                 {newCustomer ? "Søk eksisterende" : "+ Ny kunde"}
               </button>
+              </span>
             </div>
 
             {newCustomer ? (
@@ -402,7 +416,6 @@ function Dialog({
           <label className="mb-1 block text-xs text-muted">Dato</label>
           <input
             type="date"
-            min={today}
             value={date}
             onChange={(e) => setDate(e.target.value)}
             className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg focus:border-accent-soft focus:outline-none"
@@ -417,7 +430,7 @@ function Dialog({
             {loadingSlots ? (
               <p className="text-sm text-muted">Henter ledige tider…</p>
             ) : slots.length === 0 ? (
-              <p className="text-sm text-muted">Ingen ledige tider denne dagen.</p>
+              <p className="text-sm text-muted">Ingen ledige tider i turnusen denne dagen – sett tid manuelt under.</p>
             ) : (
               <div className="grid grid-cols-4 gap-2">
                 {slots.map((s) => (
@@ -436,6 +449,44 @@ function Dialog({
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Egen tid: drop-in eller booking som legges inn i etterkant */}
+        {date && mode !== "reschedule" && (
+          <div className="mb-4 rounded-md border border-dashed border-line-2 p-3">
+            <label className="mb-1 block text-xs text-muted">
+              Annen tid (drop-in / legges inn i etterkant)
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="time"
+                step={300}
+                value={manualTime}
+                onChange={(e) => {
+                  setManualTime(e.target.value);
+                  setTime(e.target.value);
+                }}
+                className="rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg focus:border-accent-soft focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const n = new Date();
+                  const hh = String(n.getHours()).padStart(2, "0");
+                  const mm = String(Math.floor(n.getMinutes() / 5) * 5).padStart(2, "0");
+                  setDate(n.toLocaleDateString("en-CA"));
+                  setManualTime(`${hh}:${mm}`);
+                  setTime(`${hh}:${mm}`);
+                }}
+                className="rounded-md border border-line-2 px-3 py-2 text-xs font-semibold text-fg hover:border-accent-soft"
+              >
+                Nå
+              </button>
+            </div>
+            <p className="mt-1 text-[11px] text-muted">
+              Lagres så lenge barberen ikke har en annen booking samtidig – også utenfor turnus og på tid som har passert.
+            </p>
           </div>
         )}
 
