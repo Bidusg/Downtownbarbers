@@ -4,6 +4,13 @@ Dette bygget retter funnene fra den fulle gjennomgangen av forsiden og
 booking-veiviseren (testet live på Vercel-prod, mobil + desktop), og utvider
 språkbyttet NO/EN til **alle** kundevendte sider.
 
+## Bygg 9x – ekstravakt vinner over fravær, datoer i ukeplanen, forklaring i kalenderen
+
+- KJØR-I-SUPABASE-EKSTRAVAKT-VINNER.sql: en ekstravakt for en bestemt dato vinner nå over fravær/heldags fri (ledige tider = kun ekstravaktens tidsrom, vises i kalenderen, regnes ikke som fraværsdag i lønn). Før ble den stille overstyrt av et lengre fravær.
+- Timelister → ukeplanen viser datoene for uken (denne uken, eller neste uke med valgt rotasjonsuke), og tegner ekstravakter (stripet) og fravær/fri (grå) for de datoene. Klikk på en dag foreslår akkurat den datoen. Etter lagring oppdateres planen med en gang.
+- Kalenderen (Bookinger og kasse): «Ikke på vakt denne dagen» viser HVORFOR per person (fravær d.m–d.m (kommentar) / fri denne dagen / ingen turnus denne dagen).
+- Filer: KJØR-I-SUPABASE-EKSTRAVAKT-VINNER.sql, src/components/admin/WeekSchedule.tsx, src/app/admin/timelister/page.tsx, src/lib/shop-queries.ts, src/components/kasse/DayCalendar.tsx, src/app/admin/bookinger/page.tsx, src/app/kasse/kalender/page.tsx.
+
 ## Bygg 9w – landskode med flagg i booking
 
 - Telefon-landskoden er nå en egen velger med ekte flagg (SVG – vises også på Windows, der emoji-flagg ikke fungerer), landnavn på norsk/engelsk, søk på land eller kode, og ~70 land (Norden, Europa, Øst-Afrika, Midtøsten, Asia, Amerika).

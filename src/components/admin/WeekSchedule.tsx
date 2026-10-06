@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { colorAt } from "@/lib/colors";
-import type { StaffHour, StaffOption } from "@/lib/ops-queries";
+import type { Absence, StaffException, StaffHour, StaffOption } from "@/lib/ops-queries";
 import { createStaffException } from "@/app/admin/timelister/actions";
 
 const WEEKDAY_NAMES = ["søndag", "mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag"];
@@ -17,12 +17,20 @@ function nextDateFor(dow: number): string {
   return now.toISOString().slice(0, 10);
 }
 
-type Pick = { staff: StaffOption; dow: number; start: string; end: string };
+type Pick = { staff: StaffOption; dow: number; date: string; start: string; end: string };
+
+/** Dato (YYYY-MM-DD) for ukedag `dow` i uken som starter mandag `weekStart`. */
+function dateInWeek(weekStart: string, dow: number): string {
+  const d = new Date(weekStart + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + (dow === 0 ? 6 : dow - 1));
+  return d.toISOString().slice(0, 10);
+}
+const dm = (iso: string) => `${Number(iso.slice(8, 10))}.${Number(iso.slice(5, 7))}`;
 
 /** Popup: lag en enkeltdags-vakt (ekstravakt) eller fri for én dato. */
 function SingleDayDialog({ pick, onClose }: { pick: Pick; onClose: () => void }) {
   const router = useRouter();
-  const [date, setDate] = useState(nextDateFor(pick.dow));
+  const [date, setDate] = useState(pick.date || nextDateFor(pick.dow));
   const [kind, setKind] = useState<"extra" | "off">("extra");
   const [start, setStart] = useState(pick.start);
   const [end, setEnd] = useState(pick.end);
@@ -87,7 +95,7 @@ function SingleDayDialog({ pick, onClose }: { pick: Pick; onClose: () => void })
             </button>
           </div>
           <label className="block text-xs text-muted">
-            Dato ({WEEKDAY_NAMES[pick.dow]} foreslått – kan endres)
+            Dato (kan endres)
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={field + " mt-1"} />
           </label>
           <div className="grid grid-cols-2 gap-2">
@@ -158,9 +166,16 @@ export function WeekSchedule({
   hours,
   staff,
   parity = 1,
+  weekStart,
+  exceptions = [],
+  absences = [],
 }: {
   hours: StaffHour[];
   staff: StaffOption[];
+  /** Mandag i uken som vises (datoer i overskriften + avvik/fravær). */
+  weekStart?: string;
+  exceptions?: StaffException[];
+  absences?: Absence[];
   /** Hvilken uke-indeks (1..N) som vises. Rader for "hver uke" (0) vises alltid. */
   parity?: number;
 }) {
@@ -182,6 +197,9 @@ export function WeekSchedule({
               className="border-l border-line bg-surface-2 px-2 py-2 text-center text-xs font-semibold tracking-wide text-muted uppercase"
             >
               {d.l}
+              {weekStart && (
+                <span className="ml-1 font-normal normal-case text-muted/80">{dm(dateInWeek(weekStart, d.n))}</span>
+              )}
             </div>
           ))}
         </div>
@@ -199,12 +217,21 @@ export function WeekSchedule({
                 {s.full_name}
               </div>
               {DAYS.map((d) => {
+                const date = weekStart ? dateInWeek(weekStart, d.n) : "";
                 const shifts = hours.filter(
                   (h) =>
                     h.staff_id === s.id &&
                     h.weekday === d.n &&
-                    (h.week_parity === 0 || h.week_parity === parity),
+                    (h.week_parity === 0 || h.week_parity === parity) &&
+                    (!date || ((!h.valid_from || h.valid_from <= date) && (!h.valid_to || h.valid_to >= date))),
                 );
+                const dayEx = date ? exceptions.filter((e) => e.staff_id === s.id && e.date === date) : [];
+                const extras = dayEx.filter((e) => e.kind === "extra" && e.start_time && e.end_time);
+                const offAll = dayEx.some((e) => e.kind === "off" && !e.start_time);
+                const absent = date
+                  ? absences.find((a) => a.staff_id === s.id && a.from_date <= date && a.to_date >= date)
+                  : undefined;
+                const blocked = (offAll || !!absent) && extras.length === 0;
                 return (
                   <button
                     type="button"
@@ -213,6 +240,7 @@ export function WeekSchedule({
                       setPick({
                         staff: s,
                         dow: d.n,
+                        date,
                         start: shifts[0]?.start_time ?? "10:00",
                         end: shifts[0]?.end_time ?? "19:00",
                       })
@@ -221,7 +249,38 @@ export function WeekSchedule({
                     className="group block border-l border-line px-1.5 py-2 text-left transition-colors hover:bg-accent-soft/10"
                   >
                     <div className="relative h-6 overflow-hidden rounded bg-surface-2/50 ring-accent-soft/60 group-hover:ring-1">
-                      {shifts.length === 0 && (
+                      {/* Ekstravakter denne datoen (vinner over fravær) */}
+                      {extras.map((e) => {
+                        const a = toMin(e.start_time as string);
+                        const b = toMin(e.end_time as string);
+                        const left = Math.max(0, ((a - BASE) / SPAN) * 100);
+                        const width = Math.max(6, Math.min(100 - left, ((b - a) / SPAN) * 100));
+                        return (
+                          <div
+                            key={e.id}
+                            title={`Ekstravakt ${e.start_time}–${e.end_time}${e.note ? ` · ${e.note}` : ""}`}
+                            className="absolute top-0 z-[2] flex h-6 items-center justify-center rounded border border-dashed border-[#211E1A]/40"
+                            style={{
+                              left: `${left}%`,
+                              width: `${width}%`,
+                              background: `repeating-linear-gradient(45deg, ${color}, ${color} 5px, ${color}cc 5px, ${color}cc 10px)`,
+                            }}
+                          >
+                            <span className="truncate px-1 text-[10px] font-semibold text-[#211E1A]">
+                              + {compact(e.start_time as string)}–{compact(e.end_time as string)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                      {blocked && (
+                        <div
+                          className="absolute inset-0 z-[3] flex items-center justify-center rounded bg-surface-2/90 text-[10px] font-semibold text-muted"
+                          title={absent ? `Fravær ${absent.from_date}–${absent.to_date}${absent.reason ? ` · ${absent.reason}` : ""}` : "Fri hele dagen"}
+                        >
+                          {absent ? "Fravær" : "Fri"}
+                        </div>
+                      )}
+                      {shifts.length === 0 && extras.length === 0 && !blocked && (
                         <span className="absolute inset-0 flex items-center justify-center text-[11px] text-muted opacity-0 group-hover:opacity-100">
                           + vakt
                         </span>
@@ -260,8 +319,8 @@ export function WeekSchedule({
         })}
       </div>
       <p className="border-t border-line px-3 py-1.5 text-[10px] text-muted">
-        Tidsskala 09–21. Trykk på en dag for å legge inn en enkeltdags-vakt eller fri for én dato.
-        Fast turnus endres i redigeringen under.
+        Tidsskala 09–21. Trykk på en dag for å legge inn en ekstravakt eller fri for akkurat den datoen
+        (stripet = ekstravakt, grå = fravær/fri). Fast turnus endres i redigeringen under.
       </p>
       {pick && <SingleDayDialog pick={pick} onClose={() => setPick(null)} />}
     </div>

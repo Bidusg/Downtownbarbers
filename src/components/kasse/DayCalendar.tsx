@@ -82,6 +82,7 @@ export function DayCalendar({
   canBlock = false,
   canResize = false,
   onDuty,
+  offReasons = {},
 }: {
   date: string;
   agenda: AgendaBooking[];
@@ -92,6 +93,8 @@ export function DayCalendar({
   canResize?: boolean;
   /** Navn på barbere som er på vakt denne dagen. Uten = alle aktive vises. */
   onDuty?: string[] | null;
+  /** Navn → hvorfor ikke på vakt (fravær/fri). */
+  offReasons?: Record<string, string>;
 }) {
   const router = useRouter();
 
@@ -653,11 +656,16 @@ export function DayCalendar({
         const off = barbers.filter((b) => !shown.has(b.full_name));
         if (off.length === 0) return null;
         return (
-          <p className="mb-3 text-xs text-muted">
-            Ikke på vakt denne dagen:{" "}
-            {off.map((b) => b.display_name?.trim() || b.full_name).join(", ")}{" "}
-            <span className="opacity-70">(ingen turnus denne dagen, fri eller fravær)</span>
-          </p>
+          <div className="mb-3 rounded-md border border-line bg-surface px-3 py-2 text-xs text-muted">
+            <span className="font-semibold text-fg">Ikke på vakt denne dagen: </span>
+            {off.map((b, i) => (
+              <span key={b.id}>
+                {i > 0 && " · "}
+                <span className="text-fg">{b.display_name?.trim() || b.full_name}</span>{" "}
+                <span>– {offReasons[b.full_name] ?? "ingen turnus denne dagen"}</span>
+              </span>
+            ))}
+          </div>
         );
       })()}
 

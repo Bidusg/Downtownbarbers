@@ -10,11 +10,22 @@ import {
   getTurnusRotation,
   getStaffExceptions,
   getBookingBlocks,
+  getAbsences,
 } from "@/lib/ops-queries";
 import { parityLabel, parityOptions } from "@/lib/turnus";
 import { PageHeader } from "@/components/ui/PageHeader";
 
 export const dynamic = "force-dynamic";
+
+/** Mandag (YYYY-MM-DD) i neste uke som er rotasjonsuke `sel` (denne uken hvis den er det). */
+function weekStartFor(sel: number, current: number, weeks: number): string {
+  const today = new Date(new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" }) + "T12:00:00Z");
+  const dow = today.getUTCDay();
+  today.setUTCDate(today.getUTCDate() + (dow === 0 ? -6 : 1 - dow));
+  const ahead = weeks > 1 ? (sel - current + weeks) % weeks : 0;
+  today.setUTCDate(today.getUTCDate() + ahead * 7);
+  return today.toISOString().slice(0, 10);
+}
 
 export default async function AdminTimelister({
   searchParams,
@@ -22,12 +33,13 @@ export default async function AdminTimelister({
   searchParams: Promise<{ uke?: string }>;
 }) {
   const sp = await searchParams;
-  const [hours, staff, rotation, exceptions, blocks] = await Promise.all([
+  const [hours, staff, rotation, exceptions, blocks, absences] = await Promise.all([
     getStaffHours(),
     getStaffOptions(),
     getTurnusRotation(),
     getStaffExceptions(),
     getBookingBlocks(),
+    getAbsences(),
   ]);
 
   const weeks = rotation.weeks;
@@ -78,7 +90,14 @@ export default async function AdminTimelister({
         </div>
       )}
 
-      <WeekSchedule hours={hours} staff={staff} parity={selected} />
+      <WeekSchedule
+        hours={hours}
+        staff={staff}
+        parity={selected}
+        weekStart={weekStartFor(selected, rotation.currentIndex, weeks)}
+        exceptions={exceptions}
+        absences={absences}
+      />
 
       <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted uppercase">
         Rediger turnus

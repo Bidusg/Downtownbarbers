@@ -158,3 +158,44 @@ export async function getBarbersOnDuty(date: string): Promise<string[] | null> {
     return null;
   }
 }
+
+
+/**
+ * Hvorfor er en barber IKKE på vakt en gitt dag? (navn → kort forklaring)
+ * Brukes under kalenderen så ingen «forsvinner» uforklart.
+ */
+export async function getOffDutyReasons(date: string): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  try {
+    const sb = await createClient();
+    const fmt = (iso: string) => `${Number(iso.slice(8, 10))}.${Number(iso.slice(5, 7))}`;
+    const [abs, exc] = await Promise.all([
+      sb
+        .from("absences")
+        .select("from_date, to_date, reason, staff(full_name)")
+        .lte("from_date", date)
+        .gte("to_date", date),
+      sb
+        .from("staff_exceptions")
+        .select("kind, start_time, note, staff(full_name)")
+        .eq("date", date)
+        .eq("kind", "off")
+        .is("start_time", null),
+    ]);
+    for (const a of abs.data ?? []) {
+      const n = (a.staff as { full_name?: string } | null)?.full_name;
+      if (!n) continue;
+      const why = (a.reason as string | null)?.trim();
+      out[n] = `fravær ${fmt(a.from_date as string)}–${fmt(a.to_date as string)}${why ? ` (${why})` : ""}`;
+    }
+    for (const e of exc.data ?? []) {
+      const n = (e.staff as { full_name?: string } | null)?.full_name;
+      if (!n || out[n]) continue;
+      const why = (e.note as string | null)?.trim();
+      out[n] = `fri denne dagen${why ? ` (${why})` : ""}`;
+    }
+  } catch {
+    // ingen forklaringer
+  }
+  return out;
+}
