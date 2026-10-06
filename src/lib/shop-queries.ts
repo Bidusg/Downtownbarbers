@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { isAddonCategory } from "@/lib/service-categories";
 
-export type ShopBarber = { id: string; full_name: string };
+export type ShopBarber = { id: string; full_name: string; display_name?: string | null };
 export type ShopService = {
   name: string;
   duration_min: number;
@@ -13,11 +13,13 @@ export type ShopService = {
 export async function getBarbers(): Promise<ShopBarber[]> {
   try {
     const sb = await createClient();
-    const { data } = await sb
+    const first = await sb
       .from("staff")
-      .select("id, full_name")
+      .select("id, full_name, display_name")
       .eq("active", true)
       .order("full_name");
+    if (!first.error) return (first.data as ShopBarber[]) ?? [];
+    const { data } = await sb.from("staff").select("id, full_name").eq("active", true).order("full_name");
     return (data as ShopBarber[]) ?? [];
   } catch {
     return [];

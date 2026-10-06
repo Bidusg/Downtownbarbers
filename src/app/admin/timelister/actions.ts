@@ -216,6 +216,8 @@ export async function createStaffException(formData: FormData) {
     .from("staff_exceptions")
     .insert({ staff_id, date, kind, start_time, end_time, note });
   revalidatePath("/admin/timelister");
+  revalidatePath("/admin/bookinger");
+  revalidatePath("/booking");
 }
 
 export async function deleteStaffException(id: string) {

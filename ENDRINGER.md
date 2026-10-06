@@ -4,6 +4,18 @@ Dette bygget retter funnene fra den fulle gjennomgangen av forsiden og
 booking-veiviseren (testet live på Vercel-prod, mobil + desktop), og utvider
 språkbyttet NO/EN til **alle** kundevendte sider.
 
+## Bygg 9w – landskode med flagg i booking
+
+- Telefon-landskoden er nå en egen velger med ekte flagg (SVG – vises også på Windows, der emoji-flagg ikke fungerer), landnavn på norsk/engelsk, søk på land eller kode, og ~70 land (Norden, Europa, Øst-Afrika, Midtøsten, Asia, Amerika).
+- Ny avhengighet: country-flag-icons.
+- Filer: src/components/booking/CountryCodePicker.tsx (ny), src/components/booking/BookingWizard.tsx, package.json, package-lock.json.
+
+## Bygg 9v – enkeltdags-vakt fra ukeplanen, visningsnavn i kalenderen
+
+- Timelister → ukeplanen: hver dag-celle er nå klikkbar. Popup: «Ekstravakt / jobber» eller «Fri denne dagen» for én dato (neste dato for ukedagen foreslås), med tider forhåndsutfylt fra turnusen. Lagres som avvik (staff_exceptions) – booking og kalender oppdateres.
+- Bookinger/kasse-kalender: kolonnene viser visningsnavnet (f.eks. «Ayaan», fullt navn ved hover), og under toppen står «Ikke på vakt denne dagen: …» så ingen forsvinner uforklart.
+- Filer: src/components/admin/WeekSchedule.tsx, src/app/admin/timelister/actions.ts, src/lib/shop-queries.ts, src/components/kasse/DayCalendar.tsx.
+
 ## Bygg 9u – fravær trekkes i lønn + «Send ut lønnsslipper» i admin
 
 - KJØR-I-SUPABASE-FRAVAER-LONN.sql: fraværstype (absences.kind: ulønnet, ugyldig, syk, ferie, annet), ny RPC absence_deduction_by_staff, og monthly_gross_by_staff slipper nå inn rollen «eier» (Dawit fikk før feil/0 kr i lønnsoversikten).

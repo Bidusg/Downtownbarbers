@@ -647,6 +647,20 @@ export function DayCalendar({
         </p>
       )}
 
+      {/* Hvem er IKKE på vakt (turnus, fri, fravær) – så ingen «forsvinner» uforklart. */}
+      {onDuty && (() => {
+        const shown = new Set(columns.map((c) => c.barber.full_name));
+        const off = barbers.filter((b) => !shown.has(b.full_name));
+        if (off.length === 0) return null;
+        return (
+          <p className="mb-3 text-xs text-muted">
+            Ikke på vakt denne dagen:{" "}
+            {off.map((b) => b.display_name?.trim() || b.full_name).join(", ")}{" "}
+            <span className="opacity-70">(ingen turnus denne dagen, fri eller fravær)</span>
+          </p>
+        );
+      })()}
+
       {resizeMsg && (
         <p className="mb-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
           {resizeMsg}
@@ -723,8 +737,8 @@ export function DayCalendar({
                     className="inline-block h-2.5 w-2.5 rounded-full"
                     style={{ background: color }}
                   />
-                  <span className="truncate text-sm font-semibold text-fg">
-                    {col.barber.full_name}
+                  <span className="truncate text-sm font-semibold text-fg" title={col.barber.full_name}>
+                    {(col.barber as ShopBarber).display_name?.trim() || col.barber.full_name}
                   </span>
                 </div>
 
