@@ -657,6 +657,10 @@ export function renderMarketingEmail(opts: {
   subject: string;
   body: string;
   unsubscribeUrl: string;
+  /** Type utsending – styrer oppsett: 'standard' | 'ny_barber' | 'kampanje'. */
+  emailType?: string;
+  /** Fremhevet barber (brukes av 'ny_barber'): bilde + egen bestill-knapp. */
+  barber?: { name: string; title?: string; photoUrl?: string };
 }): string {
   const site = siteUrl();
   const paragraphs = opts.body
@@ -668,12 +672,27 @@ export function renderMarketingEmail(opts: {
         ).replace(/\n/g, "<br>")}</p>`,
     )
     .join("");
+
+  // Fremhevet barber → bilde-blokk + knapp som booker rett til denne barberen.
+  const hasBarber = Boolean(opts.barber && opts.barber.name.trim());
+  const barberHtml = hasBarber ? barberBlock(opts.barber!) : "";
+  const cta = hasBarber
+    ? ctaButton(
+        `${site}/booking?barber=${encodeURIComponent(opts.barber!.name)}`,
+        `Bestill time hos ${escapeHtml(opts.barber!.name.split(" ")[0])}`,
+      )
+    : ctaButton(
+        `${site}/booking`,
+        opts.emailType === "kampanje" ? "Se tilbudet" : "Bestill time",
+      );
+
   const inner = `
     <h1 style="font-family:Georgia,'Times New Roman',serif;font-size:25px;line-height:1.28;margin:0 0 18px;color:${C.cream}">${escapeHtml(
       opts.subject,
     )}</h1>
     ${paragraphs}
-    ${ctaButton(`${site}/booking`, "Bestill time")}
+    ${barberHtml}
+    ${cta}
     <div style="height:1px;background:${C.line};margin:26px 0 14px;font-size:0;line-height:0">&nbsp;</div>
     <p style="color:${C.muted};font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;margin:0">
       Du får denne e-posten fordi du har sagt ja til tilbud fra oss.

@@ -11,6 +11,7 @@ import {
   SEGMENTS,
 } from "@/lib/dm-queries";
 import { sendMarketing, resumeMarketing, sendToRest, previewRest } from "./actions";
+import { getPublicBarbers } from "@/lib/queries";
 import { after } from "next/server";
 import { kickMarketingWorker } from "@/lib/marketing-worker";
 import { siteUrl } from "@/lib/site-url";
@@ -50,10 +51,11 @@ export default async function AdminMarkedsforing({
   searchParams: Promise<{ sendt?: string; startet?: string; feil?: string; kanal?: string; utelatt?: string }>;
 }) {
   const sp = await searchParams;
-  const [stats, sends, inbound] = await Promise.all([
+  const [stats, sends, inbound, barbers] = await Promise.all([
     getConsentStats(),
     getMarketingSends(20),
     getRecentInbound(15),
+    getPublicBarbers(),
   ]);
   // Pågående utsending? Da oppdaterer siden seg selv, og står den stille
   // (ingen fremdrift på 30 s) dyttes bakgrunnsjobben i gang igjen.
@@ -166,6 +168,30 @@ export default async function AdminMarkedsforing({
               <option key={s.key} value={s.key}>{s.label} — {s.hint}</option>
             ))}
           </Select>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-xs text-muted">Type e-post</label>
+            <Select name="email_type">
+              <option value="standard">Standard</option>
+              <option value="ny_barber">Ny barber (bilde + «Bestill time hos …»)</option>
+              <option value="kampanje">Kampanje / tilbud</option>
+            </Select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted">
+              Fremhevet barber <span className="text-muted/70">(for «Ny barber»)</span>
+            </label>
+            <Select name="featured_barber">
+              <option value="">— ingen —</option>
+              {barbers.map((b) => (
+                <option key={b.name} value={b.name}>
+                  {b.name}
+                  {b.title ? ` · ${b.title}` : ""}
+                </option>
+              ))}
+            </Select>
+          </div>
         </div>
         <div>
           <label className="mb-1 block text-xs text-muted">

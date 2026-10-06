@@ -49,7 +49,7 @@ export async function runMarketingWorker(): Promise<{ sent: number; failed: numb
     // Eldste utsending som ikke er ferdig.
     const { data: send } = await svc
       .from("marketing_sends")
-      .select("id, subject, body, channel")
+      .select("id, subject, body, channel, email_type, featured_barber")
       .in("status", ["queued", "sending"])
       .order("created_at", { ascending: true })
       .limit(1)
@@ -111,6 +111,25 @@ export async function runMarketingWorker(): Promise<{ sent: number; failed: numb
         );
       }
     } else {
+      // Fremhevet barber (type «ny_barber»): hent bilde + tittel én gang.
+      let featured:
+        | { name: string; title?: string; photoUrl?: string }
+        | undefined;
+      if (send.featured_barber) {
+        const { data: st } = await svc
+          .from("staff")
+          .select("full_name, title, photo_url")
+          .eq("full_name", send.featured_barber as string)
+          .limit(1)
+          .maybeSingle();
+        featured = st
+          ? {
+              name: st.full_name as string,
+              title: (st.title as string | null) ?? undefined,
+              photoUrl: (st.photo_url as string | null) ?? undefined,
+            }
+          : { name: send.featured_barber as string };
+      }
       const items = rows.map((r) => ({
         to: r.email as string,
         subject: send.subject as string,
@@ -118,6 +137,8 @@ export async function runMarketingWorker(): Promise<{ sent: number; failed: numb
           subject: send.subject as string,
           body: (send.body as string) ?? "",
           unsubscribeUrl: `${base}/avmeld/${r.token}`,
+          emailType: (send.email_type as string) ?? "standard",
+          barber: featured,
         }),
       }));
       const res = await sendEmailBatch(items);

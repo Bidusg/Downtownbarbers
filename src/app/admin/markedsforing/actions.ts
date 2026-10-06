@@ -40,6 +40,12 @@ export async function sendMarketing(formData: FormData): Promise<void> {
   const subject = String(formData.get("subject") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
   const segment = String(formData.get("segment") ?? "all") as Segment;
+  const emailType = String(formData.get("email_type") ?? "standard").trim() || "standard";
+  // Fremhevet barber kun relevant for «ny_barber»-typen.
+  const featuredBarber =
+    emailType === "ny_barber"
+      ? String(formData.get("featured_barber") ?? "").trim() || null
+      : null;
   if (!body || (channel === "email" && !subject))
     redirect("/admin/markedsforing?feil=tomt");
 
@@ -66,6 +72,8 @@ export async function sendMarketing(formData: FormData): Promise<void> {
       body,
       channel,
       segment,
+      email_type: emailType,
+      featured_barber: featuredBarber,
       recipient_count: 0,
       total: recipients.length,
       status: "queued",
