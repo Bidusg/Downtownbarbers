@@ -426,11 +426,15 @@ export async function updateStaffPhoto(
   return { ok: true };
 }
 
-export async function toggleStaff(id: string, active: boolean) {
+export async function toggleStaff(id: string, active: boolean): Promise<{ ok?: true; error?: string }> {
   await requireRole(["admin"]);
   const sb = await createClient();
-  await sb.from("staff").update({ active }).eq("id", id);
+  const { error } = await sb.from("staff").update({ active }).eq("id", id);
+  if (error) return { error: `Kunne ikke lagre: ${error.message}` };
   revalidatePath("/admin/ansatte");
+  revalidatePath("/");
+  revalidatePath("/booking");
+  return { ok: true };
 }
 
 /**

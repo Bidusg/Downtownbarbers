@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { colorAt } from "@/lib/colors";
 import type { Absence, StaffException, StaffHour, StaffOption } from "@/lib/ops-queries";
 import { createStaffException, updateStaffException, deleteStaffException } from "@/app/admin/timelister/actions";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { formatDate } from "@/lib/format";
 
 const WEEKDAY_NAMES = ["søndag", "mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag"];
 
@@ -146,10 +148,10 @@ function SingleDayDialog({
                   {e.note && <span className="block truncate text-xs text-muted">{e.note}</span>}
                 </span>
                 <span className="flex shrink-0 gap-3 text-xs">
-                  <button onClick={() => startEdit(e)} className="text-accent-soft hover:underline" disabled={pending}>
+                  <button onClick={() => startEdit(e)} className="act act-accent" disabled={pending}>
                     Endre
                   </button>
-                  <button onClick={() => remove(e.id)} className="text-danger hover:underline" disabled={pending}>
+                  <button onClick={() => remove(e.id)} className="act act-danger" disabled={pending}>
                     Slett
                   </button>
                 </span>
@@ -266,7 +268,8 @@ export function WeekSchedule({
   parity?: number;
 }) {
   const [pick, setPick] = useState<Pick | null>(null);
-  if (staff.length === 0) return null;
+  if (staff.length === 0)
+    return <EmptyState description="Legg til ansatte under Ansatte først." />;
   const cols = "120px repeat(7, minmax(72px, 1fr))";
 
   return (
@@ -361,7 +364,7 @@ export function WeekSchedule({
                       {blocked && (
                         <div
                           className="absolute inset-0 z-[3] flex items-center justify-center rounded bg-surface-2/90 text-[10px] font-semibold text-muted"
-                          title={absent ? `Fravær ${absent.from_date}–${absent.to_date}${absent.reason ? ` · ${absent.reason}` : ""}` : "Fri hele dagen"}
+                          title={absent ? `Fravær ${formatDate(absent.from_date)}–${formatDate(absent.to_date)}${absent.reason ? ` · ${absent.reason}` : ""}` : "Fri hele dagen"}
                         >
                           {absent ? "Fravær" : "Fri"}
                         </div>

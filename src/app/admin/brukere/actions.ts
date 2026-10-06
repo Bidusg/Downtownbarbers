@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getUserRole, isAdminRole } from "@/lib/auth";
 import { ROLES } from "@/lib/users-queries";
@@ -9,18 +10,28 @@ import { ROLES } from "@/lib/users-queries";
  * Setter rolle på en bruker. Kun admin. Sperrer mot å endre egen rolle
  * (så en admin ikke kan låse seg selv ute).
  */
-export async function setUserRole(formData: FormData) {
+export async function setUserRole(formData: FormData): Promise<void> {
   const userId = String(formData.get("userId") ?? "");
   const role = String(formData.get("role") ?? "");
-  if (!userId || !(ROLES as readonly string[]).includes(role)) return;
+  const back = (q: Record<string, string>) =>
+    redirect("/admin/brukere?" + new URLSearchParams({ bruker: userId, ...q }).toString());
+
+  if (!userId || !(ROLES as readonly string[]).includes(role)) back({ feil: "Ugyldig rolle." });
 
   const me = await getUserRole();
-  if (!me || !isAdminRole(me.role)) return;
-  if (me.userId === userId) return; // ikke endre egen rolle
+  if (!me || !isAdminRole(me.role)) back({ feil: "Kun admin kan endre roller." });
+  if (me?.userId === userId) back({ feil: "Du kan ikke endre din egen rolle." });
 
   const sb = await createClient();
-  await sb.from("profiles").update({ role }).eq("id", userId);
+  const { data, error } = await sb
+    .from("profiles")
+    .update({ role })
+    .eq("id", userId)
+    .select("id");
+  if (error) back({ feil: "Kunne ikke lagre rollen: " + error.message });
+  if (!data || data.length === 0) back({ feil: "Fant ikke brukeren, eller mangler tilgang." });
   revalidatePath("/admin/brukere");
+  back({ lagret: "1" });
 }
 
 /* ------------------------- OPPRETT / SLETT BRUKER ------------------------- */

@@ -21,34 +21,44 @@ function cleanDate(v: FormDataEntryValue | null): string | null {
   return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
 }
 
-export async function createCampaign(formData: FormData): Promise<void> {
-  if (!(await guard())) return;
+export async function createCampaign(
+  formData: FormData,
+): Promise<{ ok?: true; error?: string }> {
+  if (!(await guard())) return { error: "Ikke tilgang" };
 
   const name = String(formData.get("name") ?? "").trim();
-  if (!name) return;
+  if (!name) return { error: "Kupongen må ha et navn." };
   const description = String(formData.get("description") ?? "").trim();
   const type = String(formData.get("discount_type") ?? "percent");
   const discountType = type === "fixed" ? "fixed" : "percent";
-  let value = Math.max(0, Number(formData.get("discount_value")) || 0);
-  if (discountType === "percent") value = Math.min(100, value);
-  if (value <= 0) return;
+  const value = Math.max(0, Number(formData.get("discount_value")) || 0);
+  if (discountType === "percent" && value > 100) return { error: "Prosent kan ikke være over 100." };
+  if (value <= 0) return { error: "Rabatten må være over 0." };
   const minTier = Math.max(0, Math.round(Number(formData.get("min_tier_sort_order")) || 0));
   const oncePerMember = formData.get("once_per_member") != null;
 
+  const startsAt = cleanDate(formData.get("starts_at"));
+  const expiresAt = cleanDate(formData.get("expires_at"));
+  if (startsAt && expiresAt && expiresAt < startsAt) {
+    return { error: "Utløpsdatoen kan ikke være før «Gyldig fra»." };
+  }
+
   const sb = await createClient();
-  await sb.from("member_campaigns").insert({
+  const { error } = await sb.from("member_campaigns").insert({
     name,
     description: description || null,
     discount_type: discountType,
     discount_value: value,
     min_tier_sort_order: minTier,
-    starts_at: cleanDate(formData.get("starts_at")),
-    expires_at: cleanDate(formData.get("expires_at")),
+    starts_at: startsAt,
+    expires_at: expiresAt,
     once_per_member: oncePerMember,
     active: true,
   });
+  if (error) return { error: `Kunne ikke opprette kupongen: ${error.message}` };
 
   revalidatePath("/admin/kuponger");
+  return { ok: true };
 }
 
 export async function toggleCampaign(id: string, active: boolean): Promise<void> {

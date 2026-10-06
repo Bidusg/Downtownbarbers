@@ -95,6 +95,7 @@ export function CampaignManager({
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<"percent" | "fixed">("percent");
   const [pending, start] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
 
   // Nivåer sortert lavest→høyest for målgruppe-valget.
   const orderedTiers = [...tiers].sort((a, b) => a.sortOrder - b.sortOrder);
@@ -112,7 +113,10 @@ export function CampaignManager({
         </p>
         <Button
           variant="primary"
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => {
+            setErr(null);
+            setOpen((o) => !o);
+          }}
           className="px-4 py-2 text-sm"
         >
           {open ? "Lukk" : "+ Ny kupong"}
@@ -123,7 +127,12 @@ export function CampaignManager({
         <form
           action={(fd) =>
             start(async () => {
-              await createCampaign(fd);
+              setErr(null);
+              const res = await createCampaign(fd);
+              if (res.error) {
+                setErr(res.error);
+                return;
+              }
               setOpen(false);
               setType("percent");
             })
@@ -183,6 +192,7 @@ export function CampaignManager({
             <Input name="expires_at" type="date" />
           </Field>
 
+          {err && <p className="text-sm text-danger sm:col-span-2">{err}</p>}
           <Button
             variant="primary"
             type="submit"

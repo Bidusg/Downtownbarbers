@@ -46,25 +46,39 @@ export async function saveTier(formData: FormData): Promise<void> {
 }
 
 /** Legg til et nytt nivå (blir det nye toppnivået; kan omordnes etterpå). */
-export async function addTier(formData: FormData): Promise<void> {
-  if (!(await guard())) return;
+export async function addTier(formData: FormData): Promise<{ ok?: true; error?: string }> {
+  if (!(await guard())) return { error: "Ikke tilgang" };
 
   const name = String(formData.get("name") ?? "").trim();
   const benefit = String(formData.get("benefit") ?? "").trim();
-  const color = String(formData.get("color") ?? "").trim();
+  let color = String(formData.get("color") ?? "").trim();
+  if (/^[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(color)) color = "#" + color;
   const minSpend = Math.max(0, Number(formData.get("min_spend")) || 0);
   const minVisits = Math.max(0, Math.round(Number(formData.get("min_visits")) || 0));
 
+  if (!name) return { error: "Nivået må ha et navn." };
+  if (color && !/^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(color)) {
+    return { error: "Fargen må være en hex-kode, f.eks. #E5E4E2." };
+  }
+
   const sb = await createClient();
-  await sb.rpc("membership_tier_add", {
+  const { error } = await sb.rpc("membership_tier_add", {
     p_name: name,
     p_min_spend: minSpend,
     p_min_visits: minVisits,
     p_benefit: benefit || null,
     p_color: color || null,
   });
+  if (error) {
+    return {
+      error: /duplicate|unique/i.test(error.message)
+        ? "Et nivå med dette navnet finnes allerede."
+        : error.message || "Kunne ikke legge til nivået.",
+    };
+  }
 
   revalidatePath("/admin/kundeklubb");
+  return { ok: true };
 }
 
 /** Slett et nivå (RPC nekter om det er det siste). */

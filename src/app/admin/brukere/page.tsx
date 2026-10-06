@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Table, THead, TBody, Tr, Th, Td, TableEmpty } from "@/components/ui/Table";
 import { Select } from "@/components/ui/Input";
-import { Button } from "@/components/ui/Button";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 import { setUserRole } from "./actions";
 import { CreateUserForm, DeleteUserButton } from "@/components/admin/CreateUserForm";
 
@@ -36,8 +36,12 @@ function fmt(iso: string | null) {
   }
 }
 
-export default async function AdminBrukere() {
-  const [me, users] = await Promise.all([getUserRole(), getUsers()]);
+export default async function AdminBrukere({
+  searchParams,
+}: {
+  searchParams: Promise<{ bruker?: string; lagret?: string; feil?: string }>;
+}) {
+  const [me, users, sp] = await Promise.all([getUserRole(), getUsers(), searchParams]);
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -45,6 +49,10 @@ export default async function AdminBrukere() {
         title="Brukere & roller"
         description="Styr hvem som har tilgang til hva. Opprett én innlogging per person og sett rollen deres her."
       />
+
+      {sp.feil && !users.some((u) => u.id === sp.bruker) && (
+        <p className="border border-danger/40 bg-danger/5 px-4 py-2 text-sm text-danger">{sp.feil}</p>
+      )}
 
       <CreateUserForm />
 
@@ -100,14 +108,16 @@ export default async function AdminBrukere() {
                               <option key={r} value={r}>{ROLE_LABEL[r]}</option>
                             ))}
                           </Select>
-                          <Button
-                            type="submit"
-                            variant="subtle"
-                            className="px-2.5 py-1 text-xs"
-                          >
+                          <SubmitButton pendingText="Lagrer …" className="act">
                             Sett
-                          </Button>
+                          </SubmitButton>
                         </form>
+                      )}
+                      {sp.bruker === u.id && sp.lagret && (
+                        <p className="mt-1 text-xs text-accent-soft">Lagret ✓</p>
+                      )}
+                      {sp.bruker === u.id && sp.feil && (
+                        <p className="mt-1 text-xs text-danger">{sp.feil}</p>
                       )}
                     </Td>
                     <Td className="px-4 whitespace-nowrap" muted>{fmt(u.created_at)}</Td>

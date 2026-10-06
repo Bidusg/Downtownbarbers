@@ -1,17 +1,21 @@
 import { StatTile } from "@/components/ui/StatTile";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { Input, Select, Field } from "@/components/ui/Input";
 import { Table, THead, TBody, Tr, Th, Td, TableEmpty } from "@/components/ui/Table";
 import { getInventory, getStockMovements } from "@/lib/inventory-queries";
 import { StockScanAdjust } from "@/components/admin/StockScanAdjust";
-import { adjustStockAction, setStockAction, setThresholdAction } from "./actions";
+import {
+  QuickStock,
+  SetStockForm,
+  ThresholdForm,
+  StockAdjustForm,
+} from "@/components/admin/StockControls";
+import { formatKr } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-const nok = (n: number) => n.toLocaleString("nb-NO") + " kr";
+const nok = formatKr;
 
 const REASON_LABEL: Record<string, string> = {
   varemottak: "Varemottak",
@@ -28,24 +32,6 @@ function fmt(iso: string) {
   } catch {
     return iso;
   }
-}
-
-/** Liten hurtigknapp: +/- delta i ett klikk. */
-function Quick({ id, delta, label }: { id: string; delta: number; label: string }) {
-  return (
-    <form action={adjustStockAction} className="inline">
-      <input type="hidden" name="productId" value={id} />
-      <input type="hidden" name="delta" value={delta} />
-      <input type="hidden" name="reason" value="justering" />
-      <button
-        type="submit"
-        className="h-7 w-8 border border-line-2 text-sm text-fg transition-colors hover:bg-surface-2"
-        title={`${delta > 0 ? "Øk" : "Reduser"} med ${Math.abs(delta)}`}
-      >
-        {label}
-      </button>
-    </form>
-  );
 }
 
 export default async function AdminLager() {
@@ -71,32 +57,9 @@ export default async function AdminLager() {
         <summary className="cursor-pointer px-6 py-4 font-display text-lg font-bold">
           Registrer varemottak / justering
         </summary>
-        <form action={adjustStockAction} className="grid gap-3 border-t border-line p-6 sm:grid-cols-2">
-          <Field label="Produkt">
-            <Select name="productId" required>
-              {items.map((i) => (
-                <option key={i.id} value={i.id}>{i.name} (på lager: {i.stock})</option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Antall (bruk minus for uttak)">
-            <Input name="delta" type="number" defaultValue={1} required />
-          </Field>
-          <Field label="Årsak">
-            <Select name="reason">
-              <option value="varemottak">Varemottak</option>
-              <option value="svinn">Svinn</option>
-              <option value="telling">Opptelling</option>
-              <option value="justering">Justering</option>
-            </Select>
-          </Field>
-          <Field label="Notat (valgfritt)">
-            <Input name="note" type="text" />
-          </Field>
-          <Button type="submit" className="px-4 py-2 text-sm sm:col-span-2">
-            Registrer
-          </Button>
-        </form>
+        <StockAdjustForm
+          items={items.map((i) => ({ id: i.id, name: i.name, stock: i.stock }))}
+        />
       </details>
 
       {/* Må bestilles */}
@@ -148,26 +111,13 @@ export default async function AdminLager() {
                     )}
                   </Td>
                   <Td>
-                    <div className="flex items-center gap-1.5">
-                      <Quick id={i.id} delta={-1} label="−" />
-                      <span className="w-10 text-center font-display text-base font-bold tabular-nums">{i.stock}</span>
-                      <Quick id={i.id} delta={1} label="+" />
-                      <Quick id={i.id} delta={10} label="+10" />
-                    </div>
+                    <QuickStock id={i.id} stock={i.stock} />
                   </Td>
                   <Td>
-                    <form action={setStockAction} className="flex items-center gap-1">
-                      <input type="hidden" name="productId" value={i.id} />
-                      <input name="target" type="number" min={0} defaultValue={i.stock} className="w-16 border border-line-2 bg-canvas px-2 py-1 text-sm text-fg" />
-                      <button type="submit" className="border border-line-2 px-2 py-1 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-fg">OK</button>
-                    </form>
+                    <SetStockForm id={i.id} stock={i.stock} />
                   </Td>
                   <Td>
-                    <form action={setThresholdAction} className="flex items-center gap-1">
-                      <input type="hidden" name="productId" value={i.id} />
-                      <input name="threshold" type="number" min={0} defaultValue={i.threshold} className="w-14 border border-line-2 bg-canvas px-2 py-1 text-sm text-fg" />
-                      <button type="submit" className="border border-line-2 px-2 py-1 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-fg">Lagre</button>
-                    </form>
+                    <ThresholdForm id={i.id} threshold={i.threshold} />
                   </Td>
                   <Td align="right" nums>{nok(i.value)}</Td>
                 </Tr>

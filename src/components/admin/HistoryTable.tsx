@@ -1,15 +1,14 @@
 "use client";
 
-import { useTransition } from "react";
 import type { HistRow } from "@/lib/historical-revenue";
 import { deleteHistoryRow } from "@/app/admin/historikk/actions";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 
 const MND = ["jan", "feb", "mar", "apr", "mai", "jun", "jul", "aug", "sep", "okt", "nov", "des"];
 const kr = (n: number) => Math.round(n).toLocaleString("nb-NO");
 
 /** Oversikt over importerte tall: én rad per ansatt, kolonner per måned. */
 export function HistoryTable({ rows }: { rows: HistRow[] }) {
-  const [pending, start] = useTransition();
   if (rows.length === 0)
     return <p className="text-sm text-muted">Ingen historiske tall importert ennå.</p>;
 
@@ -26,7 +25,7 @@ export function HistoryTable({ rows }: { rows: HistRow[] }) {
     <div className="rounded-lg border border-line bg-surface">
       <div className="border-b border-line px-4 py-3">
         <h2 className="font-display text-lg font-bold">Importert</h2>
-        <p className="text-xs text-muted">Sum inkl. mva per måned. Trykk × for å slette en måned.</p>
+        <p className="text-xs text-muted">Sum inkl. mva per måned. Trykk × for å slette en måned (du må bekrefte).</p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -44,7 +43,7 @@ export function HistoryTable({ rows }: { rows: HistRow[] }) {
               <th className="px-4 py-2 text-right font-medium">Sum</th>
             </tr>
           </thead>
-          <tbody className={pending ? "opacity-60" : ""}>
+          <tbody>
             {Array.from(byStaff, ([id, e]) => {
               const sum = Array.from(e.cells.values()).reduce((s, r) => s + r.totalNok, 0);
               return (
@@ -59,14 +58,27 @@ export function HistoryTable({ rows }: { rows: HistRow[] }) {
                             <span title={`${c.visits} besøk · ${c.hours.toLocaleString("nb-NO")} t · ${c.source ?? ""}`}>
                               {kr(c.totalNok)}
                             </span>
-                            <button
-                              type="button"
-                              onClick={() => start(() => deleteHistoryRow(c.id))}
-                              className="ml-1 text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger [@media(pointer:coarse)]:opacity-100"
-                              aria-label="Slett måned"
-                            >
-                              ×
-                            </button>
+                            <span className="ml-1 inline-block">
+                              <ConfirmButton
+                                label="×"
+                                question="Slette måneden?"
+                                confirmLabel="Ja, slett"
+                                pendingLabel="Sletter …"
+                                className="px-1 text-muted opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 hover:text-danger [@media(pointer:coarse)]:opacity-100"
+                                onConfirm={async () => {
+                                  try {
+                                    // deleteHistoryRow returnerer i dag void; støtt { error } om den utvides.
+                                    const r = (await deleteHistoryRow(c.id)) as unknown as
+                                      | { error?: string }
+                                      | undefined;
+                                    if (r?.error) return { ok: false, error: r.error };
+                                    return { ok: true };
+                                  } catch {
+                                    return { ok: false, error: "Kunne ikke slette. Prøv igjen." };
+                                  }
+                                }}
+                              />
+                            </span>
                           </>
                         ) : (
                           "—"

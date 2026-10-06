@@ -1,6 +1,7 @@
 "use client";
 
 import type { MemberCampaignOffer } from "@/app/kasse/actions";
+import { formatKr } from "@/lib/format";
 
 /**
  * Rabatt i kr for en valgt kupong mot en gitt brutto (kun til visning – den
@@ -18,7 +19,6 @@ export function couponDiscount(
   return Math.max(0, Math.min(Math.round(raw), Math.round(gross)));
 }
 
-const kr = (n: number) => `${Math.round(n)} kr`;
 
 /**
  * Velg en medlems-kupong for kunden i kassa. Vises kun når kunden har gyldige
@@ -50,7 +50,7 @@ export function CouponPicker({
           const label =
             o.discountType === "percent"
               ? `−${o.discountValue}%`
-              : `−${kr(o.discountValue)}`;
+              : `−${formatKr(o.discountValue)}`;
           return (
             <button
               key={o.id}
@@ -73,7 +73,7 @@ export function CouponPicker({
               </span>
               <span className="whitespace-nowrap text-xs font-semibold text-accent-soft">
                 {label}
-                {gross > 0 && active ? ` = −${kr(disc)}` : ""}
+                {gross > 0 && active ? ` = −${formatKr(disc)}` : ""}
               </span>
             </button>
           );

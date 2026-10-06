@@ -240,7 +240,7 @@ export function DayCalendar({
   } | null>(null);
   const [resizeEnd, setResizeEnd] = useState<number | null>(null);
   const [resizeMsg, setResizeMsg] = useState<string | null>(null);
-  const [, startResizeSave] = useTransition();
+  const [savingResize, startResizeSave] = useTransition();
   const [transfer, setTransfer] = useState<{
     booking: AgendaBooking;
     toBarber: string;
@@ -255,7 +255,7 @@ export function DayCalendar({
   } | null>(null);
   const [moveStart, setMoveStart] = useState<number | null>(null); // live ny start
   const [moveMsg, setMoveMsg] = useState<string | null>(null);
-  const [, startMoveSave] = useTransition();
+  const [savingMove, startMoveSave] = useTransition();
   // Optimistisk ny start per booking-id – holdes til router.refresh() gir ny agenda.
   const [optimistic, setOptimistic] = useState<Record<string, number>>({});
   // Fersk agenda fra serveren → nullstill optimistiske overstyringer.
@@ -672,6 +672,16 @@ export function DayCalendar({
         );
       })()}
 
+      {(savingResize || savingMove) && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="pointer-events-none fixed top-3 left-1/2 z-50 -translate-x-1/2 rounded-full border border-line-2 bg-surface px-3 py-1 text-xs font-semibold text-fg shadow-lg"
+        >
+          Lagrer …
+        </div>
+      )}
+
       {resizeMsg && (
         <p className="mb-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
           {resizeMsg}
@@ -739,10 +749,15 @@ export function DayCalendar({
                 }}
               >
                 <div
-                  className={`sticky top-0 z-10 flex items-center gap-2 border-b border-line px-3 ${
+                  className={`sticky top-0 z-20 flex items-center gap-2 border-b border-line px-3 shadow-[0_1px_0_0_oklch(var(--line))] ${
                     dragId ? "outline-dashed outline-1 outline-accent-soft/40" : ""
                   }`}
-                  style={{ height: HEADER_H, background: color + "26" }}
+                  // Tett bakgrunn: fargetonen legges OVER en solid flate, så bookinger
+                  // som scrolles under overskriften ikke skinner gjennom navnet.
+                  style={{
+                    height: HEADER_H,
+                    background: `linear-gradient(${color}26, ${color}26), oklch(var(--surface))`,
+                  }}
                 >
                   <span
                     className="inline-block h-2.5 w-2.5 rounded-full"
@@ -1234,7 +1249,7 @@ function BlockDialog({
         {error && <p className="mb-3 text-sm text-danger">{error}</p>}
 
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-muted hover:text-fg">
+          <button onClick={onClose} className="act">
             Avbryt
           </button>
           <button
@@ -1311,7 +1326,7 @@ function TransferDialog({
         />
         {error && <p className="mb-3 text-sm text-danger">{error}</p>}
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-muted hover:text-fg">
+          <button onClick={onClose} className="act">
             Avbryt
           </button>
           <button

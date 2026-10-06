@@ -42,7 +42,7 @@ export function StaffHoursManager({
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [pending, start] = useTransition();
+  const [pending] = useTransition();
 
   const byStaff = staff.map((s) => ({
     staff: s,
@@ -51,19 +51,24 @@ export function StaffHoursManager({
       .sort((a, b) => ORDER.indexOf(a.weekday) - ORDER.indexOf(b.weekday)),
   }));
 
-  function copy(from: number, to: number) {
+  const [copyMsg, setCopyMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function copy(from: number, to: number) {
     const fromL = from === 1 ? "A" : "B";
     const toL = to === 1 ? "A" : "B";
-    if (
-      !confirm(
-        `Kopiere uke ${fromL} til uke ${toL}? Dette erstatter alle uke ${toL}-vaktene med en kopi av uke ${fromL}.`,
-      )
-    )
-      return;
+    setCopyMsg(null);
     const fd = new FormData();
     fd.set("from", String(from));
     fd.set("to", String(to));
-    start(() => copyTurnusWeek(fd));
+    try {
+      // copyTurnusWeek kan (avhengig av versjon) returnere { error }.
+      const r = (await copyTurnusWeek(fd)) as unknown as { error?: string } | undefined;
+      if (r?.error) return { ok: false, error: r.error }; // vises av ConfirmButton
+      setCopyMsg({ ok: true, text: `Uke ${fromL} er kopiert til uke ${toL} ✓` });
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "Kopieringen feilet. Prøv igjen." };
+    }
   }
 
   return (
@@ -73,22 +78,24 @@ export function StaffHoursManager({
         <div className="flex flex-wrap items-center gap-2">
           {weeks === 2 && (
             <>
-              <Button
-                variant="subtle"
-                onClick={() => copy(1, 2)}
+              <ConfirmButton
+                label="Kopier A → B"
+                question="Erstatte alle uke B-vakter med en kopi av uke A?"
+                confirmLabel="Ja, kopier"
+                pendingLabel="Kopierer …"
+                className="act"
                 disabled={pending}
-                className="px-3 py-2 text-xs"
-              >
-                Kopier A → B
-              </Button>
-              <Button
-                variant="subtle"
-                onClick={() => copy(2, 1)}
+                onConfirm={() => copy(1, 2)}
+              />
+              <ConfirmButton
+                label="Kopier B → A"
+                question="Erstatte alle uke A-vakter med en kopi av uke B?"
+                confirmLabel="Ja, kopier"
+                pendingLabel="Kopierer …"
+                className="act"
                 disabled={pending}
-                className="px-3 py-2 text-xs"
-              >
-                Kopier B → A
-              </Button>
+                onConfirm={() => copy(2, 1)}
+              />
             </>
           )}
           <Button
@@ -99,6 +106,12 @@ export function StaffHoursManager({
           </Button>
         </div>
       </div>
+
+      {copyMsg && (
+        <p className={"text-sm " + (copyMsg.ok ? "text-accent-soft" : "text-danger")}>
+          {copyMsg.text}
+        </p>
+      )}
 
       {open && (
         <Card>
@@ -268,7 +281,7 @@ export function StaffHoursManager({
                         <Button
                           variant="ghost"
                           onClick={() => setEditId(h.id)}
-                          className="text-xs hover:underline"
+                          className="act"
                         >
                           Endre
                         </Button>

@@ -1,11 +1,12 @@
 import { getNotices, type NoticeLevel } from "@/lib/notices-queries";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input, Select, Field } from "@/components/ui/Input";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
+import { SubmitButton } from "@/components/ui/SubmitButton";
+import { redirect } from "next/navigation";
 import { createNotice, toggleNotice, deleteNotice } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -44,8 +45,34 @@ function fmt(iso: string | null) {
   }
 }
 
-export default async function AdminMeldinger() {
-  const notices = await getNotices();
+/** Validerer, oppretter og sender brukeren tilbake med ?lagret=1 / ?feil=…. */
+async function createNoticeWithFeedback(formData: FormData): Promise<void> {
+  "use server";
+  const fail = (msg: string) =>
+    redirect("/admin/meldinger?" + new URLSearchParams({ feil: msg }).toString());
+  const title = String(formData.get("title") ?? "").trim();
+  const starts = String(formData.get("starts_at") ?? "").trim();
+  const ends = String(formData.get("ends_at") ?? "").trim();
+  if (!title) fail("Meldingen må ha en tittel.");
+  if (starts && ends && ends <= starts) fail("«Vises til» må være etter «Vises fra».");
+  let errMsg: string | null = null;
+  try {
+    // createNotice returnerer i dag void; støtt { error } om den utvides.
+    const r = (await createNotice(formData)) as unknown as { error?: string } | undefined;
+    if (r?.error) errMsg = r.error;
+  } catch {
+    errMsg = "Kunne ikke opprette meldingen. Prøv igjen.";
+  }
+  if (errMsg) fail(errMsg);
+  redirect("/admin/meldinger?lagret=1");
+}
+
+export default async function AdminMeldinger({
+  searchParams,
+}: {
+  searchParams: Promise<{ lagret?: string; feil?: string }>;
+}) {
+  const [notices, sp] = await Promise.all([getNotices(), searchParams]);
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
@@ -55,8 +82,19 @@ export default async function AdminMeldinger() {
       />
 
       {/* Ny melding */}
+      {sp.lagret && (
+        <p className="border border-accent-soft/40 bg-accent-soft/5 px-4 py-2 text-sm text-accent-soft">
+          Meldingen er opprettet ✓
+        </p>
+      )}
+      {sp.feil && (
+        <p className="border border-danger/40 bg-danger/5 px-4 py-2 text-sm text-danger">
+          {sp.feil}
+        </p>
+      )}
+
       <Card title="Ny melding">
-        <form action={createNotice} className="space-y-4">
+        <form action={createNoticeWithFeedback} className="space-y-4">
           <Field label="Tittel">
             <Input
               name="title"
@@ -107,9 +145,9 @@ export default async function AdminMeldinger() {
             Aktiv (vis meldingen nå)
           </label>
           <div className="flex flex-wrap items-center gap-3">
-            <Button type="submit" className="px-5 py-2 text-sm">
+            <SubmitButton pendingText="Oppretter …" className="act act-accent">
               Opprett melding
-            </Button>
+            </SubmitButton>
             <span className="text-xs text-muted">
               Tom «fra/til» betyr uten start/slutt.
             </span>
@@ -151,13 +189,9 @@ export default async function AdminMeldinger() {
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <form action={toggleNotice.bind(null, n.id, !n.active)}>
-                      <Button
-                        variant="subtle"
-                        type="submit"
-                        className="px-3 py-1.5 text-xs"
-                      >
+                      <SubmitButton pendingText="Lagrer …" className="act">
                         {n.active ? "Slå av" : "Slå på"}
-                      </Button>
+                      </SubmitButton>
                     </form>
                     <form action={deleteNotice.bind(null, n.id)}>
                       <ConfirmButton

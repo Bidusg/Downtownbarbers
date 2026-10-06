@@ -8,20 +8,35 @@ function randomCode() {
   return `DB-${s}`;
 }
 
-export async function createGiftCard(formData: FormData) {
-  const sb = await createClient();
+export async function createGiftCard(
+  formData: FormData,
+): Promise<{ ok?: true; code?: string; error?: string }> {
   const initial = Number(formData.get("initial_nok") ?? 0);
-  if (!initial || initial <= 0) return;
+  if (!Number.isFinite(initial) || initial <= 0) return { error: "Beløpet må være over 0 kr." };
   const code = String(formData.get("code") ?? "").trim() || randomCode();
   const expiresRaw = String(formData.get("expires_at") ?? "");
-  await sb.from("gift_cards").insert({
+  const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Oslo" });
+  if (expiresRaw && expiresRaw < today) return { error: "Utløpsdatoen kan ikke være i fortiden." };
+  const sb = await createClient();
+  const { error } = await sb.from("gift_cards").insert({
     code,
     initial_nok: initial,
     balance_nok: initial,
     barcode: String(formData.get("barcode") ?? "").trim() || null,
     expires_at: expiresRaw || null,
   });
+  if (error) {
+    if (/duplicate|unique/i.test(error.message)) {
+      return {
+        error: /barcode/i.test(error.message)
+          ? "Strekkoden er allerede i bruk på et annet gavekort."
+          : "Koden er allerede i bruk på et annet gavekort.",
+      };
+    }
+    return { error: `Kunne ikke utstede gavekortet: ${error.message}` };
+  }
   revalidatePath("/admin/gavekort");
+  return { ok: true, code };
 }
 
 /** Sett/endre strekkode på et gavekort (tom = fjern). */
@@ -124,24 +139,48 @@ export async function redeemGiftCardByCode(
   }
 }
 
-export async function redeemGiftCard(formData: FormData) {
-  const sb = await createClient();
+export async function redeemGiftCard(
+  formData: FormData,
+): Promise<{ ok?: true; newBalance?: number; error?: string }> {
   const id = String(formData.get("id") ?? "");
   const amount = Number(formData.get("amount") ?? 0);
-  if (!id || !amount || amount <= 0) return;
-  const { data } = await sb
+  if (!id) return { error: "Mangler gavekort." };
+  if (!Number.isFinite(amount) || amount <= 0) return { error: "Skriv inn et beløp over 0 kr." };
+  const sb = await createClient();
+  const { data, error: readErr } = await sb
     .from("gift_cards")
-    .select("balance_nok")
+    .select("balance_nok, expires_at")
     .eq("id", id)
     .single();
-  if (!data) return;
-  const next = Math.max(0, Number(data.balance_nok) - amount);
-  await sb.from("gift_cards").update({ balance_nok: next }).eq("id", id);
+  if (readErr || !data) return { error: "Fant ikke gavekortet." };
+  const balance = Number(data.balance_nok) || 0;
+  const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Oslo" });
+  if (data.expires_at && String(data.expires_at).slice(0, 10) < today) {
+    return { error: "Gavekortet er utløpt." };
+  }
+  if (amount > balance) {
+    return { error: `Beløpet er større enn saldoen (${balance.toLocaleString("nb-NO")} kr).` };
+  }
+  const next = balance - amount;
+  // Optimistisk lås: oppdater bare hvis saldoen ikke er endret siden vi leste.
+  const { data: updated, error } = await sb
+    .from("gift_cards")
+    .update({ balance_nok: next })
+    .eq("id", id)
+    .eq("balance_nok", data.balance_nok)
+    .select("id");
+  if (error) return { error: `Kunne ikke trekke beløpet: ${error.message}` };
+  if (!updated || updated.length === 0) {
+    return { error: "Saldoen ble endret samtidig. Last siden på nytt og prøv igjen." };
+  }
   revalidatePath("/admin/gavekort");
+  return { ok: true, newBalance: next };
 }
 
-export async function deleteGiftCard(id: string) {
+export async function deleteGiftCard(id: string): Promise<{ ok: boolean; error?: string }> {
   const sb = await createClient();
-  await sb.from("gift_cards").delete().eq("id", id);
+  const { error } = await sb.from("gift_cards").delete().eq("id", id);
+  if (error) return { ok: false, error: `Kunne ikke slette: ${error.message}` };
   revalidatePath("/admin/gavekort");
+  return { ok: true };
 }

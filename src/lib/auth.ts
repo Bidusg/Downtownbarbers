@@ -42,7 +42,7 @@ export async function getUserRole(): Promise<{
 /** Krever at brukeren har en av rollene, ellers redirect. Returnerer rollen. */
 export async function requireRole(allowed: Role[]): Promise<Role> {
   const me = await getUserRole();
-  if (!me) redirect("/?login=1");
+  if (!me) redirect("/?login=1&ansatt=1");
   // Eier teller som admin: passerer der 'admin' er tillatt.
   const ok =
     allowed.includes(me.role) ||

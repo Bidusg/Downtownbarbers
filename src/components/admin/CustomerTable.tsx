@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { formatKr } from "@/lib/format";
 
 function fmtDate(iso: string | null) {
   if (!iso) return "—";
@@ -144,12 +145,12 @@ export function CustomerTable({
                 <Td className="font-display">{c.visits}</Td>
                 <Td muted>{fmtDate(c.lastVisit)}</Td>
                 <Td className="font-display">
-                  {c.totalSpent > 0 ? `${c.totalSpent} kr` : "—"}
+                  {c.totalSpent > 0 ? formatKr(c.totalSpent) : "—"}
                 </Td>
                 <Td align="right">
                   <a
                     href={`${basePath}/${c.id}`}
-                    className="text-xs font-semibold text-muted hover:text-fg"
+                    className="act"
                   >
                     Åpne →
                   </a>

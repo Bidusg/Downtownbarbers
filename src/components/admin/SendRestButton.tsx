@@ -51,7 +51,7 @@ export function SendRestButton({
 
   return (
     <>
-      <button type="button" onClick={openDialog} className="text-accent-soft hover:underline">
+      <button type="button" onClick={openDialog} className="act act-accent">
         Send til resten
       </button>
       {open && (

@@ -9,6 +9,11 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Table, THead, TBody, Tr, Th, Td } from "@/components/ui/Table";
 import { Badge } from "@/components/ui/Badge";
+import { formatDate } from "@/lib/format";
+
+/** Bilagsbeløp med to desimaler (regnskapsformat). */
+const amt = (n: number) =>
+  n.toLocaleString("nb-NO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function TripletexCard({
   configured,
@@ -79,7 +84,7 @@ export function TripletexCard({
 
           <div>
             <p className="mb-1 text-xs font-semibold tracking-wide text-muted uppercase">
-              Dagsbilag {res.date}
+              Dagsbilag {formatDate(res.date)}
             </p>
             {res.planError ? (
               <p className="text-danger">Kunne ikke bygge bilag: {res.planError}</p>
@@ -102,10 +107,10 @@ export function TripletexCard({
                         <Td className="font-display text-fg">{p.accountNumber}</Td>
                         <Td muted>{p.accountName}</Td>
                         <Td align="right" nums className="text-fg">
-                          {p.amountGross > 0 ? p.amountGross.toLocaleString("nb-NO") : ""}
+                          {p.amountGross > 0 ? amt(p.amountGross) : ""}
                         </Td>
                         <Td align="right" nums className="text-fg">
-                          {p.amountGross < 0 ? (-p.amountGross).toLocaleString("nb-NO") : ""}
+                          {p.amountGross < 0 ? amt(-p.amountGross) : ""}
                         </Td>
                       </Tr>
                     ))}

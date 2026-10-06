@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/Table";
 import { Button } from "@/components/ui/Button";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
+import { formatKr } from "@/lib/format";
 
 const statusLabel: Record<string, string> = {
   pending: "Venter",
@@ -51,11 +52,16 @@ function fmt(iso: string) {
 function Row({ b }: { b: AdminBooking }) {
   const [pending, start] = useTransition();
   const [open, setOpen] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   const act = (status: BookingStatus) => {
     setOpen(false);
+    setConfirmCancel(false);
+    setErr(null);
     start(async () => {
-      await setBookingStatus(b.id, status);
+      const res = await setBookingStatus(b.id, status);
+      if (res?.error) setErr(res.error);
     });
   };
 
@@ -85,7 +91,7 @@ function Row({ b }: { b: AdminBooking }) {
       </Td>
       <Td muted>{b.service}</Td>
       <Td muted>{b.barber}</Td>
-      <Td className="font-display">{b.price_nok} kr</Td>
+      <Td className="font-display">{formatKr(b.price_nok)}</Td>
       <Td>
         <Badge tone={statusTone[b.status] ?? "neutral"}>
           {statusLabel[b.status] ?? b.status}
@@ -95,19 +101,25 @@ function Row({ b }: { b: AdminBooking }) {
         <div className="relative inline-block">
           <Button
             variant="subtle"
-            onClick={() => setOpen((o) => !o)}
+            onClick={() => {
+              setConfirmCancel(false);
+              setOpen((o) => !o);
+            }}
             disabled={pending}
             className="px-3 py-1.5 text-xs"
           >
-            {pending ? "…" : "Endre status"}
+            {pending ? "Lagrer …" : "Endre status"}
           </Button>
           {open && (
-            <div className="absolute right-0 z-10 mt-1 w-40 border border-line bg-surface py-1 shadow-lg">
+            <div className="absolute right-0 z-10 mt-1 w-56 border border-line bg-surface py-1 shadow-lg">
               <button
                 onClick={() => act("completed")}
                 className="block w-full px-3 py-2 text-left text-xs text-fg hover:bg-surface-2"
               >
                 ✓ Fullført
+                <span className="mt-0.5 block whitespace-normal text-[11px] text-muted">
+                  Registrerer ikke betaling – bruk kassen for det.
+                </span>
               </button>
               <button
                 onClick={() => act("confirmed")}
@@ -121,15 +133,35 @@ function Row({ b }: { b: AdminBooking }) {
               >
                 Ikke møtt
               </button>
-              <button
-                onClick={() => act("cancelled")}
-                className="block w-full px-3 py-2 text-left text-xs text-danger hover:bg-surface-2"
-              >
-                Avbestill
-              </button>
+              {confirmCancel ? (
+                <div className="flex flex-wrap items-center gap-2 px-3 py-2 text-xs">
+                  <span className="text-muted">Avbestille timen?</span>
+                  <button onClick={() => act("cancelled")} className="act act-solid-danger">
+                    Ja, avbestill
+                  </button>
+                  <button onClick={() => setConfirmCancel(false)} className="act">
+                    Avbryt
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmCancel(true)}
+                  className="block w-full px-3 py-2 text-left text-xs text-danger hover:bg-surface-2"
+                >
+                  Avbestill
+                </button>
+              )}
             </div>
           )}
         </div>
+        {err && (
+          <p className="mt-1 max-w-[16rem] whitespace-normal text-right text-xs text-danger">
+            {err}{" "}
+            <button onClick={() => setErr(null)} className="text-muted hover:text-fg">
+              Lukk
+            </button>
+          </p>
+        )}
       </Td>
     </Tr>
   );

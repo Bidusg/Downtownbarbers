@@ -3,7 +3,9 @@ import { config } from "@/lib/config";
 import { getSmsConfigAdmin } from "@/lib/sms";
 import { getReviewConfigAdmin } from "@/lib/reviews";
 import { SmsConfigForm } from "@/components/admin/SmsConfigForm";
+import { redirect } from "next/navigation";
 import { getBookingNotify, saveBookingNotify } from "./actions";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 import { TripletexCard } from "@/components/admin/TripletexCard";
 import { TRIPLETEX, tripletexConfigured } from "@/lib/tripletex/config";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -42,7 +44,35 @@ function IntegrationCard({
   );
 }
 
-export default async function AdminIntegrasjoner() {
+/** Validerer og lagrer booking-varsling, og sjekker at det faktisk ble lagret. */
+async function saveBookingNotifyWithFeedback(formData: FormData): Promise<void> {
+  "use server";
+  const back = (q: Record<string, string>) =>
+    redirect("/admin/integrasjoner?" + new URLSearchParams(q).toString() + "#varsling");
+  const enabled = formData.get("enabled") === "on";
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (enabled && !email) back({ varselfeil: "Skriv inn en e-postadresse for å slå på varsling." });
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    back({ varselfeil: "Ugyldig e-postadresse." });
+  try {
+    await saveBookingNotify(formData);
+  } catch {
+    back({ varselfeil: "Kunne ikke lagre. Prøv igjen." });
+  }
+  // saveBookingNotify svelger feil – les tilbake for å bekrefte lagringen.
+  const saved = await getBookingNotify();
+  if (saved.email !== email || saved.enabled !== (enabled && !!email)) {
+    back({ varselfeil: "Lagringen gikk ikke gjennom (mangler tilgang?)." });
+  }
+  back({ varsellagret: "1" });
+}
+
+export default async function AdminIntegrasjoner({
+  searchParams,
+}: {
+  searchParams: Promise<{ varsellagret?: string; varselfeil?: string }>;
+}) {
+  const sp = await searchParams;
   const [sms, review, notify] = await Promise.all([
     getSmsConfigAdmin(),
     getReviewConfigAdmin(),
@@ -126,7 +156,7 @@ export default async function AdminIntegrasjoner() {
       />
 
       {/* Varsling ved ny booking */}
-      <div className="border border-line bg-surface p-6">
+      <div id="varsling" className="border border-line bg-surface p-6">
         <div className="mb-4">
           <h2 className="font-display text-lg font-bold">Varsling ved ny booking</h2>
           <p className="mt-1 text-sm text-muted">
@@ -134,7 +164,11 @@ export default async function AdminIntegrasjoner() {
             kunde, tid, tjeneste og evt. notat – og lenke rett til kalenderen.
           </p>
         </div>
-        <form action={saveBookingNotify} className="flex flex-wrap items-end gap-3">
+        {sp.varsellagret && (
+          <p className="mb-3 text-sm text-accent-soft">Varsling lagret ✓</p>
+        )}
+        {sp.varselfeil && <p className="mb-3 text-sm text-danger">{sp.varselfeil}</p>}
+        <form action={saveBookingNotifyWithFeedback} className="flex flex-wrap items-end gap-3">
           <label className="flex items-center gap-2 text-sm text-fg">
             <input type="checkbox" name="enabled" defaultChecked={notify.enabled} className="accent-accent" />
             Slå på varsling
@@ -149,9 +183,9 @@ export default async function AdminIntegrasjoner() {
               className="mt-1 block w-64 border border-line-2 bg-canvas px-3 py-2 text-sm text-fg"
             />
           </label>
-          <button type="submit" className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg">
+          <SubmitButton pendingText="Lagrer …" className="act act-accent">
             Lagre
-          </button>
+          </SubmitButton>
         </form>
       </div>
 

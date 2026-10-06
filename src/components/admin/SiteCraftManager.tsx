@@ -38,7 +38,7 @@ function MediaPicker({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="text-xs font-semibold text-accent-soft hover:underline"
+        className="act act-accent"
       >
         {open ? "Lukk bildevalg" : "Bytt bilde (fra galleriet)"}
       </button>

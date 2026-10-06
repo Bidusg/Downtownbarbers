@@ -15,5 +15,7 @@ export function titleCase(v: string): string {
   return v
     .trim()
     .toLowerCase()
-    .replace(/\b\p{L}/gu, (c) => c.toUpperCase());
+    // Stor bokstav kun først i hvert ord (etter start, mellomrom, bindestrek
+    // eller apostrof). \b er ASCII-basert og ga «BØHm» / «WØLstad».
+    .replace(/(^|[\s\-'’])(\p{L})/gu, (_m, sep: string, c: string) => sep + c.toUpperCase());
 }

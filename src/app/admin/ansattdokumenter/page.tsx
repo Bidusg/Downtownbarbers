@@ -1,4 +1,5 @@
 import { requireRole } from "@/lib/auth";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { getStaffOptions } from "@/lib/ops-queries";
 import {
   getStaffDocuments,
@@ -60,12 +61,12 @@ function DocRow({ d }: { d: StaffDocumentWithUrl }) {
             <span className="text-xs text-muted">Utilgjengelig</span>
           )}
           <form action={deleteStaffDocument.bind(null, d.id)}>
-            <button
-              type="submit"
-              className="border border-danger/30 bg-danger/5 px-3 py-1 text-xs text-danger transition-opacity hover:opacity-90"
-            >
-              Slett
-            </button>
+            <ConfirmButton
+              submit
+              label="Slett"
+              question={`Slette «${d.name}»?`}
+              confirmLabel="Ja, slett"
+            />
           </form>
         </div>
       </Td>

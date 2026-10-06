@@ -66,10 +66,60 @@ function GiftBarcodeCell({ id, barcode }: { id: string; barcode: string | null }
           setOpen(false);
           setMsg(null);
         }}
-        className="text-xs text-muted hover:text-fg hover:underline"
+        className="act"
       >
         Avbryt
       </button>
+    </div>
+  );
+}
+
+/** Innløs-celle: trekk beløp fra saldo, med pending, saldo-sjekk og resultat. */
+function RedeemCell({ id, balance }: { id: string; balance: number }) {
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [amount, setAmount] = useState("");
+
+  return (
+    <div className="space-y-1">
+      <form
+        action={(fd) => {
+          const amt = Number(fd.get("amount") ?? 0);
+          if (amt > balance) {
+            setMsg({ ok: false, text: `Maks ${kr(balance)}.` });
+            return;
+          }
+          start(async () => {
+            setMsg(null);
+            const res = await redeemGiftCard(fd);
+            if (res.error) setMsg({ ok: false, text: res.error });
+            else {
+              setAmount("");
+              setMsg({ ok: true, text: `Trukket ${kr(amt)} ✓ Ny saldo ${kr(res.newBalance ?? 0)}` });
+            }
+          });
+        }}
+        className="flex items-center gap-2"
+      >
+        <input type="hidden" name="id" value={id} />
+        <Input
+          name="amount"
+          type="number"
+          min={1}
+          max={balance}
+          placeholder="kr"
+          required
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          className="w-20"
+        />
+        <button type="submit" disabled={pending} className="act act-accent">
+          {pending ? "Trekker …" : "Trekk"}
+        </button>
+      </form>
+      {msg && (
+        <p className={"text-xs " + (msg.ok ? "text-accent-soft" : "text-danger")}>{msg.text}</p>
+      )}
     </div>
   );
 }
@@ -82,7 +132,9 @@ function no(iso: string | null) {
 
 export function GiftCardManager({ cards }: { cards: GiftCard[] }) {
   const [open, setOpen] = useState(false);
-  const [pending] = useTransition();
+  const [pending, start] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
+  const [created, setCreated] = useState<string | null>(null);
 
   const outstanding = cards.reduce((s, c) => s + Number(c.balance_nok), 0);
 
@@ -92,7 +144,14 @@ export function GiftCardManager({ cards }: { cards: GiftCard[] }) {
         <p className="text-sm text-muted">
           {cards.length} gavekort · utestående saldo {kr(outstanding)}
         </p>
-        <Button className="px-4 py-2 text-sm" onClick={() => setOpen((o) => !o)}>
+        <Button
+          className="px-4 py-2 text-sm"
+          onClick={() => {
+            setErr(null);
+            setCreated(null);
+            setOpen((o) => !o);
+          }}
+        >
           {open ? "Lukk" : "+ Nytt gavekort"}
         </Button>
       </div>
@@ -100,10 +159,17 @@ export function GiftCardManager({ cards }: { cards: GiftCard[] }) {
       {open && (
         <Card>
           <form
-            action={async (fd) => {
-              await createGiftCard(fd);
-              setOpen(false);
-            }}
+            action={(fd) =>
+              start(async () => {
+                setErr(null);
+                const res = await createGiftCard(fd);
+                if (res.error) setErr(res.error);
+                else {
+                  setCreated(res.code ?? null);
+                  setOpen(false);
+                }
+              })
+            }
             className="grid gap-3 sm:grid-cols-3"
           >
             <Input name="initial_nok" type="number" min={1} placeholder="Beløp (kr)" required />
@@ -112,11 +178,15 @@ export function GiftCardManager({ cards }: { cards: GiftCard[] }) {
             <Field label="Utløper (valgfritt)">
               <Input name="expires_at" type="date" />
             </Field>
-            <Button type="submit" className="px-4 py-2 text-sm sm:col-span-3">
-              Utsted gavekort
+            {err && <p className="text-sm text-danger sm:col-span-3">{err}</p>}
+            <Button type="submit" disabled={pending} className="px-4 py-2 text-sm sm:col-span-3">
+              {pending ? "Utsteder …" : "Utsted gavekort"}
             </Button>
           </form>
         </Card>
+      )}
+      {!open && created && (
+        <p className="text-sm text-accent-soft">Gavekort {created} er utstedt ✓</p>
       )}
 
       <Card padded={false}>
@@ -159,24 +229,7 @@ export function GiftCardManager({ cards }: { cards: GiftCard[] }) {
                     {used ? (
                       <Badge tone="neutral">Brukt opp</Badge>
                     ) : (
-                      <form action={redeemGiftCard} className="flex items-center gap-2">
-                        <input type="hidden" name="id" value={c.id} />
-                        <Input
-                          name="amount"
-                          type="number"
-                          min={1}
-                          max={Number(c.balance_nok)}
-                          placeholder="kr"
-                          required
-                          className="w-20"
-                        />
-                        <button
-                          type="submit"
-                          className="bg-accent-soft/15 px-2.5 py-1 text-xs font-semibold text-accent-soft hover:bg-accent-soft/25"
-                        >
-                          Trekk
-                        </button>
-                      </form>
+                      <RedeemCell id={c.id} balance={Number(c.balance_nok)} />
                     )}
                   </Td>
                   <Td align="right">

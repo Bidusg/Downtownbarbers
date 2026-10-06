@@ -12,6 +12,7 @@ import { Table, THead, TBody, Tr, Th, Td, TableEmpty } from "@/components/ui/Tab
 import { Input, Select, Field } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import {
   createStaff,
   updateStaff,
@@ -279,7 +280,7 @@ function EditStaffModal({
                   type="button"
                   variant="ghost"
                   onClick={() => setServiceIds(new Set())}
-                  className="hover:underline"
+                  className="act"
                 >
                   Ingen
                 </Button>
@@ -598,7 +599,7 @@ export function StaffManager({
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<AdminStaff | null>(null);
   const [createErr, setCreateErr] = useState<string | null>(null);
-  const [pending, start] = useTransition();
+  const [pending] = useTransition();
 
   const levelName = (id: string | null) =>
     id ? (levels.find((l) => l.id === id)?.name ?? null) : null;
@@ -665,16 +666,36 @@ export function StaffManager({
         <PostnummerCell id={s.id} postnummer={s.postnummer} />
       </Td>
       <Td>
-        <button
-          onClick={() => start(() => toggleStaff(s.id, !s.active))}
-          disabled={pending}
-          className={
-            "rounded-full px-2.5 py-0.5 text-xs font-semibold " +
-            (s.active ? "bg-accent-soft/15 text-accent-soft" : "bg-surface-2 text-muted")
-          }
-        >
-          {s.active ? "Aktiv" : "Inaktiv"}
-        </button>
+        <span className="flex flex-wrap items-center gap-2">
+          <span className={"text-xs " + (s.active ? "text-accent-soft" : "text-muted")}>
+            {s.active ? "Aktiv" : "Inaktiv"}
+          </span>
+          <ConfirmButton
+            label={s.active ? "Deaktiver" : "Aktiver"}
+            question={
+              s.active
+                ? `Deaktivere ${s.full_name}? Kan ikke bookes lenger.`
+                : `Aktivere ${s.full_name}?`
+            }
+            confirmLabel={s.active ? "Ja, deaktiver" : "Ja, aktiver"}
+            pendingLabel="Lagrer …"
+            className={s.active ? "act" : "act act-accent"}
+            confirmClassName={s.active ? "act act-solid-danger" : "act act-accent"}
+            disabled={pending}
+            onConfirm={async () => {
+              try {
+                // toggleStaff returnerer i dag void; støtt { error } om den utvides.
+                const r = (await toggleStaff(s.id, !s.active)) as unknown as
+                  | { error?: string }
+                  | undefined;
+                if (r?.error) return { ok: false, error: r.error };
+                return { ok: true };
+              } catch {
+                return { ok: false, error: "Kunne ikke endre status. Prøv igjen." };
+              }
+            }}
+          />
+        </span>
       </Td>
     </Tr>
   );

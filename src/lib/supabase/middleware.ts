@@ -40,6 +40,7 @@ export async function updateSession(request: NextRequest) {
     url.pathname = "/";
     url.search = "";
     url.searchParams.set("login", "1");
+    url.searchParams.set("ansatt", "1"); // admin/kasse/revisor → åpne ansatt-fanen
     return NextResponse.redirect(url);
   }
 

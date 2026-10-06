@@ -319,7 +319,7 @@ function SectionPanel({
                     aria-label="Flytt frem"
                     disabled={i === 0 || pending}
                     onClick={() => run(() => movePlacement(p.id, "up"))}
-                    className="px-1 text-xs text-muted hover:text-fg disabled:opacity-30"
+                    className="act disabled:opacity-30"
                   >
                     ←
                   </button>
@@ -328,7 +328,7 @@ function SectionPanel({
                     aria-label="Flytt bak"
                     disabled={i === list.length - 1 || pending}
                     onClick={() => run(() => movePlacement(p.id, "down"))}
-                    className="px-1 text-xs text-muted hover:text-fg disabled:opacity-30"
+                    className="act disabled:opacity-30"
                   >
                     →
                   </button>
@@ -337,7 +337,7 @@ function SectionPanel({
                   type="button"
                   disabled={pending}
                   onClick={() => run(() => togglePlacement(p.id, !p.active))}
-                  className="text-[11px] font-semibold text-accent-soft hover:underline"
+                  className="act act-accent"
                 >
                   {p.active ? "Skjul" : "Vis"}
                 </button>
@@ -345,7 +345,7 @@ function SectionPanel({
                   type="button"
                   disabled={pending}
                   onClick={() => run(() => removePlacement(p.id))}
-                  className="text-[11px] text-muted hover:text-danger"
+                  className="act act-danger"
                 >
                   Fjern
                 </button>
@@ -405,11 +405,11 @@ function MediaCard({ m, usedIn }: { m: SiteMedia; usedIn: SiteSection[] }) {
                     return r;
                   })
                 }
-                className="text-[11px] font-semibold text-accent-soft hover:underline"
+                className="act act-accent"
               >
                 Lagre
               </button>
-              <button type="button" onClick={() => setEditing(false)} className="text-[11px] text-muted">
+              <button type="button" onClick={() => setEditing(false)} className="act">
                 Avbryt
               </button>
             </div>

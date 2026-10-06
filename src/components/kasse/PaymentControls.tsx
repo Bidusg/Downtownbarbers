@@ -16,15 +16,13 @@ import {
 } from "@/app/kasse/actions";
 import { redeemLoyalty } from "@/app/kasse/kunder/[id]/loyalty-actions";
 import { CouponPicker, couponDiscount } from "@/components/kasse/CouponPicker";
+import { formatKr } from "@/lib/format";
 
 const PAYMENTS = ["Kontant", "Kort", "Vipps"];
 
 const inputCls =
   "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-fg placeholder:text-muted transition-colors focus:border-accent-soft focus:outline-none";
 
-function kr(n: number) {
-  return `${Math.round(n)} kr`;
-}
 
 /**
  * Betaling ved fullført time: valgfri kundeinfo (drop-in → CRM), varesalg
@@ -46,6 +44,8 @@ export function PaymentControls({
   onDone: () => void;
 }) {
   const [pending, start] = useTransition();
+  // Hvilken betalingsknapp som ble trykket – kun den viser «Registrerer …».
+  const [payingMethod, setPayingMethod] = useState<string | null>(null);
   const hasEmail = !!customerEmail;
   const [showInfo, setShowInfo] = useState(!hasEmail);
   const [name, setName] = useState(
@@ -154,6 +154,7 @@ export function PaymentControls({
 
   function pay(method: string) {
     setError(null);
+    setPayingMethod(method);
     start(async () => {
       const res = await completeBooking(bookingId, {
         paymentMethod: method,
@@ -175,9 +176,10 @@ export function PaymentControls({
   function paySplit() {
     setError(null);
     if (!splitOk) {
-      setError(`Betalingen (${splitSum} kr) må stemme med totalen (${total} kr).`);
+      setError(`Betalingen (${formatKr(splitSum)}) må stemme med totalen (${formatKr(total)}).`);
       return;
     }
+    setPayingMethod("split");
     start(async () => {
       const res = await completeBooking(bookingId, {
         customer: showInfo ? { name, email, phone } : undefined,
@@ -222,7 +224,7 @@ export function PaymentControls({
       ) : (
         <button
           onClick={() => setShowInfo(true)}
-          className="mb-2 block text-xs font-semibold text-accent-soft hover:underline"
+          className="mb-2 block act act-accent"
         >
           + Rediger kundeinfo
         </button>
@@ -237,7 +239,7 @@ export function PaymentControls({
             </span>
             <button
               onClick={() => setShowProducts((v) => !v)}
-              className="text-xs font-semibold text-accent-soft hover:underline"
+              className="act act-accent"
             >
               {showProducts ? "Skjul" : "+ Legg til vare"}
             </button>
@@ -254,7 +256,7 @@ export function PaymentControls({
                   >
                     <span className="min-w-0 flex-1 truncate text-fg">
                       {p.name}
-                      <span className="text-muted"> · {kr(p.price_nok)}</span>
+                      <span className="text-muted"> · {formatKr(p.price_nok)}</span>
                     </span>
                     <div className="flex items-center gap-1.5">
                       <button
@@ -289,7 +291,7 @@ export function PaymentControls({
                   <span>
                     {l.qty}× {l.name}
                   </span>
-                  <span className="tabular-nums">{kr(l.price_nok * l.qty)}</span>
+                  <span className="tabular-nums">{formatKr(l.price_nok * l.qty)}</span>
                 </li>
               ))}
             </ul>
@@ -340,7 +342,7 @@ export function PaymentControls({
         <div className="mb-2">
           <p className="mb-1 text-xs text-muted">
             Venn/familie −{allow.friendFamilyPct}%
-            {relationType && ` = ${kr(discountNum)}`}
+            {relationType && ` = ${formatKr(discountNum)}`}
           </p>
           <div className="flex items-center gap-2">
             {(["venn", "familie"] as RelationType[]).map((t) => (
@@ -393,7 +395,7 @@ export function PaymentControls({
         {totalDiscount > 0 && (
           <div className="mb-1 flex items-center justify-between text-xs text-muted">
             <span>
-              Sum {kr(gross)} · rabatt −{kr(totalDiscount)}
+              Sum {formatKr(gross)} · rabatt −{formatKr(totalDiscount)}
               {couponDisc > 0 && coupon ? ` (kupong: ${coupon.name})` : ""}
             </span>
           </div>
@@ -403,7 +405,7 @@ export function PaymentControls({
             Å betale
           </span>
           <span className="font-display text-lg font-bold text-fg tabular-nums">
-            {servicePrice === null ? "…" : kr(total)}
+            {servicePrice === null ? "…" : formatKr(total)}
           </span>
         </div>
       </div>
@@ -425,7 +427,7 @@ export function PaymentControls({
             setSplit((v) => !v);
             setError(null);
           }}
-          className="text-xs font-semibold text-accent-soft hover:underline"
+          className="act act-accent"
         >
           {split ? "Enkel betaling" : "Del betaling"}
         </button>
@@ -453,9 +455,9 @@ export function PaymentControls({
           ))}
           <div className="flex items-center justify-between border-t border-line pt-2 text-xs">
             <span className={splitOk ? "text-accent-soft" : "text-muted"}>
-              Fordelt: {kr(splitSum)} / {kr(total)}
+              Fordelt: {formatKr(splitSum)} / {formatKr(total)}
               {splitSum !== total &&
-                ` · ${splitSum > total ? "−" : "mangler "}${kr(Math.abs(total - splitSum))}`}
+                ` · ${splitSum > total ? "−" : "mangler "}${formatKr(Math.abs(total - splitSum))}`}
             </span>
             <button
               type="button"
@@ -463,7 +465,7 @@ export function PaymentControls({
               onClick={paySplit}
               className="rounded-md bg-accent px-4 py-1.5 text-xs font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
             >
-              {pending ? "…" : "Registrer betaling"}
+              {pending && payingMethod === "split" ? "Registrerer …" : "Registrer betaling"}
             </button>
           </div>
         </div>
@@ -476,7 +478,7 @@ export function PaymentControls({
               onClick={() => pay(p)}
               className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
             >
-              {pending ? "…" : p}
+              {pending && payingMethod === p ? "Registrerer …" : p}
             </button>
           ))}
         </div>

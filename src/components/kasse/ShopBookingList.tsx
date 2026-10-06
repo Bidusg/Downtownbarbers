@@ -17,20 +17,37 @@ import { EmptyState } from "@/components/ui/EmptyState";
 function ReceiptButton({ b }: { b: TodayBooking }) {
   const [pending, start] = useTransition();
   const [sent, setSent] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
   if (!b.customerEmail) return null;
   return (
-    <button
-      disabled={pending || sent}
-      onClick={() =>
-        start(async () => {
-          await sendReceiptForBooking(b.id);
-          setSent(true);
-        })
-      }
-      className="rounded-md border border-line-2 px-2.5 py-1.5 text-xs text-muted transition-colors hover:border-accent-soft hover:text-fg disabled:opacity-50"
-    >
-      {sent ? "Sendt ✓" : pending ? "…" : "Kvittering"}
-    </button>
+    <span className="inline-flex items-center gap-1.5">
+      <button
+        disabled={pending || sent}
+        onClick={() =>
+          start(async () => {
+            setErr(null);
+            try {
+              const res = await sendReceiptForBooking(b.id);
+              if (res?.error) {
+                setErr(res.error);
+                return;
+              }
+              setSent(true);
+            } catch {
+              setErr("Kvitteringen kunne ikke sendes.");
+            }
+          })
+        }
+        className="rounded-md border border-line-2 px-2.5 py-1.5 text-xs text-muted transition-colors hover:border-accent-soft hover:text-fg disabled:opacity-50"
+      >
+        {sent ? "Sendt ✓" : pending ? "Sender …" : err ? "Prøv igjen" : "Kvittering"}
+      </button>
+      {err && (
+        <span role="alert" className="max-w-[220px] text-xs text-danger">
+          {err}
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -49,6 +66,11 @@ function Row({
   >(null);
   const [notify, setNotify] = useState(true);
   const [cancelErr, setCancelErr] = useState<string | null>(null);
+  // Feil/beskjed som vises under raden (ikke møtt / gjenåpne).
+  const [rowErr, setRowErr] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(
+    null,
+  );
 
   const done = b.status === "completed";
   const noshow = b.status === "no_show";
@@ -96,7 +118,7 @@ function Row({
         )}
         {cancelled && (
           <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-xs font-semibold text-danger">
-            Avlyst
+            Avbestilt
           </span>
         )}
 
@@ -105,23 +127,31 @@ function Row({
             menu === "reopen" ? (
               <>
                 <span className="mr-1 text-xs text-muted">
-                  {done ? "Angre salget?" : "Angre?"}
+                  {done ? "Gjenåpne og slette salget?" : "Gjenåpne timen?"}
                 </span>
                 <button
                   onClick={() =>
                     start(async () => {
+                      setRowErr(null);
                       const res = await reopenBooking(b.id);
-                      if (!res?.error) setMenu(null);
+                      if (res?.error) setRowErr(res.error);
+                      else setMenu(null);
                     })
                   }
                   disabled={pending}
-                  className="rounded-md border border-line-2 px-2.5 py-1.5 text-xs font-semibold text-danger hover:border-danger disabled:opacity-50"
+                  className="act act-solid-danger"
                 >
-                  Ja, angre
+                  {pending ? "Gjenåpner …" : "Ja, gjenåpne"}
                 </button>
                 <button
-                  onClick={() => setMenu(null)}
-                  className="px-2 py-1.5 text-xs text-muted hover:text-fg"
+                  onClick={() => {
+                    setMenu(null);
+                    setRowErr(null);
+                  }}
+                  disabled={pending}
+                  aria-label="Avbryt"
+                  title="Avbryt"
+                  className="act"
                 >
                   ✕
                 </button>
@@ -131,11 +161,15 @@ function Row({
                 {done && <ReceiptButton b={b} />}
                 {(done || noshow) && (
                   <button
-                    onClick={() => setMenu("reopen")}
+                    onClick={() => {
+                      setRowErr(null);
+                      setNotice(null);
+                      setMenu("reopen");
+                    }}
                     disabled={pending}
                     className="rounded-md border border-line-2 px-2.5 py-1.5 text-xs text-muted hover:text-fg disabled:opacity-50"
                   >
-                    Angre
+                    Gjenåpne
                   </button>
                 )}
                 {rebook}
@@ -158,19 +192,42 @@ function Row({
               <button
                 onClick={() =>
                   start(async () => {
-                    await markNoShow(b.id, {
-                      notify: !!b.customerEmail && notify,
-                    });
+                    setRowErr(null);
+                    setNotice(null);
+                    const wantNotify = !!b.customerEmail && notify;
+                    try {
+                      const res = await markNoShow(b.id, { notify: wantNotify });
+                      if (res?.error) {
+                        setRowErr(res.error);
+                        return;
+                      }
+                      setMenu(null);
+                      if (wantNotify) {
+                        setNotice(
+                          res?.emailed
+                            ? { ok: true, text: "Varsel sendt til kunden" }
+                            : { ok: false, text: "Varsel kunne ikke sendes" },
+                        );
+                      }
+                    } catch {
+                      setRowErr("Kunne ikke markere som ikke møtt. Prøv igjen.");
+                    }
                   })
                 }
                 disabled={pending}
-                className="rounded-md border border-line-2 px-2.5 py-1.5 text-xs font-semibold text-danger hover:border-danger disabled:opacity-50"
+                className="act act-solid-danger"
               >
-                Ja
+                {pending ? "Registrerer …" : "Ja, ikke møtt"}
               </button>
               <button
-                onClick={() => setMenu(null)}
-                className="px-2 py-1.5 text-xs text-muted hover:text-fg"
+                onClick={() => {
+                  setMenu(null);
+                  setRowErr(null);
+                }}
+                disabled={pending}
+                aria-label="Avbryt"
+                title="Avbryt"
+                className="act"
               >
                 ✕
               </button>
@@ -182,7 +239,7 @@ function Row({
                   {cancelErr}
                 </span>
               ) : (
-                <span className="mr-1 text-xs text-muted">Avlyse?</span>
+                <span className="mr-1 text-xs text-muted">Avbestille?</span>
               )}
               {!cancelErr && (
                 <button
@@ -195,9 +252,9 @@ function Row({
                     })
                   }
                   disabled={pending}
-                  className="rounded-md border border-line-2 px-2.5 py-1.5 text-xs font-semibold text-danger hover:border-danger disabled:opacity-50"
+                  className="act act-solid-danger"
                 >
-                  Ja, avlys
+                  {pending ? "Avbestiller …" : "Ja, avbestill"}
                 </button>
               )}
               <button
@@ -205,7 +262,10 @@ function Row({
                   setMenu(null);
                   setCancelErr(null);
                 }}
-                className="px-2 py-1.5 text-xs text-muted hover:text-fg"
+                disabled={pending}
+                aria-label="Avbryt"
+                title="Avbryt"
+                className="act"
               >
                 ✕
               </button>
@@ -233,23 +293,51 @@ function Row({
                 }}
               />
               <button
-                onClick={() => setMenu("noshow")}
+                onClick={() => {
+                  setRowErr(null);
+                  setNotice(null);
+                  setMenu("noshow");
+                }}
                 disabled={pending}
                 className="rounded-md border border-line-2 px-2.5 py-1.5 text-xs text-muted hover:text-fg disabled:opacity-50"
               >
                 Ikke møtt
               </button>
               <button
-                onClick={() => setMenu("cancel")}
+                onClick={() => {
+                  setNotice(null);
+                  setMenu("cancel");
+                }}
                 disabled={pending}
-                className="px-2 py-1.5 text-xs text-muted hover:text-danger disabled:opacity-50"
+                className="act act-danger"
               >
-                Avlys
+                Avbestill
               </button>
             </>
           )}
         </span>
       </div>
+
+      {rowErr && (
+        <p
+          role="alert"
+          className="mt-2 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger"
+        >
+          {rowErr}
+        </p>
+      )}
+      {notice && (
+        <p
+          role="status"
+          className={
+            notice.ok
+              ? "mt-2 text-xs text-muted"
+              : "mt-2 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger"
+          }
+        >
+          {notice.text}
+        </p>
+      )}
 
       {menu === "pay" && (
         <div className="mt-2 rounded-lg border border-line bg-canvas p-3">

@@ -16,7 +16,7 @@ export function WithdrawLeaveButton({ id }: { id: string }) {
     return (
       <button
         onClick={() => setConfirming(true)}
-        className="text-xs font-medium text-muted underline-offset-2 transition-colors hover:text-danger hover:underline"
+        className="act act-danger"
       >
         Trekk tilbake
       </button>
@@ -34,7 +34,7 @@ export function WithdrawLeaveButton({ id }: { id: string }) {
             if (!res.ok) setError(res.error);
           })
         }
-        className="font-semibold text-danger hover:underline disabled:opacity-40"
+        className="act act-danger"
       >
         {pending ? "Trekker …" : "Ja, trekk"}
       </button>

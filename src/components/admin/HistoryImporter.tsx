@@ -119,7 +119,7 @@ export function HistoryImporter({ staff }: { staff: { id: string; name: string }
               <button
                 type="button"
                 onClick={() => setItems((cur) => cur.filter((_, k) => k !== i))}
-                className="text-xs text-muted hover:text-danger"
+                className="act"
               >
                 Fjern
               </button>

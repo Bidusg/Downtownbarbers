@@ -29,7 +29,7 @@ export default async function AdminDashboard() {
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <PageHeader
-        title="Dashboard"
+        title="Oversikt"
         description="Omsetning, mål og dagens drift på ett sted."
       />
 

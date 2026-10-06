@@ -18,8 +18,9 @@ const VARIANT: Record<ButtonVariant, string> = {
     "shine-btn bg-accent font-semibold text-accent-fg hover:bg-accent-hover",
   danger: "shine-btn bg-danger font-semibold text-white hover:opacity-90",
   subtle: "border border-line-2 font-semibold text-fg hover:border-accent-soft",
-  ghost: "text-muted hover:text-fg",
-  link: "text-accent-soft hover:underline",
+  // Synlige «pill»-knapper (ikke bare tekst) – se .act i globals.css.
+  ghost: "act",
+  link: "act act-accent",
 };
 
 type Common = {
@@ -43,7 +44,9 @@ type AsLink = Common & {
 
 export function Button(props: AsButton | AsLink) {
   const { variant = "primary", className = "", children } = props;
-  const cls = `${BASE} ${VARIANT[variant]} ${className}`.trim();
+  // Lukk-kryss (×) o.l. med stor tekst beholdes som rene ikon-knapper.
+  const iconOnly = variant === "ghost" && /\btext-2xl\b/.test(className);
+  const cls = `${BASE} ${iconOnly ? "text-muted hover:text-fg" : VARIANT[variant]} ${className}`.trim();
 
   if ("href" in props && props.href !== undefined) {
     const { href, target, rel, onClick } = props;

@@ -4,13 +4,15 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
-export async function createAbsence(formData: FormData) {
+export async function createAbsence(formData: FormData): Promise<{ ok?: true; error?: string }> {
   await requireRole(["admin"]);
   const sb = await createClient();
   const staff_id = String(formData.get("staff_id") ?? "");
   const from_date = String(formData.get("from_date") ?? "");
   const to_date = String(formData.get("to_date") ?? "");
-  if (!staff_id || !from_date || !to_date) return;
+  if (!staff_id) return { error: "Velg en ansatt." };
+  if (!from_date || !to_date) return { error: "Fyll inn fra- og til-dato." };
+  if (to_date < from_date) return { error: "Til-dato kan ikke være før fra-dato." };
   const rawKind = String(formData.get("kind") ?? "annet");
   const kind = KINDS.includes(rawKind) ? rawKind : "annet";
   const row = {
@@ -19,11 +21,15 @@ export async function createAbsence(formData: FormData) {
     to_date,
     reason: String(formData.get("reason") ?? "") || null,
   };
-  const { error } = await sb.from("absences").insert({ ...row, kind });
+  let { error } = await sb.from("absences").insert({ ...row, kind });
   // Før FRAVAER-LONN-SQL er kjørt finnes ikke kind – lagre uten type.
-  if (error && /kind/.test(error.message)) await sb.from("absences").insert(row);
+  if (error && /kind/.test(error.message)) {
+    ({ error } = await sb.from("absences").insert(row));
+  }
+  if (error) return { error: "Kunne ikke lagre fraværet: " + error.message };
   revalidatePath("/admin/fravaer");
   revalidatePath("/admin/lonn");
+  return { ok: true };
 }
 
 const KINDS = ["ulonnet", "ugyldig", "syk", "ferie", "annet"];

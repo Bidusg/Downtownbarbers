@@ -79,7 +79,7 @@ export async function GET(req: Request) {
   const suffix =
     from && DATE_RE.test(from) && to && DATE_RE.test(to)
       ? `${from}_${to}`
-      : new Date().toISOString().slice(0, 10);
+      : new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" });
   return new Response(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",

@@ -13,7 +13,7 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const me = await getUserRole();
-  if (!me) redirect("/?login=1");
+  if (!me) redirect("/?login=1&ansatt=1");
   // Eier (Dawit) har full tilgang på linje med admin – samme regel som requireRole.
   if (!isAdminRole(me.role)) redirect("/ingen-tilgang");
 

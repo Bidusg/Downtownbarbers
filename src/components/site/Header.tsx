@@ -47,7 +47,7 @@ export function Header({
   const { lang, setLang, t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
-  const [loginFlags, setLoginFlags] = useState({ accessDenied: false, passwordReset: false });
+  const [loginFlags, setLoginFlags] = useState({ accessDenied: false, passwordReset: false, staffTab: false });
   // ?login=1 (fra gamle /logg-inn-lenker, tilgangsvakter og utlogging):
   // åpne innloggings-popupen med en gang, og rydd adresselinja.
   useEffect(() => {
@@ -56,9 +56,10 @@ export function Header({
     setLoginFlags({
       accessDenied: q.get("feil") === "tilgang",
       passwordReset: q.get("tilbakestilt") === "1",
+      staffTab: q.get("ansatt") === "1",
     });
     setLoginOpen(true);
-    ["login", "feil", "tilbakestilt", "neste"].forEach((k) => q.delete(k));
+    ["login", "feil", "tilbakestilt", "neste", "ansatt"].forEach((k) => q.delete(k));
     const rest = q.toString();
     window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : "") + window.location.hash);
   }, []);

@@ -7,10 +7,10 @@ import {
   getRevenueSummary,
   getSalesForPeriod,
 } from "@/lib/dashboard-queries";
+import { osloMonthRange } from "@/lib/period";
+import { formatKr as nok, methodLabel } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
-
-const nok = (n: number) => n.toLocaleString("nb-NO") + " kr";
 
 export default async function RevisorHome({
   searchParams,
@@ -19,14 +19,15 @@ export default async function RevisorHome({
 }) {
   const sp = await searchParams;
   const period = sp.periode === "months" ? "months" : "days";
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+  // Inneværende måned avgrenset på Oslo-midnatt (serveren kjører i UTC).
+  const month = osloMonthRange();
+  const monthStart = month.fromIso;
+  const monthEnd = month.toIso;
   // Standardperiode for regnskapseksport: inneværende måned (yyyy-mm-dd).
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const exportFrom = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
-  const exportLast = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const exportTo = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(exportLast)}`;
+  const [ey, em] = month.key.split("-").map(Number);
+  const exportFrom = `${month.key}-01`;
+  const exportLast = new Date(Date.UTC(ey, em, 0)).getUTCDate();
+  const exportTo = `${month.key}-${String(exportLast).padStart(2, "0")}`;
   const [series, sum, monthDetail] = await Promise.all([
     getRevenueSeries(period),
     getRevenueSummary(),
@@ -55,16 +56,13 @@ export default async function RevisorHome({
           <h1 className="font-display text-2xl font-bold">Regnskapsoversikt</h1>
           <p className="text-sm text-muted">
             Regnskaps- og lønnstilgang. Se{" "}
-            <a href="/revisor/rapport" className="text-accent-soft hover:underline">
+            <a href="/revisor/rapport" className="font-medium text-accent-soft underline underline-offset-2 hover:text-fg">
               Perioderapport
             </a>{" "}
             for kvartal/halvår/helår.
           </p>
         </div>
-        <a
-          href="/revisor/eksport"
-          className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
-        >
+        <a href="/revisor/eksport" className="act act-accent">
           Last ned alle salg (CSV)
         </a>
       </div>
@@ -73,11 +71,11 @@ export default async function RevisorHome({
         <StatTile
           label="Omsetning måned"
           value={nok(sum.month)}
-          sub={sum.fixitInMonth > 0 ? "denne måneden · inkl. Fixit-historikk" : "denne måneden"}
+          sub={sum.fixitInMonth > 0 ? `${month.label} · inkl. Fixit-historikk` : month.label}
         />
         <StatTile label="Omsetning i dag" value={nok(sum.today)} />
-        <StatTile label="Antall salg" value={String(sum.saleCount)} sub="denne måneden" />
-        <StatTile label="Snitt per salg" value={nok(sum.avgPerSale)} />
+        <StatTile label="Antall salg" value={sum.saleCount.toLocaleString("nb-NO")} sub={month.label} />
+        <StatTile label="Snitt per salg" value={nok(sum.avgPerSale)} sub={month.label} />
       </div>
 
       <Card padded={false}>
@@ -95,7 +93,8 @@ export default async function RevisorHome({
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
-          <h2 className="mb-5 font-display text-lg font-bold">Omsetning per barber</h2>
+          <h2 className="font-display text-lg font-bold">Omsetning per barber</h2>
+          <p className="mb-4 text-xs text-muted">{month.label}</p>
           {sum.perBarber.length === 0 ? (
             <p className="text-sm text-muted">Ingen salg registrert denne måneden.</p>
           ) : (
@@ -114,7 +113,7 @@ export default async function RevisorHome({
 
         <Card>
           <h2 className="mb-5 font-display text-lg font-bold">Per betalingsmåte</h2>
-          <p className="mb-4 text-xs text-muted">Denne måneden</p>
+          <p className="mb-4 text-xs text-muted">{month.label}</p>
           {monthDetail.byMethod.length === 0 ? (
             <p className="text-sm text-muted">Ingen salg registrert denne måneden.</p>
           ) : (
@@ -124,8 +123,8 @@ export default async function RevisorHome({
                   key={m.method}
                   className="flex justify-between border-b border-line pb-2 last:border-0"
                 >
-                  <span className="text-fg-soft">{m.method}</span>
-                  <span className="font-medium">{nok(m.nok)}</span>
+                  <span className="text-fg-soft">{methodLabel(m.method)}</span>
+                  <span className="font-medium tabular-nums">{nok(m.nok)}</span>
                 </li>
               ))}
             </ul>
@@ -141,10 +140,10 @@ export default async function RevisorHome({
           (master); eksporten dekker inntektssiden (salg + utgående mva).
         </p>
         <div className="mt-4 flex flex-wrap items-end gap-3">
-          <a href={`/revisor/eksport/xlsx?from=${exportFrom}&to=${exportTo}`} className="border border-line-2 px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft">
-            Salg denne måned (Excel)
+          <a href={`/revisor/eksport/xlsx?from=${exportFrom}&to=${exportTo}`} className="act act-accent">
+            Salg {month.label.toLowerCase()} (Excel)
           </a>
-          <a href="/revisor/eksport" className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg">
+          <a href="/revisor/eksport" className="act">
             Alle salg (CSV)
           </a>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import type { Budget, StaffOption } from "@/lib/ops-queries";
 import { setBudget, deleteBudget } from "@/app/admin/budsjett/actions";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
@@ -11,6 +11,59 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 const kr = (n: number) => n.toLocaleString("nb-NO") + " kr";
+
+/** Ett budsjett-felt med pending og «Lagret ✓»/feil per rad. */
+function BudgetForm({
+  staffId,
+  year,
+  month,
+  target,
+}: {
+  staffId: string;
+  year: number;
+  month: number;
+  target: number | null;
+}) {
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  return (
+    <div>
+      <form
+        action={(fd) =>
+          start(async () => {
+            setMsg(null);
+            const res = await setBudget(fd);
+            setMsg(res.error ? { ok: false, text: res.error } : { ok: true, text: "Lagret ✓" });
+          })
+        }
+        className="flex items-center gap-2"
+      >
+        <input type="hidden" name="staff_id" value={staffId} />
+        <input type="hidden" name="year" value={year} />
+        <input type="hidden" name="month" value={month} />
+        <input
+          name="target_nok"
+          type="number"
+          min={0}
+          step="1000"
+          defaultValue={target ?? ""}
+          placeholder="0"
+          onChange={() => setMsg(null)}
+          className="w-32 border border-line-2 bg-canvas px-2 py-1.5 text-sm outline-none focus:border-accent-soft"
+        />
+        <span className="text-xs text-muted">kr</span>
+        <button type="submit" disabled={pending} className="act act-accent">
+          {pending ? "Lagrer …" : "Lagre"}
+        </button>
+        {msg && (
+          <span className={"text-xs " + (msg.ok ? "text-accent-soft" : "text-danger")}>
+            {msg.text}
+          </span>
+        )}
+      </form>
+    </div>
+  );
+}
 
 const MONTHS = [
   "Januar", "Februar", "Mars", "April", "Mai", "Juni",
@@ -89,27 +142,13 @@ export function BudgetManager({
                       </span>
                     </Td>
                     <Td>
-                      <form action={setBudget} className="flex items-center gap-2">
-                        <input type="hidden" name="staff_id" value={s.id} />
-                        <input type="hidden" name="year" value={year} />
-                        <input type="hidden" name="month" value={month} />
-                        <input
-                          name="target_nok"
-                          type="number"
-                          min={0}
-                          step="1000"
-                          defaultValue={b ? b.target_nok : ""}
-                          placeholder="0"
-                          className="w-32 border border-line-2 bg-canvas px-2 py-1.5 text-sm outline-none focus:border-accent-soft"
-                        />
-                        <span className="text-xs text-muted">kr</span>
-                        <button
-                          type="submit"
-                          className="bg-accent-soft/15 px-3 py-1 text-xs font-semibold text-accent-soft hover:bg-accent-soft/25"
-                        >
-                          Lagre
-                        </button>
-                      </form>
+                      <BudgetForm
+                        key={`${s.id}-${year}-${month}`}
+                        staffId={s.id}
+                        year={year}
+                        month={month}
+                        target={b ? b.target_nok : null}
+                      />
                     </Td>
                     <Td align="right">
                       {b && (

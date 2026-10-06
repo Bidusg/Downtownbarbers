@@ -8,12 +8,34 @@ import {
   getTripletexVouchers,
   getLastSync,
 } from "@/lib/tripletex/queries";
+import { formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-const nok = (n: number) => n.toLocaleString("nb-NO") + " kr";
-/** Beløp eller «—» for null. */
-const kr = (n: number | null) => (n == null ? "—" : nok(n));
+/** Regnskapsbeløp med to desimaler, eller «—» for null. */
+const kr = (n: number | null) =>
+  n == null
+    ? "—"
+    : `${Number(n).toLocaleString("nb-NO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kr`;
+
+/** Tripletex kontotype (enum) → norsk etikett. Ukjente vises som de er. */
+const ACCOUNT_TYPE_LABELS: Record<string, string> = {
+  ASSETS: "Eiendeler",
+  EQUITY: "Egenkapital",
+  LIABILITIES: "Gjeld",
+  OPERATING_REVENUES: "Driftsinntekter",
+  OPERATING_EXPENSES: "Driftskostnader",
+  INVESTMENT_INCOME: "Finansinntekter",
+  COST_OF_CAPITAL: "Finanskostnader",
+  TAX_ON_ORDINARY_ACTIVITIES: "Skatt",
+  EXTRAORDINARY_INCOME: "Ekstraordinære inntekter",
+  EXTRAORDINARY_COST: "Ekstraordinære kostnader",
+  TAX_ON_EXTRAORDINARY_ACTIVITIES: "Skatt (ekstraordinær)",
+  ANNUAL_RESULT: "Årsresultat",
+  TRANSFERS_AND_ALLOCATIONS: "Overføringer og disponeringer",
+};
+const accountTypeLabel = (t: string | null) =>
+  t ? (ACCOUNT_TYPE_LABELS[t.toUpperCase()] ?? t) : "—";
 
 /** Formater siste synk-tidspunkt til «Sist synket: …» (Oslo-tid), ellers null. */
 function formatLastSync(
@@ -33,7 +55,8 @@ function formatLastSync(
 export default async function RevisorSaldobalanse() {
   await requireRole(["revisor", "admin"]);
 
-  const year = String(new Date().getFullYear());
+  // Inneværende år i Oslo (serveren kjører i UTC – viktig rundt nyttår).
+  const year = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" }).slice(0, 4);
   const [rows, vouchers, lastSyncRaw] = await Promise.all([
     getTripletexSaldobalanse(year),
     getTripletexVouchers({ limit: 100 }),
@@ -56,7 +79,7 @@ export default async function RevisorSaldobalanse() {
           <h2 className="font-display text-lg font-bold">Saldobalanse</h2>
           <p className="text-xs text-muted">Inngående, endring og utgående saldo per konto.</p>
         </div>
-        <Table>
+        <Table className="min-w-[720px]">
           <THead>
             <Tr head>
               <Th>Konto</Th>
@@ -75,7 +98,7 @@ export default async function RevisorSaldobalanse() {
                 <Tr key={r.account_number}>
                   <Td nums className="text-fg-soft">{r.account_number}</Td>
                   <Td>{r.account_name ?? "—"}</Td>
-                  <Td muted>{r.account_type ?? "—"}</Td>
+                  <Td muted>{accountTypeLabel(r.account_type)}</Td>
                   <Td align="right" nums>{kr(r.balance_in)}</Td>
                   <Td align="right" nums>{kr(r.balance_change)}</Td>
                   <Td align="right" nums>{kr(r.balance_out)}</Td>
@@ -92,7 +115,7 @@ export default async function RevisorSaldobalanse() {
           <h2 className="font-display text-lg font-bold">Bilag</h2>
           <p className="text-xs text-muted">Siste 100 bilag fra Tripletex (nyeste først).</p>
         </div>
-        <Table>
+        <Table className="min-w-[600px]">
           <THead>
             <Tr head>
               <Th>Nr.</Th>
@@ -111,7 +134,7 @@ export default async function RevisorSaldobalanse() {
                   <Td nums className="text-fg-soft">
                     {v.number ?? v.temp_number ?? "—"}
                   </Td>
-                  <Td nums muted>{v.voucher_date ?? "—"}</Td>
+                  <Td nums muted className="whitespace-nowrap">{formatDate(v.voucher_date)}</Td>
                   <Td>{v.description ?? "—"}</Td>
                   <Td muted>{v.voucher_type ?? "—"}</Td>
                   <Td>

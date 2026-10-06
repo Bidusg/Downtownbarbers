@@ -42,7 +42,10 @@ export function AbsenceManager({
         <p className="text-sm text-muted">{absences.length} registrerte fravær</p>
         <Button
           variant="primary"
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => {
+            setErr(null);
+            setOpen((o) => !o);
+          }}
           className="px-4 py-2 text-sm"
         >
           {open ? "Lukk" : "+ Nytt fravær"}
@@ -52,10 +55,14 @@ export function AbsenceManager({
       {open && (
         <Card>
           <form
-            action={async (fd) => {
-              await createAbsence(fd);
-              setOpen(false);
-            }}
+            action={(fd) =>
+              start(async () => {
+                setErr(null);
+                const res = await createAbsence(fd);
+                if (res.error) setErr(res.error);
+                else setOpen(false);
+              })
+            }
             className="grid gap-3 sm:grid-cols-2"
           >
             <Select name="staff_id" required defaultValue="">
@@ -83,14 +90,20 @@ export function AbsenceManager({
             <Field label="Til dato">
               <Input name="to_date" type="date" required />
             </Field>
-            <Button type="submit" variant="primary" className="px-4 py-2 text-sm sm:col-span-2">
-              Lagre fravær
+            {err && <p className="text-sm text-danger sm:col-span-2">{err}</p>}
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={pending}
+              className="px-4 py-2 text-sm sm:col-span-2"
+            >
+              {pending ? "Lagrer …" : "Lagre fravær"}
             </Button>
           </form>
         </Card>
       )}
 
-      {err && <p className="text-sm text-danger">{err}</p>}
+      {err && !open && <p className="text-sm text-danger">{err}</p>}
       <p className="text-xs text-muted">
         Ulønnet permisjon og ugyldig fravær trekkes i grunnlønnen (grunnlønn ÷ arbeidsdager i
         måneden × fraværsdager). Sykdom, ferie og annet trekkes ikke.
@@ -140,7 +153,7 @@ export function AbsenceManager({
                   <Td align="right">
                     <span className="flex justify-end gap-3 text-xs">
                       <button
-                        className="font-semibold text-accent-soft hover:underline"
+                        className="act act-accent"
                         disabled={pending}
                         onClick={() =>
                           start(async () => {
@@ -153,7 +166,7 @@ export function AbsenceManager({
                       >
                         {pending ? "Lagrer …" : "Lagre"}
                       </button>
-                      <button className="text-muted hover:underline" onClick={() => setEditId(null)}>
+                      <button className="act" onClick={() => setEditId(null)}>
                         Avbryt
                       </button>
                     </span>
@@ -194,7 +207,7 @@ export function AbsenceManager({
                 <Td align="right">
                   <span className="flex items-center justify-end gap-3">
                     <button
-                      className="text-xs text-accent-soft hover:underline"
+                      className="act act-accent"
                       onClick={() => {
                         setErr(null);
                         setEditId(a.id);

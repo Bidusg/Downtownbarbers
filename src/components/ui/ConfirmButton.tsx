@@ -21,8 +21,8 @@ export function ConfirmButton({
   pendingLabel,
   onConfirm,
   submit = false,
-  className = "text-xs text-danger hover:underline",
-  confirmClassName = "text-xs font-semibold text-danger hover:underline disabled:opacity-40",
+  className = "act act-danger",
+  confirmClassName = "act act-solid-danger",
   disabled = false,
 }: {
   /** Tekst på hvile-knappen, f.eks. «Slett». */
@@ -104,7 +104,7 @@ export function ConfirmButton({
         type="button"
         onClick={() => setConfirming(false)}
         disabled={pending}
-        className="text-muted hover:text-fg disabled:opacity-40"
+        className="act"
       >
         Avbryt
       </button>

@@ -1,7 +1,7 @@
 import { getCustomersPage } from "@/lib/admin-queries";
 import { CustomerTable } from "@/components/admin/CustomerTable";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Button } from "@/components/ui/Button";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 import { createCustomer } from "./actions";
 
 const inputCls =
@@ -34,9 +34,11 @@ export default async function AdminKunder({
           <input name="email" type="email" placeholder="E-post" className={inputCls} />
           <input name="category" placeholder="Kategori (valgfritt)" className={inputCls} />
           <input name="notes" placeholder="Notat (valgfritt)" className={`${inputCls} sm:col-span-2`} />
-          <Button type="submit" className="px-4 py-2 text-sm sm:col-span-2">
-            Opprett kunde
-          </Button>
+          <div className="sm:col-span-2">
+            <SubmitButton pendingText="Oppretter …" className="act act-accent">
+              Opprett kunde
+            </SubmitButton>
+          </div>
         </form>
       </details>
 

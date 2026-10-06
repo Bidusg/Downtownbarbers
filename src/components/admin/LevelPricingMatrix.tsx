@@ -5,6 +5,7 @@ import type { StaffLevel, PriceService } from "@/lib/levels-queries";
 import { saveLevelPrices } from "@/app/admin/nivaer/actions";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { formatKr } from "@/lib/format";
 
 export function LevelPricingMatrix({
   levels,
@@ -86,7 +87,7 @@ export function LevelPricingMatrix({
                   <tr key={s.id} className="border-t border-line">
                     <td className="px-4 py-2 font-medium text-fg">{s.name}</td>
                     <td className="px-4 py-2 text-right text-muted">
-                      {s.base_price_nok} kr
+                      {formatKr(s.base_price_nok)}
                     </td>
                     {levels.map((l) => (
                       <td key={l.id} className="px-4 py-2 text-right">

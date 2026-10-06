@@ -8,14 +8,7 @@ import { DeskBooking } from "@/components/kasse/DeskBooking";
 import { PaymentControls } from "@/components/kasse/PaymentControls";
 import { SendReceiptButton } from "@/components/kasse/SendReceiptButton";
 import { Avatar } from "@/components/ui/Avatar";
-
-const statusLabel: Record<string, string> = {
-  pending: "Venter",
-  confirmed: "Bekreftet",
-  completed: "Fullført",
-  cancelled: "Avlyst",
-  no_show: "Ikke møtt",
-};
+import { bookingStatusLabel } from "@/lib/format";
 
 function hhmm(iso: string) {
   try {
@@ -44,8 +37,10 @@ export function BookingDetailModal({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [mode, setMode] = useState<
-    "actions" | "pay" | "cancel" | "noshow" | "reopen"
+    "actions" | "pay" | "cancel" | "noshow" | "reopen" | "noshowDone"
   >("actions");
+  // Resultat av e-postvarsel ved «ikke møtt» (null = ikke forsøkt).
+  const [notifyResult, setNotifyResult] = useState<boolean | null>(null);
   const [notify, setNotify] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -57,13 +52,43 @@ export function BookingDetailModal({
     b.status === "no_show" ||
     b.status === "cancelled";
 
-  function act(fn: () => Promise<unknown>) {
+  function closeAndRefresh() {
+    onClose();
+    router.refresh();
+  }
+
+  function act(
+    fn: () => Promise<{ error?: string } | void | null | undefined>,
+    after?: (res: { error?: string } | void | null | undefined) => boolean,
+  ) {
     start(async () => {
-      await fn();
-      onClose();
-      router.refresh();
+      setErr(null);
+      try {
+        const res = await fn();
+        if (res && typeof res === "object" && res.error) {
+          setErr(res.error);
+          return;
+        }
+        // `after` kan returnere true for å holde modalen åpen (f.eks. for å vise resultat).
+        if (after?.(res)) {
+          router.refresh();
+          return;
+        }
+        closeAndRefresh();
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "Noe gikk galt. Prøv igjen.");
+      }
     });
   }
+
+  const errBox = err ? (
+    <p
+      role="alert"
+      className="mt-2 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger"
+    >
+      {err}
+    </p>
+  ) : null;
 
   return (
     <div
@@ -136,7 +161,7 @@ export function BookingDetailModal({
           )}
           <div className="flex justify-between">
             <span className="text-muted">Status</span>
-            <span className="text-fg">{statusLabel[b.status] ?? b.status}</span>
+            <span className="text-fg">{bookingStatusLabel(b.status)}</span>
           </div>
           {b.phone && (
             <div className="flex justify-between">
@@ -179,7 +204,7 @@ export function BookingDetailModal({
             />
             <button
               onClick={() => setMode("actions")}
-              className="mt-3 text-xs text-muted hover:text-fg"
+              className="act mt-3"
             >
               ← Tilbake
             </button>
@@ -205,27 +230,60 @@ export function BookingDetailModal({
             <div className="flex items-center gap-2">
               <button
                 disabled={pending}
-                onClick={() =>
-                  act(() =>
-                    markNoShow(b.id, { notify: !!b.email && notify }),
-                  )
-                }
-                className="rounded-md border border-line-2 px-3 py-1.5 text-xs font-semibold text-danger hover:border-danger disabled:opacity-50"
+                onClick={() => {
+                  const wantNotify = !!b.email && notify;
+                  act(
+                    () => markNoShow(b.id, { notify: wantNotify }),
+                    (res) => {
+                      if (!wantNotify) return false;
+                      const emailed =
+                        !!res && typeof res === "object" && "emailed" in res
+                          ? !!(res as { emailed?: boolean }).emailed
+                          : false;
+                      setNotifyResult(emailed);
+                      setMode("noshowDone");
+                      return true;
+                    },
+                  );
+                }}
+                className="act act-solid-danger"
               >
-                {pending ? "…" : "Ja, ikke møtt"}
+                {pending ? "Registrerer …" : "Ja, ikke møtt"}
               </button>
               <button
-                onClick={() => setMode("actions")}
-                className="px-2 py-1.5 text-xs text-muted hover:text-fg"
+                disabled={pending}
+                onClick={() => {
+                  setErr(null);
+                  setMode("actions");
+                }}
+                className="act"
               >
-                Angre
+                Avbryt
               </button>
             </div>
+            {errBox}
+          </div>
+        ) : mode === "noshowDone" ? (
+          <div>
+            <p className="mb-2 text-sm text-fg">Timen er markert som ikke møtt.</p>
+            <p
+              role="status"
+              className={
+                notifyResult
+                  ? "mb-3 rounded-md border border-line-2 bg-canvas px-3 py-2 text-xs text-fg"
+                  : "mb-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger"
+              }
+            >
+              {notifyResult ? "Varsel sendt til kunden" : "Varsel kunne ikke sendes"}
+            </p>
+            <button onClick={onClose} className="act">
+              Lukk
+            </button>
           </div>
         ) : mode === "cancel" ? (
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted">Avlyse denne timen?</span>
+              <span className="text-sm text-muted">Avbestille denne timen?</span>
               <button
                 disabled={pending}
                 onClick={() =>
@@ -240,18 +298,19 @@ export function BookingDetailModal({
                     router.refresh();
                   })
                 }
-                className="rounded-md border border-line-2 px-3 py-1.5 text-xs font-semibold text-danger hover:border-danger disabled:opacity-50"
+                className="act act-solid-danger"
               >
-                Ja, avlys
+                {pending ? "Avbestiller …" : "Ja, avbestill"}
               </button>
               <button
+                disabled={pending}
                 onClick={() => {
                   setErr(null);
                   setMode("actions");
                 }}
-                className="px-2 py-1.5 text-xs text-muted hover:text-fg"
+                className="act"
               >
-                Angre
+                Avbryt
               </button>
             </div>
             {err && (
@@ -264,8 +323,8 @@ export function BookingDetailModal({
           <div>
             <p className="mb-2 text-sm text-fg">
               {b.status === "completed"
-                ? "Angre salget? Salgsregistreringen slettes."
-                : "Angre «ikke møtt»?"}
+                ? "Gjenåpne timen? Salgsregistreringen slettes."
+                : "Gjenåpne timen og fjerne «ikke møtt»?"}
             </p>
             {err && (
               <p className="mb-2 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
@@ -277,6 +336,7 @@ export function BookingDetailModal({
                 disabled={pending}
                 onClick={() =>
                   start(async () => {
+                    setErr(null);
                     const res = await reopenBooking(b.id);
                     if (res?.error) {
                       setErr(res.error);
@@ -286,16 +346,17 @@ export function BookingDetailModal({
                     router.refresh();
                   })
                 }
-                className="rounded-md border border-line-2 px-3 py-1.5 text-xs font-semibold text-danger hover:border-danger disabled:opacity-50"
+                className="act act-solid-danger"
               >
-                {pending ? "…" : "Ja, angre"}
+                {pending ? "Gjenåpner …" : "Ja, gjenåpne"}
               </button>
               <button
+                disabled={pending}
                 onClick={() => {
                   setErr(null);
                   setMode("actions");
                 }}
-                className="px-2 py-1.5 text-xs text-muted hover:text-fg"
+                className="act"
               >
                 Avbryt
               </button>
@@ -325,7 +386,10 @@ export function BookingDetailModal({
                   }}
                 />
                 <button
-                  onClick={() => setMode("noshow")}
+                  onClick={() => {
+                    setErr(null);
+                    setMode("noshow");
+                  }}
                   disabled={!started}
                   title={started ? undefined : "Kan settes når timen har startet"}
                   className="rounded-md border border-line-2 px-3 py-2 text-sm text-muted transition-colors hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
@@ -333,8 +397,11 @@ export function BookingDetailModal({
                   Ikke møtt
                 </button>
                 <button
-                  onClick={() => setMode("cancel")}
-                  className="rounded-md px-3 py-2 text-sm text-muted transition-colors hover:text-danger"
+                  onClick={() => {
+                    setErr(null);
+                    setMode("cancel");
+                  }}
+                  className="act act-danger"
                 >
                   Avbestill
                 </button>
@@ -347,10 +414,13 @@ export function BookingDetailModal({
                 )}
                 {(b.status === "completed" || b.status === "no_show") && (
                   <button
-                    onClick={() => setMode("reopen")}
-                    className="rounded-md border border-line-2 px-3 py-2 text-sm text-muted transition-colors hover:text-fg"
+                    onClick={() => {
+                      setErr(null);
+                      setMode("reopen");
+                    }}
+                    className="act"
                   >
-                    Angre
+                    Gjenåpne
                   </button>
                 )}
                 <DeskBooking

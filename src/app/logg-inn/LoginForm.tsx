@@ -144,17 +144,20 @@ function StaffForm({
 export function LoginForm({
   accessDenied = false,
   passwordReset = false,
+  staffTab = false,
   compact = false,
 }: {
   accessDenied?: boolean;
   passwordReset?: boolean;
+  /** Start på «Ansatt / admin»-fanen (sendt hit fra admin/kasse/revisor). */
+  staffTab?: boolean;
   /** compact = inne i en popup (ingen helsides ramme). */
   compact?: boolean;
 }) {
   // Ansatte som blir sendt hit av en tilgangsvakt (feil=tilgang) eller etter
   // passordbytte havner rett på ansatt-fanen; ellers er kunde-fanen standard.
   const [tab, setTab] = useState<"kunde" | "ansatt">(
-    accessDenied || passwordReset ? "ansatt" : "kunde",
+    accessDenied || passwordReset || staffTab ? "ansatt" : "kunde",
   );
 
   return (

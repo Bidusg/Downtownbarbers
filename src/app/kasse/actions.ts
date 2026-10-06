@@ -720,7 +720,11 @@ export async function markNoShow(
 ): Promise<{ ok?: true; emailed?: boolean; error?: string }> {
   const sb = await createClient();
 
-  await sb.from("bookings").update({ status: "no_show" }).eq("id", bookingId);
+  const { error: updErr } = await sb
+    .from("bookings")
+    .update({ status: "no_show" })
+    .eq("id", bookingId);
+  if (updErr) return { error: updErr.message };
 
   let emailed = false;
   if (opts?.notify) {

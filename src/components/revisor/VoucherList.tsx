@@ -8,6 +8,7 @@ import { Table, THead, TBody, Tr, Th, Td } from "@/components/ui/Table";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { formatDate } from "@/lib/format";
 
 const KIND_LABELS: Record<Voucher["kind"], string> = {
   faktura: "Faktura",
@@ -16,22 +17,15 @@ const KIND_LABELS: Record<Voucher["kind"], string> = {
   annet: "Annet",
 };
 
-function fmtDate(iso: string | null): string {
-  if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleDateString("nb-NO", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return iso;
-  }
-}
-
+/** Bilagsbeløp: hele kroner uten desimaler, ellers to desimaler (øre). */
 function fmtMoney(n: number | null): string {
-  if (n === null) return "—";
-  return `${n.toLocaleString("nb-NO")} kr`;
+  if (n === null || n === undefined) return "—";
+  const v = Number(n);
+  const whole = Number.isInteger(v);
+  return `${v.toLocaleString("nb-NO", {
+    minimumFractionDigits: whole ? 0 : 2,
+    maximumFractionDigits: 2,
+  })} kr`;
 }
 
 /**
@@ -41,19 +35,34 @@ function fmtMoney(n: number | null): string {
  */
 export function VoucherList({ vouchers }: { vouchers: Voucher[] }) {
   const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   async function onDownload(id: string) {
     setError(null);
-    const url = await voucherSignedUrl(id);
-    if (url) {
-      window.open(url, "_blank", "noopener,noreferrer");
-    } else {
+    setBusyId(id);
+    // Åpne fanen synkront i klikket: Safari (iPad) blokkerer window.open som
+    // skjer etter en await. Fanen pekes til den signerte URL-en når den er klar.
+    const win = window.open("", "_blank");
+    if (win) win.opener = null;
+    try {
+      const url = await voucherSignedUrl(id);
+      if (url) {
+        if (win) win.location.href = url;
+        else window.location.href = url;
+      } else {
+        win?.close();
+        setError("Kunne ikke lage nedlastingslenke. Prøv igjen.");
+      }
+    } catch {
+      win?.close();
       setError("Kunne ikke lage nedlastingslenke. Prøv igjen.");
+    } finally {
+      setBusyId(null);
     }
   }
 
   if (vouchers.length === 0) {
-    return <EmptyState description="Ingen bilag enda." />;
+    return <EmptyState description="Ingen bilag lastet opp ennå." />;
   }
 
   return (
@@ -63,7 +72,7 @@ export function VoucherList({ vouchers }: { vouchers: Voucher[] }) {
           {error}
         </div>
       )}
-      <Table>
+      <Table className="min-w-[720px]">
         <THead>
           <Tr head>
             <Th>Dato</Th>
@@ -79,7 +88,7 @@ export function VoucherList({ vouchers }: { vouchers: Voucher[] }) {
           {vouchers.map((v) => (
             <Tr key={v.id}>
               <Td muted className="whitespace-nowrap">
-                {fmtDate(v.voucherDate)}
+                {formatDate(v.voucherDate)}
               </Td>
               <Td className="text-fg">{v.title}</Td>
               <Td muted>{v.supplier || "—"}</Td>
@@ -96,11 +105,11 @@ export function VoucherList({ vouchers }: { vouchers: Voucher[] }) {
                 <div className="flex items-center justify-end">
                   <Button
                     type="button"
-                    variant="subtle"
+                    variant="link"
+                    disabled={busyId === v.id}
                     onClick={() => onDownload(v.id)}
-                    className="px-3 py-1 text-xs"
                   >
-                    Last ned
+                    {busyId === v.id ? "Henter …" : "Last ned"}
                   </Button>
                 </div>
               </Td>

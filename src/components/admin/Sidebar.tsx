@@ -6,7 +6,7 @@ type Item = { label: string; href: string };
 type Group = { heading?: string; items: Item[] };
 
 const groups: Group[] = [
-  { items: [{ label: "Dashboard", href: "/admin" }] },
+  { items: [{ label: "Oversikt", href: "/admin" }] },
   {
     heading: "Drift",
     items: [

@@ -4,20 +4,49 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getUserRole, isAdminRole } from "@/lib/auth";
 
-export async function createService(formData: FormData) {
-  const sb = await createClient();
-  const { data: inserted } = await sb
-    .from("services")
-    .insert({
-      name: String(formData.get("name") ?? ""),
+type ActionResult = { ok?: true; error?: string };
+
+/** Felles validering for opprett/endre tjeneste. */
+function readServiceForm(formData: FormData):
+  | { error: string }
+  | {
+      row: {
+        name: string;
+        description: string;
+        price_nok: number;
+        duration_min: number;
+        category_id: string | null;
+      };
+    } {
+  const name = String(formData.get("name") ?? "").trim();
+  const price_nok = Number(formData.get("price_nok") ?? 0);
+  const rawDur = String(formData.get("duration_min") ?? "").trim();
+  const duration_min = rawDur === "" ? 30 : Number(rawDur);
+  if (!name) return { error: "Tjenesten må ha et navn." };
+  if (!Number.isFinite(price_nok) || price_nok < 0) return { error: "Ugyldig pris." };
+  if (!Number.isInteger(duration_min) || duration_min <= 0)
+    return { error: "Varighet må være et helt antall minutter over 0." };
+  return {
+    row: {
+      name,
       description: String(formData.get("description") ?? ""),
-      price_nok: Number(formData.get("price_nok") ?? 0),
-      duration_min: Number(formData.get("duration_min") ?? 30),
+      price_nok,
+      duration_min,
       category_id: String(formData.get("category_id") ?? "") || null,
-      active: true,
-    })
+    },
+  };
+}
+
+export async function createService(formData: FormData): Promise<ActionResult> {
+  const parsed = readServiceForm(formData);
+  if ("error" in parsed) return { error: parsed.error };
+  const sb = await createClient();
+  const { data: inserted, error } = await sb
+    .from("services")
+    .insert({ ...parsed.row, active: true })
     .select("id")
     .single();
+  if (error) return { error: `Kunne ikke lagre tjenesten: ${error.message}` };
 
   // Ny tjeneste leveres av alle aktive ansatte som standard (fjern avhukingen
   // per ansatt under Ansatte → Rediger).
@@ -38,21 +67,18 @@ export async function createService(formData: FormData) {
 
   revalidatePath("/admin/tjenester");
   revalidatePath("/booking");
+  return { ok: true };
 }
 
-export async function updateService(id: string, formData: FormData) {
+export async function updateService(id: string, formData: FormData): Promise<ActionResult> {
+  const parsed = readServiceForm(formData);
+  if ("error" in parsed) return { error: parsed.error };
   const sb = await createClient();
-  await sb
-    .from("services")
-    .update({
-      name: String(formData.get("name") ?? ""),
-      description: String(formData.get("description") ?? ""),
-      price_nok: Number(formData.get("price_nok") ?? 0),
-      duration_min: Number(formData.get("duration_min") ?? 30),
-      category_id: String(formData.get("category_id") ?? "") || null,
-    })
-    .eq("id", id);
+  const { error } = await sb.from("services").update(parsed.row).eq("id", id);
+  if (error) return { error: `Kunne ikke lagre endringene: ${error.message}` };
   revalidatePath("/admin/tjenester");
+  revalidatePath("/booking");
+  return { ok: true };
 }
 
 export async function toggleService(id: string, active: boolean) {

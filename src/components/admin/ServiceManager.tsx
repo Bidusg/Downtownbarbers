@@ -22,6 +22,7 @@ import {
   Td,
   TableEmpty,
 } from "@/components/ui/Table";
+import { formatKr } from "@/lib/format";
 
 function ServiceForm({
   categories,
@@ -32,14 +33,21 @@ function ServiceForm({
   service?: AdminService;
   onDone: () => void;
 }) {
+  const [saving, start] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
   return (
     <Card>
       <form
-        action={async (fd) => {
-          if (service) await updateService(service.id, fd);
-          else await createService(fd);
-          onDone();
-        }}
+        action={(fd) =>
+          start(async () => {
+            setErr(null);
+            const res = service
+              ? await updateService(service.id, fd)
+              : await createService(fd);
+            if (res.error) setErr(res.error);
+            else onDone();
+          })
+        }
         className="grid gap-3 sm:grid-cols-2"
       >
         <Input
@@ -74,9 +82,10 @@ function ServiceForm({
           defaultValue={service?.description ?? ""}
           className="sm:col-span-2"
         />
+        {err && <p className="text-sm text-danger sm:col-span-2">{err}</p>}
         <div className="flex gap-2 sm:col-span-2">
-          <Button type="submit" variant="primary" className="px-4 py-2 text-sm">
-            {service ? "Lagre endringer" : "Lagre tjeneste"}
+          <Button type="submit" variant="primary" disabled={saving} className="px-4 py-2 text-sm">
+            {saving ? "Lagrer …" : service ? "Lagre endringer" : "Lagre tjeneste"}
           </Button>
           <Button
             type="button"
@@ -180,22 +189,22 @@ export function ServiceManager({
                     )}
                   </Td>
                   <Td muted>{s.categoryName}</Td>
-                  <Td className="font-display">{s.price_nok} kr</Td>
+                  <Td className="font-display">{formatKr(s.price_nok)}</Td>
                   <Td muted>{s.duration_min} min</Td>
                   <Td muted>{popularity[s.id] ?? 0}</Td>
                   <Td>
-                    <button
-                      onClick={() => start(() => toggleService(s.id, !s.active))}
-                      disabled={pending}
-                      className={
-                        "rounded-full px-2.5 py-0.5 text-xs font-semibold " +
-                        (s.active
-                          ? "bg-accent-soft/15 text-accent-soft"
-                          : "bg-surface-2 text-muted")
-                      }
-                    >
-                      {s.active ? "Aktiv" : "Skjult"}
-                    </button>
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className={"text-xs " + (s.active ? "text-accent-soft" : "text-muted")}>
+                        {s.active ? "Aktiv" : "Skjult"}
+                      </span>
+                      <button
+                        onClick={() => start(() => toggleService(s.id, !s.active))}
+                        disabled={pending}
+                        className={s.active ? "act" : "act act-accent"}
+                      >
+                        {s.active ? "Deaktiver" : "Aktiver"}
+                      </button>
+                    </span>
                   </Td>
                   <Td>
                     <button

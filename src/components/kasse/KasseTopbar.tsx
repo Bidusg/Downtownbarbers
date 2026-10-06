@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { LogoutButton } from "@/components/admin/LogoutButton";
 
 const links = [
-  { href: "/kasse", label: "Dashboard", exact: true },
+  { href: "/kasse", label: "Oversikt", exact: true },
   { href: "/kasse/kalender", label: "Kalender" },
   { href: "/kasse/kunder", label: "Kunder" },
   { href: "/kasse/lager", label: "Lager" },

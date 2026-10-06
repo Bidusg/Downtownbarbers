@@ -6,10 +6,9 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { PAYROLL } from "@/lib/ops-queries";
 import { resolvePeriod } from "@/lib/period";
 import { getPeriodReport } from "@/lib/dashboard-queries";
+import { formatKr as nok, formatDate, methodLabel } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
-
-const nok = (n: number) => n.toLocaleString("nb-NO") + " kr";
 const MND = [
   "Januar", "Februar", "Mars", "April", "Mai", "Juni",
   "Juli", "August", "September", "Oktober", "November", "Desember",
@@ -72,15 +71,15 @@ export default async function RevisorRapport({
           <>
             <a
               href={`/revisor/eksport/xlsx?from=${p.fromDate}&to=${p.toDate}`}
-              className="border border-line-2 px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
+              className="act act-accent"
             >
               Salg i perioden (Excel)
             </a>
             <a
               href={`/revisor/eksport?from=${p.fromDate}&to=${p.toDate}`}
-              className="border border-line-2 px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
+              className="act"
             >
-              CSV
+              Salg i perioden (CSV)
             </a>
           </>
         }
@@ -130,7 +129,12 @@ export default async function RevisorRapport({
         </div>
       </Card>
 
-      <h2 className="font-display text-xl font-bold">{p.label}</h2>
+      <div>
+        <h2 className="font-display text-xl font-bold">{p.label}</h2>
+        <p className="text-sm text-muted">
+          {formatDate(p.fromDate)} – {formatDate(p.toDate)}
+        </p>
+      </div>
 
       {/* Nøkkeltall */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -143,7 +147,7 @@ export default async function RevisorRapport({
         <StatTile label="Utgående mva" value={nok(mva)} sub="beregnet, standard sats" />
         <StatTile
           label="Antall salg"
-          value={String(rep.count)}
+          value={rep.count.toLocaleString("nb-NO")}
           sub={rep.fixitNok > 0 ? "kun salgslinjer (ikke Fixit-dagstotaler)" : undefined}
         />
         <StatTile
@@ -173,7 +177,7 @@ export default async function RevisorRapport({
                     style={{ width: `${Math.round((val / maxMonth) * 100)}%` }}
                   />
                 </span>
-                <span className="w-16 text-right text-xs text-muted tabular-nums">{v?.count ?? 0} salg</span>
+                <span className="w-16 text-right text-xs text-muted tabular-nums">{(v?.count ?? 0).toLocaleString("nb-NO")} salg</span>
                 <span className="w-28 text-right text-sm font-medium tabular-nums">{nok(val)}</span>
               </li>
             );
@@ -218,12 +222,12 @@ export default async function RevisorRapport({
         <Card>
           <h2 className="mb-5 font-display text-lg font-bold">Per betalingsmåte</h2>
           {rep.byMethod.length === 0 ? (
-            <EmptyState description="—" />
+            <EmptyState description="Ingen salg med betalingsmåte i perioden." />
           ) : (
             <ul className="space-y-2 text-sm">
               {rep.byMethod.map((m) => (
                 <li key={m.method} className="flex justify-between border-b border-line pb-2 last:border-0">
-                  <span className="text-fg-soft">{m.method}</span>
+                  <span className="text-fg-soft">{methodLabel(m.method)}</span>
                   <span className="font-medium tabular-nums">{nok(m.nok)}</span>
                 </li>
               ))}

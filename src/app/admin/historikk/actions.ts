@@ -152,9 +152,12 @@ export async function saveHistory(rows: SaveRow[]): Promise<{ ok?: true; count?:
   return { ok: true, count: clean.length };
 }
 
-export async function deleteHistoryRow(id: string): Promise<void> {
+export async function deleteHistoryRow(id: string): Promise<{ ok?: true; error?: string }> {
   await requireRole(["admin"]);
   const sb = await createClient();
-  await sb.from("historical_staff_revenue").delete().eq("id", id);
+  const { error } = await sb.from("historical_staff_revenue").delete().eq("id", id);
+  if (error) return { error: `Kunne ikke slette: ${error.message}` };
   revalidatePath("/admin/historikk");
+  revalidatePath("/admin/lonn");
+  return { ok: true };
 }

@@ -251,13 +251,15 @@ export async function updateStaffHour(formData: FormData): Promise<Res> {
 }
 
 /** Kopier hele turnusen fra én uke (A/B) til den andre. */
-export async function copyTurnusWeek(formData: FormData) {
+export async function copyTurnusWeek(formData: FormData): Promise<{ ok?: true; error?: string }> {
   const from = Number(formData.get("from"));
   const to = Number(formData.get("to"));
-  if (![1, 2].includes(from) || ![1, 2].includes(to) || from === to) return;
+  if (![1, 2].includes(from) || ![1, 2].includes(to) || from === to) return { error: "Ugyldig uke." };
   const sb = await createClient();
-  await sb.rpc("copy_turnus_week", { p_from: from, p_to: to });
-  revalidatePath("/admin/timelister");
+  const { error } = await sb.rpc("copy_turnus_week", { p_from: from, p_to: to });
+  if (error) return { error: `Kunne ikke kopiere: ${error.message}` };
+  revalidateSchedule();
+  return { ok: true };
 }
 
 /**

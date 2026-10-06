@@ -2,13 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { BarcodeScanner } from "@/components/ui/BarcodeScanner";
+import { formatKr } from "@/lib/format";
 import {
   findGiftCard,
   redeemGiftCardByCode,
   type GiftCardHit,
 } from "@/app/admin/gavekort/actions";
 
-const kr = (n: number) => `${Math.round(n)} kr`;
 
 /**
  * Skann/skriv gavekort-strekkode → saldo kommer opp → innløs et beløp.
@@ -56,7 +56,7 @@ export function GiftCardScan() {
         setMsg(r.error);
       } else {
         setMsg(
-          `Innløst ${kr(r.redeemed ?? 0)}. Ny saldo: ${kr(r.newBalance ?? 0)}.`,
+          `Innløst ${formatKr(r.redeemed ?? 0)}. Ny saldo: ${formatKr(r.newBalance ?? 0)}.`,
         );
         setCard({ ...card, balanceNok: r.newBalance ?? 0 });
         setAmount("");
@@ -82,7 +82,7 @@ export function GiftCardScan() {
           <div className="flex items-center justify-between">
             <span className="font-mono text-sm text-fg">{card.code}</span>
             <span className="font-display text-lg font-bold text-fg">
-              {kr(card.balanceNok)}
+              {formatKr(card.balanceNok)}
             </span>
           </div>
           {card.expired && (

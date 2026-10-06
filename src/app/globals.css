@@ -818,3 +818,53 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .cart-pop, .cart-backdrop { animation: none; }
 }
+
+/* =====================================================================
+ * Handlingsknapper i back-office (admin / kasse / revisor / ansatt).
+ * Tidligere var mange handlinger bare blå/røde tekstlenker – nå er alle
+ * tydelige «pill»-knapper med kant, bakgrunn og hover.
+ * ===================================================================== */
+.act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border-radius: 0.375rem;
+  border: 1px solid oklch(var(--line-2));
+  background: oklch(var(--surface));
+  color: oklch(var(--fg));
+  padding: 0.3rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+.act:hover:not(:disabled) { border-color: oklch(var(--accent-soft)); }
+.act:active:not(:disabled) { transform: scale(0.97); }
+.act:disabled { opacity: 0.45; cursor: not-allowed; }
+.act:focus-visible { outline: 2px solid oklch(var(--accent-soft)); outline-offset: 2px; }
+.act-accent {
+  border-color: oklch(var(--accent-soft) / 0.55);
+  background: oklch(var(--accent-soft) / 0.1);
+  color: oklch(var(--accent-soft));
+}
+.act-accent:hover:not(:disabled) { background: oklch(var(--accent-soft) / 0.2); }
+.act-danger {
+  border-color: oklch(var(--danger) / 0.45);
+  background: oklch(var(--danger) / 0.07);
+  color: oklch(var(--danger));
+}
+.act-danger:hover:not(:disabled) {
+  border-color: oklch(var(--danger));
+  background: oklch(var(--danger) / 0.15);
+}
+.act-solid-danger {
+  border-color: oklch(var(--danger));
+  background: oklch(var(--danger));
+  color: white;
+}
+@media (pointer: coarse) {
+  .act { padding: 0.5rem 0.85rem; font-size: 0.8125rem; } /* større trykkflate på iPad/mobil */
+}

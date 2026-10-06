@@ -271,7 +271,7 @@ function Dialog({
                   setCustomerName("");
                   setNyNavn("Drop-in");
                 }}
-                className="text-xs font-semibold text-muted hover:text-fg hover:underline"
+                className="act"
               >
                 Drop-in
               </button>
@@ -281,7 +281,7 @@ function Dialog({
                   setCustomerId(undefined);
                   setCustomerName("");
                 }}
-                className="text-xs font-semibold text-accent-soft hover:underline"
+                className="act act-accent"
               >
                 {newCustomer ? "Søk eksisterende" : "+ Ny kunde"}
               </button>
@@ -318,7 +318,7 @@ function Dialog({
                     setCustomerName("");
                     setQ("");
                   }}
-                  className="text-xs text-muted hover:text-fg"
+                  className="act"
                 >
                   Endre
                 </button>
@@ -495,7 +495,7 @@ function Dialog({
         <div className="flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-muted hover:text-fg"
+            className="act"
           >
             Avbryt
           </button>

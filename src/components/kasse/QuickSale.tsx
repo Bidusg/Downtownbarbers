@@ -23,9 +23,9 @@ import { findGiftCard, type GiftCardHit } from "@/app/admin/gavekort/actions";
 import { isAddonCategory } from "@/lib/service-categories";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CouponPicker, couponDiscount } from "@/components/kasse/CouponPicker";
+import { formatKr } from "@/lib/format";
 
 const PAYMENTS = ["Kontant", "Kort", "Vipps"];
-const kr = (n: number) => `${Math.round(n)} kr`;
 
 const inputCls =
   "w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted outline-none focus:border-accent-soft";
@@ -66,6 +66,8 @@ export function QuickSale({
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [pending, start] = useTransition();
+  // Hvilken betalingsknapp som ble trykket – kun den viser «Registrerer …».
+  const [payingMethod, setPayingMethod] = useState<string | null>(null);
   const router = useRouter();
 
   const [services, setServices] = useState<SellableService[]>([]);
@@ -354,10 +356,11 @@ export function QuickSale({
       return;
     }
     if (useSplit && !splitOk) {
-      setError(`Betalingen (${kr(splitSum)}) må stemme med ${giftHit ? "resten" : "totalen"} (${kr(giftHit ? restAfterGift : total)}).`);
+      setError(`Betalingen (${formatKr(splitSum)}) må stemme med ${giftHit ? "resten" : "totalen"} (${formatKr(giftHit ? restAfterGift : total)}).`);
       return;
     }
     setError(null);
+    setPayingMethod(useSplit ? "split" : method || "gift");
     start(async () => {
       const res = await recordWalkinSale({
         staffId: barberId || undefined,
@@ -511,7 +514,7 @@ export function QuickSale({
                             >
                               <span className="text-fg">{s.name}</span>
                               <span className="font-display text-muted">
-                                {kr(s.price_nok)}
+                                {formatKr(s.price_nok)}
                               </span>
                             </button>
                           ))}
@@ -545,7 +548,7 @@ export function QuickSale({
                                 }
                               >
                                 {on ? "✓ " : "+ "}
-                                {a.name} ({kr(a.price_nok)})
+                                {a.name} ({formatKr(a.price_nok)})
                               </button>
                             );
                           })}
@@ -554,7 +557,7 @@ export function QuickSale({
                           <p className="mt-3 text-right text-xs text-muted">
                             Behandling{addonNames.length > 0 ? " + tillegg" : ""}:{" "}
                             <span className="font-display font-bold text-fg">
-                              {kr(servicePrice + addonTotal)}
+                              {formatKr(servicePrice + addonTotal)}
                             </span>
                           </p>
                         )}
@@ -614,7 +617,7 @@ export function QuickSale({
                           >
                             <span className="min-w-0 flex-1 truncate text-fg">
                               {p.name}
-                              <span className="text-muted"> · {kr(p.price_nok)}</span>
+                              <span className="text-muted"> · {formatKr(p.price_nok)}</span>
                             </span>
                             <div className="flex items-center gap-1.5">
                               <button
@@ -656,7 +659,7 @@ export function QuickSale({
                         </div>
                         <button
                           onClick={clearCustomer}
-                          className="text-xs text-accent-soft hover:underline"
+                          className="act act-accent"
                         >
                           Fjern
                         </button>
@@ -775,7 +778,7 @@ export function QuickSale({
                     <div className="mb-3">
                       <p className="mb-1.5 text-xs text-muted">
                         Venn/familie −{allow.friendFamilyPct}%
-                        {relationType && ` = ${kr(discountNum)}`}
+                        {relationType && ` = ${formatKr(discountNum)}`}
                       </p>
                       <div className="flex items-center gap-2">
                         {(["venn", "familie"] as RelationType[]).map((t) => (
@@ -818,7 +821,7 @@ export function QuickSale({
                   <div className="mt-4 rounded-lg bg-canvas px-3 py-2">
                     {totalDiscount > 0 && (
                       <div className="mb-1 text-xs text-muted">
-                        Sum {kr(gross)} · rabatt −{kr(totalDiscount)}
+                        Sum {formatKr(gross)} · rabatt −{formatKr(totalDiscount)}
                         {couponDisc > 0 && coupon ? ` (kupong: ${coupon.name})` : ""}
                       </div>
                     )}
@@ -827,7 +830,7 @@ export function QuickSale({
                         Å betale
                       </span>
                       <span className="font-display text-lg font-bold text-fg tabular-nums">
-                        {kr(total)}
+                        {formatKr(total)}
                       </span>
                     </div>
                   </div>
@@ -854,14 +857,14 @@ export function QuickSale({
                       value={picked?.name || name.trim() || "Drop-in"}
                     />
                     {totalDiscount > 0 && (
-                      <Row label="Rabatt" value={`−${kr(totalDiscount)}`} />
+                      <Row label="Rabatt" value={`−${formatKr(totalDiscount)}`} />
                     )}
                     <div className="mt-1 flex items-center justify-between border-t border-line pt-1.5">
                       <span className="text-xs font-semibold tracking-wide text-muted uppercase">
                         Å betale
                       </span>
                       <span className="font-display text-lg font-bold text-fg tabular-nums">
-                        {kr(total)}
+                        {formatKr(total)}
                       </span>
                     </div>
                   </div>
@@ -887,7 +890,8 @@ export function QuickSale({
                             setGiftAmt("");
                             setGiftMsg(null);
                           }}
-                          className="text-xs text-muted hover:text-danger"
+                          disabled={pending}
+                          className="act act-danger"
                         >
                           Fjern
                         </button>
@@ -895,7 +899,7 @@ export function QuickSale({
                         <button
                           type="button"
                           onClick={() => setGiftOpen((v) => !v)}
-                          className="text-xs font-semibold text-accent-soft hover:underline"
+                          className="act act-accent"
                         >
                           {giftOpen ? "Skjul" : "Betal med gavekort"}
                         </button>
@@ -934,7 +938,7 @@ export function QuickSale({
                       <div className="mt-2 text-sm">
                         <div className="flex items-center justify-between">
                           <span className="text-muted">
-                            {giftHit.code} · saldo {kr(giftHit.balanceNok)}
+                            {giftHit.code} · saldo {formatKr(giftHit.balanceNok)}
                           </span>
                           <label className="flex items-center gap-2 text-xs text-muted">
                             Trekk
@@ -951,10 +955,10 @@ export function QuickSale({
                         </div>
                         <div className="mt-2 flex items-center justify-between border-t border-line pt-2">
                           <span className="text-xs text-muted">
-                            Gavekort dekker {kr(giftTake)} · ny saldo {kr(giftHit.balanceNok - giftTake)}
+                            Gavekort dekker {formatKr(giftTake)} · ny saldo {formatKr(giftHit.balanceNok - giftTake)}
                           </span>
                           <span className="text-xs font-semibold text-fg">
-                            Rest: {kr(restAfterGift)}
+                            Rest: {formatKr(restAfterGift)}
                           </span>
                         </div>
                       </div>
@@ -977,7 +981,7 @@ export function QuickSale({
                         setSplit((v) => !v);
                         setError(null);
                       }}
-                      className="text-xs font-semibold text-accent-soft hover:underline"
+                      className="act act-accent"
                     >
                       {split ? "Enkel betaling" : "Del betaling"}
                     </button>
@@ -1008,7 +1012,7 @@ export function QuickSale({
                       ))}
                       <div className="flex items-center justify-between border-t border-line pt-2 text-xs">
                         <span className={splitOk ? "text-accent-soft" : "text-muted"}>
-                          Fordelt: {kr(splitSum)} / {kr(giftHit ? restAfterGift : total)}
+                          Fordelt: {formatKr(splitSum)} / {formatKr(giftHit ? restAfterGift : total)}
                         </span>
                         <button
                           type="button"
@@ -1016,7 +1020,7 @@ export function QuickSale({
                           onClick={() => submit("", true)}
                           className="rounded-md bg-accent px-4 py-1.5 text-xs font-semibold text-accent-fg hover:opacity-90 disabled:opacity-40"
                         >
-                          {pending ? "…" : "Registrer betaling"}
+                          {pending && payingMethod === "split" ? "Registrerer …" : "Registrer betaling"}
                         </button>
                       </div>
                     </div>
@@ -1027,7 +1031,9 @@ export function QuickSale({
                       onClick={() => submit("", false)}
                       className="w-full rounded-md bg-accent px-3 py-2.5 text-sm font-semibold text-accent-fg hover:opacity-90 disabled:opacity-50"
                     >
-                      {pending ? "…" : `Registrer salg · gavekort ${kr(giftTake)}`}
+                      {pending && payingMethod === "gift"
+                        ? "Registrerer …"
+                        : `Registrer salg · gavekort ${formatKr(giftTake)}`}
                     </button>
                   ) : (
                     <div className="flex flex-wrap items-center gap-2">
@@ -1039,7 +1045,11 @@ export function QuickSale({
                           onClick={() => submit(p, false)}
                           className="flex-1 rounded-md bg-accent px-3 py-2.5 text-sm font-semibold text-accent-fg hover:opacity-90 disabled:opacity-50"
                         >
-                          {pending ? "…" : giftHit ? `${p} ${kr(restAfterGift)}` : p}
+                          {pending && payingMethod === p
+                            ? "Registrerer …"
+                            : giftHit
+                              ? `${p} ${formatKr(restAfterGift)}`
+                              : p}
                         </button>
                       ))}
                     </div>

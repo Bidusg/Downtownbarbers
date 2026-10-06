@@ -16,12 +16,11 @@ import { Button } from "@/components/ui/Button";
 import { PAYROLL } from "@/lib/ops-queries";
 import { getPayrollForMonth } from "@/lib/payroll-slips";
 import { GeneratePayslipsButton } from "@/components/revisor/GeneratePayslipsButton";
+import { formatKr as kr } from "@/lib/format";
 
 // @react-pdf/renderer kjøres i server-action mot denne siden – krever Node.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const kr = (n: number) => Math.round(n).toLocaleString("nb-NO") + " kr";
 
 const MONTHS = [
   "Januar", "Februar", "Mars", "April", "Mai", "Juni",
@@ -35,10 +34,15 @@ export default async function RevisorLonnslipper({
 }) {
   await requireRole(["revisor", "admin"]);
 
-  const now = new Date();
+  // Standard: inneværende måned i Oslo (serveren kjører i UTC).
+  const [osloY, osloM] = new Date()
+    .toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" })
+    .split("-")
+    .map(Number);
   const sp = await searchParams;
-  const year = Number(sp.year) || now.getFullYear();
-  const month = Number(sp.month) || now.getMonth() + 1;
+  const spMonth = Number(sp.month);
+  const year = Number(sp.year) || osloY;
+  const month = spMonth >= 1 && spMonth <= 12 ? spMonth : osloM;
 
   const rows = await getPayrollForMonth(year, month);
   const totalPay = rows.reduce((s, r) => s + r.totalNok, 0);
@@ -80,21 +84,21 @@ export default async function RevisorLonnslipper({
             ))}
           </Select>
         </Field>
-        <Button type="submit" variant="subtle" className="px-4 py-2 text-sm">
+        <Button type="submit" variant="link">
           Vis
         </Button>
       </form>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatTile
-          label={`Sum utbetalt ${monthLabel}`}
+          label="Sum utbetalt"
           value={kr(totalPay)}
-          sub={`${rows.length} ansatte`}
+          sub={`${rows.length} ${rows.length === 1 ? "ansatt" : "ansatte"} · ${monthLabel} ${year}`}
         />
         <StatTile
           label="Omsetning inkl. mva"
           value={kr(totalGross)}
-          sub="hele salongen"
+          sub={`hele salongen · ${monthLabel} ${year}`}
         />
         <StatTile
           label="Grunnlønn"

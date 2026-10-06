@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/Card";
 import { Table, THead, TBody, Tr, Th, Td, TableEmpty } from "@/components/ui/Table";
 import { Input, Field } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 
 const kr = (n: number) => n.toLocaleString("nb-NO") + " kr";
 const signedKr = (n: number) =>
@@ -61,6 +62,7 @@ export function SettlementManager({
 }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
 
   const [date, setDate] = useState(defaultDate);
   const [expected, setExpected] = useState<MethodBreakdown>({
@@ -103,7 +105,11 @@ export function SettlementManager({
         <p className="text-sm text-muted">Dagsoppgjør</p>
         <Button
           variant="primary"
-          onClick={() => (open ? setOpen(false) : openForm())}
+          onClick={() => {
+            setErr(null);
+            if (open) setOpen(false);
+            else openForm();
+          }}
           className="px-4 py-2 text-sm"
         >
           {open ? "Lukk" : "+ Nytt oppgjør"}
@@ -112,11 +118,18 @@ export function SettlementManager({
 
       {open && (
         <form
-          action={async (fd) => {
-            await createSettlement(fd);
-            setCounted({ counted_cash: "", counted_card: "", counted_vipps: "" });
-            setOpen(false);
-          }}
+          action={(fd) =>
+            start(async () => {
+              setErr(null);
+              const res = await createSettlement(fd);
+              if (res.error) {
+                setErr(res.error);
+                return;
+              }
+              setCounted({ counted_cash: "", counted_card: "", counted_vipps: "" });
+              setOpen(false);
+            })
+          }
           className="space-y-4 border border-line bg-surface p-5"
         >
           <Field label="Dato">
@@ -192,13 +205,14 @@ export function SettlementManager({
             name="note"
             placeholder="Notat (valgfritt) – f.eks. forklaring på avvik"
           />
+          {err && <p className="text-sm text-danger">{err}</p>}
           <Button
             type="submit"
             variant="primary"
             disabled={pending}
             className="px-4 py-2 text-sm"
           >
-            Lagre oppgjør
+            {pending ? "Lagrer …" : "Lagre oppgjør"}
           </Button>
         </form>
       )}
@@ -239,16 +253,14 @@ export function SettlementManager({
                   </Td>
                   <Td muted>{s.note ?? "—"}</Td>
                   <Td align="right">
-                    <button
-                      onClick={() => {
-                        if (confirm("Slette dette oppgjøret?"))
-                          start(() => deleteSettlement(s.id));
-                      }}
+                    <ConfirmButton
+                      label="Slett"
+                      question="Slette dette oppgjøret?"
+                      confirmLabel="Ja, slett"
+                      pendingLabel="Sletter …"
                       disabled={pending}
-                      className="text-xs text-danger hover:underline"
-                    >
-                      Slett
-                    </button>
+                      onConfirm={() => deleteSettlement(s.id)}
+                    />
                   </Td>
                 </Tr>
               );

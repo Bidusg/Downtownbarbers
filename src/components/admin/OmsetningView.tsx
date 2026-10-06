@@ -5,8 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { Table, THead, TBody, Tr, Th, Td } from "@/components/ui/Table";
 import { getSalesForPeriod, getDaysInMonth } from "@/lib/dashboard-queries";
 import { VoidSaleButton } from "@/components/admin/VoidSaleButton";
-
-const nok = (n: number) => n.toLocaleString("nb-NO") + " kr";
+import { formatKr as nok, methodLabel } from "@/lib/format";
 
 /* Oslo lokal midnatt (UTC-instant) for korrekt dags-/måneds-avgrensning. */
 function tzOffsetMs(instant: number, tz: string): number {
@@ -58,13 +57,13 @@ function BarberMethod({
         <div className="p-6">
           <h2 className="mb-5 font-display text-lg font-bold">Per betalingsmåte</h2>
           {byMethod.length === 0 ? (
-            <p className="text-sm text-muted">—</p>
+            <p className="text-sm text-muted">Ingen salg i perioden.</p>
           ) : (
             <ul className="space-y-2 text-sm">
               {byMethod.map((m) => (
                 <li key={m.method} className="flex justify-between border-b border-line pb-2 last:border-0">
-                  <span className="text-fg-soft">{m.method}</span>
-                  <span className="font-medium">{nok(m.nok)}</span>
+                  <span className="text-fg-soft">{methodLabel(m.method)}</span>
+                  <span className="font-medium tabular-nums">{nok(m.nok)}</span>
                 </li>
               ))}
             </ul>
@@ -99,11 +98,12 @@ export async function OmsetningView({
   const validDag = dag?.match(/^\d{4}-\d{2}-\d{2}$/) ? dag : undefined;
   let validMnd = mnd?.match(/^\d{4}-\d{2}$/) ? mnd : undefined;
   if (!validDag && !validMnd) {
-    validMnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    // Inneværende måned i Oslo (serveren kjører i UTC).
+    validMnd = now.toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" }).slice(0, 7);
   }
 
   const back = (
-    <Link href={backHref} className="text-sm text-muted hover:text-fg">
+    <Link href={backHref} className="text-sm text-muted underline-offset-2 hover:text-fg hover:underline">
       ← {backLabel}
     </Link>
   );
@@ -115,12 +115,14 @@ export async function OmsetningView({
     const endIso = osloMidnight(y, m, d + 1);
     const { rows, total, byBarber, byMethod } = await getSalesForPeriod(startIso, endIso);
     const title = new Date(validDag + "T12:00:00Z").toLocaleDateString("nb-NO", {
+      timeZone: "Europe/Oslo",
       weekday: "long",
       day: "numeric",
       month: "long",
       year: "numeric",
     });
-    const avg = rows.length ? Math.round(total / rows.length) : 0;
+    // Snitt kun av salgslinjene – `total` kan inneholde importert historikk uten antall.
+    const avg = rows.length ? Math.round(rows.reduce((a, r) => a + r.nok, 0) / rows.length) : 0;
 
     return (
       <div className="mx-auto max-w-6xl space-y-8">
@@ -129,7 +131,7 @@ export async function OmsetningView({
           <h1 className="font-display text-2xl font-bold capitalize">{title}</h1>
           <Link
             href={`${basePath}?mnd=${validDag.slice(0, 7)}`}
-            className="text-sm text-accent-soft hover:underline"
+            className="text-sm font-medium text-accent-soft underline underline-offset-2 hover:text-fg"
           >
             Se hele måneden →
           </Link>
@@ -137,7 +139,7 @@ export async function OmsetningView({
 
         <div className="grid gap-4 sm:grid-cols-3">
           <StatTile label="Omsetning" value={nok(total)} sub="denne dagen" />
-          <StatTile label="Antall salg" value={String(rows.length)} />
+          <StatTile label="Antall salg" value={rows.length.toLocaleString("nb-NO")} />
           <StatTile label="Snitt per salg" value={nok(avg)} />
         </div>
 
@@ -165,7 +167,7 @@ export async function OmsetningView({
                     <Td nums>{r.time}</Td>
                     <Td>{r.barber}</Td>
                     <Td className="text-fg-soft">{r.customer}</Td>
-                    <Td className="text-fg-soft">{r.method}</Td>
+                    <Td className="text-fg-soft">{methodLabel(r.method)}</Td>
                     <Td align="right" nums className="font-medium">{nok(r.nok)}</Td>
                     {canVoid && (
                       <Td align="right">
@@ -193,7 +195,8 @@ export async function OmsetningView({
     getDaysInMonth(validMnd as string),
   ]);
   const maxDay = Math.max(1, ...days.map((dd) => dd.nok));
-  const avg = rows.length ? Math.round(total / rows.length) : 0;
+  // Snitt kun av salgslinjene – `total` kan inneholde importert historikk uten antall.
+    const avg = rows.length ? Math.round(rows.reduce((a, r) => a + r.nok, 0) / rows.length) : 0;
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
@@ -207,7 +210,7 @@ export async function OmsetningView({
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatTile label="Omsetning" value={nok(total)} sub="hele måneden" />
-        <StatTile label="Antall salg" value={String(rows.length)} />
+        <StatTile label="Antall salg" value={rows.length.toLocaleString("nb-NO")} />
         <StatTile label="Snitt per salg" value={nok(avg)} />
       </div>
 

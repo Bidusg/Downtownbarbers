@@ -11,6 +11,7 @@ import {
   getDailyReconciliation,
 } from "@/lib/ops-queries";
 import { getSalesByMethodToday } from "@/lib/dashboard-queries";
+import { methodLabel } from "@/lib/format";
 
 const RECON_DAYS = 30;
 
@@ -25,13 +26,6 @@ export const dynamic = "force-dynamic";
 
 const kr = (n: number) => n.toLocaleString("nb-NO") + " kr";
 
-const methodLabel: Record<string, string> = {
-  cash: "Kontant",
-  kontant: "Kontant",
-  card: "Kort",
-  kort: "Kort",
-  vipps: "Vipps",
-};
 
 export default async function AdminKasseoppgjor() {
   const today = new Date().toLocaleDateString("en-CA", {
@@ -81,7 +75,7 @@ export default async function AdminKasseoppgjor() {
               byMethod.map((m) => (
                 <Tr key={m.method}>
                   <Td className="font-medium text-fg">
-                    {methodLabel[m.method.toLowerCase()] ?? m.method}
+                    {methodLabel(m.method)}
                   </Td>
                   <Td muted>{m.count} salg</Td>
                   <Td align="right" className="font-display text-accent-soft">

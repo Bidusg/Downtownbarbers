@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/Table";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { formatKr } from "@/lib/format";
 
 /** Inline strekkode-celle: vis/sett/endre strekkode, med skann-mulighet. */
 function BarcodeCell({
@@ -81,7 +82,7 @@ function BarcodeCell({
           setOpen(false);
           setMsg(null);
         }}
-        className="text-xs hover:underline"
+        className="act"
       >
         Avbryt
       </Button>
@@ -92,13 +93,19 @@ function BarcodeCell({
 export function ProductManager({ products }: { products: AdminProduct[] }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
+  const [saving, startSave] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
+  const [rowErr, setRowErr] = useState<{ id: string; msg: string } | null>(null);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted">{products.length} produkter</p>
         <Button
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => {
+            setErr(null);
+            setOpen((o) => !o);
+          }}
           className="px-4 py-2 text-sm"
         >
           {open ? "Lukk" : "+ Nytt produkt"}
@@ -108,10 +115,14 @@ export function ProductManager({ products }: { products: AdminProduct[] }) {
       {open && (
         <Card>
           <form
-            action={async (fd) => {
-              await createProduct(fd);
-              setOpen(false);
-            }}
+            action={(fd) =>
+              startSave(async () => {
+                setErr(null);
+                const res = await createProduct(fd);
+                if (res.error) setErr(res.error);
+                else setOpen(false);
+              })
+            }
             className="grid gap-3 sm:grid-cols-2"
           >
             <Input name="name" placeholder="Navn" required />
@@ -126,8 +137,9 @@ export function ProductManager({ products }: { products: AdminProduct[] }) {
               Bilde
               <input name="image" type="file" accept="image/*" className="mt-1 block w-full text-xs" />
             </label>
-            <Button type="submit" className="px-4 py-2 text-sm sm:col-span-2">
-              Lagre produkt
+            {err && <p className="text-sm text-danger sm:col-span-2">{err}</p>}
+            <Button type="submit" disabled={saving} className="px-4 py-2 text-sm sm:col-span-2">
+              {saving ? "Lagrer …" : "Lagre produkt"}
             </Button>
           </form>
         </Card>
@@ -155,23 +167,34 @@ export function ProductManager({ products }: { products: AdminProduct[] }) {
             {products.map((p) => (
               <Tr key={p.id}>
                 <Td className="font-medium text-fg">{p.name}</Td>
-                <Td className="font-display">{p.price_nok} kr</Td>
+                <Td className="font-display">{formatKr(p.price_nok)}</Td>
                 <Td muted>{p.stock}</Td>
                 <Td>
                   <BarcodeCell id={p.id} barcode={p.barcode} />
                 </Td>
                 <Td muted>{p.is_gift_card ? "Gavekort" : "Produkt"}</Td>
                 <Td>
-                  <button
-                    onClick={() => start(() => toggleProduct(p.id, !p.active))}
-                    disabled={pending}
-                    className={
-                      "rounded-full px-2.5 py-0.5 text-xs font-semibold " +
-                      (p.active ? "bg-accent-soft/15 text-accent-soft" : "bg-surface-2 text-muted")
-                    }
-                  >
-                    {p.active ? "Aktiv" : "Skjult"}
-                  </button>
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className={"text-xs " + (p.active ? "text-accent-soft" : "text-muted")}>
+                      {p.active ? "Aktiv" : "Skjult"}
+                    </span>
+                    <button
+                      onClick={() =>
+                        start(async () => {
+                          setRowErr(null);
+                          const res = await toggleProduct(p.id, !p.active);
+                          if (res.error) setRowErr({ id: p.id, msg: res.error });
+                        })
+                      }
+                      disabled={pending}
+                      className={p.active ? "act" : "act act-accent"}
+                    >
+                      {p.active ? "Deaktiver" : "Aktiver"}
+                    </button>
+                  </span>
+                  {rowErr?.id === p.id && (
+                    <p className="mt-1 text-xs text-danger">{rowErr.msg}</p>
+                  )}
                 </Td>
                 <Td align="right">
                   <ConfirmButton

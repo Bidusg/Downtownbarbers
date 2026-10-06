@@ -8,6 +8,7 @@ import { updateCustomer, anonymizeCustomer, setMarketingConsent } from "../actio
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
+import { formatKr } from "@/lib/format";
 
 const nokFmt = (n: number) => Math.round(n).toLocaleString("nb-NO") + " kr";
 
@@ -145,7 +146,7 @@ export default async function KundeKort({
         <Stat label="Sist besøk" value={fmtDate(c.lastVisit)} />
         <Stat
           label="Totalt brukt"
-          value={c.totalSpent > 0 ? `${c.totalSpent} kr` : "—"}
+          value={c.totalSpent > 0 ? formatKr(c.totalSpent) : "—"}
         />
         <Stat
           label="Ikke møtt"
@@ -295,7 +296,7 @@ export default async function KundeKort({
                       <span className="block text-xs">hos {b.barber}</span>
                     </td>
                     <td className="px-4 py-3 font-display whitespace-nowrap">
-                      {b.price_nok} kr
+                      {formatKr(b.price_nok)}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <span

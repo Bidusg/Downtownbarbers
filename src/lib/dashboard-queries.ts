@@ -446,7 +446,9 @@ export async function getRevenueSummary(): Promise<RevenueSummary> {
     const now = new Date();
     const todayKey = now.toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" });
     const monthStartKey = `${todayKey.slice(0, 7)}-01`;
-    const monthStart = new Date(monthStartKey + "T00:00:00Z").toISOString();
+    // Oslo-midnatt er 22/23 UTC dagen før – hent litt tidligere og filtrer
+    // på Oslo-dato under, så salg mellom 00 og 02 den 1. kommer med.
+    const monthStart = new Date(new Date(monthStartKey + "T00:00:00Z").getTime() - 3 * 3600_000).toISOString();
     const { data } = await sb
       .from("sales")
       .select("total_nok, sold_at, staff(full_name)")
@@ -459,6 +461,7 @@ export async function getRevenueSummary(): Promise<RevenueSummary> {
     for (const s of rows) {
       const amt = Number(s.total_nok) || 0;
       const dayKey = osloDayKey(s.sold_at as string);
+      if (dayKey < monthStartKey) continue; // forrige måned (Oslo-tid)
       // Dager t.o.m. cutover telles fra Fixit (under), ikke dobbelt.
       if (dayKey > FIXIT_CUTOVER) liveMonth += amt;
       if (dayKey === todayKey) today += amt;

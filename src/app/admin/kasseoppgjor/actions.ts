@@ -22,10 +22,18 @@ export async function expectedByMethod(date: string): Promise<MethodBreakdown> {
   return getExpectedByMethodForDate(date);
 }
 
-export async function createSettlement(formData: FormData) {
+export async function createSettlement(
+  formData: FormData,
+): Promise<{ ok?: true; error?: string }> {
   const sb = await createClient();
   const settle_date = String(formData.get("settle_date") ?? "");
-  if (!settle_date) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(settle_date)) return { error: "Velg en gyldig dato." };
+  for (const f of ["counted_cash", "counted_card", "counted_vipps"]) {
+    const raw = String(formData.get(f) ?? "").trim();
+    if (raw !== "" && (!Number.isFinite(Number(raw)) || Number(raw) < 0)) {
+      return { error: "Talte beløp må være 0 eller mer." };
+    }
+  }
 
   const counted_cash = num(formData.get("counted_cash"));
   const counted_card = num(formData.get("counted_card"));
@@ -50,6 +58,7 @@ export async function createSettlement(formData: FormData) {
     note: String(formData.get("note") ?? "") || null,
     opened_by: user?.id ?? null,
   });
+  if (error) return { error: `Kunne ikke lagre oppgjøret: ${error.message}` };
   revalidatePath("/admin/kasseoppgjor");
 
   // Dagsoppgjør → Tripletex: når kasseoppgjøret registreres ved stengetid,
@@ -59,19 +68,20 @@ export async function createSettlement(formData: FormData) {
   //   • Duplikatsperre på datoen → natt-cronen (backup) poster ikke på nytt.
   // Feiler Tripletex, skal det ALDRI velte selve kasseoppgjøret – vi svelger
   // feilen her; natt-cronen tar dagen som sikkerhetsnett.
-  if (!error) {
-    try {
-      await postDailyVoucher(settle_date);
-    } catch {
-      // Bevisst stille: kasseoppgjøret er allerede lagret. Natt-cron er backup.
-    }
+  try {
+    await postDailyVoucher(settle_date);
+  } catch {
+    // Bevisst stille: kasseoppgjøret er allerede lagret. Natt-cron er backup.
   }
+  return { ok: true };
 }
 
-export async function deleteSettlement(id: string) {
+export async function deleteSettlement(id: string): Promise<{ ok: boolean; error?: string }> {
   const sb = await createClient();
-  await sb.from("cash_settlements").delete().eq("id", id);
+  const { error } = await sb.from("cash_settlements").delete().eq("id", id);
+  if (error) return { ok: false, error: `Kunne ikke slette: ${error.message}` };
   revalidatePath("/admin/kasseoppgjor");
+  return { ok: true };
 }
 
 /**

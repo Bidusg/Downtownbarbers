@@ -132,6 +132,7 @@ function TierCard({
 function AddTierForm() {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
 
   return (
     <div>
@@ -147,8 +148,10 @@ function AddTierForm() {
         <form
           action={(fd) =>
             start(async () => {
-              await addTier(fd);
-              setOpen(false);
+              setErr(null);
+              const res = await addTier(fd);
+              if (res.error) setErr(res.error);
+              else setOpen(false);
             })
           }
           className="grid gap-3 border border-line bg-surface p-5 sm:grid-cols-2"
@@ -172,6 +175,7 @@ function AddTierForm() {
               placeholder="Fritekst — vises til kunden på «min side»"
             />
           </Field>
+          {err && <p className="text-sm text-danger sm:col-span-2">{err}</p>}
           <div className="flex items-center gap-3 sm:col-span-2">
             <Button type="submit" disabled={pending} className="px-4 py-2 text-sm">
               {pending ? "Legger til …" : "Legg til nivå"}
@@ -179,7 +183,10 @@ function AddTierForm() {
             <Button
               variant="ghost"
               type="button"
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                setErr(null);
+                setOpen(false);
+              }}
               className="text-xs"
             >
               Avbryt

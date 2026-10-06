@@ -17,7 +17,7 @@ export function VoidSaleButton({ saleId, label }: { saleId: string; label: strin
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="text-xs text-muted hover:text-danger hover:underline"
+        className="act act-danger"
       >
         Annuller
       </button>

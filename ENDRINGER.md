@@ -4,6 +4,18 @@ Dette bygget retter funnene fra den fulle gjennomgangen av forsiden og
 booking-veiviseren (testet live på Vercel-prod, mobil + desktop), og utvider
 språkbyttet NO/EN til **alle** kundevendte sider.
 
+## Bygg 10d – back-office: tydelige knapper, ingen stille feil, pen data (admin, kasse, revisor)
+
+Gjennomgått som en programvaretester. Hovedpunkter:
+- **Knapper:** alle handlinger som før var tekstlenker er nå tydelige «pill»-knapper (ny CSS: .act / .act-accent / .act-danger). Gjelder Button (ghost/link), ConfirmButton og ~40 enkeltknapper i admin/kasse/ansatt. Større trykkflate på iPad.
+- **Ingen stille feil:** lagring av fravær, produkter, tjenester, kasseoppgjør, gavekort (innløsning sperres over saldo), kampanjer, medlemsnivåer, lager (+/− kan ikke dobbelttelle), brukerroller, budsjett, meldinger, varsler, kopier turnus, historikk, ansatt aktiv/inaktiv, booking-status, no-show og kvittering viser nå feilmelding og holder skjemaet åpent ved feil, og «Lagrer …» mens det sendes.
+- **Bekreftelser:** native confirm() erstattet; sletting/avbestilling/deaktivering krever bekreftelse.
+- **Data:** kroner med tusenskille overalt (1 250 kr), betalingsmåter på norsk (Kontant/Kort/Vipps/Gavekort/Importert), datoer som «7. okt. 2026», statuser på norsk. Revisor- og omsetningstall bruker Oslo-tid for månedsgrenser (salg kl. 00–02 den 1. telles riktig). Snitt per salg regnes riktig når importerte tall er med.
+- **Kasse:** konsekvent «Avbestill» / «Avbryt» / «Gjenåpne»; no-show viser om varsel ble sendt; betaling viser «Registrerer …» kun på valgt knapp; «Lagrer …» ved dra/flytt i kalenderen; kolonneoverskriftene i timeboken er tette (navn blandes ikke med bookinger under).
+- **Navn:** «Martin BØHm»-feilen (store bokstaver rundt æ/ø/å) er rettet i koden; KJØR-I-SUPABASE-NAVN-REPARASJON.sql retter eksisterende kundenavn.
+- **Innlogging:** sendes du fra admin/kasse/revisor til innlogging, åpner popupen på «Ansatt / admin».
+- «Dashboard» heter nå «Oversikt».
+
 ## Bygg 10c – drop-in og bookinger i etterkant (admin og shop)
 
 - Ny booking (kassen/timeboken): feltet «Annen tid (drop-in / legges inn i etterkant)» med «Nå»-knapp. Tiden kan være utenfor turnus, under fravær eller allerede passert – den lagres så lenge barberen ikke har en annen booking samtidig (serveren sjekker kollisjon og sier hvem/hva den krasjer med).
