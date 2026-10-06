@@ -4,6 +4,11 @@ Dette bygget retter funnene fra den fulle gjennomgangen av forsiden og
 booking-veiviseren (testet live på Vercel-prod, mobil + desktop), og utvider
 språkbyttet NO/EN til **alle** kundevendte sider.
 
+## Bygg 9z – bytt fraværstype rett fra Lønn
+
+- Admin → Lønn → «Fravær i <måned>»: hvert fravær har nå en type-velger. Velg «Ulønnet permisjon» eller «Ugyldig fravær» → lønnen regnes om med en gang (Fravær-trekk og Total lønn oppdateres).
+- Filer: src/components/admin/AbsenceKindSelect.tsx (ny), src/app/admin/lonn/page.tsx.
+
 ## Bygg 9y – vakter for én dato: erstatter turnus, kan endres/slettes, ingen krasj
 
 - En vakt satt for en dato er ikke lenger «ekstravakt»: den ERSTATTER turnusen den dagen (kun vaktens tid er bookbar og vises i planen). KJØR-I-SUPABASE-EKSTRAVAKT-VINNER.sql er oppdatert med dette – kjør den (på nytt).

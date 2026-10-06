@@ -6,6 +6,7 @@ import { Field, Select } from "@/components/ui/Input";
 import { getPayroll, getAbsences, PAYROLL } from "@/lib/ops-queries";
 import { absenceDeductionStatus } from "@/lib/absence-pay";
 import { ABSENCE_KINDS } from "@/lib/absence-kinds";
+import { AbsenceKindSelect } from "@/components/admin/AbsenceKindSelect";
 import { GeneratePayslipsButton } from "@/components/revisor/GeneratePayslipsButton";
 
 // Lønnsslipp-PDF (@react-pdf) kjøres i server-action fra denne siden – krever Node.
@@ -173,18 +174,20 @@ export default async function AdminLonn({
               const row = rows.find((r) => r.staffId === a.staff_id);
               return (
                 <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                  <span className="text-fg">
-                    <span className="font-medium">{a.staffName}</span>{" "}
+                  <span className="flex flex-wrap items-center gap-2 text-fg">
+                    <span className="font-medium">{a.staffName}</span>
                     <span className="text-muted">
-                      {fmtD(a.from_date)}–{fmtD(a.to_date)} · {k?.label ?? a.kind}
+                      {fmtD(a.from_date)}–{fmtD(a.to_date)}
+                      {a.reason ? ` · ${a.reason}` : ""}
                     </span>
+                    <AbsenceKindSelect id={a.id} kind={a.kind} />
                   </span>
                   <span className={k?.deduct ? "text-danger" : "text-muted"}>
                     {k?.deduct
                       ? row && (row.absenceDays ?? 0) > 0
                         ? `trekkes (${row.absenceDays} av ${row.workdays} arbeidsdager totalt i måneden)`
                         : "trekkes – men ingen av dagene er arbeidsdager i turnusen"
-                      : "trekkes ikke (endre type under Fravær hvis det skal trekkes)"}
+                      : "trekkes ikke – velg «Ulønnet permisjon» eller «Ugyldig fravær» for trekk"}
                   </span>
                 </li>
               );
