@@ -11,6 +11,9 @@ import {
 import { getPublicAddons } from "@/lib/addon-queries";
 import { getSiteSettings } from "@/lib/site-settings";
 import { T } from "@/lib/i18n/T";
+import { PUBLIC_VIEWPORT } from "@/lib/public-viewport";
+
+export const viewport = PUBLIC_VIEWPORT;
 
 export const metadata = { title: "Bestill time | Downtown Barbers" };
 

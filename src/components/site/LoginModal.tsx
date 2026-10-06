@@ -5,10 +5,20 @@ import { LoginForm } from "@/app/logg-inn/LoginForm";
 
 /**
  * Innlogging som popup over den offentlige siden (i stedet for egen side),
- * slik at besøkende fortsatt ser nettsiden i bakgrunnen. /logg-inn finnes
- * fortsatt som fallback (tilgangsvakter og e-postlenker peker dit).
+ * slik at besøkende fortsatt ser nettsiden i bakgrunnen. Den eneste måten å
+ * logge inn på – /logg-inn sender hit (/?login=1).
  */
-export function LoginModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function LoginModal({
+  open,
+  onClose,
+  accessDenied = false,
+  passwordReset = false,
+}: {
+  open: boolean;
+  onClose: () => void;
+  accessDenied?: boolean;
+  passwordReset?: boolean;
+}) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -39,7 +49,7 @@ export function LoginModal({ open, onClose }: { open: boolean; onClose: () => vo
         >
           ×
         </button>
-        <LoginForm compact />
+        <LoginForm compact accessDenied={accessDenied} passwordReset={passwordReset} />
       </div>
     </div>
   );

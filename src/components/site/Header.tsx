@@ -47,6 +47,21 @@ export function Header({
   const { lang, setLang, t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
+  const [loginFlags, setLoginFlags] = useState({ accessDenied: false, passwordReset: false });
+  // ?login=1 (fra gamle /logg-inn-lenker, tilgangsvakter og utlogging):
+  // åpne innloggings-popupen med en gang, og rydd adresselinja.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("login") !== "1") return;
+    setLoginFlags({
+      accessDenied: q.get("feil") === "tilgang",
+      passwordReset: q.get("tilbakestilt") === "1",
+    });
+    setLoginOpen(true);
+    ["login", "feil", "tilbakestilt", "neste"].forEach((k) => q.delete(k));
+    const rest = q.toString();
+    window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : "") + window.location.hash);
+  }, []);
   const [scrolled, setScrolled] = useState(false);
 
   const telHref = `tel:${phone.replace(/\s/g, "")}`;
@@ -78,7 +93,9 @@ export function Header({
     <header
       className={
         (overlay ? "fixed" : "sticky") +
-        " inset-x-0 top-0 z-40 transition-colors duration-500 " +
+        // pt-safe: på iPhone går headeren helt opp under klokka/batteriet
+        // (samme frostede glass), så innhold aldri synes over navbaren.
+        " inset-x-0 top-0 z-40 pt-[env(safe-area-inset-top)] transition-colors duration-500 " +
         (solid
           ? "border-b border-line bg-canvas/85 backdrop-blur"
           : "border-b border-transparent bg-transparent")
@@ -166,7 +183,7 @@ export function Header({
           </div>
 
           <a
-            href="/logg-inn"
+            href="/?login=1"
             onClick={(e) => {
               e.preventDefault();
               setLoginOpen(true);
@@ -243,7 +260,7 @@ export function Header({
               {t("header.book")}
             </Link>
             <a
-              href="/logg-inn"
+              href="/?login=1"
               onClick={(e) => {
                 e.preventDefault();
                 setOpen(false);
@@ -275,7 +292,7 @@ export function Header({
         </nav>
       )}
     </header>
-    <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
+    <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} {...loginFlags} />
     </>
   );
 }

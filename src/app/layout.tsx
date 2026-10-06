@@ -33,8 +33,8 @@ export const viewport: Viewport = {
   themeColor: "#F8F5EF",
   width: "device-width",
   initialScale: 1,
-  // viewportFit:"cover" ga et tomrom over headeren på iPhone (safe-area-
-  // innrykk når adresselinja krymper) – standard viewport er riktig her.
+  // Kundesidene (med site-Header) setter selv viewportFit:"cover" – se
+  // PUBLIC_VIEWPORT i src/lib/public-viewport.ts. Admin/kasse bruker standard.
 };
 
 const DESCRIPTION =

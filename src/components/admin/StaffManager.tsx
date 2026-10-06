@@ -362,7 +362,7 @@ function LoginCell({
         </Button>
       </div>
       <p className="mt-1 text-muted">
-        Gi dette til den ansatte. De logger inn på /logg-inn og bør bytte passord.
+        Gi dette til den ansatte. De logger inn via «Logg inn» øverst på nettsiden og bør bytte passord.
       </p>
     </div>
   ) : null;

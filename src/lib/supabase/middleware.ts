@@ -37,8 +37,9 @@ export async function updateSession(request: NextRequest) {
 
   if (needsAuth && !user) {
     const url = request.nextUrl.clone();
-    url.pathname = "/logg-inn";
-    url.searchParams.set("neste", path);
+    url.pathname = "/";
+    url.search = "";
+    url.searchParams.set("login", "1");
     return NextResponse.redirect(url);
   }
 

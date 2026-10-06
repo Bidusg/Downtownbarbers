@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
  */
 export default async function IngenTilgang() {
   const me = await getUserRole();
-  if (!me) redirect("/logg-inn");
+  if (!me) redirect("/?login=1");
   const home = homeForRole(me.role);
   const homeLabel: Record<string, string> = {
     "/admin": "Til admin",

@@ -44,5 +44,5 @@ export async function setNewPassword(
 
   // Logg ut recovery-sesjonen og be brukeren logge inn på nytt.
   await supabase.auth.signOut();
-  redirect("/logg-inn?tilbakestilt=1");
+  redirect("/?login=1&tilbakestilt=1");
 }

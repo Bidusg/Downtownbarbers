@@ -32,7 +32,7 @@ export function ForgotForm() {
               begrenset periode.
             </p>
             <a
-              href="/logg-inn"
+              href="/?login=1"
               className="mt-5 inline-block text-xs text-accent-soft hover:underline"
             >
               Tilbake til innlogging
@@ -70,7 +70,7 @@ export function ForgotForm() {
 
             <p className="text-center text-xs">
               <a
-                href="/logg-inn"
+                href="/?login=1"
                 className="text-muted hover:text-accent-soft hover:underline"
               >
                 Tilbake til innlogging

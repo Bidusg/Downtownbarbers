@@ -24,6 +24,9 @@ import { getUserRole, isAdminRole } from "@/lib/auth";
 import { getPublicReviewsSummary } from "@/lib/reviews";
 import { siteUrl } from "@/lib/site-url";
 import { salon } from "@/lib/data/salon";
+import { PUBLIC_VIEWPORT } from "@/lib/public-viewport";
+
+export const viewport = PUBLIC_VIEWPORT;
 
 function Label({ children }: { children: React.ReactNode }) {
   return (

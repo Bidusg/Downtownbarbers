@@ -4,12 +4,22 @@ Dette bygget retter funnene fra den fulle gjennomgangen av forsiden og
 booking-veiviseren (testet live på Vercel-prod, mobil + desktop), og utvider
 språkbyttet NO/EN til **alle** kundevendte sider.
 
+## Bygg 9p – innlogging kun som popup
+
+- Egen innloggingsside er fjernet. /logg-inn sender nå til forsiden med innloggings-popupen åpen (gamle lenker i e-poster og bokmerker virker fortsatt).
+- «Logg ut» sender til forsiden (ikke innloggingssiden).
+- Tilgangsvakter (admin/kasse/ansatt uten innlogging), «passord tilbakestilt» og «Tilbake til innlogging» går rett til popupen; beskjedene vises i popupen.
+- Innloggingslenker i e-poster til nye brukere/ansatte peker til /?login=1.
+- Filer: src/app/logg-inn/page.tsx, src/app/auth-actions.ts, src/lib/supabase/middleware.ts, src/lib/auth.ts, src/app/admin/layout.tsx, src/app/ingen-tilgang/page.tsx, src/app/tilbakestill/actions.ts, src/app/glemt-passord/ForgotForm.tsx, src/app/admin/brukere/actions.ts, src/app/admin/ansatte/actions.ts, src/app/revisor/lonnslipper/actions.ts, src/components/admin/StaffManager.tsx, src/components/site/Header.tsx, src/components/site/LoginModal.tsx.
+
 ## Bygg 9o – mobil (stående) tilpasset
 
 - Handlekurven er nå en svevende popup midt på skjermen (ikke fra bunnen): avrundet, skygge, fast topp/bunn med knapper, kun innholdet scroller. Pris står på samme linje som tjenesten, «Fjern» under navnet – ingen tomrom. Siden bak låses mens den er åpen, Esc lukker.
 - Booking: mindre «boks-i-boks»-luft på mobil (mer bredde til tjenestene).
 - Forsiden på mobil: Håndverket-kortene er liggende (4:3) i stedet for høye; galleriet viser to kolonner med hele bildet (ingen beskjæring); Om oss-bildet og banneret er lavere; Om oss-teksten mindre. Hero bruker 100svh (riktig høyde med Safari-verktøylinja).
-- Filer: src/app/page.tsx, src/components/booking/BookingWizard.tsx, src/app/globals.css.
+- (Hero-bildene på mobil: forsøket med «hele bildet + uskarp bakgrunn» er tilbakestilt etter ønske – hero er som før. Stående bilder/videoer gir best resultat på mobil.)
+- iPhone/Safari: navbaren går nå helt opp under klokka/batteriet (samme frostede glass, viewport-fit=cover kun på kundesidene + safe-area-padding i headeren), så innhold scroller ikke lenger synlig forbi over navbaren. Ny fil: src/lib/public-viewport.ts; viewport eksporteres fra forsiden, booking, bekreftelse, butikk og personvern. Admin/kasse uendret.
+- Filer: src/app/page.tsx, src/components/booking/BookingWizard.tsx, src/app/globals.css, src/components/site/HeroCarousel.tsx, src/components/site/motion/CineFx.tsx, src/components/site/Header.tsx.
 
 ## Bygg 9n – fjerne blokkering i timeboken
 

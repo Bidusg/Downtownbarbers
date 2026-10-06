@@ -2,6 +2,9 @@ import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { Button } from "@/components/ui/Button";
 import { T } from "@/lib/i18n/T";
+import { PUBLIC_VIEWPORT } from "@/lib/public-viewport";
+
+export const viewport = PUBLIC_VIEWPORT;
 
 export const metadata = { title: "Bekreftelse | Downtown Barbers" };
 

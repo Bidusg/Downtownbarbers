@@ -117,7 +117,7 @@ export async function createUser(
       name: fullName || email,
       email,
       tempPassword: pwd,
-      loginUrl: `${siteUrl()}/logg-inn`,
+      loginUrl: `${siteUrl()}/?login=1`,
     });
     emailed = true;
   } catch {

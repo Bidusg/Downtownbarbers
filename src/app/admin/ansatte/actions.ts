@@ -38,7 +38,7 @@ function generateTempPassword(): string {
 }
 
 function loginUrl(): string {
-  return `${siteUrl()}/logg-inn`;
+  return `${siteUrl()}/?login=1`;
 }
 
 type ActionResult =

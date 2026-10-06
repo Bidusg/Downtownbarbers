@@ -21,7 +21,7 @@ const MONTHS_CAP = [
 ];
 
 function portalUrl(): string {
-  return `${siteUrl()}/logg-inn`;
+  return `${siteUrl()}/?login=1`;
 }
 
 export type GeneratePayslipsResult = {

@@ -2,6 +2,9 @@ import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { getSiteSettings } from "@/lib/site-settings";
 import { PrivacyContent } from "./PrivacyContent";
+import { PUBLIC_VIEWPORT } from "@/lib/public-viewport";
+
+export const viewport = PUBLIC_VIEWPORT;
 
 export const metadata = {
   title: "Personvern | Downtown Barbers",

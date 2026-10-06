@@ -5,6 +5,9 @@ import { SmoothScroll, FadeUp } from "@/components/site/motion/CineFx";
 import { ProductCard } from "@/components/butikk/ProductCard";
 import { getPublicProducts } from "@/lib/queries";
 import { T, SplitRevealT } from "@/lib/i18n/T";
+import { PUBLIC_VIEWPORT } from "@/lib/public-viewport";
+
+export const viewport = PUBLIC_VIEWPORT;
 
 export const metadata = { title: "Nettbutikk | Downtown Barbers" };
 

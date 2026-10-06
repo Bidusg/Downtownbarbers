@@ -27,7 +27,7 @@ export function ScrollProgress() {
   }, []);
 
   return (
-    <div className="fixed inset-x-0 top-0 z-50 h-0.5 bg-transparent">
+    <div className="fixed inset-x-0 top-[env(safe-area-inset-top)] z-50 h-0.5 bg-transparent">
       <div
         className="h-full bg-accent-soft transition-[width] duration-150 ease-out"
         style={{ width: `${p}%` }}
