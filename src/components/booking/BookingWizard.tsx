@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { createPortal } from "react-dom";
 import { getCartSlots, createBookingGroup, findNextCartSlot } from "@/app/booking/cart-actions";
 import { isValidEmail, isValidNorwegianPhone } from "@/lib/validate";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -130,28 +129,18 @@ export function BookingWizard({
     return `${label.charAt(0).toUpperCase()}${label.slice(1)} ${t("common.at")} ${hhmm}`;
   };
 
-  const cats = useMemo(
-    () => Array.from(new Set(services.map((s) => s.category))),
-    [services],
-  );
-  const [openCat, setOpenCat] = useState<string | null>(
-    () => services[0]?.category ?? null,
-  );
 
-  const [step, setStep] = useState(0);
-  const [cartOpen, setCartOpen] = useState(false);
-  // Lås scrolling bak popupen (ellers «drar» siden med seg på mobil).
-  useEffect(() => {
-    if (!cartOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setCartOpen(false);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [cartOpen]);
+  // Kom kunden med en tjeneste valgt (fra prislista/«Book nå»)? Da er steg 1
+  // allerede gjort – start på Barber (eller Tid hvis barberen også er valgt).
+  const [step, setStep] = useState(() => {
+    const pre = initialServiceName && services.some((s) => s.name === initialServiceName);
+    if (!pre) return 0;
+    return initialBarberName && barbers.some((b) => b.name === initialBarberName) ? 2 : 1;
+  });
+  // «Legg til en tjeneste til»: da legger et trykk på en tjeneste den TIL i
+  // stedet for å bytte ut den valgte. Standard er ett valg = én tjeneste.
+  const [adding, setAdding] = useState(false);
+  const [showNote, setShowNote] = useState(false);
   const [cart, setCart] = useState<CartItem[]>(() => {
     const pre = initialServiceName
       ? services.find((s) => s.name === initialServiceName)
@@ -182,6 +171,46 @@ export function BookingWizard({
   const [note, setNote] = useState("");
   // Honeypot-felt (skal alltid være tomt for ekte kunder).
   const [website, setWebsite] = useState("");
+  // Husk navn/e-post/telefon på denne enheten → faste kunder slipper å skrive alt på nytt.
+  const [remembered, setRemembered] = useState(false);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("dtb_booker");
+      if (!raw) return;
+      const v = JSON.parse(raw) as { name?: string; email?: string; phone?: string; cc?: string };
+      // Les lagrede opplysninger etter hydrering (localStorage finnes ikke på serveren).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (v.name) setName(v.name);
+      if (v.email) setEmail(v.email);
+      if (v.phone) setPhone(v.phone);
+      if (v.cc) setCountryCode(v.cc);
+      if (v.name || v.email) setRemembered(true);
+    } catch {
+      /* privat modus e.l. – helt greit */
+    }
+  }, []);
+  const forgetMe = () => {
+    try {
+      localStorage.removeItem("dtb_booker");
+    } catch {
+      /* ignorer */
+    }
+    setName("");
+    setEmail("");
+    setPhone("");
+    setCountryCode("+47");
+    setRemembered(false);
+  };
+  /** Rull toppen av veiviseren inn i bildet ved stegbytte (viktig på mobil). */
+  function scrollWizardTop() {
+    requestAnimationFrame(() =>
+      document.getElementById("booking-wizard")?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+  }
+  const goStep = (n: number) => {
+    setStep(n);
+    scrollWizardTop();
+  };
 
   const [done, setDone] = useState(false);
   const [confirmLinks, setConfirmLinks] = useState<{ portalUrl?: string; cancelUrl?: string }>({});
@@ -265,24 +294,39 @@ export function BookingWizard({
     );
   }, [barbers, cart, exclusions]);
 
-  // Kom kunden via «Book nå» under en barber (og kan barberen ta alt i
-  // kurven)? Da er barberen allerede valgt – hopp rett til Tid.
-  const preBarber =
-    !!initialBarberName &&
-    mode === "single" &&
-    singleBarber === initialBarberName &&
-    barbersForAll.some((b) => b.name === initialBarberName);
 
   // ---- Kurv-operasjoner ----------------------------------------------------
-  const addToCart = (service: WizService) => {
-    setCart((c) => [...c, { id: nextId, service, barberName: null, person: "", addons: [] }]);
+  /**
+   * Ett trykk på en tjeneste = valgt, og vi går rett videre.
+   *  - Vanlig: erstatter det som var valgt (ombestemmer seg → bare trykk en annen,
+   *    ingenting å fjerne, ingen kurv som vokser i det skjulte).
+   *  - «Legg til en tjeneste til» (adding): legges til ved siden av.
+   */
+  const pickService = (service: WizService) => {
+    if (adding && cart.length > 0) {
+      setCart((c) => [...c, { id: nextId, service, barberName: null, person: "", addons: [] }]);
+      setAdding(false);
+    } else {
+      setCart([{ id: nextId, service, barberName: null, person: "", addons: [] }]);
+      setMode("single");
+    }
     setNextId((n) => n + 1);
-    setCartOpen(true); // vis handlekurv-popup med en gang
+    // Liten pause så kunden ser at valget «tok», før neste steg vises.
+    window.setTimeout(() => {
+      setStep(preBarberFor(service) ? 2 : 1);
+      scrollWizardTop();
+    }, 180);
   };
+  // Brukes til å hoppe over Barber-steget når barberen er valgt fra før.
+  const preBarberFor = (service: WizService) =>
+    !!initialBarberName &&
+    singleBarber === initialBarberName &&
+    !adding &&
+    !(exclusions[service.name] ?? []).includes(initialBarberName);
   const removeLine = (id: number) =>
     setCart((c) => {
       const next = c.filter((l) => l.id !== id);
-      if (next.length === 0) setCartOpen(false); // tom kurv → lukk popupen
+      if (next.length === 0) setStep(0); // tom → tilbake til tjenestevalg
       return next;
     });
   const patchLine = (id: number, patch: Partial<CartItem>) =>
@@ -424,8 +468,17 @@ export function BookingWizard({
     setPending(false);
     if (res?.error) setError(res.error);
     else {
+      try {
+        localStorage.setItem(
+          "dtb_booker",
+          JSON.stringify({ name: name.trim(), email: email.trim(), phone: phone.trim(), cc: countryCode }),
+        );
+      } catch {
+        /* ignorer */
+      }
       setConfirmLinks({ portalUrl: res.portalUrl, cancelUrl: res.cancelUrl });
       setDone(true);
+      scrollWizardTop();
     }
   }
 
@@ -462,8 +515,27 @@ export function BookingWizard({
     );
   }
 
+  // Hovedlista: tilleggene (hårvask, massasje, voks) er ikke egne behandlinger –
+  // de tilbys som «legg til» etter at hovedtjenesten er valgt.
+  const addonNames = new Set(addons.map((a) => a.name));
+  const mainServices = services.filter((s) => !addonNames.has(s.name));
+  const mainCats = Array.from(new Set(mainServices.map((s) => s.category)));
+  const selectedBarberObj =
+    mode === "single" && singleBarber !== ANY ? barbers.find((b) => b.name === singleBarber) : undefined;
+
+  /** Fast «tilbake»-lenke øverst til venstre – alltid på samme sted i hvert steg. */
+  const backLink = (to: number, label: string) => (
+    <button
+      type="button"
+      onClick={() => goStep(to)}
+      className="inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-fg"
+    >
+      <span aria-hidden>←</span> {label}
+    </button>
+  );
+
   return (
-    <div className="border border-line bg-surface">
+    <div id="booking-wizard" className="scroll-mt-24 border border-line bg-surface">
       {/* Steg-faner – fullførte steg kan klikkes for å gå tilbake */}
       <ol className="flex border-b border-line" aria-label={t("wiz.goToStep")}>
         {STEP_KEYS.map((s, i) => {
@@ -471,15 +543,16 @@ export function BookingWizard({
             "flex-1 px-2 py-3 text-center text-[10px] tracking-tight font-semibold uppercase sm:px-3 sm:text-xs sm:tracking-wide " +
             (i === step ? "bg-accent text-accent-fg" : i < step ? "text-accent-soft" : "text-muted");
           return (
-            <li key={s} className="flex" aria-current={i === step ? "step" : undefined}>
+            <li key={s} className="flex flex-1" aria-current={i === step ? "step" : undefined}>
               {i < step ? (
                 <button
                   type="button"
-                  onClick={() => setStep(i)}
+                  onClick={() => goStep(i)}
                   className={cls + " w-full hover:underline"}
                   aria-label={`${t("wiz.goToStep")} ${i + 1}: ${t(s)}`}
                 >
-                  {i + 1}. {t(s)}
+                  {i < step ? "✓ " : `${i + 1}. `}
+                  {t(s)}
                 </button>
               ) : (
                 <span className={cls + " block w-full"}>
@@ -492,394 +565,306 @@ export function BookingWizard({
       </ol>
 
       <div className="p-3 sm:p-6">
-        {/* ======================= STEG 0: TJENESTER + KURV ================= */}
+        {/* ======================= STEG 0: TJENESTE ========================= */}
         {step === 0 && (
           <div className="space-y-6">
-            {/* Trekkspill med tjenester */}
-            <div className="space-y-2.5">
-              {cats.map((cat) => {
-                const open = openCat === cat;
-                const items = services.filter((s) => s.category === cat);
-                return (
-                  <div key={cat} className="border border-line bg-surface">
-                    <button
-                      type="button"
-                      onClick={() => setOpenCat(open ? null : cat)}
-                      aria-expanded={open}
-                      className="flex w-full items-center justify-between px-4 py-3.5 text-left"
-                    >
-                      <span className="font-display text-base font-bold text-fg">{tc(cat)}</span>
-                      <svg
-                        viewBox="0 0 24 24"
-                        className={"h-4 w-4 text-muted transition-transform duration-300 " + (open ? "rotate-180" : "")}
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        aria-hidden
-                      >
-                        <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </button>
-                    <div
-                      className={
-                        "grid transition-all duration-300 ease-out " +
-                        (open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")
-                      }
-                    >
-                      <div className="overflow-hidden">
-                        <div className="space-y-2.5 border-t border-line p-2.5 sm:space-y-3 sm:p-4">
-                          {items.map((s) => {
-                            const inCart = cart.filter((it) => it.service.name === s.name).length;
-                            return (
-                            <div key={s.name} className="border border-line p-3.5 sm:p-4">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0 flex-1">
-                                  {/* break-words: «Maskinklipp/Lineup» har ikke mellomrom og
-                                      kolliderte ellers med knappen på smale skjermer. */}
-                                  <p className="font-semibold break-words text-fg">
-                                    {tc(s.name)}
-                                  </p>
-                                  <p className="mt-0.5 text-xs text-muted italic">
-                                    ~{s.duration}
-                                    {inCart > 0 && (
-                                      <span className="ml-2 not-italic font-semibold text-accent-soft">
-                                        ✓ {t("wiz.inCart")}{inCart > 1 ? ` ×${inCart}` : ""}
-                                      </span>
-                                    )}
-                                  </p>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => addToCart(s)}
-                                  aria-label={`${t("wiz.addService")} ${tc(s.name)}`}
-                                  className="shrink-0 border border-line-2 px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft hover:text-accent-soft"
-                                >
-                                  {t("wiz.add")}
-                                </button>
-                              </div>
-                              {s.description && (
-                                <p className="mt-2 text-sm leading-relaxed text-muted">{tc(s.description)}</p>
-                              )}
-                              <p className="mt-2.5">
-                                <PriceTag
-                                  value={serviceMinPrice(s.name)}
-                                  from={
-                                    serviceMinPrice(s.name) !==
-                                    Math.max(...(levelPrices[s.name] ? Object.values(levelPrices[s.name]) : [serviceMinPrice(s.name)]))
-                                  }
-                                  fromLabel={t("common.from")}
-                                />
-                              </p>
-                            </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Handlekurv: sticky knapp (alltid synlig) + popup */}
-            {cart.length === 0 ? (
-              <p className="text-sm text-muted">{t("wiz.emptyCart")}</p>
-            ) : (
-              <>
+            {adding && cart.length > 0 ? (
+              <div className="flex flex-wrap items-center justify-between gap-2 border border-accent-soft/50 bg-accent-soft/10 px-4 py-3 text-sm">
+                <span className="text-fg">
+                  {t("wiz.addingBanner")}{" "}
+                  <strong>{cart.map((it) => tc(it.service.name)).join(", ")}</strong>
+                </span>
                 <button
                   type="button"
-                  onClick={() => setCartOpen(true)}
-                  className="sticky bottom-3 z-10 flex w-full items-center justify-between gap-3 border border-accent-soft bg-accent px-4 py-3.5 text-sm font-semibold text-accent-fg shadow-lg transition-opacity hover:opacity-90"
+                  onClick={() => {
+                    setAdding(false);
+                    goStep(1);
+                  }}
+                  className="text-xs font-semibold text-accent-soft hover:underline"
                 >
-                  <span>
-                    {t("wiz.viewCart")} ({cart.length})
-                  </span>
-                  <span>
-                    {anyEstimate ? t("common.from") : ""}
-                    {nok(cartTotal)}
-                  </span>
+                  {t("wiz.cancelAdd")}
                 </button>
-
-                {cartOpen && typeof document !== "undefined" && createPortal(
-                  <div
-                    className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-                    role="dialog"
-                    aria-modal="true"
-                  >
-                    <div
-                      className="cart-backdrop absolute inset-0 bg-black/60 backdrop-blur-[2px]"
-                      onClick={() => setCartOpen(false)}
-                    />
-                    <div className="cart-pop relative flex max-h-[min(86dvh,720px)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
-                      <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-3 sm:px-5">
-                        <h3 className="font-display text-lg font-bold text-fg">
-                          {t("wiz.yourCart")}
-                        </h3>
-                        <button
-                          type="button"
-                          onClick={() => setCartOpen(false)}
-                          aria-label={t("wiz.close")}
-                          className="text-2xl leading-none text-muted hover:text-fg"
-                        >
-                          ×
-                        </button>
-                      </div>
-                      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-3 sm:px-5">
-
-                {/* Linjer */}
-                <div className="space-y-2.5">
-                  {cart.map((it, idx) => (
-                    <div key={it.id} className="rounded-lg border border-line bg-surface p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold break-words text-fg">
-                            {tc(it.service.name)}
-                          </p>
-                          <p className="text-xs text-muted">~{it.service.duration}</p>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          <PriceTag value={linePrice(it).value} from={!linePrice(it).exact} fromLabel={t("common.from")} />
-                          {/* Tydelig «fjern»-knapp (søppelbøtte) */}
-                          <button
-                            type="button"
-                            onClick={() => removeLine(it.id)}
-                            aria-label={`${t("wiz.remove")} ${tc(it.service.name)}`}
-                            title={t("wiz.remove")}
-                            className="flex h-9 w-9 items-center justify-center rounded-full border border-line-2 text-muted transition-colors hover:border-danger hover:bg-danger/10 hover:text-danger"
-                          >
-                            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                              <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Tillegg */}
-                      {addons.length > 0 && (
-                        <div className="mt-2.5">
-                          <p className="mb-1.5 text-[11px] font-semibold tracking-wide text-muted uppercase">
-                            {t("wiz.addonsLabel")}
-                          </p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {addons.map((a) => {
-                              const on = it.addons.includes(a.name);
-                              return (
-                                <button
-                                  key={a.name}
-                                  type="button"
-                                  onClick={() => toggleAddon(it.id, a.name)}
-                                  aria-pressed={on}
-                                  className={
-                                    "rounded-full border px-3 py-1 text-xs transition-colors " +
-                                    (on
-                                      ? "border-accent-soft bg-accent-soft/15 text-fg"
-                                      : "border-line-2 text-muted hover:border-accent-soft")
-                                  }
-                                >
-                                  {on ? "✓ " : "+ "}
-                                  {tc(a.name)}{" "}
-                                  <span className="font-semibold text-accent-soft">+{nok(a.price)}</span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                    </div>
-                  ))}
-                </div>
-
-                {/* Sum for hele kurven */}
-                <div className="flex items-center justify-between border-t border-line pt-3">
-                  <span className="text-xs font-semibold tracking-wide text-muted uppercase">
-                    {t("wiz.total")}
-                  </span>
-                  <PriceTag value={cartTotal} from={anyEstimate} size="lg" fromLabel={t("common.from")} />
-                </div>
-                {anyEstimate && (
-                  <p className="-mt-1.5 text-[11px] text-muted">{t("wiz.estimateNote")}</p>
-                )}
-                      </div>
-
-                      <div className="flex shrink-0 gap-2 border-t border-line px-4 py-3 sm:px-5">
-                        <button
-                          type="button"
-                          onClick={() => setCartOpen(false)}
-                          className="flex-1 border border-line-2 px-4 py-3 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
-                        >
-                          {t("wiz.addMore")}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (cart.length > 0) {
-                              setCartOpen(false);
-                              setStep(preBarber ? 2 : 1);
-                            }
-                          }}
-                          disabled={cart.length === 0}
-                          className="flex-1 bg-accent px-4 py-3 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
-                        >
-                          {preBarber ? t("wiz.toTime") : t("wiz.toBarber")}
-                        </button>
-                      </div>
-                    </div>
-                  </div>,
-                  document.body,
-                )}
-              </>
+              </div>
+            ) : (
+              <p className="text-sm text-muted">{t("wiz.pickOne")}</p>
             )}
+
+            {mainCats.map((cat) => {
+              const items = mainServices.filter((s) => s.category === cat);
+              return (
+                <div key={cat}>
+                  <h3 className="mb-2 text-[11px] font-semibold tracking-[0.18em] text-muted uppercase">
+                    {tc(cat)}
+                  </h3>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {items.map((s) => {
+                      const selected = !adding && cart.length === 1 && cart[0].service.name === s.name;
+                      const min = serviceMinPrice(s.name);
+                      const max = Math.max(...(levelPrices[s.name] ? Object.values(levelPrices[s.name]) : [min]));
+                      return (
+                        <button
+                          key={s.name}
+                          type="button"
+                          onClick={() => pickService(s)}
+                          aria-pressed={selected}
+                          className={
+                            "group flex min-h-[72px] items-center gap-3 border px-4 py-3 text-left transition-colors " +
+                            (selected
+                              ? "border-accent-soft bg-accent-soft/10"
+                              : "border-line hover:border-accent-soft/60 hover:bg-surface-2")
+                          }
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="block font-semibold break-words text-fg">{tc(s.name)}</span>
+                            <span className="mt-0.5 block text-xs text-muted">
+                              ~{s.duration}
+                              {s.description ? (
+                                <span className="line-clamp-1"> {tc(s.description)}</span>
+                              ) : null}
+                            </span>
+                          </span>
+                          <span className="flex shrink-0 flex-col items-end gap-1">
+                            <PriceTag value={min} from={min !== max} fromLabel={t("common.from")} />
+                            <span
+                              className={
+                                "text-[11px] font-semibold " +
+                                (selected ? "text-accent-soft" : "text-muted group-hover:text-accent-soft")
+                              }
+                            >
+                              {selected ? `✓ ${t("wiz.selected")}` : `${t("wiz.choose")} →`}
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
-        {/* ======================= STEG 1: BARBER =========================== */}
+        {/* ======================= STEG 1: BARBER (+ valgfrie tillegg) ======= */}
         {step === 1 && (
-          <div className="space-y-5">
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-semibold tracking-wide text-muted uppercase">
-                {t("wiz.whoCuts")}
-              </label>
-              <button type="button" onClick={() => setStep(0)} className="text-xs text-accent-soft hover:underline">
-                {t("wiz.editCart")}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between gap-3">
+              {backLink(0, t("wiz.changeService"))}
+            </div>
+
+            {/* Valgt tjeneste(r) – med tydelig, valgfritt tillegg og live pris */}
+            <div className="space-y-3">
+              {cart.map((it) => (
+                <div key={it.id} className="border border-line-2 bg-canvas p-3.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold break-words text-fg">{tc(it.service.name)}</p>
+                      <p className="text-xs text-muted">
+                        ~{it.service.duration}
+                        {it.addons.length > 0 && <> · + {it.addons.map(tc).join(", ")}</>}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <PriceTag value={linePrice(it).value} from={!linePrice(it).exact} size="sm" fromLabel={t("common.from")} />
+                      {cart.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeLine(it.id)}
+                          aria-label={`${t("wiz.remove")} ${tc(it.service.name)}`}
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-line-2 text-muted hover:border-danger hover:text-danger"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {addons.length > 0 && (
+                    <div className="mt-3">
+                      <p className="mb-1.5 text-[11px] font-semibold tracking-wide text-muted uppercase">
+                        {t("wiz.addonsOptional")}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {addons.map((a) => {
+                          const on = it.addons.includes(a.name);
+                          return (
+                            <button
+                              key={a.name}
+                              type="button"
+                              onClick={() => toggleAddon(it.id, a.name)}
+                              aria-pressed={on}
+                              className={
+                                "rounded-full border px-3 py-1.5 text-xs transition-colors " +
+                                (on
+                                  ? "border-accent-soft bg-accent-soft/15 text-fg"
+                                  : "border-line-2 text-muted hover:border-accent-soft")
+                              }
+                            >
+                              {on ? "✓ " : "+ "}
+                              {tc(a.name)}{" "}
+                              <span className="font-semibold text-accent-soft">+{nok(a.price)}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setAdding(true);
+                  goStep(0);
+                }}
+                className="text-xs font-semibold text-accent-soft hover:underline"
+              >
+                + {t("wiz.addAnother")}
               </button>
             </div>
 
-            {cart.length > 1 && (
-              <div className="flex overflow-hidden rounded-md border border-line-2 text-xs font-semibold">
-                <button
-                  type="button"
-                  onClick={() => setMode("single")}
-                  className={"flex-1 px-3 py-2 " + (mode === "single" ? "bg-accent text-accent-fg" : "text-muted")}
-                >
-                  {t("wiz.modeSingle")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMode("group")}
-                  className={"flex-1 px-3 py-2 " + (mode === "group" ? "bg-accent text-accent-fg" : "text-muted")}
-                >
-                  {t("wiz.modeGroup")}
-                </button>
-              </div>
-            )}
+            <div>
+              <p className="mb-3 text-xs font-semibold tracking-wide text-muted uppercase">{t("wiz.whoCuts")}</p>
 
-            {mode === "single" ? (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {/* «Hvem som helst» */}
-                <button
-                  type="button"
-                  onClick={() => setSingleBarber(ANY)}
-                  aria-pressed={singleBarber === ANY}
-                  className={
-                    "flex flex-col items-center gap-2 rounded-md border p-4 text-center transition-colors " +
-                    (singleBarber === ANY
-                      ? "border-accent-soft bg-accent-soft/10"
-                      : "border-line hover:border-line-2")
-                  }
-                >
-                  <span className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-2 font-display text-2xl font-bold text-fg">
-                    ✂
-                  </span>
-                  <span className="text-sm font-semibold text-fg">{t("wiz.anyBarber")}</span>
-                  <span className="text-[11px] text-muted">{t("wiz.anyBarberHint")}</span>
-                </button>
-                {barbersForAll.map((b) => {
-                  const on = singleBarber === b.name;
-                  const total = cart.reduce((sum, it) => {
-                    const exact = serviceExactPrice(it.service.name, b.name);
-                    return sum + (exact ?? serviceMinPrice(it.service.name)) + addonsSum(it.addons);
-                  }, 0);
-                  const allExact = cart.every((it) => serviceExactPrice(it.service.name, b.name) !== null);
-                  return (
-                    <button
-                      key={b.name}
-                      type="button"
-                      onClick={() => setSingleBarber(b.name)}
-                      aria-pressed={on}
-                      className={
-                        "flex flex-col items-center gap-2 rounded-md border p-4 text-center transition-colors " +
-                        (on ? "border-accent-soft bg-accent-soft/10" : "border-line hover:border-line-2")
-                      }
-                    >
-                      {b.photo ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={b.photo} alt="" className="h-16 w-16 rounded-full object-cover ring-1 ring-line" />
-                      ) : (
-                        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-2 font-display text-2xl font-bold text-fg">
-                          {(b.display ?? b.name).charAt(0)}
-                        </span>
-                      )}
-                      <span className="text-sm font-semibold text-fg">{b.display ?? b.name}</span>
-                      <span className="text-[11px] text-muted">{tt(b.title)}</span>
-                      <PriceTag value={total} from={!allExact} fromLabel={t("common.from")} />
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {cart.map((it, idx) => (
-                  <div key={it.id} className="border border-line bg-surface p-3">
-                    <p className="font-semibold break-words text-fg">{tc(it.service.name)}</p>
-                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                      <select
-                        value={it.barberName ?? ""}
-                        onChange={(e) => patchLine(it.id, { barberName: e.target.value || null })}
-                        className="border border-line-2 bg-canvas px-2 py-2 text-sm text-fg outline-none focus:border-accent-soft"
+              {cart.length > 1 && (
+                <div className="mb-3 flex overflow-hidden rounded-md border border-line-2 text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setMode("single")}
+                    className={"flex-1 px-3 py-2 " + (mode === "single" ? "bg-accent text-accent-fg" : "text-muted")}
+                  >
+                    {t("wiz.modeSingle")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMode("group")}
+                    className={"flex-1 px-3 py-2 " + (mode === "group" ? "bg-accent text-accent-fg" : "text-muted")}
+                  >
+                    {t("wiz.modeGroup")}
+                  </button>
+                </div>
+              )}
+
+              {mode === "single" ? (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {/* «Første ledige» først: raskest vei, og flest ledige tider */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSingleBarber(ANY);
+                      window.setTimeout(() => goStep(2), 150);
+                    }}
+                    aria-pressed={singleBarber === ANY}
+                    className={
+                      "col-span-2 flex items-center gap-3 rounded-md border p-4 text-left transition-colors sm:col-span-3 " +
+                      (singleBarber === ANY
+                        ? "border-accent-soft bg-accent-soft/10"
+                        : "border-accent-soft/50 hover:bg-accent-soft/10")
+                    }
+                  >
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-2 font-display text-xl font-bold text-fg">
+                      ✂
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold text-fg">{t("wiz.anyBarberHint")}</span>
+                      <span className="block text-xs text-muted">{t("wiz.anyBarberWhy")}</span>
+                    </span>
+                    <span className="text-sm font-semibold text-accent-soft">→</span>
+                  </button>
+                  {barbersForAll.map((b) => {
+                    const on = singleBarber === b.name;
+                    const total = cart.reduce((sum, it) => {
+                      const exact = serviceExactPrice(it.service.name, b.name);
+                      return sum + (exact ?? serviceMinPrice(it.service.name)) + addonsSum(it.addons);
+                    }, 0);
+                    const allExact = cart.every((it) => serviceExactPrice(it.service.name, b.name) !== null);
+                    return (
+                      <button
+                        key={b.name}
+                        type="button"
+                        onClick={() => {
+                          setSingleBarber(b.name);
+                          window.setTimeout(() => goStep(2), 150);
+                        }}
+                        aria-pressed={on}
+                        className={
+                          "flex flex-col items-center gap-2 rounded-md border p-4 text-center transition-colors " +
+                          (on ? "border-accent-soft bg-accent-soft/10" : "border-line hover:border-line-2")
+                        }
                       >
-                        <option value="">{t("wiz.chooseBarber")}</option>
-                        {barbersFor(it.service.name).map((b) => (
-                          <option key={b.name} value={b.name}>
-                            {b.display ?? b.name} · {tt(b.title)}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        value={it.person}
-                        onChange={(e) => patchLine(it.id, { person: e.target.value })}
-                        placeholder={`${t("wiz.personName")} (${t("wiz.person")} ${idx + 1})`}
-                        className="border border-line-2 bg-canvas px-2 py-2 text-sm text-fg outline-none focus:border-accent-soft"
-                      />
+                        {b.photo ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={b.photo} alt="" className="h-16 w-16 rounded-full object-cover ring-1 ring-line" />
+                        ) : (
+                          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-2 font-display text-2xl font-bold text-fg">
+                            {(b.display ?? b.name).charAt(0)}
+                          </span>
+                        )}
+                        <span className="text-sm font-semibold text-fg">{b.display ?? b.name}</span>
+                        <span className="text-[11px] text-muted">{tt(b.title)}</span>
+                        <PriceTag value={total} from={!allExact} fromLabel={t("common.from")} />
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {cart.map((it, idx) => (
+                    <div key={it.id} className="border border-line bg-surface p-3">
+                      <p className="font-semibold break-words text-fg">{tc(it.service.name)}</p>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        <select
+                          value={it.barberName ?? ""}
+                          onChange={(e) => patchLine(it.id, { barberName: e.target.value || null })}
+                          className="border border-line-2 bg-canvas px-2 py-2 text-sm text-fg outline-none focus:border-accent-soft"
+                        >
+                          <option value="">{t("wiz.chooseBarber")}</option>
+                          {barbersFor(it.service.name).map((b) => (
+                            <option key={b.name} value={b.name}>
+                              {b.display ?? b.name} · {tt(b.title)}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          value={it.person}
+                          onChange={(e) => patchLine(it.id, { person: e.target.value })}
+                          placeholder={`${t("wiz.personName")} (${t("wiz.person")} ${idx + 1})`}
+                          className="border border-line-2 bg-canvas px-2 py-2 text-sm text-fg outline-none focus:border-accent-soft"
+                        />
+                      </div>
                     </div>
-                  </div>
-                ))}
-                {groupNeedsBarbers && (
-                  <p className="text-xs text-danger">{t("wiz.needBarbers")}</p>
-                )}
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={() => canGoTid && setStep(2)}
-              disabled={!canGoTid}
-              className="w-full bg-accent px-6 py-3 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
-            >
-              {t("wiz.chooseTime")}
-            </button>
+                  ))}
+                  {groupNeedsBarbers && <p className="text-xs text-danger">{t("wiz.needBarbers")}</p>}
+                  <button
+                    type="button"
+                    onClick={() => canGoTid && goStep(2)}
+                    disabled={!canGoTid}
+                    className="w-full bg-accent px-6 py-3.5 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
+                  >
+                    {t("wiz.chooseTime")}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
         {/* ======================= STEG 2: TID ============================== */}
         {step === 2 && (
           <div className="space-y-5">
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-semibold tracking-wide text-muted uppercase">
-                {t("wiz.chooseDayTime")}
-              </label>
-              <button type="button" onClick={() => setStep(1)} className="text-xs text-accent-soft hover:underline">
-                {t("wiz.editBarber")}
-              </button>
+            <div className="flex items-center justify-between gap-3">
+              {backLink(1, t("wiz.changeBarber"))}
             </div>
-            {mode === "single" && singleBarber !== ANY && (
-              <p className="-mt-2 text-sm text-muted">
-                {t("wiz.summary.barber")}:{" "}
-                <span className="font-semibold text-fg">
-                  {barbers.find((b) => b.name === singleBarber)?.display ?? singleBarber}
+            {/* Kort oppsummering så kunden alltid ser hva og hva det koster */}
+            <div className="flex items-center justify-between gap-3 border border-line-2 bg-canvas px-4 py-3 text-sm">
+              <span className="min-w-0 text-fg">
+                <span className="font-semibold">{cart.map((it) => tc(it.service.name)).join(" + ")}</span>
+                <span className="text-muted">
+                  {" · "}
+                  {selectedBarberObj ? (selectedBarberObj.display ?? selectedBarberObj.name) : t("wiz.anyBarberHint")}
                 </span>
-              </p>
-            )}
+              </span>
+              <PriceTag value={cartTotal} from={anyEstimate} size="sm" fromLabel={t("common.from")} />
+            </div>
+            <p className="text-xs font-semibold tracking-wide text-muted uppercase">{t("wiz.chooseDayTime")}</p>
 
             {openDays.length > 0 && !slotsError && (
               <div>
@@ -963,6 +948,8 @@ export function BookingWizard({
                             onClick={() => {
                               setDate(viewDay);
                               setTime(t);
+                              // Ett trykk på et klokkeslett = valgt → rett til siste steg.
+                              window.setTimeout(() => goStep(3), 150);
                             }}
                             aria-pressed={active}
                             className={
@@ -980,29 +967,16 @@ export function BookingWizard({
                   );
                 })()}
 
-                <button
-                  type="button"
-                  onClick={() => date && time && setStep(3)}
-                  disabled={!date || !time}
-                  className="w-full bg-accent px-6 py-3 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
-                >
-                  {t("wiz.toContact")}
-                </button>
               </>
             )}
           </div>
         )}
 
-        {/* ======================= STEG 3: KONTAKT ========================== */}
+        {/* ======================= STEG 3: INFO + FULLFØR ==================== */}
         {step === 3 && (
           <form onSubmit={submit} noValidate className="relative space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="block text-xs font-semibold tracking-wide text-muted uppercase">
-                {t("wiz.yourDetails")}
-              </p>
-              <button type="button" onClick={() => setStep(2)} className="text-xs text-accent-soft hover:underline">
-                {t("wiz.editTime")}
-              </button>
+            <div className="flex items-center justify-between gap-3">
+              {backLink(2, t("wiz.changeTime"))}
             </div>
 
             {/* Oppsummering: hva, når, hvem og hva det koster – før man bekrefter. */}
@@ -1047,6 +1021,15 @@ export function BookingWizard({
               )}
             </div>
 
+            <p className="text-xs font-semibold tracking-wide text-muted uppercase">{t("wiz.yourDetails")}</p>
+            {remembered && (
+              <p className="-mt-2 text-xs text-muted">
+                {t("wiz.remembered")}{" "}
+                <button type="button" onClick={forgetMe} className="font-semibold text-accent-soft hover:underline">
+                  {t("wiz.notYou")}
+                </button>
+              </p>
+            )}
             <div>
               <label htmlFor="bk-name" className={FIELD_LABEL}>
                 {t("wiz.fullName")}
@@ -1133,21 +1116,32 @@ export function BookingWizard({
               </select>
             </div>
 
-            <div>
-              <label htmlFor="bk-note" className={FIELD_LABEL}>
-                {t("wiz.note.label")}
-              </label>
-              <textarea
-                id="bk-note"
-                name="note"
-                value={note}
-                onChange={(e) => setNote(e.target.value.slice(0, 500))}
-                rows={3}
-                maxLength={500}
-                placeholder={t("wiz.note.placeholder")}
-                className={FIELD + " resize-y"}
-              />
-            </div>
+            {showNote ? (
+              <div>
+                <label htmlFor="bk-note" className={FIELD_LABEL}>
+                  {t("wiz.note.label")}
+                </label>
+                <textarea
+                  id="bk-note"
+                  name="note"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value.slice(0, 500))}
+                  rows={3}
+                  maxLength={500}
+                  autoFocus
+                  placeholder={t("wiz.note.placeholder")}
+                  className={FIELD + " resize-y"}
+                />
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowNote(true)}
+                className="text-xs font-semibold text-accent-soft hover:underline"
+              >
+                + {t("wiz.addNote")}
+              </button>
+            )}
 
             <label className="flex items-start gap-2 text-xs text-muted">
               <input
@@ -1192,9 +1186,9 @@ export function BookingWizard({
             <button
               type="submit"
               disabled={!canSubmit}
-              className="w-full bg-accent px-6 py-3 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="w-full bg-accent px-6 py-4 text-base font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
             >
-              {pending ? t("wiz.booking") : t("wiz.confirm")}
+              {pending ? t("wiz.booking") : `${t("wiz.confirm")} · ${anyEstimate ? t("common.from") : ""}${nok(cartTotal)}`}
             </button>
             {!canSubmit && !pending && (
               <p className="text-center text-xs text-muted">{t("wiz.fillToConfirm")}</p>

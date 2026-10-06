@@ -210,3 +210,65 @@ export async function getRecentInbound(limit = 15): Promise<InboundMsg[]> {
     return [];
   }
 }
+
+/**
+ * Status for «send til resten» per utsending i loggen.
+ *   rest   = hvor mange i segmentet (med samtykke + e-post) som ennå IKKE har
+ *            fått en e-post med samme emne (ifølge køen, status «sent»).
+ *   latest = er dette den nyeste utsendingen med dette emnet? Bare den viser
+ *            knappen/statusen, så eldre rader med samme emne ikke maser.
+ * Bare køen telles (rask, ingen kall til Resend). Utsendinger fra før køen
+ * fantes kan derfor vise noen for mange igjen – forhåndsvisningen i
+ * «Send til resten» sjekker også Resend-loggen og har siste ord.
+ */
+export async function getRestStatus(
+  sends: MarketingSend[],
+): Promise<Record<string, { rest: number; latest: boolean }>> {
+  const out: Record<string, { rest: number; latest: boolean }> = {};
+  try {
+    const sb = await createClient();
+    const emailSends = sends.filter((s) => (s.channel ?? "email") !== "sms" && (s.status === "done" || !s.status));
+    // Nyeste først (lista er allerede sortert synkende på created_at).
+    const seenSubject = new Set<string>();
+    const groups = new Map<string, MarketingSend[]>();
+    for (const s of emailSends) {
+      const key = `${s.subject}\u0000${s.segment ?? "all"}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(s);
+    }
+    const recipientCache = new Map<string, Recipient[]>();
+    for (const [key, list] of groups) {
+      const [subject, segment] = key.split("\u0000");
+      // Alle utsendinger med samme emne (også eldre enn de 20 i loggen).
+      const { data: same } = await sb.from("marketing_sends").select("id").eq("subject", subject);
+      const ids = (same ?? []).map((x) => x.id as string);
+      const sent = new Set<string>();
+      for (let from = 0; ids.length; from += 1000) {
+        const { data } = await sb
+          .from("marketing_queue")
+          .select("email")
+          .in("send_id", ids)
+          .eq("status", "sent")
+          .range(from, from + 999);
+        for (const r of data ?? []) if (r.email) sent.add(String(r.email).trim().toLowerCase());
+        if (!data || data.length < 1000) break;
+      }
+      if (!recipientCache.has(segment)) {
+        recipientCache.set(
+          segment,
+          (await getMarketingRecipients(segment as Segment, "email")).filter((r) => r.token),
+        );
+      }
+      const all = recipientCache.get(segment)!;
+      const rest = all.filter((r) => !sent.has(r.email.trim().toLowerCase())).length;
+      list.forEach((s, i) => {
+        const latest = i === 0 && !seenSubject.has(subject);
+        out[s.id] = { rest, latest };
+      });
+      seenSubject.add(subject);
+    }
+  } catch {
+    /* uten status vises knappen som før */
+  }
+  return out;
+}

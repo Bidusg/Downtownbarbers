@@ -21,7 +21,7 @@ export const dictionary: Dict = {
   "header.langLabel": { no: "Språk", en: "Language" },
 
   // ---- Booking: steg-faner ----
-  "step.services": { no: "Tjenester", en: "Services" },
+  "step.services": { no: "Tjeneste", en: "Service" },
   "step.barber": { no: "Barber", en: "Barber" },
   "step.time": { no: "Tid", en: "Time" },
   "wiz.whoCuts": { no: "Hvem vil du booke hos?", en: "Who would you like to book with?" },
@@ -29,7 +29,7 @@ export const dictionary: Dict = {
   "wiz.toBarber": { no: "Velg barber →", en: "Choose barber →" },
   "wiz.toTime": { no: "Velg tid →", en: "Choose time →" },
   "wiz.editBarber": { no: "← Endre barber", en: "← Change barber" },
-  "step.contact": { no: "Kontakt", en: "Contact" },
+  "step.contact": { no: "Info", en: "Details" },
 
   // ---- Booking: generelt ----
   "common.from": { no: "fra ", en: "from " },
@@ -114,7 +114,7 @@ export const dictionary: Dict = {
   "wiz.invalidEmail": { no: "Ugyldig e-postadresse.", en: "Invalid email address." },
   "wiz.invalidPhone": { no: "Ugyldig telefonnummer.", en: "Invalid phone number." },
   "wiz.booking": { no: "Bestiller …", en: "Booking …" },
-  "wiz.confirm": { no: "Bekreft bestilling", en: "Confirm booking" },
+  "wiz.confirm": { no: "Fullfør booking", en: "Complete booking" },
 
   // ---- Booking: suksess ----
   "wiz.thanks": { no: "Takk! 💈", en: "Thank you! 💈" },
@@ -187,8 +187,8 @@ export const dictionary: Dict = {
   "booking.eyebrow": { no: "Bestill time", en: "Book appointment" },
   "booking.heading": { no: "Sett deg ned.", en: "Have a seat." },
   "booking.intro": {
-    no: "Fire steg: tjenester, barber, tid og kontakt. Bekreftelse på e-post med en gang.",
-    en: "Four steps: services, barber, time and contact. Email confirmation right away.",
+    no: "Velg tjeneste, barber og tid – ferdig på under ett minutt. Bekreftelse på e-post med en gang.",
+    en: "Pick a service, a barber and a time – done in under a minute. Email confirmation right away.",
   },
 
   // ---- Butikk-side ----
@@ -393,4 +393,19 @@ export const dictionary: Dict = {
   },
   "wiz.privacyNote.link": { no: "personvernerklæringen", en: "privacy policy" },
   "wiz.privacyNote.post": { no: ".", en: "." },
+  // ---- Booking v2: ett valg per trykk ----
+  "wiz.pickOne": { no: "Trykk på det du vil ha – du kan legge til mer etterpå.", en: "Tap what you want – you can add more afterwards." },
+  "wiz.choose": { no: "Velg", en: "Choose" },
+  "wiz.selected": { no: "Valgt", en: "Selected" },
+  "wiz.changeService": { no: "Endre tjeneste", en: "Change service" },
+  "wiz.changeBarber": { no: "Endre barber", en: "Change barber" },
+  "wiz.changeTime": { no: "Endre tid", en: "Change time" },
+  "wiz.addonsOptional": { no: "Vil du legge til noe? (valgfritt)", en: "Anything extra? (optional)" },
+  "wiz.addAnother": { no: "Legg til en tjeneste til (f.eks. for en til person)", en: "Add another service (e.g. for another person)" },
+  "wiz.addingBanner": { no: "Velg tjenesten du vil legge til. Allerede valgt:", en: "Choose the service to add. Already selected:" },
+  "wiz.cancelAdd": { no: "Avbryt", en: "Cancel" },
+  "wiz.anyBarberWhy": { no: "Raskest – flest ledige tider", en: "Fastest – most available times" },
+  "wiz.addNote": { no: "Legg til en beskjed til barberen", en: "Add a note for the barber" },
+  "wiz.remembered": { no: "Vi har fylt inn opplysningene fra sist.", en: "We filled in your details from last time." },
+  "wiz.notYou": { no: "Ikke deg?", en: "Not you?" },
 };

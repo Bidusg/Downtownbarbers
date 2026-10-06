@@ -8,6 +8,7 @@ import {
   getConsentStats,
   getMarketingSends,
   getRecentInbound,
+  getRestStatus,
   SEGMENTS,
 } from "@/lib/dm-queries";
 import { sendMarketing, resumeMarketing, sendToRest, previewRest } from "./actions";
@@ -55,6 +56,8 @@ export default async function AdminMarkedsforing({
     getMarketingSends(20),
     getRecentInbound(15),
   ]);
+  // Har alle i segmentet fått e-posten? Styrer «Send til resten» vs «Alle har fått den».
+  const restStatus = await getRestStatus(sends);
   // Pågående utsending? Da oppdaterer siden seg selv, og står den stille
   // (ingen fremdrift på 30 s) dyttes bakgrunnsjobben i gang igjen.
   const active = sends.some((x) => x.status === "queued" || x.status === "sending");
@@ -223,14 +226,35 @@ export default async function AdminMarkedsforing({
                   <Td>
                     {s.status === "done" || !s.status ? (
                       <span className="flex flex-wrap items-center gap-x-2 text-xs text-muted">
-                        Ferdig{s.failed ? ` · ${s.failed} feilet` : ""}
-                        {s.channel !== "sms" && (
-                          <SendRestButton
-                            action={sendToRest.bind(null, s.id)}
-                            preview={previewRest.bind(null, s.id)}
-                            subject={s.subject}
-                          />
-                        )}
+                        {(() => {
+                          const rs = restStatus[s.id];
+                          // Eldre utsending med samme emne: bare «Ferdig» – status vises på den nyeste.
+                          if (s.channel === "sms" || (rs && !rs.latest)) {
+                            return <>Ferdig{s.failed ? ` · ${s.failed} feilet` : ""}</>;
+                          }
+                          if (rs && rs.rest === 0) {
+                            return (
+                              <span className="font-semibold text-emerald-400">
+                                ✓ Alle har fått den
+                              </span>
+                            );
+                          }
+                          return (
+                            <>
+                              Ferdig{s.failed ? ` · ${s.failed} feilet` : ""}
+                              {rs && (
+                                <span className="text-accent-soft">
+                                  · {rs.rest.toLocaleString("nb-NO")} har ikke fått den
+                                </span>
+                              )}
+                              <SendRestButton
+                                action={sendToRest.bind(null, s.id)}
+                                preview={previewRest.bind(null, s.id)}
+                                subject={s.subject}
+                              />
+                            </>
+                          );
+                        })()}
                       </span>
                     ) : s.status === "failed" ? (
                       <form action={resumeMarketing.bind(null, s.id)}>
