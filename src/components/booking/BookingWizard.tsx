@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { getCartSlots, createBookingGroup } from "@/app/booking/cart-actions";
 import { isValidEmail, isValidNorwegianPhone } from "@/lib/validate";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -139,6 +140,18 @@ export function BookingWizard({
 
   const [step, setStep] = useState(0);
   const [cartOpen, setCartOpen] = useState(false);
+  // Lås scrolling bak popupen (ellers «drar» siden med seg på mobil).
+  useEffect(() => {
+    if (!cartOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setCartOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [cartOpen]);
   const [cart, setCart] = useState<CartItem[]>(() => {
     const pre = initialServiceName
       ? services.find((s) => s.name === initialServiceName)
@@ -411,7 +424,7 @@ export function BookingWizard({
         })}
       </ol>
 
-      <div className="p-6">
+      <div className="p-3 sm:p-6">
         {/* ======================= STEG 0: TJENESTER + KURV ================= */}
         {step === 0 && (
           <div className="space-y-6">
@@ -447,11 +460,11 @@ export function BookingWizard({
                       }
                     >
                       <div className="overflow-hidden">
-                        <div className="space-y-3 border-t border-line p-4">
+                        <div className="space-y-2.5 border-t border-line p-2.5 sm:space-y-3 sm:p-4">
                           {items.map((s) => {
                             const inCart = cart.filter((it) => it.service.name === s.name).length;
                             return (
-                            <div key={s.name} className="border border-line p-4">
+                            <div key={s.name} className="border border-line p-3.5 sm:p-4">
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0 flex-1">
                                   {/* break-words: «Maskinklipp/Lineup» har ikke mellomrom og
@@ -520,18 +533,18 @@ export function BookingWizard({
                   </span>
                 </button>
 
-                {cartOpen && (
+                {cartOpen && typeof document !== "undefined" && createPortal(
                   <div
-                    className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+                    className="fixed inset-0 z-[100] flex items-center justify-center p-4"
                     role="dialog"
                     aria-modal="true"
                   >
                     <div
-                      className="absolute inset-0 bg-black/60"
+                      className="cart-backdrop absolute inset-0 bg-black/60 backdrop-blur-[2px]"
                       onClick={() => setCartOpen(false)}
                     />
-                    <div className="relative max-h-[88vh] w-full max-w-md overflow-y-auto border border-line bg-surface p-5">
-                      <div className="mb-4 flex items-center justify-between">
+                    <div className="cart-pop relative flex max-h-[min(86dvh,720px)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
+                      <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-3 sm:px-5">
                         <h3 className="font-display text-lg font-bold text-fg">
                           {t("wiz.yourCart")}
                         </h3>
@@ -544,36 +557,40 @@ export function BookingWizard({
                           ×
                         </button>
                       </div>
-                      <div className="space-y-4">
+                      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-3 sm:px-5">
 
                 {/* Linjer */}
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {cart.map((it, idx) => (
-                    <div key={it.id} className="border border-line bg-surface p-3">
+                    <div key={it.id} className="rounded-lg border border-line bg-surface p-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold break-words text-fg">
                             {tc(it.service.name)}
                           </p>
-                          <p className="text-xs text-muted">~{it.service.duration}</p>
+                          <p className="text-xs text-muted">
+                            ~{it.service.duration}
+                            <span aria-hidden> · </span>
+                            <button
+                              type="button"
+                              onClick={() => removeLine(it.id)}
+                              aria-label={`${t("wiz.remove")} ${tc(it.service.name)}`}
+                              className="text-muted underline-offset-2 hover:text-danger hover:underline"
+                            >
+                              {t("wiz.remove")}
+                            </button>
+                          </p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => removeLine(it.id)}
-                          aria-label={`${t("wiz.remove")} ${tc(it.service.name)}`}
-                          className="shrink-0 text-xs text-muted hover:text-danger"
-                        >
-                          {t("wiz.remove")}
-                        </button>
+                        <PriceTag value={linePrice(it).value} from={!linePrice(it).exact} fromLabel={t("common.from")} />
                       </div>
 
                       {/* Tillegg */}
                       {addons.length > 0 && (
-                        <div className="mt-3">
+                        <div className="mt-2.5">
                           <p className="mb-1.5 text-[11px] font-semibold tracking-wide text-muted uppercase">
                             {t("wiz.addonsLabel")}
                           </p>
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-1.5">
                             {addons.map((a) => {
                               const on = it.addons.includes(a.name);
                               return (
@@ -599,26 +616,23 @@ export function BookingWizard({
                         </div>
                       )}
 
-                      <p className="mt-2.5 text-right">
-                        <PriceTag value={linePrice(it).value} from={!linePrice(it).exact} fromLabel={t("common.from")} />
-                      </p>
                     </div>
                   ))}
                 </div>
 
                 {/* Sum for hele kurven */}
-                <div className="flex items-baseline justify-between border-t border-line pt-3">
+                <div className="flex items-center justify-between border-t border-line pt-3">
                   <span className="text-xs font-semibold tracking-wide text-muted uppercase">
                     {t("wiz.total")}
                   </span>
                   <PriceTag value={cartTotal} from={anyEstimate} size="lg" fromLabel={t("common.from")} />
                 </div>
                 {anyEstimate && (
-                  <p className="-mt-2 text-[11px] text-muted">{t("wiz.estimateNote")}</p>
+                  <p className="-mt-1.5 text-[11px] text-muted">{t("wiz.estimateNote")}</p>
                 )}
                       </div>
 
-                      <div className="mt-5 flex gap-2 border-t border-line pt-4">
+                      <div className="flex shrink-0 gap-2 border-t border-line px-4 py-3 sm:px-5">
                         <button
                           type="button"
                           onClick={() => setCartOpen(false)}
@@ -641,7 +655,8 @@ export function BookingWizard({
                         </button>
                       </div>
                     </div>
-                  </div>
+                  </div>,
+                  document.body,
                 )}
               </>
             )}

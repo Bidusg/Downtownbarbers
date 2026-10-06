@@ -4,6 +4,13 @@ Dette bygget retter funnene fra den fulle gjennomgangen av forsiden og
 booking-veiviseren (testet live på Vercel-prod, mobil + desktop), og utvider
 språkbyttet NO/EN til **alle** kundevendte sider.
 
+## Bygg 9o – mobil (stående) tilpasset
+
+- Handlekurven er nå en svevende popup midt på skjermen (ikke fra bunnen): avrundet, skygge, fast topp/bunn med knapper, kun innholdet scroller. Pris står på samme linje som tjenesten, «Fjern» under navnet – ingen tomrom. Siden bak låses mens den er åpen, Esc lukker.
+- Booking: mindre «boks-i-boks»-luft på mobil (mer bredde til tjenestene).
+- Forsiden på mobil: Håndverket-kortene er liggende (4:3) i stedet for høye; galleriet viser to kolonner med hele bildet (ingen beskjæring); Om oss-bildet og banneret er lavere; Om oss-teksten mindre. Hero bruker 100svh (riktig høyde med Safari-verktøylinja).
+- Filer: src/app/page.tsx, src/components/booking/BookingWizard.tsx, src/app/globals.css.
+
 ## Bygg 9n – fjerne blokkering i timeboken
 
 - Krysset for å fjerne en blokk var usynlig til man holdt musa over (finnes ikke på iPad/mobil) og veldig lite. Nå er hele blokken trykkbar: trykk → dialog med barber, tid, årsak og knappen «Fjern blokkering».

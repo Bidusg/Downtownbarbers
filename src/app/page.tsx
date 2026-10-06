@@ -209,7 +209,7 @@ export default async function Home({
         <Header overlay phone={s.phone} address={s.address} />
 
         {/* ===================== HERO ===================== */}
-        <section className="cine-vignette relative flex min-h-screen items-end overflow-hidden">
+        <section className="cine-vignette relative flex min-h-[100svh] items-end overflow-hidden">
           <div className="absolute inset-0">
             <ScaleIn className="h-full w-full" from={1.2} to={1.04}>
               <HeroCarousel slides={heroSlidesFinal} poster="/media/hero/poster.jpg" />
@@ -373,10 +373,10 @@ export default async function Home({
               className="mt-5 max-w-2xl font-display text-3xl font-bold leading-[1.1] sm:text-4xl"
             />
             <Hairline className="mt-10" />
-            <div className="mt-14 grid gap-6 md:grid-cols-3">
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 sm:gap-6 md:mt-14 md:grid-cols-3">
               {craftFinal.map((c, i) => (
                 <FadeUp key={c.img} delay={i * 0.08}>
-                  <figure className="group relative aspect-[3/4] overflow-hidden">
+                  <figure className="group relative aspect-[4/3] overflow-hidden sm:aspect-[3/4]">
                     <Parallax className="absolute inset-x-0 -top-[10%] h-[120%]" amount={8}>
                       <img
                         src={c.img}
@@ -386,8 +386,8 @@ export default async function Home({
                       />
                     </Parallax>
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
-                    <figcaption className="absolute right-6 bottom-6 left-6">
-                      <p className="font-display text-2xl font-bold text-white">
+                    <figcaption className="absolute right-4 bottom-4 left-4 sm:right-6 sm:bottom-6 sm:left-6">
+                      <p className="font-display text-xl font-bold text-white sm:text-2xl">
                         <TDyn text={c.title} map="settings" />
                       </p>
                       <p className="mt-1.5 text-sm text-white/75">
@@ -412,16 +412,16 @@ export default async function Home({
               k="home.gallery.title"
               className="mt-4 font-display text-3xl font-bold sm:text-4xl"
             />
-            <div className="mt-12 gap-5 columns-1 sm:columns-2">
+            <div className="mt-8 columns-2 gap-2.5 sm:mt-12 sm:gap-5">
               {galleryFinal.map((g) => (
-                <FadeUp key={g.src} className="mb-5 block break-inside-avoid">
+                <FadeUp key={g.src} className="mb-2.5 block break-inside-avoid sm:mb-5">
                   <div className="overflow-hidden">
                     <ScaleIn from={1.14} to={1}>
                       <img
                         src={g.src}
                         alt={g.alt}
                         loading="lazy"
-                        className="w-full object-cover"
+                        className="block h-auto w-full"
                       />
                     </ScaleIn>
                   </div>
@@ -438,7 +438,7 @@ export default async function Home({
               <Label>
                 <T k="home.about.eyebrow" />
               </Label>
-              <p className="mt-6 font-display text-2xl leading-[1.2] sm:text-3xl">
+              <p className="mt-6 font-display text-xl leading-[1.3] sm:text-3xl sm:leading-[1.2]">
                 <TDyn text={s.about_text} map="settings" />
               </p>
               <a
@@ -452,7 +452,7 @@ export default async function Home({
               </a>
             </FadeUp>
             <FadeUp delay={0.1}>
-              <div className="relative aspect-[4/5] overflow-hidden">
+              <div className="relative aspect-[4/3] overflow-hidden md:aspect-[4/5]">
                 <Parallax className="absolute inset-x-0 -top-[12%] h-[124%]" amount={10}>
                   <img
                     src={aboutImg}
@@ -471,7 +471,7 @@ export default async function Home({
         </section>
 
         {/* ===================== BANNER (parallax) ===================== */}
-        <section className="cine-vignette relative flex min-h-[80vh] items-center justify-center overflow-hidden border-b border-line">
+        <section className="cine-vignette relative flex min-h-[55svh] items-center justify-center overflow-hidden border-b border-line sm:min-h-[80vh]">
           <Parallax className="absolute inset-x-0 -top-[15%] h-[130%]" amount={16}>
             <img
               src={bannerImg}

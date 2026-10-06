@@ -806,3 +806,15 @@ body {
     font-size: max(16px, 1em);
   }
 }
+
+/* Handlekurv-popup: svever inn midt på skjermen */
+@keyframes cart-pop-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes cart-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.cart-pop { animation: cart-pop-in 0.22s cubic-bezier(.2,.9,.3,1.2) both; }
+.cart-backdrop { animation: cart-fade-in 0.18s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .cart-pop, .cart-backdrop { animation: none; }
+}
