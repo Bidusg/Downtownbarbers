@@ -265,13 +265,26 @@ export function BookingWizard({
     );
   }, [barbers, cart, exclusions]);
 
+  // Kom kunden via «Book nå» under en barber (og kan barberen ta alt i
+  // kurven)? Da er barberen allerede valgt – hopp rett til Tid.
+  const preBarber =
+    !!initialBarberName &&
+    mode === "single" &&
+    singleBarber === initialBarberName &&
+    barbersForAll.some((b) => b.name === initialBarberName);
+
   // ---- Kurv-operasjoner ----------------------------------------------------
   const addToCart = (service: WizService) => {
     setCart((c) => [...c, { id: nextId, service, barberName: null, person: "", addons: [] }]);
     setNextId((n) => n + 1);
     setCartOpen(true); // vis handlekurv-popup med en gang
   };
-  const removeLine = (id: number) => setCart((c) => c.filter((l) => l.id !== id));
+  const removeLine = (id: number) =>
+    setCart((c) => {
+      const next = c.filter((l) => l.id !== id);
+      if (next.length === 0) setCartOpen(false); // tom kurv → lukk popupen
+      return next;
+    });
   const patchLine = (id: number, patch: Partial<CartItem>) =>
     setCart((c) => c.map((l) => (l.id === id ? { ...l, ...patch } : l)));
   const toggleAddon = (id: number, name: string) =>
@@ -622,20 +635,23 @@ export function BookingWizard({
                           <p className="font-semibold break-words text-fg">
                             {tc(it.service.name)}
                           </p>
-                          <p className="text-xs text-muted">
-                            ~{it.service.duration}
-                            <span aria-hidden> · </span>
-                            <button
-                              type="button"
-                              onClick={() => removeLine(it.id)}
-                              aria-label={`${t("wiz.remove")} ${tc(it.service.name)}`}
-                              className="text-muted underline-offset-2 hover:text-danger hover:underline"
-                            >
-                              {t("wiz.remove")}
-                            </button>
-                          </p>
+                          <p className="text-xs text-muted">~{it.service.duration}</p>
                         </div>
-                        <PriceTag value={linePrice(it).value} from={!linePrice(it).exact} fromLabel={t("common.from")} />
+                        <div className="flex shrink-0 items-center gap-2">
+                          <PriceTag value={linePrice(it).value} from={!linePrice(it).exact} fromLabel={t("common.from")} />
+                          {/* Tydelig «fjern»-knapp (søppelbøtte) */}
+                          <button
+                            type="button"
+                            onClick={() => removeLine(it.id)}
+                            aria-label={`${t("wiz.remove")} ${tc(it.service.name)}`}
+                            title={t("wiz.remove")}
+                            className="flex h-9 w-9 items-center justify-center rounded-full border border-line-2 text-muted transition-colors hover:border-danger hover:bg-danger/10 hover:text-danger"
+                          >
+                            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                              <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
 
                       {/* Tillegg */}
@@ -699,13 +715,13 @@ export function BookingWizard({
                           onClick={() => {
                             if (cart.length > 0) {
                               setCartOpen(false);
-                              setStep(1);
+                              setStep(preBarber ? 2 : 1);
                             }
                           }}
                           disabled={cart.length === 0}
                           className="flex-1 bg-accent px-4 py-3 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
                         >
-                          {t("wiz.toBarber")}
+                          {preBarber ? t("wiz.toTime") : t("wiz.toBarber")}
                         </button>
                       </div>
                     </div>
@@ -856,6 +872,14 @@ export function BookingWizard({
                 {t("wiz.editBarber")}
               </button>
             </div>
+            {mode === "single" && singleBarber !== ANY && (
+              <p className="-mt-2 text-sm text-muted">
+                {t("wiz.summary.barber")}:{" "}
+                <span className="font-semibold text-fg">
+                  {barbers.find((b) => b.name === singleBarber)?.display ?? singleBarber}
+                </span>
+              </p>
+            )}
 
             {openDays.length > 0 && !slotsError && (
               <div>

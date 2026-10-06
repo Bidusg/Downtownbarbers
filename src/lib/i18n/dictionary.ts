@@ -27,6 +27,7 @@ export const dictionary: Dict = {
   "wiz.whoCuts": { no: "Hvem vil du booke hos?", en: "Who would you like to book with?" },
   "wiz.anyBarberHint": { no: "Første ledige", en: "First available" },
   "wiz.toBarber": { no: "Velg barber →", en: "Choose barber →" },
+  "wiz.toTime": { no: "Velg tid →", en: "Choose time →" },
   "wiz.editBarber": { no: "← Endre barber", en: "← Change barber" },
   "step.contact": { no: "Kontakt", en: "Contact" },
 

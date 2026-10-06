@@ -4,6 +4,13 @@ Dette bygget retter funnene fra den fulle gjennomgangen av forsiden og
 booking-veiviseren (testet live på Vercel-prod, mobil + desktop), og utvider
 språkbyttet NO/EN til **alle** kundevendte sider.
 
+## Bygg 9s – tydelig «fjern» i handlekurven
+
+- «Book nå» under en barber: barberen er forhåndsvalgt, og kurv-knappen blir «Velg tid →» som hopper rett til Tid (Barber-steget hoppes over). Tid-steget viser «Barber: Navn» med «← Endre barber». Hopper ikke over hvis barberen ikke kan ta alle tjenestene i kurven.
+- Hver tjeneste i kurven har en rund søppelbøtte-knapp ved prisen (rød ved hover), i stedet for den lite synlige «Fjern»-teksten. Tom kurv lukker popupen.
+- «Nakkemassasje» oversatt til «Neck massage» på engelsk.
+- Filer: src/components/booking/BookingWizard.tsx, src/lib/i18n/content-map.ts, src/lib/i18n/dictionary.ts.
+
 ## Bygg 9r – turnus fra dato, visningsnavn, Book nå, «Finn neste ledige tid»
 
 - KJØR-I-SUPABASE-TURNUS-FRA-DATO.sql: turnus kan starte på en dato (staff_hours.valid_from/valid_to). Alle turnus-funksjoner (ledige tider, på vakt, hvem kan bookes, Min side, kapasitet, kopier uke) respekterer datoene. Legger også til staff.display_name hvis den mangler.

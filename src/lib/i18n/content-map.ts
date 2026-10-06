@@ -98,6 +98,7 @@ const services: ContentMap = {
   // og ukjente verdier faller trygt tilbake til norsk).
   Hårvask: { en: "Hair wash" },
   Hodebunnsmassasje: { en: "Scalp massage" },
+  Nakkemassasje: { en: "Neck massage" },
   Ansiktsmassasje: { en: "Face massage" },
   Voks: { en: "Wax" },
   "Vask & styling": { en: "Wash & styling" },
