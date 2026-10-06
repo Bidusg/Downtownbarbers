@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getStaffOptions } from "@/lib/ops-queries";
 import type { Range } from "@/lib/report-queries";
+import { getHistoricalRevenue } from "@/lib/historical-revenue";
 
 /* =====================================================================
  * RAPPORT-MOTOR TIER 2
@@ -96,6 +97,12 @@ export async function getBarberScores(r: Range): Promise<BarberScoreReport> {
       if (!s.staff_id) continue;
       revByStaff.set(s.staff_id, (revByStaff.get(s.staff_id) ?? 0) + (Number(s.total_nok) || 0));
       saleCountByStaff.set(s.staff_id, (saleCountByStaff.get(s.staff_id) ?? 0) + 1);
+    }
+
+    // Importert historikk: omsetning + besøk (teller som salg).
+    for (const h of await getHistoricalRevenue(r.startIso, r.endIso)) {
+      revByStaff.set(h.staffId, (revByStaff.get(h.staffId) ?? 0) + h.totalNok);
+      saleCountByStaff.set(h.staffId, (saleCountByStaff.get(h.staffId) ?? 0) + h.visits);
     }
 
     // Bookinger i perioden: fullført/no-show-telling + booket tid per staff.

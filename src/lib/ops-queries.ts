@@ -1,4 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
+import type { AbsenceKind } from "@/lib/absence-kinds";
+import { getHistoricalForMonth } from "@/lib/historical-revenue";
+import { getAbsenceDays, absenceDeduction } from "@/lib/absence-pay";
 
 /* =====================================================================
  * Query-lag for admin-drift: lønn, gavekort, kasseoppgjør, fravær,
@@ -53,6 +56,10 @@ export type PayrollRow = {
   commissionNok: number; // provisjon (40 %)
   baseNok: number; // grunnlønn
   totalNok: number; // total lønn
+  importedNok?: number; // herav importert fra gammelt system (inkl. mva)
+  absenceDays?: number; // dager med trekk-fravær (ulønnet/ugyldig)
+  workdays?: number; // arbeidsdager i måneden (turnus, ellers man–fre)
+  deductionNok?: number; // trekk i grunnlønn for fravær
 };
 
 function monthRange(year: number, month: number) {
@@ -83,13 +90,22 @@ export async function getPayroll(
         (grossByStaff.get(s.staff_id as string) ?? 0) + (Number(s.total_nok) || 0),
       );
     }
+    // Importert historikk (gammelt system): samme beregning, merkes i UI.
+    const importedByStaff = new Map<string, number>();
+    for (const h of await getHistoricalForMonth(year, month)) {
+      grossByStaff.set(h.staffId, (grossByStaff.get(h.staffId) ?? 0) + h.totalNok);
+      importedByStaff.set(h.staffId, (importedByStaff.get(h.staffId) ?? 0) + h.totalNok);
+    }
 
+    const absence = await getAbsenceDays(year, month);
     return staff.map((st) => {
       const gross = grossByStaff.get(st.id) ?? 0;
       const net = gross / (1 + PAYROLL.MVA);
       const commissionBase = Math.max(0, net - PAYROLL.THRESHOLD_NOK);
       const commission = commissionBase * PAYROLL.RATE;
       const base = st.base_salary_nok ?? PAYROLL.BASE_NOK;
+      const ab = absence.get(st.id);
+      const deduction = absenceDeduction(base, ab);
       return {
         staffId: st.id,
         name: st.full_name,
@@ -99,7 +115,11 @@ export async function getPayroll(
         commissionBaseNok: commissionBase,
         commissionNok: commission,
         baseNok: base,
-        totalNok: base + commission,
+        totalNok: base - deduction + commission,
+        importedNok: importedByStaff.get(st.id) ?? 0,
+        absenceDays: ab?.absentDays ?? 0,
+        workdays: ab?.workdays ?? 0,
+        deductionNok: deduction,
       };
     });
   } catch {
@@ -431,15 +451,26 @@ export type Absence = {
   from_date: string;
   to_date: string;
   reason: string | null;
+  kind: AbsenceKind;
 };
+
 
 export async function getAbsences(): Promise<Absence[]> {
   try {
     const sb = await createClient();
-    const { data } = await sb
+    const first = await sb
       .from("absences")
-      .select("id, staff_id, from_date, to_date, reason, staff(full_name)")
+      .select("id, staff_id, from_date, to_date, reason, kind, staff(full_name)")
       .order("from_date", { ascending: false });
+    let data = first.data as Record<string, unknown>[] | null;
+    if (first.error) {
+      // kind-kolonnen mangler (SQL ikke kjørt)
+      const fb = await sb
+        .from("absences")
+        .select("id, staff_id, from_date, to_date, reason, staff(full_name)")
+        .order("from_date", { ascending: false });
+      data = fb.data as Record<string, unknown>[] | null;
+    }
     return (data ?? []).map((r) => {
       const st = r.staff as { full_name?: string } | null;
       return {
@@ -449,6 +480,7 @@ export async function getAbsences(): Promise<Absence[]> {
         from_date: r.from_date as string,
         to_date: r.to_date as string,
         reason: (r.reason as string) ?? null,
+        kind: ((r.kind as AbsenceKind | undefined) ?? "annet") as AbsenceKind,
       };
     });
   } catch {

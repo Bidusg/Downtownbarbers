@@ -4,6 +4,22 @@ Dette bygget retter funnene fra den fulle gjennomgangen av forsiden og
 booking-veiviseren (testet live på Vercel-prod, mobil + desktop), og utvider
 språkbyttet NO/EN til **alle** kundevendte sider.
 
+## Bygg 9u – fravær trekkes i lønn + «Send ut lønnsslipper» i admin
+
+- KJØR-I-SUPABASE-FRAVAER-LONN.sql: fraværstype (absences.kind: ulønnet, ugyldig, syk, ferie, annet), ny RPC absence_deduction_by_staff, og monthly_gross_by_staff slipper nå inn rollen «eier» (Dawit fikk før feil/0 kr i lønnsoversikten).
+- Fravær: velg type når du registrerer; typen kan endres på eksisterende fravær (eksisterende blir «Annet» til du endrer). Ulønnet permisjon og ugyldig fravær er merket «trekkes i lønn».
+- Lønn: trekk = grunnlønn × fraværsdager ÷ arbeidsdager i måneden (turnusdager inkl. ekstravakter; uten turnus man–fre). Vises som egen kolonne «Fravær-trekk» i Admin → Lønn, er med i totalen, i revisors lønnsoversikt og som egen linje på lønnsslipp-PDF-en.
+- Admin → Lønn har fått «Send ut lønnsslipper» (samme knapp som revisor-siden, med bekreftelse).
+- Filer: KJØR-I-SUPABASE-FRAVAER-LONN.sql, src/lib/absence-pay.ts, src/lib/absence-kinds.ts, src/lib/ops-queries.ts, src/lib/payroll-slips.ts, src/components/revisor/PayslipDocument.tsx, src/app/admin/lonn/page.tsx, src/app/admin/fravaer/actions.ts, src/components/admin/AbsenceManager.tsx.
+
+## Bygg 9t – historiske tall (import fra gammelt kassesystem)
+
+- KJØR-I-SUPABASE-HISTORISK-OMSETNING.sql: ny tabell historical_staff_revenue (ansatt, måned, timer, besøk, behandling, varesalg, sum inkl. mva).
+- Admin → Økonomi → «Historiske tall» (/admin/historikk): last opp PDF-ene «Omsetning en ansatt» (flere samtidig). Månedstallene leses ut automatisk (tusenskille med mellomrom tolkes slik at behandling + varesalg = sum), ansatt matches på navn (kan endres, inkl. sluttede), og du krysser av hvilke måneder som lagres. Måneder med salg i nytt system er ikke avkrysset som standard (unngår dobbelttelling). Samme måned på nytt = erstattes. Oversikt over alt importert med sletting per måned.
+- Tallene tas med i: Omsetning (måned), Rapporter (totaler, per barber, «Per måned»-grafen; betalingsmåte «Importert (gammelt system)»), Produktivitet (omsetning + besøk), Nøkkeltall, Måloppnåelse og Lønn (merket «importert»). Ikke i mva-rapporten.
+- Ny avhengighet: unpdf (PDF-tekst på serveren).
+- Filer: KJØR-I-SUPABASE-HISTORISK-OMSETNING.sql, package.json, package-lock.json, src/lib/historical-parse.ts, src/lib/historical-revenue.ts, src/app/admin/historikk/page.tsx, src/app/admin/historikk/actions.ts, src/components/admin/HistoryImporter.tsx, src/components/admin/HistoryTable.tsx, src/lib/admin-nav.ts, src/lib/report-queries.ts, src/lib/dashboard-queries.ts, src/lib/productivity-queries.ts, src/lib/analytics-queries.ts, src/lib/ops-queries.ts, src/app/admin/lonn/page.tsx.
+
 ## Bygg 9s – tydelig «fjern» i handlekurven
 
 - «Book nå» under en barber: barberen er forhåndsvalgt, og kurv-knappen blir «Velg tid →» som hopper rett til Tid (Barber-steget hoppes over). Tid-steget viser «Barber: Navn» med «← Endre barber». Hopper ikke over hvis barberen ikke kan ta alle tjenestene i kurven.

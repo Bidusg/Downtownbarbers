@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { todayShop as mockShop } from "@/lib/data/mock";
 import { FIXIT_CUTOVER, getFixitDailyTotals } from "@/lib/fixit-history";
+import { getHistoricalRevenue, HIST_METHOD_LABEL } from "@/lib/historical-revenue";
 
 export type TodayBooking = {
   id: string;
@@ -362,6 +363,13 @@ export async function getSalesForPeriod(
     }
     // Betalingsmåte: fordel splittsalg per faktisk måte (sale_payments).
     const method = await methodTotals(sb, sales as SaleForMethod[]);
+    // Importert historikk (gammelt system): månedssummer per ansatt.
+    for (const h of await getHistoricalRevenue(startIso, endIso)) {
+      total += h.totalNok;
+      barber.set(h.staffName, (barber.get(h.staffName) ?? 0) + h.totalNok);
+      const cur = method.get(HIST_METHOD_LABEL) ?? { nok: 0, count: 0 };
+      method.set(HIST_METHOD_LABEL, { nok: cur.nok + h.totalNok, count: cur.count + h.visits });
+    }
     return {
       rows,
       total: Math.round(total),

@@ -4,6 +4,7 @@ import {
   PAYROLL,
   type PayrollRow,
 } from "@/lib/ops-queries";
+import { getAbsenceDays, absenceDeduction } from "@/lib/absence-pay";
 
 /* =====================================================================
  * Lønnsberegning for revisor.
@@ -46,6 +47,7 @@ export async function getPayrollForMonth(
       grossByStaff.set(r.staff_id, Number(r.gross_nok) || 0);
     }
 
+    const absence = await getAbsenceDays(year, month);
     return staff.map((st) => {
       const gross = grossByStaff.get(st.id) ?? 0;
       const net = gross / (1 + PAYROLL.MVA);
@@ -61,7 +63,10 @@ export async function getPayrollForMonth(
         commissionBaseNok: commissionBase,
         commissionNok: commission,
         baseNok: base,
-        totalNok: base + commission,
+        totalNok: base - absenceDeduction(base, absence.get(st.id)) + commission,
+        absenceDays: absence.get(st.id)?.absentDays ?? 0,
+        workdays: absence.get(st.id)?.workdays ?? 0,
+        deductionNok: absenceDeduction(base, absence.get(st.id)),
       };
     });
   } catch {

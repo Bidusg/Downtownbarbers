@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import type { Absence, StaffOption } from "@/lib/ops-queries";
-import { createAbsence, deleteAbsence } from "@/app/admin/fravaer/actions";
+import { ABSENCE_KINDS } from "@/lib/absence-kinds";
+import { createAbsence, deleteAbsence, updateAbsenceKind } from "@/app/admin/fravaer/actions";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { Card } from "@/components/ui/Card";
 import {
@@ -30,7 +31,8 @@ export function AbsenceManager({
   staff: StaffOption[];
 }) {
   const [open, setOpen] = useState(false);
-  const [pending] = useTransition();
+  const [pending, start] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
 
   return (
     <div className="space-y-6">
@@ -64,7 +66,18 @@ export function AbsenceManager({
                 </option>
               ))}
             </Select>
-            <Input name="reason" placeholder="Årsak (valgfritt)" />
+            <Select name="kind" required defaultValue="">
+              <option value="" disabled>
+                Type fravær …
+              </option>
+              {ABSENCE_KINDS.map((k) => (
+                <option key={k.value} value={k.value}>
+                  {k.label}
+                  {k.deduct ? " – trekkes i lønn" : ""}
+                </option>
+              ))}
+            </Select>
+            <Input name="reason" placeholder="Kommentar (valgfritt)" className="sm:col-span-2" />
             <Field label="Fra dato">
               <Input name="from_date" type="date" required />
             </Field>
@@ -78,6 +91,11 @@ export function AbsenceManager({
         </Card>
       )}
 
+      {err && <p className="text-sm text-danger">{err}</p>}
+      <p className="text-xs text-muted">
+        Ulønnet permisjon og ugyldig fravær trekkes i grunnlønnen (grunnlønn ÷ arbeidsdager i
+        måneden × fraværsdager). Sykdom, ferie og annet trekkes ikke.
+      </p>
       <Card padded={false}>
         <Table>
           <THead>
@@ -85,19 +103,46 @@ export function AbsenceManager({
               <Th>Ansatt</Th>
               <Th>Fra</Th>
               <Th>Til</Th>
-              <Th>Årsak</Th>
+              <Th>Type</Th>
+              <Th>Kommentar</Th>
               <Th></Th>
             </Tr>
           </THead>
           <TBody>
             {absences.length === 0 && (
-              <TableEmpty colSpan={5}>Ingen fravær registrert enda.</TableEmpty>
+              <TableEmpty colSpan={6}>Ingen fravær registrert enda.</TableEmpty>
             )}
             {absences.map((a) => (
               <Tr key={a.id}>
                 <Td className="font-medium text-fg">{a.staffName}</Td>
                 <Td muted>{no(a.from_date)}</Td>
                 <Td muted>{no(a.to_date)}</Td>
+                <Td>
+                  <select
+                    value={a.kind}
+                    disabled={pending}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      start(async () => {
+                        setErr(null);
+                        const res = await updateAbsenceKind(a.id, v);
+                        if (res.error) setErr(res.error);
+                      });
+                    }}
+                    className={
+                      "rounded-md border bg-canvas px-2 py-1 text-xs " +
+                      (ABSENCE_KINDS.find((k) => k.value === a.kind)?.deduct
+                        ? "border-danger/50 text-danger"
+                        : "border-line-2 text-fg")
+                    }
+                  >
+                    {ABSENCE_KINDS.map((k) => (
+                      <option key={k.value} value={k.value}>
+                        {k.label}
+                      </option>
+                    ))}
+                  </select>
+                </Td>
                 <Td muted>{a.reason ?? "—"}</Td>
                 <Td align="right">
                   <ConfirmButton

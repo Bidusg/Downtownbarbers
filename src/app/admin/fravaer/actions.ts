@@ -11,13 +11,33 @@ export async function createAbsence(formData: FormData) {
   const from_date = String(formData.get("from_date") ?? "");
   const to_date = String(formData.get("to_date") ?? "");
   if (!staff_id || !from_date || !to_date) return;
-  await sb.from("absences").insert({
+  const rawKind = String(formData.get("kind") ?? "annet");
+  const kind = KINDS.includes(rawKind) ? rawKind : "annet";
+  const row = {
     staff_id,
     from_date,
     to_date,
     reason: String(formData.get("reason") ?? "") || null,
-  });
+  };
+  const { error } = await sb.from("absences").insert({ ...row, kind });
+  // Før FRAVAER-LONN-SQL er kjørt finnes ikke kind – lagre uten type.
+  if (error && /kind/.test(error.message)) await sb.from("absences").insert(row);
   revalidatePath("/admin/fravaer");
+  revalidatePath("/admin/lonn");
+}
+
+const KINDS = ["ulonnet", "ugyldig", "syk", "ferie", "annet"];
+
+/** Endre fraværstype (påvirker trekk i lønn). */
+export async function updateAbsenceKind(id: string, kind: string): Promise<{ ok?: true; error?: string }> {
+  await requireRole(["admin"]);
+  if (!KINDS.includes(kind)) return { error: "Ugyldig type." };
+  const sb = await createClient();
+  const { error } = await sb.from("absences").update({ kind }).eq("id", id);
+  if (error) return { error: /kind/.test(error.message) ? "Kjør KJØR-I-SUPABASE-FRAVAER-LONN.sql først." : error.message };
+  revalidatePath("/admin/fravaer");
+  revalidatePath("/admin/lonn");
+  return { ok: true };
 }
 
 export async function deleteAbsence(id: string) {
@@ -25,6 +45,7 @@ export async function deleteAbsence(id: string) {
   const sb = await createClient();
   await sb.from("absences").delete().eq("id", id);
   revalidatePath("/admin/fravaer");
+  revalidatePath("/admin/lonn");
 }
 
 export type DecideResult = { ok: true } | { ok: false; error: string };

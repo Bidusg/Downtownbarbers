@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getHistoricalRevenue, HIST_METHOD_LABEL } from "@/lib/historical-revenue";
 
 /* =====================================================================
  * RAPPORT-MOTOR
@@ -203,6 +204,11 @@ export async function getRevenueByGranularity(
       const [yy, mm] = key.split("-").map(Number);
       add(key, `${MND[mm - 1]} ${yy}`, key, s.nok);
     }
+    // Importerte månedstall (gammelt system) – finnes kun som månedssummer.
+    for (const h of await getHistoricalRevenue(r.startIso, r.endIso)) {
+      const [yy, mm] = h.month.split("-").map(Number);
+      add(h.month, `${MND[mm - 1]} ${yy}`, h.month, h.totalNok);
+    }
   } else if (g === "week") {
     for (const s of all) {
       const { key, label } = osloIsoWeek(s.sold_at);
@@ -243,7 +249,10 @@ const prettyMethod = (m: string | null): string => {
 };
 
 export async function getRevenueBreakdown(r: Range): Promise<Breakdown> {
-  const internal = await fetchInternalSales(r);
+  const [internal, hist] = await Promise.all([
+    fetchInternalSales(r),
+    getHistoricalRevenue(r.startIso, r.endIso),
+  ]);
   const barber = new Map<string, number>();
   const method = new Map<string, number>();
   let internalTotal = 0;
@@ -253,8 +262,17 @@ export async function getRevenueBreakdown(r: Range): Promise<Breakdown> {
     const m = prettyMethod(s.payment_method);
     method.set(m, (method.get(m) ?? 0) + s.total_nok);
   }
-  const total = internalTotal;
-  const saleCount = internal.length;
+  // Importert historikk (månedssummer per ansatt). Besøk teller som «salg».
+  let histTotal = 0;
+  let histVisits = 0;
+  for (const h of hist) {
+    histTotal += h.totalNok;
+    histVisits += h.visits;
+    barber.set(h.staffName, (barber.get(h.staffName) ?? 0) + h.totalNok);
+  }
+  if (histTotal > 0) method.set(HIST_METHOD_LABEL, (method.get(HIST_METHOD_LABEL) ?? 0) + histTotal);
+  const total = internalTotal + histTotal;
+  const saleCount = internal.length + histVisits;
   return {
     total: Math.round(total),
     internal: Math.round(internalTotal),

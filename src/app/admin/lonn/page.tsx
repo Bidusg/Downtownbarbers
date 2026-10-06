@@ -4,6 +4,10 @@ import { Card } from "@/components/ui/Card";
 import { Table, THead, TBody, Tr, Th, Td, TableEmpty } from "@/components/ui/Table";
 import { Field, Select } from "@/components/ui/Input";
 import { getPayroll, PAYROLL } from "@/lib/ops-queries";
+import { GeneratePayslipsButton } from "@/components/revisor/GeneratePayslipsButton";
+
+// Lønnsslipp-PDF (@react-pdf) kjøres i server-action fra denne siden – krever Node.
+export const runtime = "nodejs";
 
 const kr = (n: number) =>
   Math.round(n).toLocaleString("nb-NO") + " kr";
@@ -75,12 +79,13 @@ export default async function AdminLonn({
               <Th align="right">Over terskel</Th>
               <Th align="right">Provisjon 40 %</Th>
               <Th align="right">Grunnlønn</Th>
+              <Th align="right">Fravær-trekk</Th>
               <Th align="right">Total lønn</Th>
             </Tr>
           </THead>
           <TBody>
             {rows.length === 0 && (
-              <TableEmpty colSpan={7}>
+              <TableEmpty colSpan={8}>
                 Ingen aktive barbere eller ingen salg registrert for perioden.
               </TableEmpty>
             )}
@@ -90,11 +95,31 @@ export default async function AdminLonn({
                   {r.name}
                   <span className="ml-2 text-xs text-muted">{r.title ?? "Barber"}</span>
                 </Td>
-                <Td align="right" muted nums>{kr(r.grossNok)}</Td>
+                <Td align="right" muted nums>
+                  {kr(r.grossNok)}
+                  {(r.importedNok ?? 0) > 0 && (
+                    <span
+                      className="ml-1.5 rounded-full border border-accent-soft/40 px-1.5 py-0.5 text-[10px] text-accent-soft"
+                      title="Omsetningen er importert fra det gamle kassesystemet"
+                    >
+                      importert
+                    </span>
+                  )}
+                </Td>
                 <Td align="right" muted nums>{kr(r.netNok)}</Td>
                 <Td align="right" muted nums>{kr(r.commissionBaseNok)}</Td>
                 <Td align="right" nums className="text-accent-soft">{kr(r.commissionNok)}</Td>
                 <Td align="right" muted nums>{kr(r.baseNok)}</Td>
+                <Td align="right" nums className={(r.deductionNok ?? 0) > 0 ? "text-danger" : "text-muted"}>
+                  {(r.deductionNok ?? 0) > 0 ? (
+                    <span title={`${r.absenceDays} av ${r.workdays} arbeidsdager (ulønnet/ugyldig fravær)`}>
+                      − {kr(r.deductionNok ?? 0)}
+                      <span className="ml-1 text-[10px]">({r.absenceDays} d)</span>
+                    </span>
+                  ) : (
+                    "—"
+                  )}
+                </Td>
                 <Td align="right" nums className="font-display font-bold text-fg">{kr(r.totalNok)}</Td>
               </Tr>
             ))}
@@ -108,6 +133,11 @@ export default async function AdminLonn({
                 <Td></Td>
                 <Td align="right" nums className="text-accent-soft">{kr(rows.reduce((s, r) => s + r.commissionNok, 0))}</Td>
                 <Td align="right" muted nums>{kr(rows.reduce((s, r) => s + r.baseNok, 0))}</Td>
+                <Td align="right" nums className="text-danger">
+                  {rows.some((r) => (r.deductionNok ?? 0) > 0)
+                    ? `− ${kr(rows.reduce((s, r) => s + (r.deductionNok ?? 0), 0))}`
+                    : "—"}
+                </Td>
                 <Td align="right" nums className="font-display text-fg">{kr(totalPay)}</Td>
               </tr>
             </tfoot>
@@ -115,10 +145,36 @@ export default async function AdminLonn({
         </Table>
       </Card>
 
+      {/* Generer + send lønnsoversikter (samme som revisor-siden) */}
+      <Card>
+        <div className="space-y-4">
+          <div>
+            <h2 className="font-display text-lg font-bold">Send ut lønnsslipper</h2>
+            <p className="mt-1 text-sm text-muted">
+              Lager én PDF per aktiv ansatt for {MONTHS[month - 1]} {year}, legger den i
+              ansattens dokumentmappe og sender e-post. Kan kjøres på nytt – forrige
+              versjon for måneden erstattes.
+            </p>
+          </div>
+          <GeneratePayslipsButton
+            year={year}
+            month={month}
+            monthLabel={MONTHS[month - 1]}
+            staffCount={rows.length}
+            recipients={rows.map((r) => ({ name: r.name, totalNok: r.totalNok }))}
+          />
+        </div>
+      </Card>
+
       <Card className="text-sm text-muted">
         <p className="mb-2 font-semibold text-fg">Slik regnes lønnen</p>
         <p className="font-display text-fg">
-          lønn = grunnlønn + {PAYROLL.RATE.toString().replace(".", ",")} × maks(0, omsetning eks. mva − {kr(PAYROLL.THRESHOLD_NOK)})
+          lønn = grunnlønn − fravær-trekk + {PAYROLL.RATE.toString().replace(".", ",")} × maks(0, omsetning eks. mva − {kr(PAYROLL.THRESHOLD_NOK)})
+        </p>
+        <p className="mt-3">
+          Fravær-trekk: ulønnet permisjon og ugyldig fravær (registrert under Fravær) trekkes med
+          grunnlønn ÷ arbeidsdager i måneden × fraværsdager. Arbeidsdager = dagene i turnusen
+          (uten turnus: man–fre). Sykdom, ferie og «annet» trekkes ikke.
         </p>
         <p className="mt-3">
           Omsetningen hentes fra registrert salg i kassen per barber for valgt

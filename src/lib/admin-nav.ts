@@ -94,6 +94,11 @@ export const adminGroups: AdminNavGroup[] = [
         description: "Salg per periode",
       },
       {
+        label: "Historiske tall",
+        href: "/admin/historikk",
+        description: "Importer omsetning per ansatt fra gammelt system (PDF)",
+      },
+      {
         label: "Regnskap",
         href: "/admin/regnskap",
         description: "Resultat, mva og kontoplan fra Tripletex",

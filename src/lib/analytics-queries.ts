@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getBudgets, getStaffOptions } from "@/lib/ops-queries";
 import type { Range } from "@/lib/report-queries";
+import { getHistoricalForMonth } from "@/lib/historical-revenue";
 
 /* =====================================================================
  * ANALYSE: måloppnåelse, gjenbesøk og gullkunder.
@@ -54,6 +55,11 @@ export async function getGoalProgress(year: number, month: number): Promise<Goal
       const amt = Number(s.total_nok) || 0;
       salonActual += amt;
       if (s.staff_id) actualByStaff.set(s.staff_id as string, (actualByStaff.get(s.staff_id as string) ?? 0) + amt);
+    }
+    // Importert historikk (gammelt system) for måneden.
+    for (const h of await getHistoricalForMonth(year, month)) {
+      salonActual += h.totalNok;
+      actualByStaff.set(h.staffId, (actualByStaff.get(h.staffId) ?? 0) + h.totalNok);
     }
 
     // Budsjett per barber + evt. salong-mål (staff_id = null).

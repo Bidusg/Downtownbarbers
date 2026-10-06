@@ -157,6 +157,12 @@ function PayslipDoc({
         {/* Lønnslinjer */}
         <Text style={s.sectionTitle}>Beregning</Text>
         <Line label="Grunnlønn" value={kr(row.baseNok)} />
+        {(row.deductionNok ?? 0) > 0 && (
+          <Line
+            label={`Trekk fravær (${row.absenceDays} av ${row.workdays} arbeidsdager)`}
+            value={`− ${kr(row.deductionNok ?? 0)}`}
+          />
+        )}
         <Line label="Omsetning (inkl. mva)" value={kr(row.grossNok)} muted />
         <Line label="Netto (eks. mva)" value={kr(row.netNok)} muted />
         <Line label="Terskel (eks. mva)" value={kr(PAYROLL.THRESHOLD_NOK)} muted />
