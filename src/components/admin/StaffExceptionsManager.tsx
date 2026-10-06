@@ -37,6 +37,7 @@ export function StaffExceptionsManager({
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("off_full");
   const [pending] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
 
   const needsTimes = mode !== "off_full";
   const nameOf = (id: string) =>
@@ -56,6 +57,7 @@ export function StaffExceptionsManager({
         </Button>
       </div>
 
+      {err && <p className="text-sm text-danger">{err}</p>}
       {open && (
         <form
           action={async (fd) => {
@@ -65,7 +67,12 @@ export function StaffExceptionsManager({
               fd.delete("start_time");
               fd.delete("end_time");
             }
-            await createStaffException(fd);
+            setErr(null);
+            const r = await createStaffException(fd);
+            if (r?.error) {
+              setErr(r.error);
+              return;
+            }
             setOpen(false);
             setMode("off_full");
           }}
@@ -90,7 +97,7 @@ export function StaffExceptionsManager({
           >
             <option value="off_full">Fri hele dagen</option>
             <option value="off_part">Fri deler av dagen</option>
-            <option value="extra">Ekstravakt</option>
+            <option value="extra">Vakt denne dagen (erstatter turnusen)</option>
           </Select>
 
           {needsTimes && (
@@ -141,7 +148,7 @@ export function StaffExceptionsManager({
             const isExtra = e.kind === "extra";
             const isFullOff = e.kind === "off" && !e.start_time;
             const label = isExtra
-              ? "Ekstravakt"
+              ? "Vakt denne dagen"
               : isFullOff
                 ? "Fri hele dagen"
                 : "Fri";

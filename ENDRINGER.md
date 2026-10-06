@@ -4,6 +4,14 @@ Dette bygget retter funnene fra den fulle gjennomgangen av forsiden og
 booking-veiviseren (testet live på Vercel-prod, mobil + desktop), og utvider
 språkbyttet NO/EN til **alle** kundevendte sider.
 
+## Bygg 9y – vakter for én dato: erstatter turnus, kan endres/slettes, ingen krasj
+
+- En vakt satt for en dato er ikke lenger «ekstravakt»: den ERSTATTER turnusen den dagen (kun vaktens tid er bookbar og vises i planen). KJØR-I-SUPABASE-EKSTRAVAKT-VINNER.sql er oppdatert med dette – kjør den (på nytt).
+- Timelister → trykk på en dag: popupen viser det som allerede er satt for datoen med «Endre» og «Slett», og «Legg til»/«Endre»-skjema. Ukeplanen viser vakten i stedet for turnusen den dagen.
+- Krasjkontroll (server): kan ikke legge inn en vakt som overlapper en annen vakt samme dag, eller fri som overlapper fri. Turnus (enkeltvakt, endring og bulk) avviser tider som overlapper eksisterende turnus samme ukedag/uke/periode – med tydelig feilmelding.
+- «Ekstravakt» heter nå «Vakt denne dagen» også under Avvik.
+- Filer: KJØR-I-SUPABASE-EKSTRAVAKT-VINNER.sql, src/app/admin/timelister/actions.ts, src/components/admin/WeekSchedule.tsx, src/components/admin/StaffExceptionsManager.tsx, src/components/admin/StaffHoursManager.tsx.
+
 ## Bygg 9x – ekstravakt vinner over fravær, datoer i ukeplanen, forklaring i kalenderen
 
 - KJØR-I-SUPABASE-EKSTRAVAKT-VINNER.sql: en ekstravakt for en bestemt dato vinner nå over fravær/heldags fri (ledige tider = kun ekstravaktens tidsrom, vises i kalenderen, regnes ikke som fraværsdag i lønn). Før ble den stille overstyrt av et lengre fravær.

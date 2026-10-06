@@ -1,9 +1,9 @@
 -- =====================================================================
 -- KJØR-I-SUPABASE-EKSTRAVAKT-VINNER.sql  (idempotent – kjør etter TURNUS-FRA-DATO)
 --
--- En ekstravakt for EN BESTEMT DATO (Timelister → trykk på dagen) vinner nå
--- over fravær/heldags fri den datoen:
---   • ledige tider: kun ekstravaktens tidsrom er bookbart den dagen
+-- En vakt satt for EN BESTEMT DATO (Timelister → trykk på dagen) ERSTATTER
+-- turnusen den dagen og vinner over fravær/heldags fri:
+--   • ledige tider: kun vaktens tidsrom er bookbart den dagen
 --   • kalenderen («på vakt»): barberen vises
 --   • lønn: dagen regnes ikke som fraværsdag
 -- Før ble en ekstravakt stille overstyrt av et lengre fravær, så den
@@ -72,7 +72,14 @@ begin
 
   v_parity := turnus_week_parity(p_date);
   select exists(select 1 from staff_hours where staff_id = v_staff and (valid_from is null or valid_from <= p_date) and (valid_to is null or valid_to >= p_date)) into v_has_turnus;
-  if v_full_off then v_has_turnus := false; end if; -- fravær + ekstravakt: kun ekstravakt
+  -- En vakt satt for denne datoen ERSTATTER turnusen den dagen (og vinner
+  -- over fravær): da er kun vaktens tidsrom bookbart.
+  if exists (
+    select 1 from staff_exceptions e
+    where e.staff_id = v_staff and e.date = p_date and e.kind = 'extra'
+  ) then
+    v_has_turnus := false;
+  end if;
 
   slot := v_open;
   while slot + make_interval(mins => v_dur) <= v_close loop
@@ -199,7 +206,14 @@ begin
 
   v_parity := turnus_week_parity(p_date);
   select exists(select 1 from staff_hours where staff_id = v_staff and (valid_from is null or valid_from <= p_date) and (valid_to is null or valid_to >= p_date)) into v_has_turnus;
-  if v_full_off then v_has_turnus := false; end if; -- fravær + ekstravakt: kun ekstravakt
+  -- En vakt satt for denne datoen ERSTATTER turnusen den dagen (og vinner
+  -- over fravær): da er kun vaktens tidsrom bookbart.
+  if exists (
+    select 1 from staff_exceptions e
+    where e.staff_id = v_staff and e.date = p_date and e.kind = 'extra'
+  ) then
+    v_has_turnus := false;
+  end if;
 
   slot := v_open;
   while slot + make_interval(mins => v_dur) <= v_close loop

@@ -41,6 +41,7 @@ export function StaffHoursManager({
   const indices = parityOptions(weeks); // [1..weeks]
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   const byStaff = staff.map((s) => ({
@@ -103,7 +104,9 @@ export function StaffHoursManager({
         <Card>
           <form
             action={async (fd) => {
-              await createStaffHour(fd);
+              setErr(null);
+              const r = await createStaffHour(fd);
+              if (r?.error) return setErr(r.error);
               setOpen(false);
             }}
             className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
@@ -159,6 +162,9 @@ export function StaffHoursManager({
         </Card>
       )}
 
+      {err && (
+        <p className="mb-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">{err}</p>
+      )}
       {staff.length === 0 && (
         <EmptyState description="Ingen aktive ansatte enda – legg til ansatte først." />
       )}
@@ -181,7 +187,9 @@ export function StaffHoursManager({
                     <li key={h.id} className="px-5 py-3">
                       <form
                         action={async (fd) => {
-                          await updateStaffHour(fd);
+                          setErr(null);
+                          const r = await updateStaffHour(fd);
+                          if (r?.error) return setErr(r.error);
                           setEditId(null);
                         }}
                         className="flex flex-wrap items-center gap-2 text-sm"

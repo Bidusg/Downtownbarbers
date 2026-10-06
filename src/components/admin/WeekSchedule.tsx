@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { colorAt } from "@/lib/colors";
 import type { Absence, StaffException, StaffHour, StaffOption } from "@/lib/ops-queries";
-import { createStaffException } from "@/app/admin/timelister/actions";
+import { createStaffException, updateStaffException, deleteStaffException } from "@/app/admin/timelister/actions";
 
 const WEEKDAY_NAMES = ["søndag", "mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag"];
 
@@ -27,10 +27,19 @@ function dateInWeek(weekStart: string, dow: number): string {
 }
 const dm = (iso: string) => `${Number(iso.slice(8, 10))}.${Number(iso.slice(5, 7))}`;
 
-/** Popup: lag en enkeltdags-vakt (ekstravakt) eller fri for én dato. */
-function SingleDayDialog({ pick, onClose }: { pick: Pick; onClose: () => void }) {
+/** Popup: sett, endre eller slett vakt / fri for én bestemt dato. */
+function SingleDayDialog({
+  pick,
+  staffExceptions,
+  onClose,
+}: {
+  pick: Pick;
+  staffExceptions: StaffException[];
+  onClose: () => void;
+}) {
   const router = useRouter();
   const [date, setDate] = useState(pick.date || nextDateFor(pick.dow));
+  const [editId, setEditId] = useState<string | null>(null);
   const [kind, setKind] = useState<"extra" | "off">("extra");
   const [start, setStart] = useState(pick.start);
   const [end, setEnd] = useState(pick.end);
@@ -39,6 +48,25 @@ function SingleDayDialog({ pick, onClose }: { pick: Pick; onClose: () => void })
   const [pending, run] = useTransition();
   const field =
     "w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg focus:border-accent-soft focus:outline-none";
+  const existing = staffExceptions
+    .filter((e) => e.date === date)
+    .sort((a, b) => (a.start_time ?? "").localeCompare(b.start_time ?? ""));
+
+  function startEdit(e: StaffException) {
+    setErr(null);
+    setEditId(e.id);
+    setKind(e.kind);
+    setStart(e.start_time ?? "");
+    setEnd(e.end_time ?? "");
+    setNote(e.note ?? "");
+  }
+  function resetForm() {
+    setEditId(null);
+    setKind("extra");
+    setStart(pick.start);
+    setEnd(pick.end);
+    setNote("");
+  }
 
   function save() {
     setErr(null);
@@ -48,14 +76,26 @@ function SingleDayDialog({ pick, onClose }: { pick: Pick; onClose: () => void })
     fd.set("staff_id", pick.staff.id);
     fd.set("date", date);
     fd.set("kind", kind);
-    if (kind === "extra" || (start && end && end > start)) {
+    if (start && end) {
       fd.set("start_time", start);
       fd.set("end_time", end);
     }
     fd.set("note", note);
     run(async () => {
-      await createStaffException(fd);
+      const r = editId ? await updateStaffException(editId, fd) : await createStaffException(fd);
+      if (r?.error) return setErr(r.error);
       router.refresh();
+      onClose();
+    });
+  }
+
+  function remove(id: string) {
+    setErr(null);
+    run(async () => {
+      const r = await deleteStaffException(id);
+      if (r?.error) return setErr(r.error);
+      router.refresh();
+      if (editId === id) resetForm();
       onClose();
     });
   }
@@ -63,28 +103,72 @@ function SingleDayDialog({ pick, onClose }: { pick: Pick; onClose: () => void })
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div
-        className="w-full max-w-sm rounded-2xl border border-line bg-surface p-5 shadow-2xl"
+        className="max-h-[90dvh] w-full max-w-sm overflow-y-auto rounded-2xl border border-line bg-surface p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
-            <h2 className="font-display text-lg font-bold text-fg">Enkeltdag – {pick.staff.full_name}</h2>
-            <p className="text-xs text-muted">Gjelder kun den valgte datoen. Turnusen ellers er uendret.</p>
+            <h2 className="font-display text-lg font-bold text-fg">{pick.staff.full_name}</h2>
+            <p className="text-xs text-muted">
+              Vakt eller fri for én dato. En vakt her erstatter turnusen den dagen.
+            </p>
           </div>
           <button onClick={onClose} className="p-1 text-muted hover:text-fg" aria-label="Lukk">
             ✕
           </button>
         </div>
-        <div className="space-y-3">
+
+        <label className="block text-xs text-muted">
+          Dato
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => {
+              setDate(e.target.value);
+              resetForm();
+            }}
+            className={field + " mt-1"}
+          />
+        </label>
+
+        {/* Det som allerede er satt for datoen – endre / slett */}
+        {existing.length > 0 && (
+          <ul className="mt-3 divide-y divide-line rounded-md border border-line">
+            {existing.map((e) => (
+              <li key={e.id} className={"flex items-center justify-between gap-2 px-3 py-2 text-sm " + (editId === e.id ? "bg-accent-soft/10" : "")}>
+                <span className="min-w-0">
+                  <span className="font-semibold text-fg">
+                    {e.kind === "extra" ? "Vakt" : "Fri"}{" "}
+                    {e.start_time && e.end_time ? `${e.start_time}–${e.end_time}` : "hele dagen"}
+                  </span>
+                  {e.note && <span className="block truncate text-xs text-muted">{e.note}</span>}
+                </span>
+                <span className="flex shrink-0 gap-3 text-xs">
+                  <button onClick={() => startEdit(e)} className="text-accent-soft hover:underline" disabled={pending}>
+                    Endre
+                  </button>
+                  <button onClick={() => remove(e.id)} className="text-danger hover:underline" disabled={pending}>
+                    Slett
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="mt-4 space-y-3">
+          <p className="text-xs font-semibold tracking-wide text-muted uppercase">
+            {editId ? "Endre" : existing.length ? "Legg til" : "Ny"}
+          </p>
           <div className="flex overflow-hidden rounded-md border border-line-2 text-xs font-semibold">
             <button
               type="button"
               onClick={() => setKind("extra")}
               className={"flex-1 px-3 py-2 " + (kind === "extra" ? "bg-accent text-accent-fg" : "text-muted")}
             >
-              Ekstravakt / jobber
+              Vakt denne dagen
             </button>
             <button
               type="button"
@@ -94,10 +178,6 @@ function SingleDayDialog({ pick, onClose }: { pick: Pick; onClose: () => void })
               Fri denne dagen
             </button>
           </div>
-          <label className="block text-xs text-muted">
-            Dato (kan endres)
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={field + " mt-1"} />
-          </label>
           <div className="grid grid-cols-2 gap-2">
             <label className="block text-xs text-muted">
               Fra
@@ -109,23 +189,29 @@ function SingleDayDialog({ pick, onClose }: { pick: Pick; onClose: () => void })
             </label>
           </div>
           {kind === "off" && (
-            <p className="text-[11px] text-muted">Tøm tidene for å gi fri hele dagen, eller sett tidsrommet som er fri.</p>
+            <p className="text-[11px] text-muted">Tøm tidene for fri hele dagen, eller sett tidsrommet som er fri.</p>
           )}
           <label className="block text-xs text-muted">
             Notat (valgfritt)
             <input value={note} onChange={(e) => setNote(e.target.value)} className={field + " mt-1"} />
           </label>
-          {err && <p className="text-sm text-danger">{err}</p>}
+          {err && <p className="rounded-md bg-danger/10 px-3 py-2 text-sm text-danger">{err}</p>}
           <div className="flex justify-end gap-2 pt-1">
-            <button onClick={onClose} className="rounded-md border border-line-2 px-4 py-2 text-sm text-fg">
-              Avbryt
-            </button>
+            {editId ? (
+              <button onClick={resetForm} className="rounded-md border border-line-2 px-4 py-2 text-sm text-fg">
+                Avbryt endring
+              </button>
+            ) : (
+              <button onClick={onClose} className="rounded-md border border-line-2 px-4 py-2 text-sm text-fg">
+                Lukk
+              </button>
+            )}
             <button
               onClick={save}
               disabled={pending}
               className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-fg disabled:opacity-60"
             >
-              {pending ? "Lagrer …" : "Lagre"}
+              {pending ? "Lagrer …" : editId ? "Lagre endring" : "Lagre"}
             </button>
           </div>
         </div>
@@ -245,7 +331,7 @@ export function WeekSchedule({
                         end: shifts[0]?.end_time ?? "19:00",
                       })
                     }
-                    title={`Enkeltdags-vakt eller fri for ${s.full_name} (${WEEKDAY_NAMES[d.n]})`}
+                    title={`Sett, endre eller slett vakt / fri for ${s.full_name} denne datoen`}
                     className="group block border-l border-line px-1.5 py-2 text-left transition-colors hover:bg-accent-soft/10"
                   >
                     <div className="relative h-6 overflow-hidden rounded bg-surface-2/50 ring-accent-soft/60 group-hover:ring-1">
@@ -258,7 +344,7 @@ export function WeekSchedule({
                         return (
                           <div
                             key={e.id}
-                            title={`Ekstravakt ${e.start_time}–${e.end_time}${e.note ? ` · ${e.note}` : ""}`}
+                            title={`Vakt denne dagen ${e.start_time}–${e.end_time}${e.note ? ` · ${e.note}` : ""}`}
                             className="absolute top-0 z-[2] flex h-6 items-center justify-center rounded border border-dashed border-[#211E1A]/40"
                             style={{
                               left: `${left}%`,
@@ -285,7 +371,8 @@ export function WeekSchedule({
                           + vakt
                         </span>
                       )}
-                      {shifts.map((h, j) => {
+                      {/* Vakt satt for datoen erstatter turnusen den dagen */}
+                      {extras.length === 0 && shifts.map((h, j) => {
                         const a = toMin(h.start_time);
                         const b = toMin(h.end_time);
                         const left = Math.max(0, ((a - BASE) / SPAN) * 100);
@@ -320,9 +407,15 @@ export function WeekSchedule({
       </div>
       <p className="border-t border-line px-3 py-1.5 text-[10px] text-muted">
         Tidsskala 09–21. Trykk på en dag for å legge inn en ekstravakt eller fri for akkurat den datoen
-        (stripet = ekstravakt, grå = fravær/fri). Fast turnus endres i redigeringen under.
+        (stripet = vakt satt for datoen – erstatter turnusen; grå = fravær/fri). Fast turnus endres i redigeringen under.
       </p>
-      {pick && <SingleDayDialog pick={pick} onClose={() => setPick(null)} />}
+      {pick && (
+        <SingleDayDialog
+          pick={pick}
+          staffExceptions={exceptions.filter((e) => e.staff_id === pick.staff.id)}
+          onClose={() => setPick(null)}
+        />
+      )}
     </div>
   );
 }
