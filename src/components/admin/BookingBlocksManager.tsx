@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import type { BookingBlock } from "@/lib/ops-queries";
 import {
   createBookingBlock,
+  updateBookingBlock,
   deleteBookingBlock,
 } from "@/app/admin/timelister/actions";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
@@ -29,12 +30,33 @@ function fmtDate(iso: string) {
 }
 
 export function BookingBlocksManager({ blocks }: { blocks: BookingBlock[] }) {
-  const [open, setOpen] = useState(false);
+  // null = skjult, "new" = ny blokkering, ellers = redigerer den blokkeringen.
+  const [editing, setEditing] = useState<"new" | BookingBlock | null>(null);
   const [wholeDay, setWholeDay] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState(false);
   const [pending, start] = useTransition();
   const [delPending, startDel] = useTransition();
+
+  const isEdit = editing !== null && editing !== "new";
+  const cur = isEdit ? (editing as BookingBlock) : null;
+
+  function openNew() {
+    setEditing("new");
+    setWholeDay(true);
+    setMsg(null);
+    setErr(false);
+  }
+  function openEdit(b: BookingBlock) {
+    setEditing(b);
+    setWholeDay(!(b.start_time && b.end_time));
+    setMsg(null);
+    setErr(false);
+  }
+  function close() {
+    setEditing(null);
+    setMsg(null);
+  }
 
   return (
     <div className="space-y-4">
@@ -44,38 +66,46 @@ export function BookingBlocksManager({ blocks }: { blocks: BookingBlock[] }) {
         </p>
         <Button
           variant="primary"
-          onClick={() => {
-            setOpen((o) => !o);
-            setMsg(null);
-          }}
+          onClick={() => (editing === "new" ? close() : openNew())}
           className="px-4 py-2 text-sm"
         >
-          {open ? "Lukk" : "+ Ny blokkering"}
+          {editing === "new" ? "Lukk" : "+ Ny blokkering"}
         </Button>
       </div>
 
-      {open && (
+      {editing !== null && (
         <form
+          // Nøkkel tvinger ferske defaultValue når man bytter mellom rader/ny.
+          key={cur?.id ?? "new"}
           action={(fd) =>
             start(async () => {
               setMsg(null);
               setErr(false);
-              const r = await createBookingBlock(fd);
+              const r = isEdit
+                ? await updateBookingBlock(fd)
+                : await createBookingBlock(fd);
               if (r.error) {
                 setErr(true);
                 setMsg(r.error);
               } else {
-                setMsg("Blokkering lagret ✓");
-                setOpen(false);
+                setMsg(isEdit ? "Blokkering oppdatert ✓" : "Blokkering lagret ✓");
+                setEditing(null);
               }
             })
           }
           className="space-y-3 border border-line bg-surface p-4"
         >
+          {cur && <input type="hidden" name="id" value={cur.id} />}
           <div className="flex flex-wrap items-end gap-3">
             <label className="flex flex-col gap-1 text-xs text-muted">
               Dato
-              <input type="date" name="block_date" required className={inputCls} />
+              <input
+                type="date"
+                name="block_date"
+                required
+                defaultValue={cur?.date ?? ""}
+                className={inputCls}
+              />
             </label>
             <label className="flex items-center gap-2 text-xs text-muted">
               <input
@@ -91,11 +121,21 @@ export function BookingBlocksManager({ blocks }: { blocks: BookingBlock[] }) {
               <>
                 <label className="flex flex-col gap-1 text-xs text-muted">
                   Fra
-                  <input type="time" name="start_time" defaultValue="12:00" className={inputCls} />
+                  <input
+                    type="time"
+                    name="start_time"
+                    defaultValue={cur?.start_time ?? "12:00"}
+                    className={inputCls}
+                  />
                 </label>
                 <label className="flex flex-col gap-1 text-xs text-muted">
                   Til
-                  <input type="time" name="end_time" defaultValue="16:00" className={inputCls} />
+                  <input
+                    type="time"
+                    name="end_time"
+                    defaultValue={cur?.end_time ?? "16:00"}
+                    className={inputCls}
+                  />
                 </label>
               </>
             )}
@@ -103,6 +143,7 @@ export function BookingBlocksManager({ blocks }: { blocks: BookingBlock[] }) {
           <Input
             name="reason"
             placeholder="Grunn (valgfritt) – f.eks. helligdag, arrangement"
+            defaultValue={cur?.reason ?? ""}
           />
           <div className="flex items-center gap-3">
             <Button
@@ -111,8 +152,18 @@ export function BookingBlocksManager({ blocks }: { blocks: BookingBlock[] }) {
               disabled={pending}
               className="px-4 py-2 text-sm"
             >
-              {pending ? "Lagrer …" : "Blokker"}
+              {pending ? "Lagrer …" : isEdit ? "Lagre endring" : "Blokker"}
             </Button>
+            {isEdit && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={close}
+                className="px-4 py-2 text-sm"
+              >
+                Avbryt
+              </Button>
+            )}
             {msg && (
               <span className={"text-sm " + (err ? "text-danger" : "text-muted")}>
                 {msg}
@@ -144,13 +195,22 @@ export function BookingBlocksManager({ blocks }: { blocks: BookingBlock[] }) {
                   </Td>
                   <Td muted>{b.reason ?? "—"}</Td>
                   <Td align="right">
-                    <ConfirmButton
-                      label="Fjern"
-                      confirmLabel="Ja, fjern"
-                      pendingLabel="Fjerner …"
-                      disabled={delPending}
-                      onConfirm={() => startDel(() => deleteBookingBlock(b.id))}
-                    />
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(b)}
+                        className="text-sm text-accent-soft hover:underline"
+                      >
+                        Endre
+                      </button>
+                      <ConfirmButton
+                        label="Fjern"
+                        confirmLabel="Ja, fjern"
+                        pendingLabel="Fjerner …"
+                        disabled={delPending}
+                        onConfirm={() => startDel(() => deleteBookingBlock(b.id))}
+                      />
+                    </div>
                   </Td>
                 </Tr>
               ))}

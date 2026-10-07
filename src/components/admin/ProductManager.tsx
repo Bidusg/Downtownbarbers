@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
 import type { AdminProduct } from "@/lib/admin-queries";
 import {
   createProduct,
+  updateProduct,
   toggleProduct,
   deleteProduct,
   setProductBarcode,
@@ -90,12 +91,78 @@ function BarcodeCell({
   );
 }
 
+/** Inline redigeringsskjema: endre navn/pris/beskrivelse og evt. bytt bilde. */
+function EditProductForm({
+  product,
+  onDone,
+}: {
+  product: AdminProduct;
+  onDone: () => void;
+}) {
+  const [saving, startSave] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
+
+  return (
+    <form
+      action={(fd) =>
+        startSave(async () => {
+          setErr(null);
+          const res = await updateProduct(fd);
+          if (res.error) setErr(res.error);
+          else onDone();
+        })
+      }
+      className="grid gap-3 sm:grid-cols-2"
+    >
+      <input type="hidden" name="id" value={product.id} />
+      <Input name="name" placeholder="Navn" defaultValue={product.name} required />
+      <Input
+        name="price_nok"
+        type="number"
+        placeholder="Pris (kr)"
+        defaultValue={product.price_nok}
+        required
+      />
+      <Input
+        name="description"
+        placeholder="Beskrivelse"
+        defaultValue={product.description ?? ""}
+        className="sm:col-span-2"
+      />
+      <label className="text-xs text-muted sm:col-span-2">
+        Bilde
+        {product.image_url && (
+          <img
+            src={product.image_url}
+            alt={product.name}
+            className="mt-1 h-16 w-16 rounded object-cover"
+          />
+        )}
+        <span className="mt-1 block">
+          {product.image_url ? "Bytt bilde (valgfritt)" : "Last opp bilde (valgfritt)"}
+        </span>
+        <input name="image" type="file" accept="image/*" className="mt-1 block w-full text-xs" />
+      </label>
+      {err && <p className="text-sm text-danger sm:col-span-2">{err}</p>}
+      <div className="flex gap-2 sm:col-span-2">
+        <Button type="submit" disabled={saving} className="px-4 py-2 text-sm">
+          {saving ? "Lagrer …" : "Lagre endringer"}
+        </Button>
+        <Button type="button" variant="ghost" onClick={onDone} className="px-4 py-2 text-sm">
+          Avbryt
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 export function ProductManager({ products }: { products: AdminProduct[] }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [saving, startSave] = useTransition();
   const [err, setErr] = useState<string | null>(null);
   const [rowErr, setRowErr] = useState<{ id: string; msg: string } | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
 
   return (
     <div className="space-y-6">
@@ -165,7 +232,8 @@ export function ProductManager({ products }: { products: AdminProduct[] }) {
               </TableEmpty>
             )}
             {products.map((p) => (
-              <Tr key={p.id}>
+              <Fragment key={p.id}>
+              <Tr>
                 <Td className="font-medium text-fg">{p.name}</Td>
                 <Td className="font-display">{formatKr(p.price_nok)}</Td>
                 <Td muted>{p.stock}</Td>
@@ -197,15 +265,34 @@ export function ProductManager({ products }: { products: AdminProduct[] }) {
                   )}
                 </Td>
                 <Td align="right">
-                  <ConfirmButton
-                    label="Slett"
-                    confirmLabel="Ja, slett"
-                    pendingLabel="Sletter …"
-                    disabled={pending}
-                    onConfirm={() => deleteProduct(p.id)}
-                  />
+                  <span className="flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => {
+                        setRowErr(null);
+                        setEditId((id) => (id === p.id ? null : p.id));
+                      }}
+                      className={editId === p.id ? "act act-accent" : "act"}
+                    >
+                      {editId === p.id ? "Lukk" : "Rediger"}
+                    </button>
+                    <ConfirmButton
+                      label="Slett"
+                      confirmLabel="Ja, slett"
+                      pendingLabel="Sletter …"
+                      disabled={pending}
+                      onConfirm={() => deleteProduct(p.id)}
+                    />
+                  </span>
                 </Td>
               </Tr>
+              {editId === p.id && (
+                <Tr>
+                  <Td colSpan={7}>
+                    <EditProductForm product={p} onDone={() => setEditId(null)} />
+                  </Td>
+                </Tr>
+              )}
+              </Fragment>
             ))}
           </TBody>
         </Table>

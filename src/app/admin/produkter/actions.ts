@@ -53,6 +53,55 @@ export async function createProduct(
   return { ok: true };
 }
 
+export async function updateProduct(
+  formData: FormData,
+): Promise<{ ok?: true; error?: string }> {
+  const id = String(formData.get("id") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
+  const price = Number(formData.get("price_nok") ?? 0);
+  if (!id) return { error: "Mangler produkt-ID." };
+  if (!name) return { error: "Produktet må ha et navn." };
+  if (!Number.isFinite(price) || price < 0) return { error: "Ugyldig pris." };
+
+  const sb = await createClient();
+
+  const fields: {
+    name: string;
+    description: string | null;
+    price_nok: number;
+    image_url?: string;
+  } = {
+    name,
+    description: String(formData.get("description") ?? "") || null,
+    price_nok: price,
+  };
+
+  const img = formData.get("image") as File | null;
+  if (img && img.size > 0) {
+    const ext = img.name.split(".").pop() ?? "jpg";
+    const path = `products/${crypto.randomUUID()}.${ext}`;
+    const { error } = await sb.storage
+      .from(BUCKET)
+      .upload(path, img, { upsert: true, contentType: img.type || undefined });
+    if (error) {
+      return { error: `Bildet kunne ikke lastes opp (${error.message}). Produktet ble ikke lagret.` };
+    }
+    fields.image_url = sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+  }
+
+  const { error } = await sb.from("products").update(fields).eq("id", id);
+  if (error) {
+    return {
+      error: /duplicate|unique/i.test(error.message)
+        ? "Navnet er allerede i bruk på et annet produkt."
+        : `Kunne ikke lagre produktet: ${error.message}`,
+    };
+  }
+  revalidatePath("/admin/produkter");
+  revalidatePath("/butikk");
+  return { ok: true };
+}
+
 /** Sett/endre strekkode på et produkt (tom = fjern). Kun admin/eier. */
 export async function setProductBarcode(
   id: string,

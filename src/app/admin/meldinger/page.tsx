@@ -7,7 +7,7 @@ import { Input, Select, Field } from "@/components/ui/Input";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { redirect } from "next/navigation";
-import { createNotice, toggleNotice, deleteNotice } from "./actions";
+import { createNotice, updateNotice, toggleNotice, deleteNotice } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +29,17 @@ const LEVEL_TONE: Record<NoticeLevel, BadgeTone> = {
   warning: "accent",
   critical: "danger",
 };
+
+/** Gjør en ISO-dato om til en datetime-local-verdi (YYYY-MM-DDTHH:mm) for prefylling. */
+function toLocalInput(iso: string | null) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const pad = (x: number) => String(x).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours(),
+  )}:${pad(d.getMinutes())}`;
+}
 
 function fmt(iso: string | null) {
   if (!iso) return "—";
@@ -203,6 +214,77 @@ export default async function AdminMeldinger({
                     </form>
                   </div>
                 </div>
+
+                <details className="mt-3">
+                  <summary className="cursor-pointer text-sm text-accent-soft">
+                    Rediger
+                  </summary>
+                  <form
+                    action={updateNotice}
+                    className="mt-4 space-y-4 border border-line-2 bg-canvas/40 p-4"
+                  >
+                    <input type="hidden" name="id" value={n.id} />
+                    <Field label="Tittel">
+                      <Input name="title" required defaultValue={n.title} />
+                    </Field>
+                    <Field label="Tekst">
+                      <textarea
+                        name="body"
+                        rows={4}
+                        defaultValue={n.body ?? ""}
+                        placeholder="Utfyllende beskrivelse (valgfritt) …"
+                        className="w-full resize-y border border-line-2 bg-canvas px-3 py-2 text-sm text-fg"
+                      />
+                    </Field>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Nivå">
+                        <Select name="level" defaultValue={n.level}>
+                          <option value="info">Info</option>
+                          <option value="warning">Viktig</option>
+                          <option value="critical">Kritisk</option>
+                        </Select>
+                      </Field>
+                      <Field label="Målgruppe">
+                        <Select name="audience" defaultValue={n.audience}>
+                          <option value="all">Alle</option>
+                          <option value="admin">Admin</option>
+                          <option value="shop">Kasse/butikk</option>
+                          <option value="ansatt">Ansatt</option>
+                        </Select>
+                      </Field>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Vises fra" hint="(valgfritt)">
+                        <Input
+                          type="datetime-local"
+                          name="starts_at"
+                          defaultValue={toLocalInput(n.starts_at)}
+                        />
+                      </Field>
+                      <Field label="Vises til" hint="(valgfritt)">
+                        <Input
+                          type="datetime-local"
+                          name="ends_at"
+                          defaultValue={toLocalInput(n.ends_at)}
+                        />
+                      </Field>
+                    </div>
+                    <label className="flex items-center gap-2 text-sm text-fg">
+                      <input
+                        type="checkbox"
+                        name="active"
+                        defaultChecked={n.active}
+                        className="accent-[#F47721]"
+                      />
+                      Aktiv (vis meldingen nå)
+                    </label>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <SubmitButton pendingText="Lagrer …" className="act act-accent">
+                        Lagre endringer
+                      </SubmitButton>
+                    </div>
+                  </form>
+                </details>
               </li>
             ))}
           </ul>

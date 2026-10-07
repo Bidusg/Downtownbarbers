@@ -38,6 +38,7 @@ export default async function AdminBookinger({
         services={services}
         basePath="/admin/bookinger"
         canBlock
+        canResize
         onDuty={onDuty}
         offReasons={offReasons}
       />

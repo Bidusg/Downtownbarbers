@@ -55,6 +55,50 @@ export async function createNotice(formData: FormData): Promise<void> {
   revalidatePath("/admin/meldinger");
 }
 
+/** Oppdaterer en eksisterende driftsmelding. Kun admin. */
+export async function updateNotice(formData: FormData): Promise<void> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return;
+
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) return;
+
+  const title = String(formData.get("title") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+  const levelRaw = String(formData.get("level") ?? "info");
+  const audienceRaw = String(formData.get("audience") ?? "all");
+  const active = formData.get("active") != null;
+  const starts_at = toIsoOrNull(String(formData.get("starts_at") ?? ""));
+  const ends_at = toIsoOrNull(String(formData.get("ends_at") ?? ""));
+
+  if (!title) return;
+
+  const level: NoticeLevel = LEVELS.includes(levelRaw as NoticeLevel)
+    ? (levelRaw as NoticeLevel)
+    : "info";
+  const audience: NoticeAudience = AUDIENCES.includes(
+    audienceRaw as NoticeAudience,
+  )
+    ? (audienceRaw as NoticeAudience)
+    : "all";
+
+  const sb = await createClient();
+  await sb
+    .from("notices")
+    .update({
+      title,
+      body: body || null,
+      level,
+      audience,
+      active,
+      starts_at,
+      ends_at,
+    })
+    .eq("id", id);
+
+  revalidatePath("/admin/meldinger");
+}
+
 /** Slår en melding av eller på. Kun admin. */
 export async function toggleNotice(id: string, active: boolean): Promise<void> {
   const me = await getUserRole();

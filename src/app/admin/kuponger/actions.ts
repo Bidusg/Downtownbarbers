@@ -61,6 +61,51 @@ export async function createCampaign(
   return { ok: true };
 }
 
+export async function updateCampaign(
+  formData: FormData,
+): Promise<{ ok?: true; error?: string }> {
+  if (!(await guard())) return { error: "Ikke tilgang" };
+
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) return { error: "Ugyldig kupong" };
+
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return { error: "Kupongen må ha et navn." };
+  const description = String(formData.get("description") ?? "").trim();
+  const type = String(formData.get("discount_type") ?? "percent");
+  const discountType = type === "fixed" ? "fixed" : "percent";
+  const value = Math.max(0, Number(formData.get("discount_value")) || 0);
+  if (discountType === "percent" && value > 100) return { error: "Prosent kan ikke være over 100." };
+  if (value <= 0) return { error: "Rabatten må være over 0." };
+  const minTier = Math.max(0, Math.round(Number(formData.get("min_tier_sort_order")) || 0));
+  const oncePerMember = formData.get("once_per_member") != null;
+
+  const startsAt = cleanDate(formData.get("starts_at"));
+  const expiresAt = cleanDate(formData.get("expires_at"));
+  if (startsAt && expiresAt && expiresAt < startsAt) {
+    return { error: "Utløpsdatoen kan ikke være før «Gyldig fra»." };
+  }
+
+  const sb = await createClient();
+  const { error } = await sb
+    .from("member_campaigns")
+    .update({
+      name,
+      description: description || null,
+      discount_type: discountType,
+      discount_value: value,
+      min_tier_sort_order: minTier,
+      starts_at: startsAt,
+      expires_at: expiresAt,
+      once_per_member: oncePerMember,
+    })
+    .eq("id", id);
+  if (error) return { error: `Kunne ikke lagre kupongen: ${error.message}` };
+
+  revalidatePath("/admin/kuponger");
+  return { ok: true };
+}
+
 export async function toggleCampaign(id: string, active: boolean): Promise<void> {
   if (!(await guard())) return;
   if (!id) return;

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import type { GiftCard } from "@/lib/ops-queries";
 import {
   createGiftCard,
+  updateGiftCard,
   redeemGiftCard,
   deleteGiftCard,
   setGiftCardBarcode,
@@ -130,6 +131,115 @@ function no(iso: string | null) {
   return `${d}.${m}.${y}`;
 }
 
+/** Én gavekort-rad med inline «Rediger»-korrigering av saldo/utløp. */
+function GiftCardRow({ card, pending }: { card: GiftCard; pending: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const [editPending, startEdit] = useTransition();
+  const [editErr, setEditErr] = useState<string | null>(null);
+  const used = Number(card.balance_nok) <= 0;
+
+  return (
+    <>
+      <Tr>
+        <Td className="font-display font-medium text-fg">{card.code}</Td>
+        <Td>
+          <GiftBarcodeCell id={card.id} barcode={card.barcode} />
+        </Td>
+        <Td muted>{kr(card.initial_nok)}</Td>
+        <Td>
+          <span className={used ? "text-muted" : "font-semibold text-accent-soft"}>
+            {kr(card.balance_nok)}
+          </span>
+        </Td>
+        <Td muted>{no(card.expires_at)}</Td>
+        <Td>
+          {used ? (
+            <Badge tone="neutral">Brukt opp</Badge>
+          ) : (
+            <RedeemCell id={card.id} balance={Number(card.balance_nok)} />
+          )}
+        </Td>
+        <Td align="right">
+          <div className="flex items-center justify-end gap-3">
+            <Button
+              variant="link"
+              className="text-xs"
+              onClick={() => {
+                setEditErr(null);
+                setEditing((e) => !e);
+              }}
+            >
+              {editing ? "Lukk" : "Rediger"}
+            </Button>
+            <ConfirmButton
+              label="Slett"
+              question={`Slette gavekort ${card.code}?`}
+              confirmLabel="Ja, slett"
+              pendingLabel="Sletter …"
+              disabled={pending}
+              onConfirm={() => deleteGiftCard(card.id)}
+            />
+          </div>
+        </Td>
+      </Tr>
+      {editing && (
+        <Tr>
+          <Td colSpan={7}>
+            <form
+              action={(fd) =>
+                startEdit(async () => {
+                  setEditErr(null);
+                  const res = await updateGiftCard(fd);
+                  if (res.error) setEditErr(res.error);
+                  else setEditing(false);
+                })
+              }
+              className="grid gap-3 sm:grid-cols-2"
+            >
+              <input type="hidden" name="id" value={card.id} />
+              <Field label="Korriger saldo (kr)">
+                <Input
+                  name="balance_nok"
+                  type="number"
+                  min={1}
+                  defaultValue={card.balance_nok}
+                  required
+                />
+              </Field>
+              <Field label="Utløper (valgfritt)">
+                <Input
+                  name="expires_at"
+                  type="date"
+                  defaultValue={card.expires_at ? card.expires_at.slice(0, 10) : ""}
+                />
+              </Field>
+              <p className="text-xs text-muted sm:col-span-2">
+                Korriger saldo / utløp. Opprinnelig beløp og kode endres ikke.
+              </p>
+              {editErr && <p className="text-sm text-danger sm:col-span-2">{editErr}</p>}
+              <div className="flex items-center gap-2 sm:col-span-2">
+                <Button type="submit" disabled={editPending} className="px-4 py-2 text-sm">
+                  {editPending ? "Lagrer …" : "Lagre korrigering"}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditing(false);
+                    setEditErr(null);
+                  }}
+                  className="act"
+                >
+                  Avbryt
+                </button>
+              </div>
+            </form>
+          </Td>
+        </Tr>
+      )}
+    </>
+  );
+}
+
 export function GiftCardManager({ cards }: { cards: GiftCard[] }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
@@ -206,45 +316,9 @@ export function GiftCardManager({ cards }: { cards: GiftCard[] }) {
             {cards.length === 0 && (
               <TableEmpty colSpan={7}>Ingen gavekort enda.</TableEmpty>
             )}
-            {cards.map((c) => {
-              const used = Number(c.balance_nok) <= 0;
-              return (
-                <Tr key={c.id}>
-                  <Td className="font-display font-medium text-fg">{c.code}</Td>
-                  <Td>
-                    <GiftBarcodeCell id={c.id} barcode={c.barcode} />
-                  </Td>
-                  <Td muted>{kr(c.initial_nok)}</Td>
-                  <Td>
-                    <span
-                      className={
-                        used ? "text-muted" : "font-semibold text-accent-soft"
-                      }
-                    >
-                      {kr(c.balance_nok)}
-                    </span>
-                  </Td>
-                  <Td muted>{no(c.expires_at)}</Td>
-                  <Td>
-                    {used ? (
-                      <Badge tone="neutral">Brukt opp</Badge>
-                    ) : (
-                      <RedeemCell id={c.id} balance={Number(c.balance_nok)} />
-                    )}
-                  </Td>
-                  <Td align="right">
-                    <ConfirmButton
-                      label="Slett"
-                      question={`Slette gavekort ${c.code}?`}
-                      confirmLabel="Ja, slett"
-                      pendingLabel="Sletter …"
-                      disabled={pending}
-                      onConfirm={() => deleteGiftCard(c.id)}
-                    />
-                  </Td>
-                </Tr>
-              );
-            })}
+            {cards.map((c) => (
+              <GiftCardRow key={c.id} card={c} pending={pending} />
+            ))}
           </TBody>
         </Table>
       </Card>

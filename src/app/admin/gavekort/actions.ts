@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/auth";
 
 function randomCode() {
   const s = Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -37,6 +38,45 @@ export async function createGiftCard(
   }
   revalidatePath("/admin/gavekort");
   return { ok: true, code };
+}
+
+/** Korriger saldo og/eller utløpsdato på et utstedt gavekort.
+ *  Kun admin/eier (pengeendring). Endrer IKKE initial_nok eller code – de
+ *  er revisjonssporet for det som opprinnelig ble utstedt. */
+export async function updateGiftCard(
+  formData: FormData,
+): Promise<{ ok?: true; error?: string }> {
+  // Pengeredigering er gatet til admin/eier.
+  await requireRole(["admin", "eier"]);
+
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) return { error: "Mangler gavekort." };
+
+  const balance = Number(formData.get("balance_nok") ?? 0);
+  if (!Number.isFinite(balance) || balance <= 0) return { error: "Saldoen må være over 0 kr." };
+  if (balance > 1_000_000) return { error: "Saldoen er urimelig høy." };
+
+  const expiresRaw = String(formData.get("expires_at") ?? "");
+  const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Oslo" });
+  if (expiresRaw && expiresRaw < today) return { error: "Utløpsdatoen kan ikke være i fortiden." };
+
+  const sb = await createClient();
+  const { error } = await sb
+    .from("gift_cards")
+    .update({ balance_nok: balance, expires_at: expiresRaw || null })
+    .eq("id", id);
+  if (error) {
+    if (/duplicate|unique/i.test(error.message)) {
+      return {
+        error: /barcode/i.test(error.message)
+          ? "Strekkoden er allerede i bruk på et annet gavekort."
+          : "Koden er allerede i bruk på et annet gavekort.",
+      };
+    }
+    return { error: `Kunne ikke lagre endringen: ${error.message}` };
+  }
+  revalidatePath("/admin/gavekort");
+  return { ok: true };
 }
 
 /** Sett/endre strekkode på et gavekort (tom = fjern). */

@@ -224,6 +224,8 @@ export function DayCalendar({
   const [blockSel, setBlockSel] = useState<AgendaBooking | null>(null);
   // Klikk i ledig felt i en kolonne → booking-popup med barber + tid forhåndsvalgt.
   const [slotPick, setSlotPick] = useState<{ barber: string; time: string } | null>(null);
+  // Vis alle ansatte (ikke bare de på vakt), så man kan booke manuelt uten turnus.
+  const [showAll, setShowAll] = useState(false);
   const [hoverSlot, setHoverSlot] = useState<{ col: string; min: number } | null>(null);
   const [blockErr, setBlockErr] = useState<string | null>(null);
   // Blokker som er fjernet, men som serveren ikke har oppdatert ennå.
@@ -289,7 +291,9 @@ export function DayCalendar({
   const columns = useMemo(() => {
     const map = new Map<string, { barber: ShopBarber; items: AgendaBooking[] }>();
     // Kun barbere på vakt får kolonne (pluss alle som faktisk har bookinger).
-    const duty = onDuty ? new Set(onDuty) : null;
+    // «Vis alle ansatte» (showAll) tar bort turnus-filteret, så man kan legge
+    // inn en time manuelt på noen som ikke har vakt (f.eks. kunde ringer inn).
+    const duty = onDuty && !showAll ? new Set(onDuty) : null;
     barbers
       .filter((b) => !duty || duty.has(b.full_name))
       .forEach((b) => map.set(b.full_name, { barber: b, items: [] }));
@@ -301,7 +305,7 @@ export function DayCalendar({
       map.get(key)!.items.push(a);
     }
     return Array.from(map.values());
-  }, [agenda, barbers, onDuty, hiddenBlocks]);
+  }, [agenda, barbers, onDuty, hiddenBlocks, showAll]);
 
   const colorFor = (name: string) => {
     const i = barbers.findIndex((b) => b.full_name === name);
@@ -640,6 +644,20 @@ export function DayCalendar({
               className="rounded-md border border-line-2 px-3 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
             >
               Blokker / pause
+            </button>
+          )}
+          {onDuty && (
+            <button
+              onClick={() => setShowAll((v) => !v)}
+              title="Ta bort turnus-filteret så du kan legge inn en time på noen uten vakt"
+              className={
+                "rounded-md border px-3 py-2 text-sm font-semibold transition-colors " +
+                (showAll
+                  ? "border-accent-soft bg-accent-soft/10 text-fg"
+                  : "border-line-2 text-muted hover:border-accent-soft hover:text-fg")
+              }
+            >
+              {showAll ? "Vis kun på vakt" : "Vis alle ansatte"}
             </button>
           )}
           <QuickSale barbers={barbers} />

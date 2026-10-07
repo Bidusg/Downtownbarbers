@@ -132,6 +132,43 @@ export async function createBookingBlock(
   return { ok: true };
 }
 
+export async function updateBookingBlock(
+  formData: FormData,
+): Promise<{ ok?: true; error?: string }> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { error: "Ikke tilgang." };
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "Mangler blokkering." };
+
+  const block_date = String(formData.get("block_date") ?? "");
+  const wholeDay = formData.get("whole_day") === "on";
+  const start_time = String(formData.get("start_time") ?? "");
+  const end_time = String(formData.get("end_time") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim() || null;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(block_date))
+    return { error: "Velg en gyldig dato." };
+  if (!wholeDay && (!start_time || !end_time || end_time <= start_time))
+    return { error: "Sett gyldig tidsintervall, eller velg hele dagen." };
+
+  const sb = await createClient();
+  const { error } = await sb
+    .from("booking_blocks")
+    .update({
+      block_date,
+      start_time: wholeDay ? null : start_time,
+      end_time: wholeDay ? null : end_time,
+      reason,
+    })
+    .eq("id", id);
+  if (error) return { error: `Kunne ikke lagre blokkering: ${error.message}` };
+
+  revalidatePath("/admin/timelister");
+  revalidatePath("/booking");
+  return { ok: true };
+}
+
 export async function deleteBookingBlock(id: string) {
   const me = await getUserRole();
   if (!me || !isAdminRole(me.role)) return;
