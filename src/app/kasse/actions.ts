@@ -709,6 +709,64 @@ export async function getBookingPrice(bookingId: string): Promise<number> {
   }
 }
 
+export type BookingServiceState = {
+  service: string | null;
+  addons: string[];
+  price: number;
+};
+
+/** Gjeldende behandling + tillegg + pris for en booking (til «endre behandling»). */
+export async function getBookingServiceState(
+  bookingId: string,
+): Promise<BookingServiceState> {
+  try {
+    const sb = await createClient();
+    const [{ data: b }, { data: ad }] = await Promise.all([
+      sb
+        .from("bookings")
+        .select("price_nok, services(name)")
+        .eq("id", bookingId)
+        .maybeSingle(),
+      sb.from("booking_addons").select("name").eq("booking_id", bookingId),
+    ]);
+    const s = b?.services as { name?: string } | null;
+    return {
+      service: s?.name ?? null,
+      addons: ((ad ?? []) as { name: string }[]).map((a) => a.name),
+      price: Number(b?.price_nok) || 0,
+    };
+  } catch {
+    return { service: null, addons: [], price: 0 };
+  }
+}
+
+/**
+ * Endre behandlingen (og tilleggene) på en booket time. Pris og varighet
+ * settes server-side fra `services`; den nye lengden kan ikke overlappe en
+ * annen time for samme barber (da returneres feilen). Behandlinger sendes
+ * som navn, slik appen ellers jobber. Se change_booking_service-RPC-en.
+ */
+export async function changeBookingService(
+  bookingId: string,
+  service: string,
+  addons: string[] = [],
+): Promise<{ ok?: true; error?: string }> {
+  if (!bookingId || !service?.trim()) return { error: "Mangler behandling." };
+  try {
+    const sb = await createClient();
+    const { error } = await sb.rpc("change_booking_service", {
+      p_booking: bookingId,
+      p_service: service.trim(),
+      p_addons: addons.map((a) => a.trim()).filter(Boolean),
+    });
+    if (error) return { error: error.message };
+    refresh();
+    return { ok: true };
+  } catch {
+    return { error: "Kunne ikke endre behandlingen. Prøv igjen." };
+  }
+}
+
 /**
  * Marker som ikke møtt. Kan valgfritt sende et vennlig gebyr-/påminnelsesvarsel
  * på e-post til kunden (hvis de har e-post). Gebyrbeløpet styres server-side

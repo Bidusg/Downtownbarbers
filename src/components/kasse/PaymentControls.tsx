@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   completeBooking,
-  getBookingPrice,
+  getBookingServiceState,
   getBookingLoyalty,
   listSellableProducts,
   getKasseAllowances,
@@ -16,6 +16,7 @@ import {
 } from "@/app/kasse/actions";
 import { redeemLoyalty } from "@/app/kasse/kunder/[id]/loyalty-actions";
 import { CouponPicker, couponDiscount } from "@/components/kasse/CouponPicker";
+import { ServiceEditor } from "@/components/kasse/ServiceEditor";
 import { formatKr } from "@/lib/format";
 
 const PAYMENTS = ["Kontant", "Kort", "Vipps"];
@@ -23,10 +24,42 @@ const PAYMENTS = ["Kontant", "Kort", "Vipps"];
 const inputCls =
   "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-fg placeholder:text-muted transition-colors focus:border-accent-soft focus:outline-none";
 
+/** Sammenleggbar seksjon (valgfrie utvidelser i steg 1). */
+function Section({
+  title,
+  count,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  count?: number;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mb-3 rounded-lg border border-line bg-canvas p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold tracking-wide text-muted uppercase">
+          {title}
+          {count && count > 0 ? ` (${count})` : ""}
+        </span>
+        <button onClick={onToggle} className="act act-accent">
+          {open ? "Skjul" : "Endre"}
+        </button>
+      </div>
+      {open && <div className="mt-2">{children}</div>}
+    </div>
+  );
+}
 
 /**
- * Betaling ved fullført time: valgfri kundeinfo (drop-in → CRM), varesalg
- * (produkter i tillegg til tjenesten), kvittering på e-post, og betalingsmåte.
+ * Betaling ved fullført time, i to steg (som i bookingen):
+ *   Steg 1 «Behandling» – bekreft/endre tjeneste + tillegg, med varer, rabatt
+ *     og klippekort som valgfrie utvidelser. Endrer man behandling, oppdateres
+ *     selve bookingen (change_booking_service) og totalen hentes på nytt.
+ *   Steg 2 «Betaling» – betalingsmåte (enkel eller delt) + kvittering.
  *
  * Registrerer salget via completeBooking (atomisk record_sale). Feiler det,
  * vises feilen og timen forblir åpen – onDone kalles KUN når salget er lagret.
@@ -47,6 +80,11 @@ export function PaymentControls({
   // Hvilken betalingsknapp som ble trykket – kun den viser «Registrerer …».
   const [payingMethod, setPayingMethod] = useState<string | null>(null);
   const hasEmail = !!customerEmail;
+
+  // To steg: 1 = behandling, 2 = betaling.
+  const [step, setStep] = useState<1 | 2>(1);
+
+  // Åpne kundeinfo automatisk når kunden mangler e-post (så kvittering kan sendes).
   const [showInfo, setShowInfo] = useState(!hasEmail);
   const [name, setName] = useState(
     customerName && customerName !== "—" ? customerName : "",
@@ -56,11 +94,19 @@ export function PaymentControls({
   const [receipt, setReceipt] = useState(hasEmail);
   const [error, setError] = useState<string | null>(null);
 
-  // Varesalg
+  // Behandling (hentes + kan endres i steg 1)
   const [servicePrice, setServicePrice] = useState<number | null>(null);
+  const [serviceName, setServiceName] = useState<string | null>(null);
+  const [serviceAddons, setServiceAddons] = useState<string[]>([]);
+  const [editingService, setEditingService] = useState(false);
+
+  // Varesalg
   const [products, setProducts] = useState<SellableProduct[]>([]);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [showProducts, setShowProducts] = useState(false);
+
+  // Rabatt-seksjon (valgfri utvidelse)
+  const [showDiscount, setShowDiscount] = useState(false);
 
   // Klippekort
   const [loyalty, setLoyalty] = useState<BookingLoyalty | null>(null);
@@ -82,7 +128,12 @@ export function PaymentControls({
 
   useEffect(() => {
     let alive = true;
-    getBookingPrice(bookingId).then((p) => alive && setServicePrice(p));
+    getBookingServiceState(bookingId).then((s) => {
+      if (!alive) return;
+      setServicePrice(s.price);
+      setServiceName(s.service);
+      setServiceAddons(s.addons);
+    });
     listSellableProducts().then((p) => alive && setProducts(p));
     getBookingLoyalty(bookingId).then((l) => alive && setLoyalty(l));
     getKasseAllowances().then((a) => alive && setAllow(a));
@@ -93,6 +144,14 @@ export function PaymentControls({
       alive = false;
     };
   }, [bookingId]);
+
+  function refreshServiceState() {
+    getBookingServiceState(bookingId).then((s) => {
+      setServicePrice(s.price);
+      setServiceName(s.service);
+      setServiceAddons(s.addons);
+    });
+  }
 
   function redeem() {
     if (!loyalty) return;
@@ -123,15 +182,13 @@ export function PaymentControls({
   );
   const productTotal = cartLines.reduce((a, l) => a + l.price_nok * l.qty, 0);
   const gross = (servicePrice ?? 0) + productTotal;
-  // Venn/familie-rabatt beregnes LIVE av gross (aldri utdatert hvis kurven
-  // endres etter valg); fri rabatt tas fra feltet.
+  // Venn/familie-rabatt beregnes LIVE av gross; fri rabatt tas fra feltet.
   const discountNum = relationType
     ? Math.round((gross * (allow?.friendFamilyPct ?? 0)) / 100)
     : Math.max(0, Math.round(Number(discount) || 0));
   // Kupong-rabatt (visning). Serveren beregner det autoritative beløpet.
   const coupon = offers.find((o) => o.id === couponId) ?? null;
   const couponDisc = coupon ? couponDiscount(coupon, gross) : 0;
-  // Samlet rabatt begrenses til brutto (som server-side).
   const totalDiscount = Math.min(discountNum + couponDisc, Math.round(gross));
   const total = Math.max(0, Math.round(gross) - totalDiscount);
 
@@ -176,7 +233,9 @@ export function PaymentControls({
   function paySplit() {
     setError(null);
     if (!splitOk) {
-      setError(`Betalingen (${formatKr(splitSum)}) må stemme med totalen (${formatKr(total)}).`);
+      setError(
+        `Betalingen (${formatKr(splitSum)}) må stemme med totalen (${formatKr(total)}).`,
+      );
       return;
     }
     setPayingMethod("split");
@@ -198,55 +257,123 @@ export function PaymentControls({
     });
   }
 
-  return (
-    <div>
-      {showInfo ? (
-        <div className="mb-3 grid gap-2 sm:grid-cols-3">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Navn"
-            className={inputCls}
-          />
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="E-post (for kvittering)"
-            className={inputCls}
-          />
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="Telefon"
-            className={inputCls}
-          />
+  // Liten stegindikator (som i bookingen).
+  const stepper = (
+    <div className="mb-3 flex items-center gap-2 text-xs text-muted">
+      <span className={step === 1 ? "font-semibold text-fg" : ""}>1 · Behandling</span>
+      <span className="h-px flex-1 bg-line" />
+      <span className={step === 2 ? "font-semibold text-fg" : ""}>2 · Betaling</span>
+    </div>
+  );
+
+  const totalBox = (
+    <div className="mb-3 rounded-lg bg-canvas px-3 py-2">
+      {totalDiscount > 0 && (
+        <div className="mb-1 flex items-center justify-between text-xs text-muted">
+          <span>
+            Sum {formatKr(gross)} · rabatt −{formatKr(totalDiscount)}
+            {couponDisc > 0 && coupon ? ` (kupong: ${coupon.name})` : ""}
+          </span>
         </div>
-      ) : (
-        <button
-          onClick={() => setShowInfo(true)}
-          className="mb-2 block act act-accent"
-        >
-          + Rediger kundeinfo
-        </button>
       )}
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold tracking-wide text-muted uppercase">
+          Å betale
+        </span>
+        <span className="font-display text-lg font-bold text-fg tabular-nums">
+          {servicePrice === null ? "…" : formatKr(total)}
+        </span>
+      </div>
+    </div>
+  );
 
-      {/* Varesalg */}
-      {products.length > 0 && (
+  // =================== STEG 1: BEHANDLING ===================
+  if (step === 1) {
+    return (
+      <div>
+        {stepper}
+
+        {/* Behandling (bekreft / endre) */}
         <div className="mb-3 rounded-lg border border-line bg-canvas p-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold tracking-wide text-muted uppercase">
-              Varer{cartLines.length > 0 ? ` (${cartLines.length})` : ""}
-            </span>
-            <button
-              onClick={() => setShowProducts((v) => !v)}
-              className="act act-accent"
-            >
-              {showProducts ? "Skjul" : "+ Legg til vare"}
-            </button>
-          </div>
+          {editingService ? (
+            <ServiceEditor
+              bookingId={bookingId}
+              initialService={serviceName}
+              initialAddons={serviceAddons}
+              saveLabel="Lagre behandling"
+              onCancel={() => setEditingService(false)}
+              onSaved={() => {
+                setEditingService(false);
+                refreshServiceState();
+              }}
+            />
+          ) : (
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold tracking-wide text-muted uppercase">
+                  Behandling
+                </p>
+                <p className="mt-0.5 truncate text-sm font-medium text-fg">
+                  {serviceName ?? "—"}
+                </p>
+                {serviceAddons.length > 0 && (
+                  <p className="mt-0.5 truncate text-xs text-muted">
+                    + {serviceAddons.join(", ")}
+                  </p>
+                )}
+              </div>
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                <span className="font-display text-base font-bold text-fg tabular-nums">
+                  {servicePrice === null ? "…" : formatKr(servicePrice)}
+                </span>
+                <button
+                  onClick={() => setEditingService(true)}
+                  className="act act-accent"
+                >
+                  Endre
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
-          {showProducts && (
-            <div className="mt-2 max-h-48 space-y-1 overflow-auto">
+        {/* Kundeinfo (valgfri) */}
+        <Section
+          title="Kundeinfo"
+          open={showInfo}
+          onToggle={() => setShowInfo((v) => !v)}
+        >
+          <div className="grid gap-2 sm:grid-cols-3">
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Navn"
+              className={inputCls}
+            />
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="E-post (for kvittering)"
+              className={inputCls}
+            />
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Telefon"
+              className={inputCls}
+            />
+          </div>
+        </Section>
+
+        {/* Varer (valgfri) */}
+        {products.length > 0 && (
+          <Section
+            title="Varer"
+            count={cartLines.length}
+            open={showProducts}
+            onToggle={() => setShowProducts((v) => !v)}
+          >
+            <div className="max-h-48 space-y-1 overflow-auto">
               {products.map((p) => {
                 const qty = cart[p.id] ?? 0;
                 return (
@@ -282,22 +409,140 @@ export function PaymentControls({
                 );
               })}
             </div>
-          )}
+            {cartLines.length > 0 && (
+              <ul className="mt-2 space-y-0.5 border-t border-line pt-2 text-xs text-muted">
+                {cartLines.map((l) => (
+                  <li key={l.id} className="flex justify-between">
+                    <span>
+                      {l.qty}× {l.name}
+                    </span>
+                    <span className="tabular-nums">{formatKr(l.price_nok * l.qty)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
+        )}
 
-          {cartLines.length > 0 && (
-            <ul className="mt-2 space-y-0.5 border-t border-line pt-2 text-xs text-muted">
-              {cartLines.map((l) => (
-                <li key={l.id} className="flex justify-between">
-                  <span>
-                    {l.qty}× {l.name}
-                  </span>
-                  <span className="tabular-nums">{formatKr(l.price_nok * l.qty)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+        {/* Rabatt (valgfri) */}
+        {(allow?.friendFamilyEnabled ||
+          allow?.discountAllowed ||
+          offers.length > 0) && (
+          <Section
+            title="Rabatt"
+            count={totalDiscount > 0 ? 1 : 0}
+            open={showDiscount}
+            onToggle={() => setShowDiscount((v) => !v)}
+          >
+            {allow?.friendFamilyEnabled && (
+              <div className="mb-2">
+                <p className="mb-1 text-xs text-muted">
+                  Venn/familie −{allow.friendFamilyPct}%
+                  {relationType && ` = ${formatKr(discountNum)}`}
+                </p>
+                <div className="flex items-center gap-2">
+                  {(["venn", "familie"] as RelationType[]).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => {
+                        setRelationType((cur) => (cur === t ? null : t));
+                        setDiscount("");
+                      }}
+                      className={
+                        "rounded-md border px-3 py-1.5 text-xs font-semibold capitalize transition-colors " +
+                        (relationType === t
+                          ? "border-accent-soft bg-accent-soft/10 text-fg"
+                          : "border-line text-fg hover:border-accent-soft")
+                      }
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {allow?.discountAllowed && !relationType && (
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <label className="text-xs font-semibold tracking-wide text-muted uppercase">
+                  Rabatt (kr)
+                </label>
+                <input
+                  value={discount}
+                  onChange={(e) => setDiscount(e.target.value.replace(/[^0-9]/g, ""))}
+                  placeholder="0"
+                  inputMode="numeric"
+                  aria-label="Rabatt i kroner"
+                  className="w-24 rounded-md border border-line bg-surface px-3 py-1.5 text-right text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
+                />
+              </div>
+            )}
+            <CouponPicker
+              offers={offers}
+              selectedId={couponId}
+              onSelect={setCouponId}
+              gross={gross}
+            />
+          </Section>
+        )}
+
+        {/* Klippekort (info – alltid synlig når relevant) */}
+        {loyalty && (
+          <div className="mb-3 rounded-lg border border-line bg-canvas px-3 py-2 text-xs">
+            {redeemed ? (
+              <span className="font-semibold text-accent-soft">
+                Gratis klipp løst inn ✓ — telleren er nullstilt.
+              </span>
+            ) : loyalty.rewardDue ? (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-semibold text-accent-soft">
+                  Gratis klipp opptjent! 🎉
+                </span>
+                <button
+                  type="button"
+                  onClick={redeem}
+                  disabled={redeeming}
+                  className="rounded-md bg-accent-soft px-3 py-1.5 font-semibold text-[#211E1A] transition-opacity hover:opacity-90 disabled:opacity-60"
+                >
+                  {redeeming ? "Løser inn …" : "Løs inn gratis klipp"}
+                </button>
+              </div>
+            ) : (
+              <span className="text-muted">
+                Klippekort: {loyalty.progress} / {loyalty.required} klipp
+              </span>
+            )}
+          </div>
+        )}
+
+        {totalBox}
+
+        {error && (
+          <p className="mb-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+            {error}
+          </p>
+        )}
+
+        <button
+          onClick={() => {
+            setError(null);
+            setStep(2);
+          }}
+          disabled={servicePrice === null || editingService}
+          className="w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
+        >
+          Til betaling →
+        </button>
+      </div>
+    );
+  }
+
+  // =================== STEG 2: BETALING ===================
+  return (
+    <div>
+      {stepper}
+
+      {totalBox}
 
       <label className="mb-3 flex items-center gap-2 text-xs text-muted">
         <input
@@ -307,108 +552,6 @@ export function PaymentControls({
         />
         Send kvittering på e-post
       </label>
-
-      {/* Klippekort */}
-      {loyalty && (
-        <div className="mb-3 rounded-lg border border-line bg-canvas px-3 py-2 text-xs">
-          {redeemed ? (
-            <span className="font-semibold text-accent-soft">
-              Gratis klipp løst inn ✓ — telleren er nullstilt.
-            </span>
-          ) : loyalty.rewardDue ? (
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="font-semibold text-accent-soft">
-                Gratis klipp opptjent! 🎉
-              </span>
-              <button
-                type="button"
-                onClick={redeem}
-                disabled={redeeming}
-                className="rounded-md bg-accent-soft px-3 py-1.5 font-semibold text-[#211E1A] transition-opacity hover:opacity-90 disabled:opacity-60"
-              >
-                {redeeming ? "Løser inn …" : "Løs inn gratis klipp"}
-              </button>
-            </div>
-          ) : (
-            <span className="text-muted">
-              Klippekort: {loyalty.progress} / {loyalty.required} klipp
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Rabatt (styres av shop-flagg; eier/admin omgår) */}
-      {allow?.friendFamilyEnabled && (
-        <div className="mb-2">
-          <p className="mb-1 text-xs text-muted">
-            Venn/familie −{allow.friendFamilyPct}%
-            {relationType && ` = ${formatKr(discountNum)}`}
-          </p>
-          <div className="flex items-center gap-2">
-            {(["venn", "familie"] as RelationType[]).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => {
-                  setRelationType((cur) => (cur === t ? null : t));
-                  setDiscount("");
-                }}
-                className={
-                  "rounded-md border px-3 py-1.5 text-xs font-semibold capitalize transition-colors " +
-                  (relationType === t
-                    ? "border-accent-soft bg-accent-soft/10 text-fg"
-                    : "border-line text-fg hover:border-accent-soft")
-                }
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      {allow?.discountAllowed && !relationType && (
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <label className="text-xs font-semibold tracking-wide text-muted uppercase">
-            Rabatt (kr)
-          </label>
-          <input
-            value={discount}
-            onChange={(e) => setDiscount(e.target.value.replace(/[^0-9]/g, ""))}
-            placeholder="0"
-            inputMode="numeric"
-            aria-label="Rabatt i kroner"
-            className="w-24 rounded-md border border-line bg-surface px-3 py-1.5 text-right text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
-          />
-        </div>
-      )}
-
-      {/* Medlemskupong (vises kun når kunden har gyldige kuponger) */}
-      <CouponPicker
-        offers={offers}
-        selectedId={couponId}
-        onSelect={setCouponId}
-        gross={gross}
-      />
-
-      {/* Total */}
-      <div className="mb-3 rounded-lg bg-canvas px-3 py-2">
-        {totalDiscount > 0 && (
-          <div className="mb-1 flex items-center justify-between text-xs text-muted">
-            <span>
-              Sum {formatKr(gross)} · rabatt −{formatKr(totalDiscount)}
-              {couponDisc > 0 && coupon ? ` (kupong: ${coupon.name})` : ""}
-            </span>
-          </div>
-        )}
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold tracking-wide text-muted uppercase">
-            Å betale
-          </span>
-          <span className="font-display text-lg font-bold text-fg tabular-nums">
-            {servicePrice === null ? "…" : formatKr(total)}
-          </span>
-        </div>
-      </div>
 
       {error && (
         <p className="mb-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
@@ -483,6 +626,17 @@ export function PaymentControls({
           ))}
         </div>
       )}
+
+      <button
+        onClick={() => {
+          setError(null);
+          setStep(1);
+        }}
+        disabled={pending}
+        className="act mt-3"
+      >
+        ← Tilbake
+      </button>
     </div>
   );
 }

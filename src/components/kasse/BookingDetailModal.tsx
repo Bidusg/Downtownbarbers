@@ -6,6 +6,7 @@ import type { AgendaBooking, ShopBarber, ShopService } from "@/lib/shop-queries"
 import { markNoShow, cancelBooking, reopenBooking } from "@/app/kasse/actions";
 import { DeskBooking } from "@/components/kasse/DeskBooking";
 import { PaymentControls } from "@/components/kasse/PaymentControls";
+import { ServiceEditor } from "@/components/kasse/ServiceEditor";
 import { SendReceiptButton } from "@/components/kasse/SendReceiptButton";
 import { Avatar } from "@/components/ui/Avatar";
 import { bookingStatusLabel } from "@/lib/format";
@@ -37,7 +38,7 @@ export function BookingDetailModal({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [mode, setMode] = useState<
-    "actions" | "pay" | "cancel" | "noshow" | "reopen" | "noshowDone"
+    "actions" | "pay" | "service" | "cancel" | "noshow" | "reopen" | "noshowDone"
   >("actions");
   // Resultat av e-postvarsel ved «ikke møtt» (null = ikke forsøkt).
   const [notifyResult, setNotifyResult] = useState<boolean | null>(null);
@@ -208,6 +209,19 @@ export function BookingDetailModal({
             >
               ← Tilbake
             </button>
+          </div>
+        ) : mode === "service" ? (
+          <div>
+            <p className="mb-3 text-xs font-semibold tracking-wide text-muted uppercase">
+              Endre behandling
+            </p>
+            <ServiceEditor
+              bookingId={b.id}
+              initialService={b.service ?? null}
+              initialAddons={(b.addons ?? []).map((a) => a.name)}
+              onSaved={closeAndRefresh}
+              onCancel={() => setMode("actions")}
+            />
           </div>
         ) : mode === "noshow" ? (
           <div>
@@ -385,6 +399,15 @@ export function BookingDetailModal({
                     barber: b.barber ?? undefined,
                   }}
                 />
+                <button
+                  onClick={() => {
+                    setErr(null);
+                    setMode("service");
+                  }}
+                  className="rounded-md border border-line-2 px-3 py-2 text-sm text-fg transition-colors hover:border-accent-soft"
+                >
+                  Endre behandling
+                </button>
                 <button
                   onClick={() => {
                     setErr(null);
