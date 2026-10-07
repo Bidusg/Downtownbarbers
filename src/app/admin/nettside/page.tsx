@@ -1,49 +1,65 @@
 import { getSiteSettings } from "@/lib/site-settings";
 import { getSectionFlags } from "@/lib/site-section-flags";
 import { getSiteTexts } from "@/lib/site-texts";
+import { getSiteMedia, getSiteImages, getSiteCraft } from "@/lib/site-images";
 import { SiteSettingsForm } from "@/components/admin/SiteSettingsForm";
 import { SectionVisibilityManager } from "@/components/admin/SectionVisibilityManager";
 import { SiteTextsManager } from "@/components/admin/SiteTextsManager";
-import Link from "next/link";
+import { MediaLibrary } from "@/components/admin/MediaLibrary";
+import { SiteCraftManager } from "@/components/admin/SiteCraftManager";
 import { SitePreview } from "@/components/admin/SitePreview";
 import { PageHeader } from "@/components/ui/PageHeader";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminNettside() {
-  const [settings, sectionFlags, textOverrides] = await Promise.all([
-    getSiteSettings(),
-    getSectionFlags(),
-    getSiteTexts(),
-  ]);
+  const [settings, sectionFlags, textOverrides, media, placements, craft] =
+    await Promise.all([
+      getSiteSettings(),
+      getSectionFlags(),
+      getSiteTexts(),
+      getSiteMedia(),
+      getSiteImages(true),
+      getSiteCraft(true),
+    ]);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-10">
+    <div className="mx-auto max-w-5xl space-y-10">
       <PageHeader
         title="Nettside"
-        description="Endre tekst, kontaktinfo, åpningstider, farge og bilder på den offentlige forsiden. Endringer vises med én gang du lagrer."
+        description="Styr hele forsiden fra ett sted: hvilke seksjoner som vises, all tekst (norsk + engelsk), bilder per seksjon, farge og innstillinger. Endringer vises med én gang du lagrer."
       />
 
       <SectionVisibilityManager flags={sectionFlags} />
 
       <SiteTextsManager overrides={textOverrides} />
 
-      <SiteSettingsForm initial={settings} />
-
-      <section className="space-y-3">
-        <h2 className="font-display text-xl font-bold">Bilder</h2>
-        <p className="text-sm text-muted">
-          Bildene på forsiden (hero, galleri, «Om oss», banner og Håndverket)
-          styres nå fra et eget bildegalleri der du ser alt som er lastet opp og
-          velger hva som vises hvor.
-        </p>
-        <Link
-          href="/admin/bilder"
-          className="inline-block border border-line-2 px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
-        >
-          Åpne bildegalleriet →
-        </Link>
+      <section className="space-y-4">
+        <div>
+          <h2 className="font-display text-xl font-bold">Bilder</h2>
+          <p className="text-sm text-muted">
+            Last opp bilder og velg hvilke som vises hvor på forsiden (hero,
+            galleri, «Om oss», banner) – og i hvilken rekkefølge.
+          </p>
+        </div>
+        <MediaLibrary media={media} placements={placements} />
       </section>
+
+      <section className="space-y-4">
+        <div>
+          <h2 className="font-display text-xl font-bold">Håndverket</h2>
+          <p className="text-sm text-muted">
+            De tre blokkene (bilde + tittel + tekst) i «Håndverket»-seksjonen.
+            Bildet velges fra galleriet over.
+          </p>
+        </div>
+        <SiteCraftManager
+          blocks={craft}
+          media={media.filter((m) => m.kind === "image")}
+        />
+      </section>
+
+      <SiteSettingsForm initial={settings} />
 
       <section className="space-y-4">
         <div>
