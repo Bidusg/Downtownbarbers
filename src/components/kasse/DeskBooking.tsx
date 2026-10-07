@@ -10,6 +10,7 @@ import {
   rescheduleBooking,
   searchCustomers,
   getSlots,
+  getIsAdminUser,
   type CustomerHit,
 } from "@/app/kasse/actions";
 
@@ -192,6 +193,18 @@ function Dialog({
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
+  // Steg-for-steg (kun ved ny booking). Flytt («reschedule») bruker enkel visning.
+  const [step, setStep] = useState(0);
+  // «Drop-in» er kun for admin/eier – shop-brukere skal ikke se den.
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    let live = true;
+    getIsAdminUser().then((v) => live && setIsAdmin(v));
+    return () => {
+      live = false;
+    };
+  }, []);
+
   // Kundesøk
   useEffect(() => {
     if (locked || newCustomer || q.trim().length < 2) {
@@ -240,29 +253,25 @@ function Dialog({
     };
   }, [date, barber, service]);
 
-  // Navn skrevet i søkefeltet (uten å ha valgt et treff) brukes som ny kunde,
-  // så man slipper å måtte klikke et søkeresultat for å kunne booke.
-  const typedName =
-    !locked && !newCustomer && !customerId ? q.trim() : "";
-  const readyCustomer =
-    locked || customerId || (newCustomer && nyNavn.trim()) || typedName.length >= 2;
+  // Ny kunde krever navn OG telefon (påkrevd). E-post er fortsatt valgfri.
+  const phoneOk = nyTlf.trim().length >= 3;
+  const newCustomerReady = newCustomer && nyNavn.trim().length > 0 && phoneOk;
+  const readyCustomer = locked || !!customerId || newCustomerReady;
+  const timeReady = !!date && isValidTime(time);
   const canSubmit =
-    readyCustomer &&
-    barber &&
-    date &&
-    isValidTime(time) &&
-    (mode === "reschedule" || service);
+    readyCustomer && barber && timeReady && (mode === "reschedule" || service);
 
-  // Hvorfor er knappen grå? (vises under knappen så den aldri «bare» er død)
-  const missing = !readyCustomer
-    ? "Skriv inn eller velg en kunde"
-    : !date
-      ? "Velg dato"
-      : !isValidTime(time)
-        ? "Skriv inn tid (TT:MM)"
-        : mode !== "reschedule" && !service
-          ? "Velg tjeneste"
-          : null;
+  // Gyldighet per steg (ny booking): Tjeneste → Barber → Tid → Kunde.
+  const stepValid = [!!service, !!barber, timeReady, readyCustomer];
+  const custHint = newCustomer
+    ? !nyNavn.trim()
+      ? "Fyll inn navn"
+      : !phoneOk
+        ? "Telefon er påkrevd"
+        : null
+    : !customerId
+      ? "Velg et treff, eller trykk «Ny kunde»"
+      : null;
 
   function submit() {
     setError(null);
@@ -273,7 +282,7 @@ function Dialog({
           ? await rescheduleBooking(bookingId, startIso, barber)
           : await createDeskBooking({
               customerId,
-              name: newCustomer ? nyNavn : customerName || typedName,
+              name: newCustomer ? nyNavn : customerName,
               email: newCustomer ? nyEpost : undefined,
               phone: newCustomer ? nyTlf : undefined,
               service,
@@ -317,6 +326,290 @@ function Dialog({
   }
 
 
+  const fieldCls =
+    "w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none";
+
+  const serviceField = (
+    <div>
+      <label className="mb-1 block text-xs text-muted">Tjeneste</label>
+      <select
+        value={service}
+        onChange={(e) => setService(e.target.value)}
+        className={fieldCls}
+      >
+        {groupByCategory(services).map((g) => (
+          <optgroup key={g.cat} label={g.cat}>
+            {g.rows.map((s) => (
+              <option key={s.name} value={s.name}>
+                {s.name} · {s.duration_min} min
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+    </div>
+  );
+
+  const barberField = (
+    <div>
+      <label className="mb-1 block text-xs text-muted">Barber</label>
+      <select
+        value={barber}
+        onChange={(e) => setBarber(e.target.value)}
+        className={fieldCls}
+      >
+        {barbers.map((b) => (
+          <option key={b.id} value={b.full_name}>
+            {b.full_name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+
+  const dateField = (
+    <div>
+      <label className="mb-1 block text-xs text-muted">Dato</label>
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={dateText}
+          onChange={(e) => {
+            const masked = maskNoDate(e.target.value);
+            setDateText(masked);
+            setDate(noDateToIso(masked) ?? "");
+          }}
+          inputMode="numeric"
+          placeholder="DD.MM.ÅÅÅÅ"
+          className="w-36 rounded-md border border-line bg-canvas px-3 py-2 text-sm tabular-nums text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
+        />
+        {[
+          { label: "I dag", iso: todayIso },
+          { label: "I morgen", iso: tomorrowIso },
+        ].map((d) => (
+          <button
+            key={d.label}
+            type="button"
+            onClick={() => pickDate(d.iso)}
+            className={
+              "rounded-md border px-3 py-2 text-xs font-semibold transition-colors " +
+              (date === d.iso
+                ? "border-accent-soft bg-accent-soft/10 text-fg"
+                : "border-line-2 text-muted hover:border-accent-soft hover:text-fg")
+            }
+          >
+            {d.label}
+          </button>
+        ))}
+      </div>
+      {date && (
+        <p className="mt-1 text-[11px] text-muted">
+          <span className="capitalize">{noWeekdayLong(date)}</span> {isoToNoDate(date)}
+        </p>
+      )}
+    </div>
+  );
+
+  const timeField = !date ? (
+    <p className="text-sm text-muted">Velg dato først.</p>
+  ) : (
+    <div>
+      <label className="mb-1 block text-xs text-muted">Tid</label>
+      <div className="flex items-center gap-2">
+        <input
+          value={time}
+          onChange={(e) => pickTime(maskTime(e.target.value))}
+          inputMode="numeric"
+          placeholder="TT:MM"
+          className="w-24 rounded-md border border-line bg-canvas px-3 py-2 text-sm tabular-nums text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
+        />
+        {mode !== "reschedule" && (
+          <button
+            type="button"
+            onClick={() => {
+              const n = new Date();
+              const hh = String(n.getHours()).padStart(2, "0");
+              const mm = String(Math.floor(n.getMinutes() / 5) * 5).padStart(2, "0");
+              pickDate(todayIso);
+              pickTime(`${hh}:${mm}`);
+            }}
+            className="rounded-md border border-line-2 px-3 py-2 text-xs font-semibold text-fg hover:border-accent-soft"
+          >
+            Nå
+          </button>
+        )}
+      </div>
+      {timeNote && <p className="mt-1.5 text-xs text-muted">{timeNote}</p>}
+      {loadingSlots ? (
+        <p className="mt-2 text-xs text-muted">Henter ledige tider…</p>
+      ) : slots.length > 0 ? (
+        <div className="mt-2">
+          <p className="mb-1 text-[11px] text-muted">Ledige tider hos {barber}:</p>
+          <div className="grid grid-cols-4 gap-2">
+            {slots.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => pickTime(s)}
+                className={
+                  "rounded-md border px-2 py-1.5 text-sm tabular-nums " +
+                  (time === s
+                    ? "border-accent-soft bg-accent-soft/15 text-accent-soft"
+                    : "border-line text-muted hover:border-accent-soft hover:text-fg")
+                }
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="mt-2 text-xs text-muted">
+          Ingen ledige tider i turnusen denne dagen – skriv inn tiden over.
+          Den lagres så lenge {barber} ikke har en annen booking da.
+        </p>
+      )}
+    </div>
+  );
+
+  const customerField = locked ? (
+    <div className="rounded-md border border-line bg-canvas px-3 py-2 text-sm">
+      <span className="text-muted">Kunde: </span>
+      <span className="text-fg">{customerName || "—"}</span>
+    </div>
+  ) : (
+    <div>
+      <div className="mb-1 flex items-center justify-between">
+        <label className="text-xs text-muted">Kunde</label>
+        <span className="flex items-center gap-3">
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => {
+                setNewCustomer(true);
+                setCustomerId(undefined);
+                setCustomerName("");
+                setNyNavn("Drop-in");
+                setNyTlf("00000000");
+              }}
+              className="act"
+            >
+              Drop-in
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setNewCustomer((v) => !v);
+              setCustomerId(undefined);
+              setCustomerName("");
+              if (!newCustomer && q.trim()) setNyNavn(q.trim());
+            }}
+            className="act act-accent"
+          >
+            {newCustomer ? "Søk eksisterende" : "+ Ny kunde"}
+          </button>
+        </span>
+      </div>
+
+      {newCustomer ? (
+        <div className="space-y-2">
+          <input
+            value={nyNavn}
+            onChange={(e) => setNyNavn(e.target.value)}
+            placeholder="Fullt navn"
+            className={fieldCls}
+          />
+          <input
+            value={nyTlf}
+            onChange={(e) => setNyTlf(e.target.value)}
+            placeholder="Telefon (påkrevd)"
+            inputMode="tel"
+            className={fieldCls}
+          />
+          <input
+            value={nyEpost}
+            onChange={(e) => setNyEpost(e.target.value)}
+            placeholder="E-post (valgfri – for bekreftelse)"
+            className={fieldCls}
+          />
+        </div>
+      ) : customerId ? (
+        <div className="flex items-center justify-between rounded-md border border-line bg-canvas px-3 py-2 text-sm">
+          <span className="text-fg">{customerName}</span>
+          <button
+            type="button"
+            onClick={() => {
+              setCustomerId(undefined);
+              setCustomerName("");
+              setQ("");
+            }}
+            className="act"
+          >
+            Endre
+          </button>
+        </div>
+      ) : (
+        <div>
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Søk navn / telefon / e-post…"
+            className={fieldCls}
+          />
+          {hits.length > 0 && (
+            <ul className="mt-1 max-h-40 overflow-y-auto border border-line">
+              {hits.map((h) => (
+                <li key={h.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomerId(h.id);
+                      setCustomerName(h.full_name);
+                      setHits([]);
+                    }}
+                    className="block w-full px-3 py-2 text-left text-sm hover:bg-surface-2"
+                  >
+                    <span className="text-fg">{h.full_name}</span>
+                    <span className="ml-2 text-xs text-muted">
+                      {h.phone ?? h.email ?? ""} · {h.visits} besøk
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  const STEPS = ["Tjeneste", "Barber", "Tid", "Kunde"];
+  const stepper = (
+    <ol className="mb-4 flex items-center gap-1 text-[11px]">
+      {STEPS.map((s, i) => {
+        const done = i < step;
+        const cls =
+          i === step
+            ? "bg-accent text-accent-fg"
+            : done
+              ? "border border-accent-soft text-accent-soft"
+              : "border border-line-2 text-muted";
+        return (
+          <li key={s} className="flex flex-1 items-center">
+            <button
+              type="button"
+              disabled={i > step}
+              onClick={() => i < step && setStep(i)}
+              className={`w-full rounded-md px-2 py-1 font-semibold ${cls} ${i < step ? "cursor-pointer" : ""}`}
+            >
+              {i + 1}. {s}
+            </button>
+          </li>
+        );
+      })}
+    </ol>
+  );
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4"
@@ -337,298 +630,108 @@ function Dialog({
           </button>
         </div>
 
-        {/* Kunde */}
-        {locked ? (
-          <div className="mb-4 rounded-md border border-line bg-canvas px-3 py-2 text-sm">
-            <span className="text-muted">Kunde: </span>
-            <span className="text-fg">{customerName || "—"}</span>
-          </div>
-        ) : (
-          <div className="mb-4">
-            <div className="mb-1 flex items-center justify-between">
-              <label className="text-xs text-muted">Kunde</label>
-              <span className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setNewCustomer(true);
-                  setCustomerId(undefined);
-                  setCustomerName("");
-                  setNyNavn("Drop-in");
-                }}
-                className="act"
-              >
-                Drop-in
-              </button>
-              <button
-                onClick={() => {
-                  setNewCustomer((v) => !v);
-                  setCustomerId(undefined);
-                  setCustomerName("");
-                }}
-                className="act act-accent"
-              >
-                {newCustomer ? "Søk eksisterende" : "+ Ny kunde"}
-              </button>
-              </span>
-            </div>
-
-            {newCustomer ? (
-              <div className="space-y-2">
-                <input
-                  value={nyNavn}
-                  onChange={(e) => setNyNavn(e.target.value)}
-                  placeholder="Fullt navn"
-                  className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
-                />
-                <input
-                  value={nyTlf}
-                  onChange={(e) => setNyTlf(e.target.value)}
-                  placeholder="Telefon (valgfri)"
-                  className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
-                />
-                <input
-                  value={nyEpost}
-                  onChange={(e) => setNyEpost(e.target.value)}
-                  placeholder="E-post (valgfri – for bekreftelse)"
-                  className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
-                />
-              </div>
-            ) : customerId ? (
-              <div className="flex items-center justify-between rounded-md border border-line bg-canvas px-3 py-2 text-sm">
-                <span className="text-fg">{customerName}</span>
-                <button
-                  onClick={() => {
-                    setCustomerId(undefined);
-                    setCustomerName("");
-                    setQ("");
-                  }}
-                  className="act"
-                >
-                  Endre
-                </button>
-              </div>
-            ) : (
-              <div>
-                <input
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Søk navn / telefon / e-post…"
-                  className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
-                />
-                {hits.length > 0 && (
-                  <ul className="mt-1 max-h-40 overflow-y-auto border border-line">
-                    {hits.map((h) => (
-                      <li key={h.id}>
-                        <button
-                          onClick={() => {
-                            setCustomerId(h.id);
-                            setCustomerName(h.full_name);
-                            setHits([]);
-                          }}
-                          className="block w-full px-3 py-2 text-left text-sm hover:bg-surface-2"
-                        >
-                          <span className="text-fg">{h.full_name}</span>
-                          <span className="ml-2 text-xs text-muted">
-                            {h.phone ?? h.email ?? ""} · {h.visits} besøk
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {typedName.length >= 2 && (
-                  <p className="mt-1 text-[11px] text-muted">
-                    Lagres som ny kunde: «{typedName}» (eller velg et treff over)
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Tjeneste */}
         {mode === "reschedule" ? (
-          <div className="mb-3 text-sm">
-            <span className="text-muted">Tjeneste: </span>
-            <span className="text-fg">{prefill?.service ?? "—"}</span>
-          </div>
-        ) : (
-          <div className="mb-3">
-            <label className="mb-1 block text-xs text-muted">Tjeneste</label>
-            <select
-              value={service}
-              onChange={(e) => setService(e.target.value)}
-              className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg focus:border-accent-soft focus:outline-none"
-            >
-              {groupByCategory(services).map((g) => (
-                <optgroup key={g.cat} label={g.cat}>
-                  {g.rows.map((s) => (
-                    <option key={s.name} value={s.name}>
-                      {s.name} · {s.duration_min} min
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Barber */}
-        {mode === "reschedule" ? (
-          <div className="mb-3 text-sm">
-            <span className="text-muted">Barber: </span>
-            <span className="text-fg">{prefill?.barber ?? "—"}</span>
-            <p className="mt-1 text-[11px] text-muted">
-              «Flytt» endrer kun tid. For å bytte barber: dra kunden til en annen
-              barber i kalenderen – den opprinnelige barberen godkjenner med PIN.
-            </p>
-          </div>
-        ) : (
-          <div className="mb-3">
-            <label className="mb-1 block text-xs text-muted">Barber</label>
-            <select
-              value={barber}
-              onChange={(e) => setBarber(e.target.value)}
-              className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg focus:border-accent-soft focus:outline-none"
-            >
-              {barbers.map((b) => (
-                <option key={b.id} value={b.full_name}>
-                  {b.full_name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Dato */}
-        <div className="mb-3">
-          <label className="mb-1 block text-xs text-muted">Dato</label>
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              value={dateText}
-              onChange={(e) => {
-                const masked = maskNoDate(e.target.value);
-                setDateText(masked);
-                setDate(noDateToIso(masked) ?? "");
-              }}
-              inputMode="numeric"
-              placeholder="DD.MM.ÅÅÅÅ"
-              className="w-36 rounded-md border border-line bg-canvas px-3 py-2 text-sm tabular-nums text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
-            />
-            {[
-              { label: "I dag", iso: todayIso },
-              { label: "I morgen", iso: tomorrowIso },
-            ].map((d) => (
-              <button
-                key={d.label}
-                type="button"
-                onClick={() => pickDate(d.iso)}
-                className={
-                  "rounded-md border px-3 py-2 text-xs font-semibold transition-colors " +
-                  (date === d.iso
-                    ? "border-accent-soft bg-accent-soft/10 text-fg"
-                    : "border-line-2 text-muted hover:border-accent-soft hover:text-fg")
-                }
-              >
-                {d.label}
-              </button>
-            ))}
-          </div>
-          {date && (
-            <p className="mt-1 text-[11px] text-muted">
-              <span className="capitalize">{noWeekdayLong(date)}</span> {isoToNoDate(date)}
-            </p>
-          )}
-        </div>
-
-        {/* Tid – ett felt (24-timer). Ledige tider i turnusen vises som forslag. */}
-        {date && (
-          <div className="mb-4">
-            <label className="mb-1 block text-xs text-muted">Tid</label>
-            <div className="flex items-center gap-2">
-              <input
-                value={time}
-                onChange={(e) => pickTime(maskTime(e.target.value))}
-                inputMode="numeric"
-                placeholder="TT:MM"
-                className="w-24 rounded-md border border-line bg-canvas px-3 py-2 text-sm tabular-nums text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
-              />
-              {mode !== "reschedule" && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const n = new Date();
-                    const hh = String(n.getHours()).padStart(2, "0");
-                    const mm = String(Math.floor(n.getMinutes() / 5) * 5).padStart(2, "0");
-                    pickDate(todayIso);
-                    pickTime(`${hh}:${mm}`);
-                  }}
-                  className="rounded-md border border-line-2 px-3 py-2 text-xs font-semibold text-fg hover:border-accent-soft"
-                >
-                  Nå
-                </button>
-              )}
+          <>
+            <div className="mb-3 text-sm">
+              <span className="text-muted">Kunde: </span>
+              <span className="text-fg">{customerName || "—"}</span>
             </div>
-
-            {timeNote && <p className="mt-1.5 text-xs text-muted">{timeNote}</p>}
-
-            {loadingSlots ? (
-              <p className="mt-2 text-xs text-muted">Henter ledige tider…</p>
-            ) : slots.length > 0 ? (
-              <div className="mt-2">
-                <p className="mb-1 text-[11px] text-muted">Ledige tider hos {barber}:</p>
-                <div className="grid grid-cols-4 gap-2">
-                  {slots.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => pickTime(s)}
-                      className={
-                        "rounded-md border px-2 py-1.5 text-sm tabular-nums " +
-                        (time === s
-                          ? "border-accent-soft bg-accent-soft/15 text-accent-soft"
-                          : "border-line text-muted hover:border-accent-soft hover:text-fg")
-                      }
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="mt-2 text-xs text-muted">
-                Ingen ledige tider i turnusen denne dagen – skriv inn tiden over.
-                Den lagres så lenge {barber} ikke har en annen booking da.
+            <div className="mb-3 text-sm">
+              <span className="text-muted">Tjeneste: </span>
+              <span className="text-fg">{prefill?.service ?? "—"}</span>
+            </div>
+            <div className="mb-3 text-sm">
+              <span className="text-muted">Barber: </span>
+              <span className="text-fg">{prefill?.barber ?? "—"}</span>
+              <p className="mt-1 text-[11px] text-muted">
+                «Flytt» endrer kun tid. For å bytte barber: dra kunden til en annen
+                barber i kalenderen – den opprinnelige barberen godkjenner med PIN.
               </p>
-            )}
-          </div>
+            </div>
+            <div className="mb-3">{dateField}</div>
+            <div className="mb-4">{timeField}</div>
+
+            {error && <p className="mb-3 text-sm text-danger">{error}</p>}
+
+            <div className="flex items-center justify-end gap-3">
+              {!timeReady && !pending && (
+                <span className="mr-auto text-xs text-muted">Skriv inn tid (TT:MM)</span>
+              )}
+              <button type="button" onClick={onClose} className="act">
+                Avbryt
+              </button>
+              <button
+                type="button"
+                onClick={submit}
+                disabled={!canSubmit || pending}
+                className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
+              >
+                {pending ? "…" : "Flytt time"}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            {stepper}
+
+            <div className="min-h-[7rem]">
+              {step === 0 && serviceField}
+              {step === 1 && barberField}
+              {step === 2 && (
+                <div className="space-y-3">
+                  {dateField}
+                  {timeField}
+                </div>
+              )}
+              {step === 3 && customerField}
+            </div>
+
+            {error && <p className="mt-3 text-sm text-danger">{error}</p>}
+
+            <div className="mt-4 flex items-center gap-3">
+              {step === 2 && !timeReady && !pending && (
+                <span className="text-xs text-muted">Velg dato og tid</span>
+              )}
+              {step === 3 && custHint && !pending && (
+                <span className="text-xs text-muted">{custHint}</span>
+              )}
+              <div className="ml-auto flex items-center gap-2">
+                {step > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setStep(step - 1)}
+                    className="act"
+                  >
+                    ← Tilbake
+                  </button>
+                ) : (
+                  <button type="button" onClick={onClose} className="act">
+                    Avbryt
+                  </button>
+                )}
+                {step < 3 ? (
+                  <button
+                    type="button"
+                    onClick={() => stepValid[step] && setStep(step + 1)}
+                    disabled={!stepValid[step]}
+                    className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
+                  >
+                    Neste →
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={submit}
+                    disabled={!canSubmit || pending}
+                    className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
+                  >
+                    {pending ? "…" : "Bekreft booking"}
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
         )}
-
-        {error && <p className="mb-3 text-sm text-danger">{error}</p>}
-
-        <div className="flex items-center justify-end gap-3">
-          {missing && !pending && (
-            <span className="mr-auto text-xs text-muted">{missing}</span>
-          )}
-          <button
-            onClick={onClose}
-            className="act"
-          >
-            Avbryt
-          </button>
-          <button
-            onClick={submit}
-            disabled={!canSubmit || pending}
-            className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
-          >
-            {pending
-              ? "…"
-              : mode === "reschedule"
-                ? "Flytt time"
-                : "Bekreft booking"}
-          </button>
-        </div>
       </div>
     </div>
   );

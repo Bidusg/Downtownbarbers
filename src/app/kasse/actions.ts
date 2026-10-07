@@ -1148,6 +1148,17 @@ export async function searchCustomers(q: string): Promise<CustomerHit[]> {
   }
 }
 
+/** Er den innloggede brukeren admin/eier? Brukes til å skjule admin-kun
+ *  funksjoner i kassa (f.eks. «Drop-in» i ny booking) for shop-brukere. */
+export async function getIsAdminUser(): Promise<boolean> {
+  try {
+    const me = await getUserRole();
+    return !!me && isAdminRole(me.role);
+  } catch {
+    return false;
+  }
+}
+
 /** Ledige starttider (HH:MM) for barber + tjeneste + dato. */
 export async function getSlots(
   barber: string,
