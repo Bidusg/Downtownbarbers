@@ -16,6 +16,7 @@ import {
   type ReactNode,
 } from "react";
 import { dictionary, type Lang } from "./dictionary";
+import type { TextOverrides } from "@/lib/site-texts-config";
 
 const STORAGE_KEY = "dtb_lang";
 
@@ -27,7 +28,14 @@ type LanguageContextValue = {
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
-export function LanguageProvider({ children }: { children: ReactNode }) {
+export function LanguageProvider({
+  children,
+  overrides = {},
+}: {
+  children: ReactNode;
+  /** Admin-overstyringer av faste tekster (site_texts); ordboken er fallback. */
+  overrides?: TextOverrides;
+}) {
   const [lang, setLangState] = useState<Lang>("no");
 
   // Les lagret valg etter første render (unngår hydrerings-mismatch).
@@ -60,11 +68,12 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const t = useCallback(
     (key: string) => {
+      // Admin-overstyring vinner; tom/mangler → ordboken; så nøkkelen.
+      const ov = overrides[key];
       const entry = dictionary[key];
-      if (!entry) return key;
-      return entry[lang] ?? entry.no ?? key;
+      return (ov && ov[lang]) || entry?.[lang] || entry?.no || key;
     },
-    [lang],
+    [lang, overrides],
   );
 
   return (

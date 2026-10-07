@@ -1,7 +1,9 @@
 import { getSiteSettings } from "@/lib/site-settings";
 import { getSectionFlags } from "@/lib/site-section-flags";
+import { getSiteTexts } from "@/lib/site-texts";
 import { SiteSettingsForm } from "@/components/admin/SiteSettingsForm";
 import { SectionVisibilityManager } from "@/components/admin/SectionVisibilityManager";
+import { SiteTextsManager } from "@/components/admin/SiteTextsManager";
 import Link from "next/link";
 import { SitePreview } from "@/components/admin/SitePreview";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -9,9 +11,10 @@ import { PageHeader } from "@/components/ui/PageHeader";
 export const dynamic = "force-dynamic";
 
 export default async function AdminNettside() {
-  const [settings, sectionFlags] = await Promise.all([
+  const [settings, sectionFlags, textOverrides] = await Promise.all([
     getSiteSettings(),
     getSectionFlags(),
+    getSiteTexts(),
   ]);
 
   return (
@@ -22,6 +25,8 @@ export default async function AdminNettside() {
       />
 
       <SectionVisibilityManager flags={sectionFlags} />
+
+      <SiteTextsManager overrides={textOverrides} />
 
       <SiteSettingsForm initial={settings} />
 

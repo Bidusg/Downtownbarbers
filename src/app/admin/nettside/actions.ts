@@ -21,6 +21,27 @@ export async function updateSite(
 
 type Result = { ok?: true; error?: string };
 
+/** Lagre overstyring av faste tekster (site_texts). Tomt felt → ordbok-fallback. */
+export async function saveSiteTexts(
+  entries: { key: string; no: string; en: string }[],
+): Promise<Result> {
+  if (!(await adminGuard())) return { error: "Ingen tilgang." };
+  if (!entries?.length) return { ok: true };
+  const sb = await createClient();
+  const rows = entries.map((e) => ({
+    key: e.key,
+    no: e.no.trim() || null,
+    en: e.en.trim() || null,
+    updated_at: new Date().toISOString(),
+  }));
+  const { error } = await sb.from("site_texts").upsert(rows, { onConflict: "key" });
+  if (error) return { error: "Kunne ikke lagre tekstene." };
+  revalidatePath("/");
+  revalidatePath("/booking");
+  revalidatePath("/admin/nettside");
+  return { ok: true };
+}
+
 /** Skru en forside-seksjon av/på. Av → borte fra forside OG navbar. Kun admin. */
 export async function setSectionVisible(
   key: string,
