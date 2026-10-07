@@ -1,5 +1,6 @@
 import type { AggregatedReview, ReviewSource, ReviewsSummary } from "@/lib/reviews";
 import { Reveal } from "@/components/site/Reveal";
+import { ReviewsCarousel } from "@/components/site/ReviewsCarousel";
 import { T } from "@/lib/i18n/T";
 
 /* =====================================================================
@@ -126,7 +127,7 @@ export function GoogleReviews({ summary }: { summary: ReviewsSummary }) {
   const external = summary.sources.filter(
     (s) => (s.key === "google" || s.key === "tripadvisor") && s.count > 0,
   );
-  const reviews = summary.recent.filter((r) => r.source !== "internal").slice(0, 6);
+  const reviews = summary.recent.filter((r) => r.source !== "internal").slice(0, 9);
   if (external.length === 0 || reviews.length === 0) return null;
 
   return (
@@ -148,13 +149,13 @@ export function GoogleReviews({ summary }: { summary: ReviewsSummary }) {
           </div>
         </Reveal>
 
-        <div className="mt-10 grid gap-4 sm:gap-6 md:mt-12 md:grid-cols-2 lg:grid-cols-3">
-          {reviews.map((r, i) => (
-            <Reveal key={`${r.source}-${r.author}-${i}`} delay={(i % 3) * 100} variant="up">
-              <ReviewCard r={r} />
-            </Reveal>
-          ))}
-        </div>
+        <Reveal className="mt-10 md:mt-12">
+          <ReviewsCarousel>
+            {reviews.map((r, i) => (
+              <ReviewCard key={`${r.source}-${r.author}-${i}`} r={r} />
+            ))}
+          </ReviewsCarousel>
+        </Reveal>
 
         <div className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3">
           {external.map(
