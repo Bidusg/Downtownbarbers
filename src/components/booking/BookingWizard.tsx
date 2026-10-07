@@ -556,14 +556,25 @@ export function BookingWizard({
                                 <p className="mt-2 text-sm leading-relaxed text-muted">{tc(s.description)}</p>
                               )}
                               <p className="mt-2.5">
-                                <PriceTag
-                                  value={serviceMinPrice(s.name)}
-                                  from={
-                                    serviceMinPrice(s.name) !==
-                                    Math.max(...(levelPrices[s.name] ? Object.values(levelPrices[s.name]) : [serviceMinPrice(s.name)]))
+                                {(() => {
+                                  // Er en barber forhåndsvalgt (f.eks. via «Book nå» under
+                                  // en barber)? Vis da DENNE barberens nøyaktige nivåpris,
+                                  // ikke «fra»-startprisen.
+                                  const exact = serviceExactPrice(s.name, singleBarber);
+                                  if (exact != null) {
+                                    return <PriceTag value={exact} fromLabel={t("common.from")} />;
                                   }
-                                  fromLabel={t("common.from")}
-                                />
+                                  return (
+                                    <PriceTag
+                                      value={serviceMinPrice(s.name)}
+                                      from={
+                                        serviceMinPrice(s.name) !==
+                                        Math.max(...(levelPrices[s.name] ? Object.values(levelPrices[s.name]) : [serviceMinPrice(s.name)]))
+                                      }
+                                      fromLabel={t("common.from")}
+                                    />
+                                  );
+                                })()}
                               </p>
                             </div>
                             );

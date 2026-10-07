@@ -322,6 +322,11 @@ export default async function Home({
               k="home.services.title"
               className="mt-4 font-display text-3xl font-bold sm:text-4xl"
             />
+            <FadeUp delay={0.05}>
+              <p className="mt-3 text-sm font-medium text-accent-soft">
+                <T k="home.services.note" />
+              </p>
+            </FadeUp>
             <div className="mt-12 gap-6 sm:columns-2 lg:columns-3">
               {serviceCategories.map((cat, ci) => (
                 <div key={cat.name} className="mb-6 break-inside-avoid">

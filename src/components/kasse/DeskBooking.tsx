@@ -329,41 +329,77 @@ function Dialog({
   const fieldCls =
     "w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none";
 
+  // Store, trykkbare kort (iPad/telefon-vennlig) i stedet for nedtrekksmeny.
+  // Tapp en behandling → markeres og går rett videre til barber-steget.
   const serviceField = (
     <div>
-      <label className="mb-1 block text-xs text-muted">Tjeneste</label>
-      <select
-        value={service}
-        onChange={(e) => setService(e.target.value)}
-        className={fieldCls}
-      >
+      <label className="mb-2 block text-xs text-muted">Velg behandling</label>
+      <div className="max-h-[22rem] space-y-3 overflow-auto pr-0.5">
         {groupByCategory(services).map((g) => (
-          <optgroup key={g.cat} label={g.cat}>
-            {g.rows.map((s) => (
-              <option key={s.name} value={s.name}>
-                {s.name} · {s.duration_min} min
-              </option>
-            ))}
-          </optgroup>
+          <div key={g.cat}>
+            <p className="mb-1 px-0.5 text-[11px] font-semibold tracking-wide text-muted uppercase">
+              {g.cat}
+            </p>
+            <div className="space-y-2">
+              {g.rows.map((s) => {
+                const on = s.name === service;
+                return (
+                  <button
+                    key={s.name}
+                    type="button"
+                    onClick={() => {
+                      setService(s.name);
+                      setStep(1);
+                    }}
+                    className={
+                      "flex w-full items-center justify-between gap-3 rounded-lg border px-4 py-3 text-left transition-colors " +
+                      (on
+                        ? "border-accent-soft bg-accent-soft/10 text-fg"
+                        : "border-line text-fg hover:border-accent-soft active:bg-surface-2")
+                    }
+                  >
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                      {s.name}
+                    </span>
+                    <span className="shrink-0 text-xs text-muted tabular-nums">
+                      {s.duration_min} min
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         ))}
-      </select>
+      </div>
     </div>
   );
 
   const barberField = (
     <div>
-      <label className="mb-1 block text-xs text-muted">Barber</label>
-      <select
-        value={barber}
-        onChange={(e) => setBarber(e.target.value)}
-        className={fieldCls}
-      >
-        {barbers.map((b) => (
-          <option key={b.id} value={b.full_name}>
-            {b.full_name}
-          </option>
-        ))}
-      </select>
+      <label className="mb-2 block text-xs text-muted">Velg barber</label>
+      <div className="grid grid-cols-2 gap-2">
+        {barbers.map((b) => {
+          const on = b.full_name === barber;
+          return (
+            <button
+              key={b.id}
+              type="button"
+              onClick={() => {
+                setBarber(b.full_name);
+                setStep(2);
+              }}
+              className={
+                "rounded-lg border px-4 py-3 text-center text-sm font-medium transition-colors " +
+                (on
+                  ? "border-accent-soft bg-accent-soft/10 text-fg"
+                  : "border-line text-fg hover:border-accent-soft active:bg-surface-2")
+              }
+            >
+              {b.full_name}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 
@@ -444,14 +480,14 @@ function Dialog({
       ) : slots.length > 0 ? (
         <div className="mt-2">
           <p className="mb-1 text-[11px] text-muted">Ledige tider hos {barber}:</p>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
             {slots.map((s) => (
               <button
                 key={s}
                 type="button"
                 onClick={() => pickTime(s)}
                 className={
-                  "rounded-md border px-2 py-1.5 text-sm tabular-nums " +
+                  "rounded-md border px-2 py-2.5 text-sm tabular-nums " +
                   (time === s
                     ? "border-accent-soft bg-accent-soft/15 text-accent-soft"
                     : "border-line text-muted hover:border-accent-soft hover:text-fg")

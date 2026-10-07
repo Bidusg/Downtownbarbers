@@ -148,6 +148,10 @@ export const dictionary: Dict = {
   // ---- Forside: tjenester ----
   "home.services.eyebrow": { no: "Tjenester", en: "Services" },
   "home.services.title": { no: "Prisliste", en: "Price list" },
+  "home.services.note": {
+    no: "NB! Prisen vil variere fra frisør til frisør.",
+    en: "Note: the price varies from barber to barber.",
+  },
 
   // ---- Forside: cta-banner ----
   "home.cta.button": { no: "Bestill time nå", en: "Book now" },
