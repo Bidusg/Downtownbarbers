@@ -22,6 +22,8 @@ import { getSiteImages, getSiteCraft } from "@/lib/site-images";
 import { getPublicLevelPrices } from "@/lib/service-catalog-queries";
 import { getUserRole, isAdminRole } from "@/lib/auth";
 import { getPublicReviewsSummary } from "@/lib/reviews";
+import { getSectionFlags } from "@/lib/site-section-flags";
+import { sectionOn } from "@/lib/site-sections-config";
 import { siteUrl } from "@/lib/site-url";
 import { salon } from "@/lib/data/salon";
 import { PUBLIC_VIEWPORT } from "@/lib/public-viewport";
@@ -98,7 +100,7 @@ export default async function Home({
   const role = wantPreview ? await getUserRole() : null;
   const preview = wantPreview && isAdminRole(role?.role);
 
-  const [services, team, s, omdomme, siteImages, siteCraft, levelPrices] = await Promise.all([
+  const [services, team, s, omdomme, siteImages, siteCraft, levelPrices, sectionFlags] = await Promise.all([
     getPublicServices(),
     getPublicBarbers(),
     getSiteSettings(),
@@ -106,7 +108,11 @@ export default async function Home({
     getSiteImages(preview),
     getSiteCraft(preview),
     getPublicLevelPrices(),
+    getSectionFlags(),
   ]);
+  // Av/på per seksjon (admin → Nettside). Preview (?preview=1) viser alt.
+  const on = (key: Parameters<typeof sectionOn>[1]) =>
+    preview || sectionOn(sectionFlags, key);
   // «fra»-pris i prislista når prisen varierer med barberens nivå.
   const priceVaries = (name: string) => {
     const v = Object.values(levelPrices[name] ?? {});
@@ -263,6 +269,7 @@ export default async function Home({
         </section>
 
         {/* ===================== TEAM ===================== */}
+        {on("team") && (
         <section id="team" className="scroll-mt-20 border-b border-line bg-surface">
           <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
             <Label>
@@ -310,8 +317,10 @@ export default async function Home({
             </div>
           </div>
         </section>
+        )}
 
         {/* ===================== TJENESTER ===================== */}
+        {on("tjenester") && (
         <section id="tjenester" className="scroll-mt-20 border-b border-line">
           <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
             <Label>
@@ -322,11 +331,6 @@ export default async function Home({
               k="home.services.title"
               className="mt-4 font-display text-3xl font-bold sm:text-4xl"
             />
-            <FadeUp delay={0.05}>
-              <p className="mt-3 text-sm font-medium text-accent-soft">
-                <T k="home.services.note" />
-              </p>
-            </FadeUp>
             <div className="mt-12 gap-6 sm:columns-2 lg:columns-3">
               {serviceCategories.map((cat, ci) => (
                 <div key={cat.name} className="mb-6 break-inside-avoid">
@@ -368,8 +372,10 @@ export default async function Home({
             </div>
           </div>
         </section>
+        )}
 
         {/* ===================== HÅNDVERKET ===================== */}
+        {on("handverket") && (
         <section id="handverket" className="scroll-mt-20 border-b border-line">
           <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
             <Label>
@@ -408,8 +414,10 @@ export default async function Home({
             </div>
           </div>
         </section>
+        )}
 
         {/* ===================== GALLERI ===================== */}
+        {on("galleri") && (
         <section id="galleri" className="scroll-mt-20 border-b border-line bg-surface">
           <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
             <Label>
@@ -438,8 +446,10 @@ export default async function Home({
             </div>
           </div>
         </section>
+        )}
 
         {/* ===================== OM OSS ===================== */}
+        {on("about") && (
         <section className="border-b border-line">
           <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 md:grid-cols-2 md:py-24">
             <FadeUp>
@@ -477,8 +487,10 @@ export default async function Home({
             </FadeUp>
           </div>
         </section>
+        )}
 
         {/* ===================== BANNER (parallax) ===================== */}
+        {on("banner") && (
         <section className="cine-vignette relative flex min-h-[55svh] items-center justify-center overflow-hidden border-b border-line sm:min-h-[80vh]">
           <Parallax className="absolute inset-x-0 -top-[15%] h-[130%]" amount={16}>
             <img
@@ -498,11 +510,13 @@ export default async function Home({
             </p>
           </FadeUp>
         </section>
+        )}
 
         {/* ===================== ANMELDELSER ===================== */}
-        <GoogleReviews summary={omdomme} />
+        {on("anmeldelser") && <GoogleReviews summary={omdomme} />}
 
         {/* ===================== CTA (cream «intermisjon») ===================== */}
+        {on("cta") && (
         <section className="border-b border-line bg-accent text-accent-fg">
           <div className="mx-auto max-w-6xl px-5 py-20 text-center md:py-28">
             <FadeUp>
@@ -521,8 +535,10 @@ export default async function Home({
             </FadeUp>
           </div>
         </section>
+        )}
 
         {/* ===================== ÅPNINGSTIDER + KONTAKT ===================== */}
+        {on("apningstider") && (
         <section id="apningstider" className="scroll-mt-20 border-b border-line">
           <div className="mx-auto grid max-w-6xl gap-14 px-5 py-16 md:grid-cols-2 md:py-24">
             <FadeUp>
@@ -567,6 +583,7 @@ export default async function Home({
             </FadeUp>
           </div>
         </section>
+        )}
 
         <Footer />
       </div>

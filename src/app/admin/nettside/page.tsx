@@ -1,5 +1,7 @@
 import { getSiteSettings } from "@/lib/site-settings";
+import { getSectionFlags } from "@/lib/site-section-flags";
 import { SiteSettingsForm } from "@/components/admin/SiteSettingsForm";
+import { SectionVisibilityManager } from "@/components/admin/SectionVisibilityManager";
 import Link from "next/link";
 import { SitePreview } from "@/components/admin/SitePreview";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -7,7 +9,10 @@ import { PageHeader } from "@/components/ui/PageHeader";
 export const dynamic = "force-dynamic";
 
 export default async function AdminNettside() {
-  const settings = await getSiteSettings();
+  const [settings, sectionFlags] = await Promise.all([
+    getSiteSettings(),
+    getSectionFlags(),
+  ]);
 
   return (
     <div className="mx-auto max-w-4xl space-y-10">
@@ -15,6 +20,8 @@ export default async function AdminNettside() {
         title="Nettside"
         description="Endre tekst, kontaktinfo, åpningstider, farge og bilder på den offentlige forsiden. Endringer vises med én gang du lagrer."
       />
+
+      <SectionVisibilityManager flags={sectionFlags} />
 
       <SiteSettingsForm initial={settings} />
 

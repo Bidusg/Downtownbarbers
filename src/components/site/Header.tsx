@@ -7,6 +7,8 @@ import { LogoMark } from "@/components/site/LogoMark";
 import { salon } from "@/lib/data/salon";
 import { LoginModal } from "@/components/site/LoginModal";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { useSectionFlags } from "@/components/site/SectionFlagsProvider";
+import { SITE_SECTIONS } from "@/lib/site-sections-config";
 
 function PhoneIcon(props: SVGProps<SVGSVGElement>) {
   return (
@@ -45,6 +47,14 @@ export function Header({
   address?: string;
 }) {
   const { lang, setLang, t } = useLanguage();
+  // Skjul navbar-lenker til seksjoner som er skrudd av i admin.
+  const sectionFlags = useSectionFlags();
+  const hiddenNavHrefs = new Set(
+    SITE_SECTIONS.filter((s) => s.nav && sectionFlags[s.key] === false).map(
+      (s) => s.nav as string,
+    ),
+  );
+  const visibleNav = nav.filter((n) => !hiddenNavHrefs.has(n.href));
   const [open, setOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [loginFlags, setLoginFlags] = useState({ accessDenied: false, passwordReset: false, staffTab: false });
@@ -108,7 +118,7 @@ export function Header({
         </Link>
 
         <nav className="hidden items-center gap-9 md:flex">
-          {nav.map((n) => (
+          {visibleNav.map((n) => (
             <Link
               key={n.href}
               href={n.href}
@@ -243,7 +253,7 @@ export function Header({
       {open && (
         <nav className="border-t border-line bg-canvas px-5 py-4 md:hidden">
           <div className="flex flex-col gap-1">
-            {nav.map((n) => (
+            {visibleNav.map((n) => (
               <Link
                 key={n.href}
                 href={n.href}

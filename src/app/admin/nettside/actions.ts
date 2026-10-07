@@ -21,6 +21,26 @@ export async function updateSite(
 
 type Result = { ok?: true; error?: string };
 
+/** Skru en forside-seksjon av/på. Av → borte fra forside OG navbar. Kun admin. */
+export async function setSectionVisible(
+  key: string,
+  visible: boolean,
+): Promise<Result> {
+  if (!(await adminGuard())) return { error: "Ingen tilgang." };
+  if (!key) return { error: "Mangler seksjon." };
+  const sb = await createClient();
+  const { error } = await sb
+    .from("site_section_flags")
+    .upsert(
+      { key, visible, updated_at: new Date().toISOString() },
+      { onConflict: "key" },
+    );
+  if (error) return { error: "Kunne ikke lagre." };
+  revalidatePath("/");
+  revalidatePath("/admin/nettside");
+  return { ok: true };
+}
+
 async function adminGuard(): Promise<boolean> {
   const me = await getUserRole();
   return !!me && isAdminRole(me.role);

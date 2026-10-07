@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
+import { SectionFlagsProvider } from "@/components/site/SectionFlagsProvider";
+import { getSectionFlags } from "@/lib/site-section-flags";
 import { siteUrl } from "@/lib/site-url";
 
 // Fontene ligger i repoet (src/fonts, OFL-lisens) og serveres fra vårt eget
@@ -65,11 +67,16 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const sectionFlags = await getSectionFlags();
   return (
     <html lang="nb" className={`${inter.variable} ${playfair.variable}`}>
       <body className="min-h-full">
-        <LanguageProvider>{children}</LanguageProvider>
+        <LanguageProvider>
+          <SectionFlagsProvider flags={sectionFlags}>
+            {children}
+          </SectionFlagsProvider>
+        </LanguageProvider>
       </body>
     </html>
   );
