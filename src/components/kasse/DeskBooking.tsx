@@ -240,13 +240,29 @@ function Dialog({
     };
   }, [date, barber, service]);
 
-  const readyCustomer = locked || customerId || (newCustomer && nyNavn.trim());
+  // Navn skrevet i søkefeltet (uten å ha valgt et treff) brukes som ny kunde,
+  // så man slipper å måtte klikke et søkeresultat for å kunne booke.
+  const typedName =
+    !locked && !newCustomer && !customerId ? q.trim() : "";
+  const readyCustomer =
+    locked || customerId || (newCustomer && nyNavn.trim()) || typedName.length >= 2;
   const canSubmit =
     readyCustomer &&
     barber &&
     date &&
     isValidTime(time) &&
     (mode === "reschedule" || service);
+
+  // Hvorfor er knappen grå? (vises under knappen så den aldri «bare» er død)
+  const missing = !readyCustomer
+    ? "Skriv inn eller velg en kunde"
+    : !date
+      ? "Velg dato"
+      : !isValidTime(time)
+        ? "Skriv inn tid (TT:MM)"
+        : mode !== "reschedule" && !service
+          ? "Velg tjeneste"
+          : null;
 
   function submit() {
     setError(null);
@@ -257,7 +273,7 @@ function Dialog({
           ? await rescheduleBooking(bookingId, startIso, barber)
           : await createDeskBooking({
               customerId,
-              name: newCustomer ? nyNavn : customerName,
+              name: newCustomer ? nyNavn : customerName || typedName,
               email: newCustomer ? nyEpost : undefined,
               phone: newCustomer ? nyTlf : undefined,
               service,
@@ -420,6 +436,11 @@ function Dialog({
                       </li>
                     ))}
                   </ul>
+                )}
+                {typedName.length >= 2 && (
+                  <p className="mt-1 text-[11px] text-muted">
+                    Lagres som ny kunde: «{typedName}» (eller velg et treff over)
+                  </p>
                 )}
               </div>
             )}
@@ -586,7 +607,10 @@ function Dialog({
 
         {error && <p className="mb-3 text-sm text-danger">{error}</p>}
 
-        <div className="flex justify-end gap-2">
+        <div className="flex items-center justify-end gap-3">
+          {missing && !pending && (
+            <span className="mr-auto text-xs text-muted">{missing}</span>
+          )}
           <button
             onClick={onClose}
             className="act"
