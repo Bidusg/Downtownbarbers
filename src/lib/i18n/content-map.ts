@@ -97,6 +97,9 @@ const services: ContentMap = {
   // Tillegg (tilleggstjenester – navnene settes i admin; disse er vanlige valg,
   // og ukjente verdier faller trygt tilbake til norsk).
   Hårvask: { en: "Hair wash" },
+  "Hårvask og Føning": { en: "Hair wash & blow-dry" },
+  "Hårvask og føning": { en: "Hair wash & blow-dry" },
+  Føning: { en: "Blow-dry" },
   Hodebunnsmassasje: { en: "Scalp massage" },
   Nakkemassasje: { en: "Neck massage" },
   Ansiktsmassasje: { en: "Face massage" },
