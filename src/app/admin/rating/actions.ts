@@ -1,8 +1,9 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getUserRole, isAdminRole } from "@/lib/auth";
+import { testReviewConnections, type ReviewConnectionTest } from "@/lib/reviews";
 
 /**
  * Lagre omdømme-konfig (Google + TripAdvisor). Kun admin. Nøkler oppdateres
@@ -41,6 +42,18 @@ export async function saveReviewConfig(formData: FormData): Promise<void> {
   if (taKey && !looksLikeLogin(taKey)) patch.tripadvisor_api_key = taKey;
 
   await sb.from("review_config").upsert(patch, { onConflict: "id" });
+  // Tøm bufrede Google/TripAdvisor-svar, så ny nøkkel slår inn med en gang
+  // (ellers kan et gammelt feilsvar bli liggende i opptil 6 timer).
+  updateTag("reviews");
   revalidatePath("/admin/rating");
   revalidatePath("/");
+}
+
+
+/** «Test kobling» i admin: kjører et ubufret kall mot hver kilde. */
+export async function testReviewConnection(): Promise<ReviewConnectionTest | { error: string }> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { error: "Kun admin." };
+  updateTag("reviews");
+  return testReviewConnections();
 }

@@ -149,10 +149,14 @@ async function googleSource(cfg: ReviewConfig): Promise<{
       {
         headers: {
           "X-Goog-Api-Key": key,
+          // Kallet går fra serveren (Vercel), som ikke sender Referer selv.
+          // Er nøkkelen låst til «Websites → downtownbarbers.no» i Google
+          // Cloud, må vi oppgi domenet her – ellers avvises kallet.
+          Referer: "https://downtownbarbers.no/",
           "X-Goog-FieldMask":
             "rating,userRatingCount,googleMapsUri,reviews.rating,reviews.text,reviews.originalText,reviews.relativePublishTimeDescription,reviews.publishTime,reviews.authorAttribution",
         },
-        next: { revalidate: REVALIDATE },
+        next: { revalidate: REVALIDATE, tags: ["reviews"] },
       },
     );
     if (!res.ok) return null;
@@ -209,7 +213,12 @@ async function tripadvisorSource(cfg: ReviewConfig): Promise<{
   if (!cfg.taEnabled || !key || !loc) return null;
   const base = `https://api.content.tripadvisor.com/api/v1/location/${encodeURIComponent(loc)}`;
   const k = `key=${encodeURIComponent(key)}`;
-  const opts = { headers: { accept: "application/json" }, next: { revalidate: REVALIDATE } };
+  // Referer: TripAdvisor-nøkkelen låses til domenet i deres konsoll, og
+  // serverkall fra Vercel sender ikke domenet av seg selv.
+  const opts = {
+    headers: { accept: "application/json", Referer: "https://downtownbarbers.no/" },
+    next: { revalidate: REVALIDATE, tags: ["reviews"] },
+  };
   try {
     // Reviews-endepunktet filtrerer på språk – hent både norske og engelske.
     const [dRes, rNo, rEn] = await Promise.all([
@@ -441,4 +450,104 @@ export async function getReviewConfigAdmin(): Promise<ReviewConfigStatus> {
   } catch {
     return fallback;
   }
+}
+
+
+/* ---------------- Diagnose (admin → «Test kobling») ---------------- */
+export type SourceTest = { ok: boolean; message: string };
+export type ReviewConnectionTest = {
+  config: SourceTest;
+  google: SourceTest;
+  tripadvisor: SourceTest;
+};
+
+/** Ufiltrert, ubufret test av kildene, med Googles/TripAdvisors egen
+ *  feilmelding – så admin ser NØYAKTIG hvorfor noe ikke vises. */
+export async function testReviewConnections(): Promise<ReviewConnectionTest> {
+  let config: SourceTest;
+  let cfg: ReviewConfig;
+  try {
+    const sb = createServiceClient();
+    const { data, error } = await sb.from("review_config").select("*").eq("id", 1).maybeSingle();
+    if (error) throw new Error(error.message);
+    cfg = await getReviewConfig();
+    config = data
+      ? { ok: true, message: "Nøklene leses fra databasen." }
+      : { ok: false, message: "Ingen lagret kobling ennå – trykk «Lagre kobling» først." };
+  } catch (e) {
+    cfg = envConfig();
+    config = {
+      ok: false,
+      message:
+        "Serveren får ikke lest lagrede nøkler (mangler SUPABASE_SERVICE_ROLE_KEY i Vercel?): " +
+        (e instanceof Error ? e.message : String(e)),
+    };
+  }
+
+  const errText = async (res: Response) => {
+    try {
+      const j = (await res.json()) as { error?: { message?: string } | string; message?: string };
+      const m = typeof j.error === "string" ? j.error : j.error?.message ?? j.message;
+      return `HTTP ${res.status}: ${m ?? res.statusText}`;
+    } catch {
+      return `HTTP ${res.status}: ${res.statusText}`;
+    }
+  };
+
+  let google: SourceTest;
+  if (!cfg.googleEnabled) google = { ok: false, message: "Skrudd av («Vis Google» er ikke krysset av)." };
+  else if (!cfg.googleKey || !cfg.googlePlaceId) google = { ok: false, message: "Place-ID eller API-nøkkel mangler." };
+  else {
+    try {
+      const res = await fetch(
+        `https://places.googleapis.com/v1/places/${encodeURIComponent(cfg.googlePlaceId)}?languageCode=no`,
+        {
+          headers: {
+            "X-Goog-Api-Key": cfg.googleKey,
+            Referer: "https://downtownbarbers.no/",
+            "X-Goog-FieldMask": "displayName,rating,userRatingCount",
+          },
+          cache: "no-store",
+        },
+      );
+      if (!res.ok) google = { ok: false, message: await errText(res) };
+      else {
+        const d = (await res.json()) as {
+          displayName?: { text?: string };
+          rating?: number;
+          userRatingCount?: number;
+        };
+        google = {
+          ok: true,
+          message: `${d.displayName?.text ?? "Stedet"}: ${d.rating ?? "–"} ★ fra ${d.userRatingCount ?? 0} anmeldelser.`,
+        };
+      }
+    } catch (e) {
+      google = { ok: false, message: "Nettverksfeil: " + (e instanceof Error ? e.message : String(e)) };
+    }
+  }
+
+  let tripadvisor: SourceTest;
+  if (!cfg.taEnabled) tripadvisor = { ok: false, message: "Skrudd av." };
+  else if (!cfg.taKey || !cfg.taLoc) tripadvisor = { ok: false, message: "Ikke satt opp ennå." };
+  else {
+    try {
+      const res = await fetch(
+        `https://api.content.tripadvisor.com/api/v1/location/${encodeURIComponent(cfg.taLoc)}/details?key=${encodeURIComponent(cfg.taKey)}&language=no`,
+        { headers: { accept: "application/json", Referer: "https://downtownbarbers.no/" }, cache: "no-store" },
+      );
+      if (!res.ok) tripadvisor = { ok: false, message: await errText(res) };
+      else {
+        const d = (await res.json()) as { name?: string; rating?: string; num_reviews?: string };
+        tripadvisor = {
+          ok: true,
+          message: `${d.name ?? "Stedet"}: ${d.rating ?? "–"} ★ fra ${d.num_reviews ?? 0} anmeldelser.`,
+        };
+      }
+    } catch (e) {
+      tripadvisor = { ok: false, message: "Nettverksfeil: " + (e instanceof Error ? e.message : String(e)) };
+    }
+  }
+
+  return { config, google, tripadvisor };
 }

@@ -1,6 +1,7 @@
 import { getRatingOverview } from "@/lib/rating-queries";
 import { getReviewsSummary, getReviewConfigAdmin } from "@/lib/reviews";
 import { ReviewConfigForm } from "@/components/admin/ReviewConfigForm";
+import { ReviewConnectionTest } from "@/components/admin/ReviewConnectionTest";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -108,6 +109,9 @@ export default async function AdminRating() {
       {/* ---------- Koble til kilder ---------- */}
       <Card>
         <ReviewConfigForm status={reviewConfig} />
+        <div className="mt-6 border-t border-line pt-5">
+          <ReviewConnectionTest />
+        </div>
       </Card>
 
       {/* ---------- Snittrating per barber (egne kunder) ---------- */}
