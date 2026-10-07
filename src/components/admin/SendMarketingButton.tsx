@@ -71,10 +71,9 @@ export function SendMarketingButton({ emailCount, smsCount }: { emailCount: numb
               <button
                 type="submit"
                 disabled={pending}
-                onClick={() => setConfirm(null)}
                 className="bg-accent px-4 py-2 text-sm font-semibold text-accent-fg disabled:opacity-60"
               >
-                Ja, send
+                {pending ? "Starter …" : "Ja, send"}
               </button>
             </div>
           </div>

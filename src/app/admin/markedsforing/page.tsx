@@ -48,7 +48,7 @@ function fmt(iso: string) {
 export default async function AdminMarkedsforing({
   searchParams,
 }: {
-  searchParams: Promise<{ sendt?: string; startet?: string; feil?: string; kanal?: string; utelatt?: string }>;
+  searchParams: Promise<{ sendt?: string; startet?: string; feil?: string; kanal?: string; utelatt?: string; detalj?: string }>;
 }) {
   const sp = await searchParams;
   const [stats, sends, inbound, barbers] = await Promise.all([
@@ -104,6 +104,11 @@ export default async function AdminMarkedsforing({
           </p>
         </div>
       )}
+      {sp.feil === "tilgang" && (
+        <div className="border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+          Du har ikke tilgang til å sende (mangler admin/eier-rolle, eller du må logge inn på nytt).
+        </div>
+      )}
       {sp.feil === "tomt" && (
         <div className="border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
           Emne og tekst må fylles ut.
@@ -133,7 +138,17 @@ export default async function AdminMarkedsforing({
       )}
       {sp.feil === "db" && (
         <div className="border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
-          Kunne ikke opprette køen. Er KJØR-I-SUPABASE-UTSENDING-KO.sql kjørt?
+          Kunne ikke lagre utsendingen i databasen.
+          {sp.detalj && (
+            <span className="mt-1 block font-mono text-xs break-words text-danger/90">
+              {sp.detalj}
+            </span>
+          )}
+          <span className="mt-1 block text-xs text-danger/80">
+            Nevner feilen en kolonne (f.eks. <code>email_type</code> / <code>featured_barber</code>),
+            kjør <code>KJØR-I-SUPABASE-EPOST-TYPE.sql</code> i Supabase. Gjelder det køen, kjør
+            <code> KJØR-I-SUPABASE-UTSENDING-KO.sql</code>.
+          </span>
         </div>
       )}
 

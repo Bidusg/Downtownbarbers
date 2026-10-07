@@ -33,7 +33,8 @@ function startWorkerAfterResponse() {
  */
 export async function sendMarketing(formData: FormData): Promise<void> {
   const me = await getUserRole();
-  if (!me || !isAdminRole(me.role)) return;
+  if (!me || !isAdminRole(me.role))
+    redirect("/admin/markedsforing?feil=tilgang");
 
   const channel: Channel =
     String(formData.get("channel") ?? "email") === "sms" ? "sms" : "email";
@@ -81,7 +82,13 @@ export async function sendMarketing(formData: FormData): Promise<void> {
     })
     .select("id")
     .single();
-  if (error || !send) redirect("/admin/markedsforing?feil=db");
+  if (error || !send) {
+    console.error("marketing_sends insert feilet:", error?.message, error?.details ?? "");
+    redirect(
+      "/admin/markedsforing?feil=db&detalj=" +
+        encodeURIComponent((error?.message ?? "ukjent feil").slice(0, 200)),
+    );
+  }
 
   // Kø-rader i bolker på 1000 (rask insert).
   for (let i = 0; i < recipients.length; i += 1000) {
@@ -95,7 +102,7 @@ export async function sendMarketing(formData: FormData): Promise<void> {
     const { error: qErr } = await sb.from("marketing_queue").insert(rows);
     if (qErr) {
       await sb.from("marketing_sends").update({ status: "failed", last_error: qErr.message }).eq("id", send.id);
-      redirect("/admin/markedsforing?feil=db");
+      redirect("/admin/markedsforing?feil=db&detalj=" + encodeURIComponent(qErr.message.slice(0, 200)));
     }
   }
 
@@ -299,7 +306,13 @@ export async function sendToRest(sendId: string): Promise<void> {
     })
     .select("id")
     .single();
-  if (error || !send) redirect("/admin/markedsforing?feil=db");
+  if (error || !send) {
+    console.error("marketing_sends insert feilet:", error?.message, error?.details ?? "");
+    redirect(
+      "/admin/markedsforing?feil=db&detalj=" +
+        encodeURIComponent((error?.message ?? "ukjent feil").slice(0, 200)),
+    );
+  }
 
   for (let i = 0; i < rest.length; i += 1000) {
     const rows = rest.slice(i, i + 1000).map((r) => ({
