@@ -21,7 +21,7 @@ function KeyBadge({ set }: { set: boolean }) {
  */
 export function ReviewConfigForm({ status }: { status: ReviewConfigStatus }) {
   return (
-    <form action={saveReviewConfig} className="space-y-6">
+    <form action={saveReviewConfig} autoComplete="off" className="space-y-6">
       <div>
         <h2 className="font-display text-lg font-bold">Koble til omdømmekilder</h2>
         <p className="mt-1 text-sm text-muted">
@@ -40,6 +40,11 @@ export function ReviewConfigForm({ status }: { status: ReviewConfigStatus }) {
         <Field label="Place-ID">
           <Input
             name="google_place_id"
+            autoComplete="off"
+            spellCheck={false}
+            data-1p-ignore
+            data-lpignore="true"
+            data-form-type="other"
             defaultValue={status.googlePlaceId}
             placeholder="f.eks. ChIJ…"
           />
@@ -47,8 +52,13 @@ export function ReviewConfigForm({ status }: { status: ReviewConfigStatus }) {
         <Field label="API-nøkkel">
           <Input
             name="google_api_key"
-            type="password"
+            type="text"
+            className="[-webkit-text-security:disc]"
             autoComplete="off"
+            spellCheck={false}
+            data-1p-ignore
+            data-lpignore="true"
+            data-form-type="other"
             placeholder={
               status.googleKeySet ? "•••• – la stå tomt for å beholde" : "Lim inn API-nøkkel"
             }
@@ -74,6 +84,11 @@ export function ReviewConfigForm({ status }: { status: ReviewConfigStatus }) {
         <Field label="Location-ID">
           <Input
             name="tripadvisor_location_id"
+            autoComplete="off"
+            spellCheck={false}
+            data-1p-ignore
+            data-lpignore="true"
+            data-form-type="other"
             defaultValue={status.taLocationId}
             placeholder="f.eks. 1234567"
           />
@@ -81,8 +96,13 @@ export function ReviewConfigForm({ status }: { status: ReviewConfigStatus }) {
         <Field label="API-nøkkel">
           <Input
             name="tripadvisor_api_key"
-            type="password"
+            type="text"
+            className="[-webkit-text-security:disc]"
             autoComplete="off"
+            spellCheck={false}
+            data-1p-ignore
+            data-lpignore="true"
+            data-form-type="other"
             placeholder={
               status.taKeySet ? "•••• – la stå tomt for å beholde" : "Lim inn API-nøkkel"
             }

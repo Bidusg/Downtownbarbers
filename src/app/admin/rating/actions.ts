@@ -22,17 +22,23 @@ export async function saveReviewConfig(formData: FormData): Promise<void> {
   const taLocationId = trimmed("tripadvisor_location_id");
   const taKey = trimmed("tripadvisor_api_key");
 
+  // Vern mot nettleserens autofyll: en e-postadresse er aldri en Place-ID,
+  // og Google-API-nøkler starter alltid med «AIza». Ser verdien ut som
+  // autofylt innlogging, lagres den ikke (eksisterende verdi beholdes).
+  const looksLikeLogin = (v: string) => v.includes("@") || /\s/.test(v);
+
   const patch: Record<string, unknown> = {
     id: 1,
-    google_place_id: googlePlaceId || null,
     google_enabled: formData.get("google_enabled") === "on",
     tripadvisor_location_id: taLocationId || null,
     tripadvisor_enabled: formData.get("tripadvisor_enabled") === "on",
     updated_at: new Date().toISOString(),
   };
-  // Behold eksisterende nøkkel hvis feltet er tomt.
-  if (googleKey) patch.google_api_key = googleKey;
-  if (taKey) patch.tripadvisor_api_key = taKey;
+  if (!looksLikeLogin(googlePlaceId)) patch.google_place_id = googlePlaceId || null;
+  if (looksLikeLogin(taLocationId)) delete patch.tripadvisor_location_id;
+  // Behold eksisterende nøkkel hvis feltet er tomt eller ikke ser ut som en nøkkel.
+  if (googleKey && googleKey.startsWith("AIza")) patch.google_api_key = googleKey;
+  if (taKey && !looksLikeLogin(taKey)) patch.tripadvisor_api_key = taKey;
 
   await sb.from("review_config").upsert(patch, { onConflict: "id" });
   revalidatePath("/admin/rating");
