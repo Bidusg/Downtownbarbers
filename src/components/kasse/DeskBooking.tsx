@@ -25,6 +25,49 @@ type Prefill = {
 };
 
 
+/* Norske dato-/tidshjelpere – appen styrer formatet selv, uavhengig av
+ * nettleserens språk (Chrome viser ellers amerikansk «02:15 PM» / «10/07/2026»). */
+function isoToNoDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : "";
+}
+function noDateToIso(text: string): string | null {
+  const m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(text.trim());
+  if (!m) return null;
+  const d = +m[1];
+  const mo = +m[2];
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
+/** Tastetrykk → DD.MM.ÅÅÅÅ (setter punktum automatisk). */
+function maskNoDate(raw: string): string {
+  const d = raw.replace(/\D/g, "").slice(0, 8);
+  const parts = [d.slice(0, 2), d.slice(2, 4), d.slice(4, 8)].filter(Boolean);
+  return parts.join(".");
+}
+/** Tastetrykk → HH:MM (24-timer, setter kolon automatisk). */
+function maskTime(raw: string): string {
+  const d = raw.replace(/\D/g, "").slice(0, 4);
+  if (d.length <= 2) return d;
+  return `${d.slice(0, 2)}:${d.slice(2, 4)}`;
+}
+function isValidTime(t: string): boolean {
+  const m = /^(\d{2}):(\d{2})$/.exec(t);
+  return !!m && +m[1] < 24 && +m[2] < 60;
+}
+function noWeekdayLong(iso: string): string {
+  try {
+    return new Date(iso + "T12:00:00").toLocaleDateString("nb-NO", {
+      weekday: "long",
+    });
+  } catch {
+    return "";
+  }
+}
+function osloTodayIso(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" });
+}
+
 /** Grupper tjenester per kategori (rekkefølgen kommer ferdig sortert fra serveren). */
 function groupByCategory(list: ShopService[]): { cat: string; rows: ShopService[] }[] {
   const out: { cat: string; rows: ShopService[] }[] = [];
@@ -136,11 +179,13 @@ function Dialog({
     prefill?.barber ?? barbers[0]?.full_name ?? "",
   );
   const [date, setDate] = useState(prefill?.date ?? "");
+  // Dato vises/skrives som DD.MM.ÅÅÅÅ (norsk), uavhengig av nettleserspråk.
+  const [dateText, setDateText] = useState(
+    prefill?.date ? isoToNoDate(prefill.date) : "",
+  );
   // Ønsket tid (fra klikk i kalenderen) – brukes første gang tidene hentes.
   const [wantTime, setWantTime] = useState<string | undefined>(prefill?.time);
   const [timeNote, setTimeNote] = useState<string | null>(null);
-  // Fri tid (drop-in / etterregistrering): HH:MM, uavhengig av ledige tider.
-  const [manualTime, setManualTime] = useState("");
   const [slots, setSlots] = useState<string[]>([]);
   const [time, setTime] = useState("");
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -181,11 +226,10 @@ function Dialog({
           // Klikket tid brukes som den er (også utenfor turnus / i fortiden).
           // Lagringen stopper bare hvis barberen har en annen booking da.
           setTime(wantTime);
-          setManualTime(wantTime);
           setTimeNote(
             r.includes(wantTime)
               ? null
-              : "Tiden er utenfor de vanlige ledige tidene (turnus, fravær eller passert) – den kan likevel lagres hvis barberen ikke har en annen booking da.",
+              : "Utenfor vanlig arbeidstid – lagres likevel når du bekrefter.",
           );
           setWantTime(undefined);
         }
@@ -197,7 +241,12 @@ function Dialog({
   }, [date, barber, service]);
 
   const readyCustomer = locked || customerId || (newCustomer && nyNavn.trim());
-  const canSubmit = readyCustomer && barber && time && (mode === "reschedule" || service);
+  const canSubmit =
+    readyCustomer &&
+    barber &&
+    date &&
+    isValidTime(time) &&
+    (mode === "reschedule" || service);
 
   function submit() {
     setError(null);
@@ -230,6 +279,26 @@ function Dialog({
       : prefill?.customerId
         ? "Book ny time"
         : "Ny booking";
+
+  // Hurtigvalg for dato (norsk tidssone).
+  const todayIso = osloTodayIso();
+  const tomorrowIso = (() => {
+    const d = new Date(todayIso + "T12:00:00");
+    d.setDate(d.getDate() + 1);
+    return d.toLocaleDateString("en-CA");
+  })();
+  function pickDate(iso: string) {
+    setDate(iso);
+    setDateText(isoToNoDate(iso));
+  }
+  function pickTime(t: string) {
+    setTime(t);
+    setTimeNote(
+      !isValidTime(t) || slots.length === 0 || slots.includes(t)
+        ? null
+        : "Utenfor vanlig arbeidstid – lagres likevel når du bekrefter.",
+    );
+  }
 
 
   return (
@@ -414,79 +483,104 @@ function Dialog({
         {/* Dato */}
         <div className="mb-3">
           <label className="mb-1 block text-xs text-muted">Dato</label>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg focus:border-accent-soft focus:outline-none"
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={dateText}
+              onChange={(e) => {
+                const masked = maskNoDate(e.target.value);
+                setDateText(masked);
+                setDate(noDateToIso(masked) ?? "");
+              }}
+              inputMode="numeric"
+              placeholder="DD.MM.ÅÅÅÅ"
+              className="w-36 rounded-md border border-line bg-canvas px-3 py-2 text-sm tabular-nums text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
+            />
+            {[
+              { label: "I dag", iso: todayIso },
+              { label: "I morgen", iso: tomorrowIso },
+            ].map((d) => (
+              <button
+                key={d.label}
+                type="button"
+                onClick={() => pickDate(d.iso)}
+                className={
+                  "rounded-md border px-3 py-2 text-xs font-semibold transition-colors " +
+                  (date === d.iso
+                    ? "border-accent-soft bg-accent-soft/10 text-fg"
+                    : "border-line-2 text-muted hover:border-accent-soft hover:text-fg")
+                }
+              >
+                {d.label}
+              </button>
+            ))}
+          </div>
+          {date && (
+            <p className="mt-1 text-[11px] text-muted">
+              <span className="capitalize">{noWeekdayLong(date)}</span> {isoToNoDate(date)}
+            </p>
+          )}
         </div>
 
-        {/* Tid */}
+        {/* Tid – ett felt (24-timer). Ledige tider i turnusen vises som forslag. */}
         {date && (
           <div className="mb-4">
-            <label className="mb-1 block text-xs text-muted">Ledig tid</label>
-            {timeNote && <p className="mb-2 text-xs text-accent-soft">{timeNote}</p>}
-            {loadingSlots ? (
-              <p className="text-sm text-muted">Henter ledige tider…</p>
-            ) : slots.length === 0 ? (
-              <p className="text-sm text-muted">Ingen ledige tider i turnusen denne dagen – sett tid manuelt under.</p>
-            ) : (
-              <div className="grid grid-cols-4 gap-2">
-                {slots.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setTime(s)}
-                    className={
-                      "rounded-md border px-2 py-1.5 text-sm " +
-                      (time === s
-                        ? "border-accent-soft bg-accent-soft/15 text-accent-soft"
-                        : "border-line text-muted hover:border-accent-soft hover:text-fg")
-                    }
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Egen tid: drop-in eller booking som legges inn i etterkant */}
-        {date && mode !== "reschedule" && (
-          <div className="mb-4 rounded-md border border-dashed border-line-2 p-3">
-            <label className="mb-1 block text-xs text-muted">
-              Annen tid (drop-in / legges inn i etterkant)
-            </label>
+            <label className="mb-1 block text-xs text-muted">Tid</label>
             <div className="flex items-center gap-2">
               <input
-                type="time"
-                step={300}
-                value={manualTime}
-                onChange={(e) => {
-                  setManualTime(e.target.value);
-                  setTime(e.target.value);
-                }}
-                className="rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg focus:border-accent-soft focus:outline-none"
+                value={time}
+                onChange={(e) => pickTime(maskTime(e.target.value))}
+                inputMode="numeric"
+                placeholder="TT:MM"
+                className="w-24 rounded-md border border-line bg-canvas px-3 py-2 text-sm tabular-nums text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
               />
-              <button
-                type="button"
-                onClick={() => {
-                  const n = new Date();
-                  const hh = String(n.getHours()).padStart(2, "0");
-                  const mm = String(Math.floor(n.getMinutes() / 5) * 5).padStart(2, "0");
-                  setDate(n.toLocaleDateString("en-CA"));
-                  setManualTime(`${hh}:${mm}`);
-                  setTime(`${hh}:${mm}`);
-                }}
-                className="rounded-md border border-line-2 px-3 py-2 text-xs font-semibold text-fg hover:border-accent-soft"
-              >
-                Nå
-              </button>
+              {mode !== "reschedule" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const n = new Date();
+                    const hh = String(n.getHours()).padStart(2, "0");
+                    const mm = String(Math.floor(n.getMinutes() / 5) * 5).padStart(2, "0");
+                    pickDate(todayIso);
+                    pickTime(`${hh}:${mm}`);
+                  }}
+                  className="rounded-md border border-line-2 px-3 py-2 text-xs font-semibold text-fg hover:border-accent-soft"
+                >
+                  Nå
+                </button>
+              )}
             </div>
-            <p className="mt-1 text-[11px] text-muted">
-              Lagres så lenge barberen ikke har en annen booking samtidig – også utenfor turnus og på tid som har passert.
-            </p>
+
+            {timeNote && <p className="mt-1.5 text-xs text-muted">{timeNote}</p>}
+
+            {loadingSlots ? (
+              <p className="mt-2 text-xs text-muted">Henter ledige tider…</p>
+            ) : slots.length > 0 ? (
+              <div className="mt-2">
+                <p className="mb-1 text-[11px] text-muted">Ledige tider hos {barber}:</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {slots.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => pickTime(s)}
+                      className={
+                        "rounded-md border px-2 py-1.5 text-sm tabular-nums " +
+                        (time === s
+                          ? "border-accent-soft bg-accent-soft/15 text-accent-soft"
+                          : "border-line text-muted hover:border-accent-soft hover:text-fg")
+                      }
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-muted">
+                Ingen ledige tider i turnusen denne dagen – skriv inn tiden over.
+                Den lagres så lenge {barber} ikke har en annen booking da.
+              </p>
+            )}
           </div>
         )}
 
