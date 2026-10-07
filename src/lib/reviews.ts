@@ -378,9 +378,11 @@ export async function getPublicReviewsSummary(): Promise<ReviewsSummary> {
   if (google) sources.push(google.source);
   if (tripadvisor) sources.push(tripadvisor.source);
   // Flett Google og Tripadvisor (G, T, G, T …) så begge kildene synes.
-  // Kun gode anmeldelser (4–5 stjerner) med litt tekst på forsiden.
+  // Kun gode anmeldelser (4–5 stjerner) med litt tekst på forsiden. Terskelen
+  // er lav (minst 8 tegn) så flest mulig av Googles ~5 anmeldelser kommer med
+  // og karusellen får nok kort til å bla i.
   const good = (list: AggregatedReview[]) =>
-    list.filter((r) => r.rating >= 4 && r.text.length >= 20);
+    list.filter((r) => r.rating >= 4 && r.text.length >= 8);
   const g = good(google?.recent ?? []);
   const t = good(tripadvisor?.recent ?? []);
   const recent: AggregatedReview[] = [];

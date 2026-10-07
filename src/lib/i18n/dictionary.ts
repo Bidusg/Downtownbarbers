@@ -185,7 +185,7 @@ export const dictionary: Dict = {
 
   // ---- Booking-side ----
   "booking.eyebrow": { no: "Bestill time", en: "Book appointment" },
-  "booking.heading": { no: "Sett deg ned.", en: "Have a seat." },
+  "booking.heading": { no: "Slå deg ned.", en: "Have a seat." },
   "booking.intro": {
     no: "Fire steg: tjeneste, barber, tid og info. Bekreftelse på e-post med en gang.",
     en: "Four steps: service, barber, time and details. Email confirmation right away.",
