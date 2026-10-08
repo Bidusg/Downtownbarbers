@@ -30,6 +30,13 @@ import { PUBLIC_VIEWPORT } from "@/lib/public-viewport";
 
 export const viewport = PUBLIC_VIEWPORT;
 
+// Eksplisitt canonical for forsiden → https://downtownbarbers.no/ (uten www,
+// via metadataBase). Så Google vet at dette er DEN ene adressen og ikke
+// indekserer www-/gamle varianter som egne treff.
+export const metadata = {
+  alternates: { canonical: "/" },
+};
+
 function Label({ children }: { children: React.ReactNode }) {
   return (
     <p className="text-[10px] font-semibold tracking-[0.34em] text-accent-soft uppercase">

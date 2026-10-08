@@ -63,6 +63,15 @@ const nextConfig: NextConfig = {
       "/bestill-time",
     ];
     return [
+      // www → non-www (301/308). Uten denne indekserer Google både
+      // www.downtownbarbers.no og downtownbarbers.no som to ulike sider –
+      // vi vil kun ha den uten www. Alt på www sendes til samme sti uten www.
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.downtownbarbers.no" }],
+        destination: "https://downtownbarbers.no/:path*",
+        permanent: true,
+      },
       ...home.map((source) => ({ source, destination: "/", permanent: true })),
       ...booking.map((source) => ({ source, destination: "/booking", permanent: true })),
     ];

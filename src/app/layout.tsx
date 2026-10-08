@@ -46,7 +46,9 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   // metadataBase gjør at OG-bilde/ikoner får absolutte URL-er (kreves av
   // Facebook/Instagram/LinkedIn/iMessage for forhåndsvisning av lenker).
-  metadataBase: new URL(siteUrl()),
+  // www strippes så canonical/OG alltid peker på det kanoniske domenet uten
+  // www (downtownbarbers.no), uansett hva produksjonsdomenet heter.
+  metadataBase: new URL(siteUrl().replace(/:\/\/www\./, "://")),
   title: "Downtown Barbers | Oslo",
   description: DESCRIPTION,
   keywords: ["barbershop", "oslo", "hårklipp", "fade", "skjegg", "grooming", "barber oslo"],
