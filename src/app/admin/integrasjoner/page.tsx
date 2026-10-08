@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { getBookingNotify, saveBookingNotify } from "./actions";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { TripletexCard } from "@/components/admin/TripletexCard";
+import { VippsCard } from "@/components/admin/VippsCard";
 import { TRIPLETEX, tripletexConfigured } from "@/lib/tripletex/config";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -83,6 +84,15 @@ export default async function AdminIntegrasjoner({
   const emailFromSet = Boolean(process.env.EMAIL_FROM);
   const serviceRoleSet = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
   const vippsMode = config.vipps.mode;
+  const vippsVars = [
+    { name: "VIPPS_CLIENT_ID", set: Boolean(process.env.VIPPS_CLIENT_ID) },
+    { name: "VIPPS_CLIENT_SECRET", set: Boolean(process.env.VIPPS_CLIENT_SECRET) },
+    {
+      name: "VIPPS_SUBSCRIPTION_KEY",
+      set: Boolean(process.env.VIPPS_SUBSCRIPTION_KEY),
+    },
+    { name: "VIPPS_MSN", set: Boolean(process.env.VIPPS_MSN) },
+  ];
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
@@ -133,8 +143,8 @@ export default async function AdminIntegrasjoner({
           badge={vippsMode === "production" ? "Produksjon" : vippsMode === "test" ? "Test" : "Mock"}
         >
           {vippsMode === "mock"
-            ? "Kjører i mock-modus. Sett VIPPS_CLIENT_ID, VIPPS_CLIENT_SECRET, VIPPS_SUBSCRIPTION_KEY og VIPPS_MSN i Vercel (VIPPS_ENV=production for live)."
-            : `Vipps er i ${vippsMode}-modus.`}
+            ? "Kjører i mock-modus. Sett opp og test nedenfor (nøkler i Vercel)."
+            : `Vipps er i ${vippsMode}-modus. Test nedenfor.`}
         </IntegrationCard>
 
         <IntegrationCard
@@ -147,6 +157,13 @@ export default async function AdminIntegrasjoner({
             : "SUPABASE_SERVICE_ROLE_KEY mangler i Vercel — automatiske varsler, planlagte jobber og SMS vil ikke virke."}
         </IntegrationCard>
       </div>
+
+      {/* Vipps – status + test av nøklene fra Vercel */}
+      <VippsCard
+        mode={vippsMode}
+        vars={vippsVars}
+        envValue={process.env.VIPPS_ENV ?? ""}
+      />
 
       {/* Tripletex – test + bilagsforhåndsvisning */}
       <TripletexCard

@@ -203,3 +203,41 @@ export async function capturePayment(
 export function bookingIdFromReference(reference: string): string {
   return reference.replace(/^booking-/, "");
 }
+
+/**
+ * Test av Vipps-koblingen (admin → Integrasjoner). Henter kun et access token
+ * for å bekrefte at nøklene i Vercel virker – INGEN betaling opprettes.
+ */
+export async function pingVipps(): Promise<{
+  ok: boolean;
+  mode: "mock" | "test" | "production";
+  message: string;
+}> {
+  const mode = config.vipps.mode;
+  if (mode === "mock") {
+    return {
+      ok: false,
+      mode,
+      message:
+        "Mock-modus – ingen Vipps-nøkler oppdaget. Legg inn VIPPS_CLIENT_ID, VIPPS_CLIENT_SECRET, VIPPS_SUBSCRIPTION_KEY og VIPPS_MSN i Vercel (VIPPS_ENV=production for live), og redeploy.",
+    };
+  }
+  try {
+    const token = await getAccessToken();
+    return {
+      ok: Boolean(token),
+      mode,
+      message: token
+        ? `Tilkoblet Vipps (${mode}) ✓ – access token hentet. Nøklene virker.`
+        : "Vipps svarte uten access token.",
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      mode,
+      message:
+        "Vipps-tilkobling feilet: " +
+        (e instanceof Error ? e.message : String(e)),
+    };
+  }
+}
