@@ -641,6 +641,16 @@ export function DayCalendar({
             onChange={(e) => router.push(`${basePath}?date=${e.target.value}`)}
             className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-muted focus:border-accent-soft focus:outline-none"
           />
+          {!isToday && (
+            <button
+              type="button"
+              onClick={() => router.push(`${basePath}?date=${today}`)}
+              title="Hopp tilbake til dagens dato"
+              className="rounded-md border border-accent-soft bg-accent-soft/10 px-3 py-2 text-sm font-semibold text-fg transition-colors hover:bg-accent-soft/20"
+            >
+              I dag
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <span className="hidden text-xs text-muted lg:inline">
