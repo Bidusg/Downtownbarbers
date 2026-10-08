@@ -74,6 +74,9 @@ export function Header({
     window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : "") + window.location.hash);
   }, []);
   const [scrolled, setScrolled] = useState(false);
+  // Skjul headeren når man har scrollet forbi hero og scroller NEDOVER; vis den
+  // straks man scroller opp igjen. Over hero er den alltid synlig.
+  const [hidden, setHidden] = useState(false);
 
   const telHref = `tel:${phone.replace(/\s/g, "")}`;
   const shortAddress = address.split(",")[0];
@@ -83,11 +86,24 @@ export function Header({
 
   useEffect(() => {
     if (!overlay) return;
-    const onScroll = () => setScrolled(window.scrollY > 24);
+    let lastY = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      setScrolled(y > 24);
+      // Forbi hero (ca. 75% av skjermhøyden) + scroller nedover → skjul.
+      // Scroller oppover, eller fortsatt i hero → vis.
+      const pastHero = y > Math.max(320, window.innerHeight * 0.75);
+      if (pastHero && y > lastY + 4) setHidden(true);
+      else if (y < lastY - 4 || !pastHero) setHidden(false);
+      lastY = y;
+    };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, [overlay]);
+
+  // Åpen mobilmeny skal aldri være skjult.
+  const headerHidden = hidden && !open;
 
   // overlay=false (vanlige sider): alltid solid, i flyt (sticky).
   // overlay=true (forsiden): gjennomsiktig over hero, solid ved scroll (fixed).
@@ -106,10 +122,11 @@ export function Header({
         (overlay ? "fixed" : "sticky") +
         // pt-safe: på iPhone går headeren helt opp under klokka/batteriet
         // (samme frostede glass), så innhold aldri synes over navbaren.
-        " inset-x-0 top-0 z-40 pt-[env(safe-area-inset-top)] transition-colors duration-500 " +
+        " inset-x-0 top-0 z-40 pt-[env(safe-area-inset-top)] transition-[transform,background-color,border-color] duration-500 will-change-transform " +
         (solid
           ? "border-b border-line bg-canvas/85 backdrop-blur"
-          : "border-b border-transparent bg-transparent")
+          : "border-b border-transparent bg-transparent") +
+        (headerHidden ? " -translate-y-full" : " translate-y-0")
       }
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">

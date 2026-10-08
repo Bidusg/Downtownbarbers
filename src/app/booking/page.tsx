@@ -1,5 +1,6 @@
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
+import { BackToTop } from "@/components/site/BackToTop";
 import { SmoothScroll, FadeUp } from "@/components/site/motion/CineFx";
 import { BookingWizard } from "@/components/booking/BookingWizard";
 import { getPublicServices, getPublicBarbers } from "@/lib/queries";
@@ -71,6 +72,7 @@ export default async function BookingPage({
         </section>
         <Footer />
       </div>
+      <BackToTop />
     </SmoothScroll>
   );
 }

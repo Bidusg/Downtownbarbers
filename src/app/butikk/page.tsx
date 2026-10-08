@@ -2,6 +2,7 @@ import type { SVGProps } from "react";
 import Link from "next/link";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
+import { BackToTop } from "@/components/site/BackToTop";
 import { SmoothScroll, FadeUp } from "@/components/site/motion/CineFx";
 import { TOr } from "@/lib/i18n/T";
 import { PUBLIC_VIEWPORT } from "@/lib/public-viewport";
@@ -83,6 +84,7 @@ export default function ButikkPage() {
         </section>
         <Footer />
       </div>
+      <BackToTop />
     </SmoothScroll>
   );
 }

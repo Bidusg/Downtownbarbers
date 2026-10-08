@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { ScrollProgress } from "@/components/site/ScrollProgress";
+import { BackToTop } from "@/components/site/BackToTop";
 import { HeroCarousel, type Slide } from "@/components/site/HeroCarousel";
 import { GoogleReviews } from "@/components/site/GoogleReviews";
 import {
@@ -594,6 +595,7 @@ export default async function Home({
 
         <Footer />
       </div>
+      <BackToTop />
     </SmoothScroll>
   );
 }
