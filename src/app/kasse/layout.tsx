@@ -18,7 +18,7 @@ export default async function KasseLayout({
       <Topbar role="Kasse" homeHref="/kasse" nav={kasseNav} />
       {missing.length > 0 && (
         <div className="px-4 pt-4 sm:px-6">
-          <SettlementReminderBanner missing={missing} />
+          <SettlementReminderBanner missing={missing} href="/kasse/kasseoppgjor" />
         </div>
       )}
       <PageTransition>{children}</PageTransition>

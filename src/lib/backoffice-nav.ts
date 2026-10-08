@@ -41,6 +41,7 @@ export const kasseNav: BoNav = {
     { href: "/kasse", label: "Dashboard", exact: true },
     { href: "/kasse/kalender", label: "Kalender" },
     { href: "/kasse/kunder", label: "Kunder" },
+    { href: "/kasse/kasseoppgjor", label: "Kasseoppgjør" },
     { href: "/kasse/stempling", label: "Stempling" },
   ],
 };
