@@ -42,7 +42,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const reference: string = body?.reference ?? "";
     const name: string = body?.name ?? body?.eventName ?? "";
-    if (reference && String(name).toUpperCase().includes("AUTHORIZED")) {
+    // KUN nettbooking-betalinger (booking-<id>) håndteres her. Kasse-betalinger
+    // (kasse-<id>-…) styres av polling i kassa (capture + registrer salg der),
+    // så webhooken må IKKE røre dem – ellers blir det dobbel capture.
+    if (
+      reference.startsWith("booking-") &&
+      String(name).toUpperCase().includes("AUTHORIZED")
+    ) {
       const amountOre = Number(body?.amount?.value ?? 0);
       if (amountOre > 0) await capturePayment(reference, amountOre);
       await markPaid(reference);

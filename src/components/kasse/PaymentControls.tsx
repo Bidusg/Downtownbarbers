@@ -15,6 +15,7 @@ import {
   type MemberCampaignOffer,
 } from "@/app/kasse/actions";
 import { redeemLoyalty } from "@/app/kasse/kunder/[id]/loyalty-actions";
+import { startVippsCharge, pollVippsCharge } from "@/app/kasse/vipps-actions";
 import { CouponPicker, couponDiscount } from "@/components/kasse/CouponPicker";
 import { ServiceEditor } from "@/components/kasse/ServiceEditor";
 import { formatKr } from "@/lib/format";
@@ -125,6 +126,18 @@ export function PaymentControls({
 
   // Shop-flagg (rabatt / venn-familie). Eier/admin omgår.
   const [allow, setAllow] = useState<KasseAllowances | null>(null);
+
+  // ---- Vipps-betaling i kassa (push til telefon / QR) ----
+  const [vippsOpen, setVippsOpen] = useState(false);
+  const [vippsMethod, setVippsMethod] = useState<"push" | "qr">("qr");
+  const [vippsPhone, setVippsPhone] = useState("");
+  const [vippsRef, setVippsRef] = useState<string | null>(null);
+  const [vippsQr, setVippsQr] = useState<string>("");
+  const [vippsMode, setVippsMode] = useState<string>("");
+  const [vippsState, setVippsState] = useState<
+    "idle" | "starting" | "waiting" | "paid" | "failed"
+  >("idle");
+  const [vippsMsg, setVippsMsg] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -256,6 +269,106 @@ export function PaymentControls({
       onDone();
     });
   }
+
+  // Felles salgsopplysninger til Vipps-flyten (samme som vanlig betaling).
+  function chargeOpts() {
+    return {
+      products: cartLines.map((l) => ({ id: l.id, qty: l.qty })),
+      discountNok: discountNum,
+      customer: showInfo ? { name, email, phone } : undefined,
+      sendReceipt: receipt && !!(email.trim() || customerEmail),
+    };
+  }
+
+  function openVipps() {
+    // Kupong beregnes server-side i record_sale (med bivirkning), så den kan
+    // ikke tas med i et forhånds-Vipps-trekk uten at beløpet spriker. Be heller
+    // kassa fjerne kupongen eller bruke en annen betalingsmåte.
+    if (couponId) {
+      setError(
+        "Vipps-trekk støtter ikke medlemskupong. Fjern kupongen, eller ta betalt med en annen måte.",
+      );
+      return;
+    }
+    setError(null);
+    setVippsMsg(null);
+    setVippsState("idle");
+    setVippsRef(null);
+    setVippsQr("");
+    setVippsPhone(phone || "");
+    setVippsMethod("qr");
+    setVippsOpen(true);
+  }
+
+  function cancelVipps() {
+    setVippsOpen(false);
+    setVippsState("idle");
+    setVippsRef(null);
+    setVippsQr("");
+    setVippsMsg(null);
+  }
+
+  async function startVipps() {
+    setVippsMsg(null);
+    setVippsState("starting");
+    const res = await startVippsCharge(bookingId, {
+      method: vippsMethod,
+      phone: vippsPhone,
+      products: chargeOpts().products,
+      discountNok: discountNum,
+    });
+    if (res.error || !res.reference) {
+      setVippsState("failed");
+      setVippsMsg(res.error ?? "Kunne ikke starte Vipps-betaling.");
+      return;
+    }
+    setVippsRef(res.reference);
+    setVippsQr(res.qr ?? "");
+    setVippsMode(res.mode ?? "");
+    setVippsState("waiting");
+  }
+
+  // Polling mens vi venter på at kunden godkjenner i Vipps.
+  useEffect(() => {
+    if (vippsState !== "waiting" || !vippsRef) return;
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const deadline = Date.now() + 5 * 60 * 1000; // 5 min
+    const opts = chargeOpts();
+
+    async function tick() {
+      if (!alive) return;
+      const res = await pollVippsCharge(vippsRef!, bookingId, {
+        products: opts.products,
+        discountNok: opts.discountNok,
+        customer: opts.customer,
+        sendReceipt: opts.sendReceipt,
+      });
+      if (!alive) return;
+      if (res.status === "paid") {
+        setVippsState("paid");
+        onDone();
+        return;
+      }
+      if (res.status === "failed") {
+        setVippsState("failed");
+        setVippsMsg(res.error ?? "Vipps-betalingen ble ikke fullført.");
+        return;
+      }
+      if (Date.now() > deadline) {
+        setVippsState("failed");
+        setVippsMsg("Tidsavbrudd – kunden godkjente ikke i tide. Prøv igjen.");
+        return;
+      }
+      timer = setTimeout(tick, 2500);
+    }
+    timer = setTimeout(tick, 3000);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vippsState, vippsRef, bookingId]);
 
   // Liten stegindikator (som i bookingen).
   const stepper = (
@@ -614,16 +727,140 @@ export function PaymentControls({
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
-          {PAYMENTS.map((p) => (
-            <button
-              key={p}
-              disabled={pending}
-              onClick={() => pay(p)}
-              className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
-              {pending && payingMethod === p ? "Registrerer …" : p}
+          {PAYMENTS.map((p) =>
+            p === "Vipps" ? (
+              <button
+                key={p}
+                disabled={pending}
+                onClick={openVipps}
+                className="rounded-md bg-[#ff5b24] px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                Vipps
+              </button>
+            ) : (
+              <button
+                key={p}
+                disabled={pending}
+                onClick={() => pay(p)}
+                className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                {pending && payingMethod === p ? "Registrerer …" : p}
+              </button>
+            ),
+          )}
+        </div>
+      )}
+
+      {/* ---- Vipps-betalingspanel (push til telefon / QR) ---- */}
+      {vippsOpen && (
+        <div className="mt-3 rounded-lg border border-[#ff5b24]/40 bg-[#ff5b24]/5 p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs font-semibold tracking-wide text-[#c7401a] uppercase">
+              Vipps · {formatKr(total)}
+            </span>
+            <button onClick={cancelVipps} className="act" type="button">
+              Lukk
             </button>
-          ))}
+          </div>
+
+          {vippsState === "waiting" ? (
+            <div className="text-center">
+              {vippsMethod === "qr" && vippsQr ? (
+                <>
+                  <p className="mb-2 text-xs text-muted">
+                    Be kunden skanne QR-koden med Vipps-appen.
+                  </p>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={vippsQr}
+                    alt="Vipps QR"
+                    className="mx-auto h-48 w-48 rounded-md border border-line bg-white p-2"
+                  />
+                </>
+              ) : (
+                <p className="py-4 text-sm text-fg">
+                  Betalingsforespørsel sendt til <b>{vippsPhone}</b>. Be kunden
+                  godkjenne i Vipps-appen.
+                </p>
+              )}
+              <p className="mt-3 flex items-center justify-center gap-2 text-sm text-muted">
+                <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-[#ff5b24]" />
+                Venter på betaling …
+              </p>
+              {vippsMode === "mock" && (
+                <p className="mt-1 text-[11px] text-muted">
+                  (Mock-modus – ingen ekte penger. Fullføres automatisk.)
+                </p>
+              )}
+              <button
+                onClick={cancelVipps}
+                type="button"
+                className="mt-3 rounded-md border border-line px-4 py-1.5 text-xs font-semibold text-muted hover:border-accent-soft hover:text-fg"
+              >
+                Avbryt
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="mb-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setVippsMethod("qr")}
+                  className={
+                    "flex-1 rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors " +
+                    (vippsMethod === "qr"
+                      ? "border-[#ff5b24] bg-[#ff5b24]/10 text-fg"
+                      : "border-line text-muted hover:border-accent-soft")
+                  }
+                >
+                  QR på skjerm
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVippsMethod("push")}
+                  className={
+                    "flex-1 rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors " +
+                    (vippsMethod === "push"
+                      ? "border-[#ff5b24] bg-[#ff5b24]/10 text-fg"
+                      : "border-line text-muted hover:border-accent-soft")
+                  }
+                >
+                  Push til telefon
+                </button>
+              </div>
+
+              {vippsMethod === "push" && (
+                <input
+                  value={vippsPhone}
+                  onChange={(e) =>
+                    setVippsPhone(e.target.value.replace(/[^0-9+]/g, ""))
+                  }
+                  placeholder="Kundens mobilnummer"
+                  inputMode="tel"
+                  className={inputCls + " mb-2"}
+                />
+              )}
+
+              {vippsMsg && vippsState === "failed" && (
+                <p className="mb-2 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+                  {vippsMsg}
+                </p>
+              )}
+
+              <button
+                type="button"
+                onClick={startVipps}
+                disabled={vippsState === "starting"}
+                className="w-full rounded-md bg-[#ff5b24] px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                {vippsState === "starting"
+                  ? "Starter …"
+                  : vippsMethod === "qr"
+                    ? "Vis QR-kode"
+                    : "Send til telefon"}
+              </button>
+            </>
+          )}
         </div>
       )}
 
