@@ -89,10 +89,12 @@ export function Header({
     let lastY = window.scrollY;
     const onScroll = () => {
       const y = window.scrollY;
-      setScrolled(y > 24);
-      // Forbi hero (ca. 75% av skjermhøyden) + scroller nedover → skjul.
-      // Scroller oppover, eller fortsatt i hero → vis.
-      const pastHero = y > Math.max(320, window.innerHeight * 0.75);
+      // Headeren er GJENNOMSIKTIG over hele hero og blir først solid (frostet)
+      // når hero er nesten forbi. Slik unngår vi krem-stripen som før dukket
+      // opp så snart man så vidt scrollet nedi hero (gammel terskel: 24 px).
+      const pastHero = y > Math.max(300, window.innerHeight - 120);
+      setScrolled(pastHero);
+      // Forbi hero + scroller nedover → skjul. Scroller opp / i hero → vis.
       if (pastHero && y > lastY + 4) setHidden(true);
       else if (y < lastY - 4 || !pastHero) setHidden(false);
       lastY = y;
