@@ -95,19 +95,20 @@ export function Header({
     return () => window.removeEventListener("scroll", onScroll);
   }, [overlay]);
 
-  // «over» = gjennomsiktig modus: kun på forsiden, over hero, og KUN på desktop.
-  // På mobil er navbaren alltid solid (fast, synlig) – da slipper vi krem-/
-  // safe-area-stripen på toppen, og baren henger med gjennom hele siden.
+  // «over» = gjennomsiktig modus: på forsiden, over hero, før man har scrollet.
+  // Gjelder ALLE skjermstørrelser (mobil som PC) – da ligger hero-bildet helt
+  // opp til toppen uten en krem-stripe, nøyaktig slik det ser ut på PC. Når man
+  // scroller forbi hero blir baren frostet. Den skjules aldri → henger smooth
+  // med gjennom hele siden.
   const over = overlay && !scrolled && !open;
-  // Mobil: alltid mørk tekst (solid bar). Desktop: hvit over hero, ellers mørk.
-  const brand = "text-fg " + (over ? "md:text-white" : "md:text-fg");
-  const navText =
-    "text-muted hover:text-fg " +
-    (over ? "md:text-white/75 md:hover:text-white" : "md:text-muted md:hover:text-fg");
-  // Aktiv språk-knapp følger samme logikk.
-  const langActive = "text-fg " + (over ? "md:text-white" : "md:text-fg");
-  // Hamburger-strekene er alltid mørke (baren er solid på mobil).
-  const bar = "bg-fg";
+  // Over hero: hvit tekst på det mørke bildet. Ellers: temafarge på frostet bar.
+  const brand = over ? "text-white" : "text-fg";
+  const navText = over
+    ? "text-white/75 hover:text-white"
+    : "text-muted hover:text-fg";
+  const langActive = over ? "text-white" : "text-fg";
+  // Hamburger-strekene: hvite over hero, mørke på frostet bar.
+  const bar = over ? "bg-white" : "bg-fg";
 
   return (
     <>
@@ -117,12 +118,11 @@ export function Header({
         // pt-safe: på iPhone går headeren helt opp under klokka/batteriet
         // (samme frostede glass), så innhold aldri synes over navbaren.
         " inset-x-0 top-0 z-40 pt-[env(safe-area-inset-top)] transition-colors duration-500 " +
-        // Mobil: ALLTID solid frostet bar (ingen krem-stripe, henger med hele veien).
-        // Desktop: gjennomsiktig over hero, solid når man har scrollet forbi.
-        "border-b border-line bg-canvas/95 backdrop-blur " +
+        // Over hero (mobil som PC): helt gjennomsiktig, så hero-bildet går helt
+        // opp til toppen uten krem-stripe. Scrollet forbi hero: frostet krembar.
         (over
-          ? "md:border-transparent md:bg-transparent md:backdrop-blur-0"
-          : "md:border-line md:bg-canvas/85 md:backdrop-blur")
+          ? "border-b border-transparent bg-transparent"
+          : "border-b border-line bg-canvas/85 backdrop-blur")
       }
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
