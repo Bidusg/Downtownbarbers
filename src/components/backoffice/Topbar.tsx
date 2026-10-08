@@ -311,7 +311,9 @@ function GroupedNav({
           i stedet for å skyve høyre klynge (Logg ut) utenfor skjermen. */}
       <div className="bo-navscroll min-w-0 overflow-x-auto">
       <div ref={railRef} className="bo-navrail relative flex items-center gap-1">
-        <span className="bo-pill" style={style} aria-hidden />
+        {/* Rolig understrek-markør – samme som flat revisor-nav (bo-underline),
+            i stedet for den tidligere, mer prangende pill-en. */}
+        <span className="bo-underline" style={style} aria-hidden />
 
         <Link
           href={dashboard.href}
@@ -631,6 +633,78 @@ function MobileSheet({
   );
 }
 
+/* ---------- Bruker-/avatarmeny (navn-boble øverst til høyre) ----------
+ * Liten dropdown fra initial-boblen: «Min side» (→ /min-profil) + «Logg ut». */
+function UserMenu({
+  role,
+  email,
+  initial,
+}: {
+  role: string;
+  email?: string | null;
+  initial: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative hidden xl:block">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Brukermeny"
+        title={email ?? role}
+        className="bo-avatar flex h-9 w-9 items-center justify-center rounded-full bg-accent font-display text-sm font-bold text-accent-fg"
+      >
+        {initial}
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="bo-mega absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-line-2 bg-surface p-2"
+        >
+          {email && (
+            <div className="truncate px-3 py-1.5 text-xs text-muted">
+              {email}
+            </div>
+          )}
+          <Link
+            href="/min-profil"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-2 hover:text-fg"
+          >
+            <Icon name="ansatte" className="h-4 w-4 text-accent-soft" />
+            Min side
+          </Link>
+          <div className="mt-1 border-t border-line px-1 pt-2">
+            <LogoutButton />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---------- Topbar ---------- */
 export function Topbar({
   role,
@@ -741,12 +815,16 @@ export function Topbar({
             )}
 
             {initial && (
-              <div className="bo-avatar hidden h-9 w-9 items-center justify-center rounded-full bg-accent font-display text-sm font-bold text-accent-fg xl:flex" title={email ?? role}>
-                {initial}
-              </div>
+              <UserMenu role={role} email={email} initial={initial} />
             )}
 
-            <div className="hidden sm:block">
+            {/* Frittstående «Logg ut» for skjermer uten avatarmeny. Når
+                avatarmenyen vises (xl, der initial finnes) ligger Logg ut der. */}
+            <div
+              className={
+                "hidden sm:block " + (initial ? "xl:hidden" : "")
+              }
+            >
               <LogoutButton />
             </div>
 

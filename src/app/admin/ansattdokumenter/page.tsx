@@ -15,6 +15,7 @@ import { Table, THead, TBody, Tr, Th, Td } from "@/components/ui/Table";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Field, Select } from "@/components/ui/Input";
+import { DocViewerButton } from "@/components/ui/DocViewer";
 import { deleteStaffDocument } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -47,16 +48,19 @@ function DocRow({ d }: { d: StaffDocumentWithUrl }) {
         {fmtSize(d.size_bytes)}
       </Td>
       <Td>
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center justify-end gap-3">
           {d.url ? (
-            <a
-              href={d.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="border border-line-2 bg-surface-2 px-3 py-1 text-xs text-fg transition-opacity hover:opacity-90"
-            >
-              Åpne
-            </a>
+            <>
+              <DocViewerButton filename={d.name} url={d.url} mime={d.mime} />
+              <a
+                href={d.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="border border-line-2 bg-surface-2 px-3 py-1 text-xs text-fg transition-opacity hover:opacity-90"
+              >
+                Åpne
+              </a>
+            </>
           ) : (
             <span className="text-xs text-muted">Utilgjengelig</span>
           )}

@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input, Field } from "@/components/ui/Input";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
-import { uploadDocument, deleteDocument, downloadDocument } from "./actions";
+import { DocViewerButton } from "@/components/ui/DocViewer";
+import { uploadDocument, deleteDocument, downloadDocument, documentViewUrl } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -180,7 +181,12 @@ export default async function AdminDokumenter({
                     {fmtDate(d.created_at)}
                   </Td>
                   <Td>
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-3">
+                      <DocViewerButton
+                        filename={d.name}
+                        mime={d.mime}
+                        resolveUrl={() => documentViewUrl(d.path)}
+                      />
                       <form action={downloadDocument}>
                         <input type="hidden" name="path" value={d.path} />
                         <input type="hidden" name="name" value={d.name} />

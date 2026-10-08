@@ -110,6 +110,26 @@ export async function getSignedUrl(
 }
 
 /**
+ * Signert URL for INLINE forhåndsvisning (uten `download`-flagg) i
+ * DocViewer-popupen. Kun admin. Null ved feil.
+ */
+export async function documentViewUrl(path: string): Promise<string | null> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return null;
+  if (!path) return null;
+
+  const sb = await createClient();
+  const { data, error } = await sb.storage
+    .from(BUCKET)
+    .createSignedUrl(path, 60);
+  if (error || !data?.signedUrl) {
+    console.error("documentViewUrl failed:", error);
+    return null;
+  }
+  return data.signedUrl;
+}
+
+/**
  * Nedlastingsmekanisme brukt av knappen i lista: lager en signert URL og
  * redirecter nettleseren dit (bøtta er privat, så direkte URL funker ikke).
  */

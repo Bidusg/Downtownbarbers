@@ -8,6 +8,7 @@ import { DeleteDocumentButton } from "@/components/ansatt/DeleteDocumentButton";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { DocViewerButton } from "@/components/ui/DocViewer";
 
 export const dynamic = "force-dynamic";
 
@@ -51,14 +52,17 @@ function DownloadLink({ doc }: { doc: StaffDocumentWithUrl }) {
     return <span className="text-xs text-muted">Utilgjengelig</span>;
   }
   return (
-    <a
-      href={doc.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-xs font-semibold text-accent-soft underline-offset-2 hover:underline"
-    >
-      Last ned
-    </a>
+    <span className="inline-flex items-center gap-4">
+      <DocViewerButton filename={doc.name} url={doc.url} mime={doc.mime} />
+      <a
+        href={doc.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-xs font-semibold text-accent-soft underline-offset-2 hover:underline"
+      >
+        Last ned
+      </a>
+    </span>
   );
 }
 

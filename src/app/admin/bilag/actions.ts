@@ -153,3 +153,32 @@ export async function voucherSignedUrl(id: string): Promise<string | null> {
   }
   return data.signedUrl;
 }
+
+/**
+ * Som voucherSignedUrl, men UTEN `download`-flagget – en signert URL beregnet
+ * på INLINE visning i forhåndsvisnings-popupen (PDF/bilde i iframe, eller
+ * server-side Excel-parsing via samme signerte lenke). Samme tilgangsregel:
+ * admin/eier ELLER revisor (lese-kun). Null ved feil eller manglende tilgang.
+ */
+export async function voucherViewUrl(id: string): Promise<string | null> {
+  const me = await getUserRole();
+  const allowed = !!me && (isAdminRole(me.role) || me.role === "revisor");
+  if (!allowed) return null;
+
+  const sb = await createClient();
+  const { data: row } = await sb
+    .from("vouchers")
+    .select("path")
+    .eq("id", id)
+    .maybeSingle();
+  if (!row?.path) return null;
+
+  const { data, error } = await sb.storage
+    .from(BUCKET)
+    .createSignedUrl(row.path as string, 60);
+  if (error || !data?.signedUrl) {
+    console.error("voucherViewUrl failed:", error);
+    return null;
+  }
+  return data.signedUrl;
+}

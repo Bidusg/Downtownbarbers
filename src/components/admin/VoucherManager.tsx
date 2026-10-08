@@ -2,8 +2,9 @@
 
 import { useRef, useState, useTransition } from "react";
 import type { Voucher } from "@/lib/vouchers-queries";
-import { uploadVoucher, deleteVoucher, voucherSignedUrl } from "@/app/admin/bilag/actions";
+import { uploadVoucher, deleteVoucher, voucherSignedUrl, voucherViewUrl } from "@/app/admin/bilag/actions";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
+import { DocViewerButton } from "@/components/ui/DocViewer";
 import { Card } from "@/components/ui/Card";
 import { Table, THead, TBody, Tr, Th, Td } from "@/components/ui/Table";
 import { Badge } from "@/components/ui/Badge";
@@ -201,6 +202,11 @@ export function VoucherManager({ vouchers }: { vouchers: Voucher[] }) {
                   </Td>
                   <Td>
                     <div className="flex items-center justify-end gap-3">
+                      <DocViewerButton
+                        filename={v.title}
+                        mime={v.mime}
+                        resolveUrl={() => voucherViewUrl(v.id)}
+                      />
                       <Button
                         type="button"
                         variant="subtle"

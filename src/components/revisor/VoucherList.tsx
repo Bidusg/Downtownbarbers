@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import type { Voucher } from "@/lib/vouchers-queries";
-import { voucherSignedUrl } from "@/app/admin/bilag/actions";
+import { voucherSignedUrl, voucherViewUrl } from "@/app/admin/bilag/actions";
+import { DocViewerButton } from "@/components/ui/DocViewer";
 import { Card } from "@/components/ui/Card";
 import { Table, THead, TBody, Tr, Th, Td } from "@/components/ui/Table";
 import { Badge } from "@/components/ui/Badge";
@@ -102,7 +103,12 @@ export function VoucherList({ vouchers }: { vouchers: Voucher[] }) {
                 {fmtMoney(v.vatNok)}
               </Td>
               <Td>
-                <div className="flex items-center justify-end">
+                <div className="flex items-center justify-end gap-4">
+                  <DocViewerButton
+                    filename={v.title}
+                    mime={v.mime}
+                    resolveUrl={() => voucherViewUrl(v.id)}
+                  />
                   <Button
                     type="button"
                     variant="link"
