@@ -24,6 +24,11 @@ export const adminGroups: AdminNavGroup[] = [
     label: "Drift",
     items: [
       { label: "Bookinger", href: "/admin/bookinger" },
+      {
+        label: "Avbestillinger",
+        href: "/admin/avbestillinger",
+        description: "Avbestilte timer – kunde og skranke",
+      },
       { label: "Kasseoppgjør", href: "/admin/kasseoppgjor" },
       { label: "Meldinger", href: "/admin/meldinger" },
     ],

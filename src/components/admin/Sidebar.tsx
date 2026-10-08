@@ -11,6 +11,7 @@ const groups: Group[] = [
     heading: "Drift",
     items: [
       { label: "Bookinger", href: "/admin/bookinger" },
+      { label: "Avbestillinger", href: "/admin/avbestillinger" },
       { label: "Kasseoppgjør", href: "/admin/kasseoppgjor" },
     ],
   },
