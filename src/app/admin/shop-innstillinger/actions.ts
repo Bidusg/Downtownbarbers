@@ -28,6 +28,10 @@ export async function saveShopSettings(
     friend_family_discount_pct: pct,
     dropin_without_customer_enabled: on("dropin_without_customer_enabled"),
     drag_for_length_enabled: on("drag_for_length_enabled"),
+    move_booking_enabled: on("move_booking_enabled"),
+    transfer_booking_enabled: on("transfer_booking_enabled"),
+    manual_booking_enabled: on("manual_booking_enabled"),
+    block_times_enabled: on("block_times_enabled"),
   };
 
   const r = await saveShopFlags(patch);

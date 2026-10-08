@@ -31,8 +31,13 @@ export default async function KalenderPage({
   ]);
   // Shop ser ikke telefonnummer – fjernes server-side (kun admin ser alt).
   const agenda = rawAgenda.map((b) => ({ ...b, phone: null }));
-  // Dra-for-lengde styres av shop-flagg (eier/admin omgår).
-  const canResize = shop.canBypass || shop.flags.drag_for_length_enabled;
+  // Kalender-funksjoner styres av shop-flagg (eier/admin omgår alt).
+  const bypass = shop.canBypass;
+  const canResize = bypass || shop.flags.drag_for_length_enabled;
+  const canMove = bypass || shop.flags.move_booking_enabled;
+  const canTransfer = bypass || shop.flags.transfer_booking_enabled;
+  const canBook = bypass || shop.flags.manual_booking_enabled;
+  const canBlock = bypass || shop.flags.block_times_enabled;
 
   return (
     <main className="mx-auto max-w-6xl p-6">
@@ -43,6 +48,10 @@ export default async function KalenderPage({
         barbers={barbers}
         services={services}
         canResize={canResize}
+        canMove={canMove}
+        canTransfer={canTransfer}
+        canBook={canBook}
+        canBlock={canBlock}
         onDuty={onDuty}
         offReasons={offReasons}
       />

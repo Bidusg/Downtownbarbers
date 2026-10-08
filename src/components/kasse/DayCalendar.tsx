@@ -81,6 +81,9 @@ export function DayCalendar({
   basePath = "/kasse/kalender",
   canBlock = false,
   canResize = false,
+  canMove = true,
+  canTransfer = true,
+  canBook = true,
   onDuty,
   offReasons = {},
 }: {
@@ -91,6 +94,12 @@ export function DayCalendar({
   basePath?: string;
   canBlock?: boolean;
   canResize?: boolean;
+  /** Flytte en time til ny tid (dra opp/ned). Standard på. */
+  canMove?: boolean;
+  /** Flytte en kunde til en annen barber (dra sidelengs). Standard på. */
+  canTransfer?: boolean;
+  /** Booke ny time ved å trykke i et ledig felt. Standard på. */
+  canBook?: boolean;
   /** Navn på barbere som er på vakt denne dagen. Uten = alle aktive vises. */
   onDuty?: string[] | null;
   /** Navn → hvorfor ikke på vakt (fravær/fri). */
@@ -437,7 +446,9 @@ export function DayCalendar({
     if (e.pointerType === "touch") {
       // Touch: hold ~350 ms uten å bevege fingeren → flyttemodus (opp/ned =
       // ny tid, sidelengs = annen barber). Kort trykk = åpne detaljer,
-      // rask bevegelse = vanlig scroll.
+      // rask bevegelse = vanlig scroll. Gesten er en flytte-gest, så den
+      // krever at flytting er på (sidelengs-overføring henger på samme gest).
+      if (!canMove) return;
       const target = e.currentTarget as HTMLElement;
       const pid = e.pointerId;
       const y0 = e.clientY;
@@ -476,7 +487,7 @@ export function DayCalendar({
       ns = Math.round(ns / MOVE_SNAP) * MOVE_SNAP;
       ns = Math.max(OPEN, Math.min(ns, CLOSE - move.dur));
       setMoveStart(ns);
-      if (e.pointerType === "touch") {
+      if (e.pointerType === "touch" && canTransfer) {
         // Sidelengs på touch: marker kolonnen under fingeren (bytt barber).
         const col = columnAtPoint(e.clientX, e.clientY);
         setHoverCol(col && col !== (b.barber ?? "") ? col : null);
@@ -502,6 +513,12 @@ export function DayCalendar({
 
     if (Math.abs(dy) >= Math.abs(dx)) {
       // Vertikal → flytt tid (pointer). Samme barber/kolonne.
+      if (!canMove) {
+        // Flytting avskrudd → ingen tidsendring. Merk aksen som «ikke vertikal»
+        // (evt. bytt-barber via native dra styres uansett av draggable-flagget).
+        d.axis = "h";
+        return;
+      }
       d.axis = "v";
       const curStart =
         optimistic[b.id] != null ? optimistic[b.id] : osloMinutes(b.start_at);
@@ -532,7 +549,7 @@ export function DayCalendar({
       const target = hoverCol;
       setHoverCol(null);
       gestureLock.current = false;
-      if (target && target !== (b.barber ?? "")) {
+      if (canTransfer && target && target !== (b.barber ?? "")) {
         // Sluppet over en annen kolonne → bytt barber (samme bekreftelse som på PC).
         setMove(null);
         setMoveStart(null);
@@ -761,7 +778,11 @@ export function DayCalendar({
                   e.preventDefault();
                   const dropped = agenda.find((x) => x.id === dragId);
                   setDragId(null);
-                  if (dropped && (dropped.barber ?? "") !== col.barber.full_name) {
+                  if (
+                    canTransfer &&
+                    dropped &&
+                    (dropped.barber ?? "") !== col.barber.full_name
+                  ) {
                     setTransfer({ booking: dropped, toBarber: col.barber.full_name });
                   }
                 }}
@@ -787,10 +808,11 @@ export function DayCalendar({
                 </div>
 
                 <div
-                  className="relative cursor-pointer"
+                  className={"relative " + (canBook ? "cursor-pointer" : "")}
                   style={{ height: SPAN * PX }}
                   onClick={(e) => {
                     if (moved.current || dragId || move || resize) return;
+                    if (!canBook) return;
                     const el = e.target as HTMLElement;
                     if (el.closest("button, [role=button], a, input, select")) return;
                     const rect = e.currentTarget.getBoundingClientRect();
@@ -932,7 +954,7 @@ export function DayCalendar({
                             }
                             setSelected(b);
                           }}
-                          draggable={!coarse && movable && !isResizing && !isMoving}
+                          draggable={!coarse && movable && canTransfer && !isResizing && !isMoving}
                           onDragStart={(e) => {
                             // Pågående vertikal flytting → avbryt native dra-til-barber.
                             if (isMoving || blkDown.current?.axis === "v") {
@@ -966,13 +988,26 @@ export function DayCalendar({
                             movable ? blockPointerCancel : undefined
                           }
                           title={
-                            movable
-                              ? coarse
-                                ? "Hold inne, så dra opp/ned for ny tid eller sidelengs til annen barber"
-                                : "Dra opp/ned for å endre tid · dra til siden for å bytte barber"
+                            movable && (canMove || canTransfer)
+                              ? [
+                                  canMove &&
+                                    (coarse
+                                      ? "Hold inne, så dra opp/ned for ny tid"
+                                      : "Dra opp/ned for å endre tid"),
+                                  canTransfer &&
+                                    (coarse
+                                      ? "sidelengs til annen barber"
+                                      : "dra til siden for å bytte barber"),
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ")
                               : undefined
                           }
-                          className={`absolute right-1 left-1 cursor-grab overflow-hidden rounded-md border-l-[3px] px-2 py-1 text-left motion-safe:transition-transform hover:z-10 motion-safe:hover:scale-[1.02] active:cursor-grabbing ${
+                          className={`absolute right-1 left-1 overflow-hidden rounded-md border-l-[3px] px-2 py-1 text-left motion-safe:transition-transform hover:z-10 motion-safe:hover:scale-[1.02] ${
+                            movable && (canMove || canTransfer)
+                              ? "cursor-grab active:cursor-grabbing"
+                              : ""
+                          } ${
                             isMoving
                               ? "z-30 shadow-lg ring-1 ring-accent-soft"
                               : ""

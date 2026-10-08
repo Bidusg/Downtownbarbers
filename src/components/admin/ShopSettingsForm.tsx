@@ -146,13 +146,59 @@ export function ShopSettingsForm({ flags }: { flags: ShopFlags }) {
           />
         </Row>
 
-        {/* «Dra-for-lengde» er ikke bygget enda – skjult fra UI, men verdien
-            beholdes så lagring ikke nullstiller flagget. */}
-        <input
-          type="hidden"
-          name="drag_for_length_enabled"
-          value={flags.drag_for_length_enabled ? "on" : ""}
-        />
+        <p className="mt-6 mb-1 text-xs font-semibold tracking-wide text-muted uppercase">
+          Kalender
+        </p>
+
+        <Row
+          title="Justere lengden på en time"
+          desc="La kassa dra nederst på en time for å endre varigheten."
+        >
+          <Toggle
+            name="drag_for_length_enabled"
+            defaultChecked={flags.drag_for_length_enabled}
+          />
+        </Row>
+
+        <Row
+          title="Flytte en time til ny tid"
+          desc="La kassa dra en time opp/ned i kalenderen for å endre tidspunktet."
+        >
+          <Toggle
+            name="move_booking_enabled"
+            defaultChecked={flags.move_booking_enabled}
+          />
+        </Row>
+
+        <Row
+          title="Flytte en kunde til en annen barber"
+          desc="La kassa dra en time sidelengs til en annen barbers kolonne. (På mobil/nettbrett krever dette at «Flytte en time til ny tid» også er på.)"
+        >
+          <Toggle
+            name="transfer_booking_enabled"
+            defaultChecked={flags.transfer_booking_enabled}
+          />
+        </Row>
+
+        <Row
+          title="Booke ny time fra kalenderen"
+          desc="La kassa trykke i et ledig felt i kalenderen for å opprette en ny time."
+        >
+          <Toggle
+            name="manual_booking_enabled"
+            defaultChecked={flags.manual_booking_enabled}
+          />
+        </Row>
+
+        <Row
+          title="Blokkere / pause tid"
+          desc="La kassa blokkere tid (lunsj, pause, møte) i kalenderen."
+        >
+          <Toggle
+            name="block_times_enabled"
+            defaultChecked={flags.block_times_enabled}
+          />
+        </Row>
 
         <div className="mt-6 flex items-center gap-3">
           <Button
