@@ -6,6 +6,8 @@ import { NoticeBanner } from "@/components/admin/NoticeBanner";
 import { adminNav } from "@/lib/backoffice-nav";
 import { getUserRole, isAdminRole } from "@/lib/auth";
 import { getActiveNotices } from "@/lib/notices-queries";
+import { getMissingSettlementDays } from "@/lib/settlement-status";
+import { SettlementReminderBanner } from "@/components/admin/SettlementReminderBanner";
 
 export default async function AdminLayout({
   children,
@@ -18,7 +20,10 @@ export default async function AdminLayout({
   if (!isAdminRole(me.role)) redirect("/ingen-tilgang");
 
   const initial = (me.email ?? "K").charAt(0).toUpperCase();
-  const notices = await getActiveNotices("admin");
+  const [notices, missing] = await Promise.all([
+    getActiveNotices("admin"),
+    getMissingSettlementDays(),
+  ]);
 
   return (
     <div className="min-h-screen overflow-x-clip bg-canvas text-fg">
@@ -32,6 +37,11 @@ export default async function AdminLayout({
       />
       <CommandPalette />
       <main className="px-4 py-8 sm:px-6">
+        {missing.length > 0 && (
+          <div className="mx-auto mb-6 max-w-6xl">
+            <SettlementReminderBanner missing={missing} />
+          </div>
+        )}
         {notices.length > 0 && (
           <div className="mx-auto mb-6 max-w-6xl">
             <NoticeBanner notices={notices} />

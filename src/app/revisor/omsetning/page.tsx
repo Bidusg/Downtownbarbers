@@ -1,22 +1,22 @@
 import { requireRole } from "@/lib/auth";
-import { OmsetningView } from "@/components/admin/OmsetningView";
+import { OmsetningRevisorView } from "@/components/revisor/OmsetningRevisorView";
 
 export const dynamic = "force-dynamic";
 
 export default async function RevisorOmsetning({
   searchParams,
 }: {
-  searchParams: Promise<{ dag?: string; mnd?: string }>;
+  searchParams: Promise<{ periode?: string; mnd?: string; dag?: string; ar?: string; kv?: string }>;
 }) {
   await requireRole(["revisor", "admin"]);
   const sp = await searchParams;
   return (
-    <OmsetningView
-      dag={sp.dag}
+    <OmsetningRevisorView
+      periode={sp.periode}
       mnd={sp.mnd}
-      basePath="/revisor/omsetning"
-      backHref="/revisor"
-      backLabel="Tilbake til oversikt"
+      dag={sp.dag}
+      ar={sp.ar}
+      kv={sp.kv}
     />
   );
 }

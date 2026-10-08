@@ -288,6 +288,21 @@ export function GiftCardManager({ cards }: { cards: GiftCard[] }) {
             <Field label="Utløper (valgfritt)">
               <Input name="expires_at" type="date" />
             </Field>
+            <Field label="Betalt med (for regnskap)">
+              {/* Salg av gavekort er forskudd (ikke momspliktig). Betalingsmåten
+                  gjør at dagsbilaget kan føre pengene inn mot gjeldskonto 2900
+                  uten mva. Tomt = ikke registrert → føres manuelt. */}
+              <select
+                name="payment_method"
+                defaultValue=""
+                className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg outline-none focus:border-accent-soft"
+              >
+                <option value="">Ikke registrert</option>
+                <option value="Kontant">Kontant</option>
+                <option value="Kort">Kort</option>
+                <option value="Vipps">Vipps</option>
+              </select>
+            </Field>
             {err && <p className="text-sm text-danger sm:col-span-3">{err}</p>}
             <Button type="submit" disabled={pending} className="px-4 py-2 text-sm sm:col-span-3">
               {pending ? "Utsteder …" : "Utsted gavekort"}

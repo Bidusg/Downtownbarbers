@@ -18,14 +18,40 @@ export async function createGiftCard(
   const expiresRaw = String(formData.get("expires_at") ?? "");
   const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Oslo" });
   if (expiresRaw && expiresRaw < today) return { error: "Utløpsdatoen kan ikke være i fortiden." };
+
+  // REGNSKAP: salg av gavekort er forskuddsbetaling (ikke momspliktig
+  // omsetning). Betalingsmåten pengene kom inn med lagres på gavekortet, slik
+  // at dagsbilaget kan bokføre «penger inn debet → gjeld (2900) kredit, uten
+  // mva» (se src/lib/accounting.ts og KJØR-I-SUPABASE-GAVEKORT-REGNSKAP.sql).
+  // Valgfritt: tomt = ikke registrert → regnskapsfører fører salget manuelt.
+  const payRaw = String(formData.get("payment_method") ?? "").trim();
+  const soldPayment = ["Kontant", "Kort", "Vipps"].includes(payRaw) ? payRaw : null;
+
   const sb = await createClient();
-  const { error } = await sb.from("gift_cards").insert({
+  const base = {
     code,
     initial_nok: initial,
     balance_nok: initial,
     barcode: String(formData.get("barcode") ?? "").trim() || null,
     expires_at: expiresRaw || null,
-  });
+  };
+
+  // Prøv å lagre betalingsmåten. Finnes ikke kolonnen enda (SQL ikke kjørt),
+  // faller vi trygt tilbake til å utstede gavekortet uten den – utstedelse
+  // skal aldri feile fordi regnskapskolonnen mangler. (Casten beholder feltet
+  // i runtime; typene har ingen generert Database-definisjon for kolonnen.)
+  const payload = (
+    soldPayment ? { ...base, sold_payment_method: soldPayment } : base
+  ) as typeof base;
+  let error = (await sb.from("gift_cards").insert(payload)).error;
+  if (
+    error &&
+    soldPayment &&
+    /sold_payment_method|schema cache|column/i.test(error.message)
+  ) {
+    error = (await sb.from("gift_cards").insert(base)).error;
+  }
+
   if (error) {
     if (/duplicate|unique/i.test(error.message)) {
       return {

@@ -464,6 +464,41 @@ export async function sendBookingReminderEmail(opts: {
   );
 }
 
+/**
+ * Daglig påminnelse til ansvarlig når ett eller flere dagsoppgjør mangler
+ * bekreftelse (løsning D). Gjenbruker den felles e-postmalen (shell) og
+ * samme mottaker som booking-varslingen (settings.booking_notify).
+ */
+export async function sendSettlementReminderEmail(opts: {
+  to: string;
+  days: { date: string; salesTotal: number }[];
+}): Promise<boolean> {
+  if (!opts.to || opts.days.length === 0) return false;
+  const site = siteUrl();
+  const rows: [string, string][] = opts.days.map((d) => [
+    escapeHtml(prettyDate(d.date)),
+    `${Math.round(d.salesTotal).toLocaleString("nb-NO")} kr registrert salg`,
+  ]);
+  const n = opts.days.length;
+  const intro =
+    n === 1
+      ? "Det er registrert salg på én dag uten et bekreftet kasseoppgjør. Regnskapet blir feil til opptellingen er bekreftet. Gå inn og bekreft så snart som mulig:"
+      : `Det er registrert salg på ${n} dager uten bekreftet kasseoppgjør. Regnskapet blir feil til opptellingen er bekreftet. Gå inn og bekreft så snart som mulig:`;
+  const html = shell(
+    "Kasseoppgjør mangler bekreftelse",
+    intro,
+    rows,
+    ctaButton(`${site}/admin/kasseoppgjor`, "Åpne kasseoppgjør"),
+  );
+  return sendEmail(
+    opts.to,
+    n === 1
+      ? "Kasseoppgjør mangler – bekreft dagens oppgjør"
+      : `Kasseoppgjør mangler for ${n} dager – bekreft`,
+    html,
+  );
+}
+
 /** AI-oppfølging: vennlig «book ny time»-e-post med CTA-knapp. */
 export async function sendFollowupEmail(opts: {
   to: string;

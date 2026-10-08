@@ -46,8 +46,7 @@ export async function createSettlement(
     data: { user },
   } = await sb.auth.getUser();
 
-  const { error } = await sb.from("cash_settlements").insert({
-    settle_date,
+  const values = {
     total_nok: counted_cash + counted_card + counted_vipps,
     counted_cash,
     counted_card,
@@ -57,6 +56,42 @@ export async function createSettlement(
     expected_vipps: expected.vipps,
     note: String(formData.get("note") ?? "") || null,
     opened_by: user?.id ?? null,
+  };
+
+  // Løsning D: finnes det et auto-UTKAST (confirmed=false) for dagen, bekrefter
+  // vi DET i stedet for å lage en dublett – da forsvinner også banneren.
+  // Før SQL (confirmed-kolonnen mangler) feiler select-en → vi faller trygt
+  // tilbake til et vanlig insert, nøyaktig som før.
+  try {
+    const { data: draft } = await sb
+      .from("cash_settlements")
+      .select("id")
+      .eq("settle_date", settle_date)
+      .eq("confirmed", false)
+      .limit(1)
+      .maybeSingle();
+    if (draft?.id) {
+      const { error: upErr } = await sb
+        .from("cash_settlements")
+        .update({ ...values, confirmed: true })
+        .eq("id", draft.id);
+      if (!upErr) {
+        revalidatePath("/admin/kasseoppgjor");
+        try {
+          await postDailyVoucher(settle_date);
+        } catch {
+          /* kasseoppgjøret er lagret; natt-cron er backup */
+        }
+        return { ok: true };
+      }
+    }
+  } catch {
+    // confirmed-kolonnen finnes ikke enda → fall videre til vanlig insert.
+  }
+
+  const { error } = await sb.from("cash_settlements").insert({
+    settle_date,
+    ...values,
   });
   if (error) return { error: `Kunne ikke lagre oppgjøret: ${error.message}` };
   revalidatePath("/admin/kasseoppgjor");
@@ -73,6 +108,39 @@ export async function createSettlement(
   } catch {
     // Bevisst stille: kasseoppgjøret er allerede lagret. Natt-cron er backup.
   }
+  return { ok: true };
+}
+
+/**
+ * Bekreft et auto-utkast (løsning D): setter confirmed = true, slik at den
+ * røde banneren / den daglige påminnelsen slutter å mase for den dagen.
+ * Valgfri `counted`-overstyring lar mennesket korrigere opptellingen før
+ * bekreftelse (ellers beholdes utkastets forhåndsutfylte beløp).
+ *
+ * Degraderer trygt FØR SQL (confirmed-kolonnen) er kjørt: da finnes ingen
+ * ubekreftede utkast, og et forsøk svarer med en forklarende feil uten å
+ * velte noe.
+ */
+export async function confirmSettlement(
+  id: string,
+  counted?: { cash: number; card: number; vipps: number },
+): Promise<{ ok: boolean; error?: string }> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { ok: false, error: "Ingen tilgang." };
+  const sb = await createClient();
+  const patch: Record<string, unknown> = { confirmed: true };
+  if (counted) {
+    const c = Math.max(0, Math.round(counted.cash || 0));
+    const k = Math.max(0, Math.round(counted.card || 0));
+    const v = Math.max(0, Math.round(counted.vipps || 0));
+    patch.counted_cash = c;
+    patch.counted_card = k;
+    patch.counted_vipps = v;
+    patch.total_nok = c + k + v;
+  }
+  const { error } = await sb.from("cash_settlements").update(patch).eq("id", id);
+  if (error) return { ok: false, error: `Kunne ikke bekrefte: ${error.message}` };
+  revalidatePath("/admin/kasseoppgjor");
   return { ok: true };
 }
 

@@ -158,8 +158,11 @@ async function recordPostedVoucher(
  */
 export async function postDailyVoucher(isoDate: string): Promise<PostResult> {
   const plan = await buildDailyVoucherPlan(isoDate);
-  if (plan.count === 0 || plan.postings.length === 0) {
-    return { status: "skipped", reason: "Ingen salg denne dagen", plan };
+  // Hopp bare over når det IKKE finnes posteringer. Merk: en dag kan ha 0
+  // ordinære salg (plan.count === 0) men likevel ha posteringer fra SALG av
+  // gavekort (forskudd: penger inn → gjeld 2900). De skal fortsatt bokføres.
+  if (plan.postings.length === 0) {
+    return { status: "skipped", reason: "Ingen bilagslinjer denne dagen", plan };
   }
 
   // Duplikatsperre: allerede postet? (Kun ekte posteringer logges.)

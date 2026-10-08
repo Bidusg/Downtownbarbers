@@ -71,6 +71,42 @@ export function osloMonthRange(mnd?: string): {
 }
 
 /**
+ * Én dag (Oslo) fra 'yyyy-mm-dd', med Oslo-midnatt start/slutt og måneds-nøkkel
+ * for drill-down (dag → hele måneden). Samme Oslo-mønster som ellers her.
+ */
+export function osloDayRange(dag: string): {
+  key: string;
+  monthKey: string;
+  fromIso: string;
+  toIso: string;
+} | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dag)) return null;
+  const [y, m, d] = dag.split("-").map(Number);
+  return {
+    key: dag,
+    monthKey: dag.slice(0, 7),
+    fromIso: osloMidnight(y, m, d),
+    toIso: osloMidnight(y, m, d + 1),
+  };
+}
+
+/**
+ * Forrige/neste kvartal fra (år, kvartal 1–4), med årsbytte håndtert.
+ */
+export function quarterStep(year: number, q: number, dir: -1 | 1): { year: number; q: number } {
+  let nq = q + dir;
+  let ny = year;
+  if (nq < 1) {
+    nq = 4;
+    ny -= 1;
+  } else if (nq > 4) {
+    nq = 1;
+    ny += 1;
+  }
+  return { year: ny, q: nq };
+}
+
+/**
  * Løs periode fra søkeparametre. Default: inneværende kvartal/år.
  *   type=kvartal&ar=2026&kv=3
  *   type=halvaar&ar=2026&hy=2

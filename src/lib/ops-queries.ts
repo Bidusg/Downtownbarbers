@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import type { AbsenceKind } from "@/lib/absence-kinds";
 import { getHistoricalForMonth } from "@/lib/historical-revenue";
@@ -224,10 +225,11 @@ function methodBucket(m: string): keyof MethodBreakdown | null {
  */
 export async function getExpectedByMethodForDate(
   isoDate: string,
+  client?: SupabaseClient,
 ): Promise<MethodBreakdown> {
   const empty: MethodBreakdown = { cash: 0, card: 0, vipps: 0 };
   try {
-    const sb = await createClient();
+    const sb = client ?? (await createClient());
     const start = new Date(`${isoDate}T00:00:00.000Z`).toISOString();
     const end = new Date(`${isoDate}T00:00:00.000Z`);
     end.setUTCDate(end.getUTCDate() + 1);
