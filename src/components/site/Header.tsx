@@ -74,9 +74,6 @@ export function Header({
     window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : "") + window.location.hash);
   }, []);
   const [scrolled, setScrolled] = useState(false);
-  // Skjul headeren når man har scrollet forbi hero og scroller NEDOVER; vis den
-  // straks man scroller opp igjen. Over hero er den alltid synlig.
-  const [hidden, setHidden] = useState(false);
 
   const telHref = `tel:${phone.replace(/\s/g, "")}`;
   const shortAddress = address.split(",")[0];
@@ -86,36 +83,31 @@ export function Header({
 
   useEffect(() => {
     if (!overlay) return;
-    let lastY = window.scrollY;
     const onScroll = () => {
       const y = window.scrollY;
-      // Headeren er GJENNOMSIKTIG over hele hero og blir først solid (frostet)
-      // når hero er nesten forbi. Slik unngår vi krem-stripen som før dukket
-      // opp så snart man så vidt scrollet nedi hero (gammel terskel: 24 px).
-      const pastHero = y > Math.max(300, window.innerHeight - 120);
-      setScrolled(pastHero);
-      // Forbi hero + scroller nedover → skjul. Scroller opp / i hero → vis.
-      if (pastHero && y > lastY + 4) setHidden(true);
-      else if (y < lastY - 4 || !pastHero) setHidden(false);
-      lastY = y;
+      // Headeren er GJENNOMSIKTIG over hero (kun desktop) og blir solid (frostet)
+      // når hero er nesten forbi. Headeren HENGER ALLTID MED – den skjules aldri,
+      // så den glir jevnt (smooth) gjennom hele siden.
+      setScrolled(y > Math.max(300, window.innerHeight - 120));
     };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, [overlay]);
 
-  // Åpen mobilmeny skal aldri være skjult.
-  const headerHidden = hidden && !open;
-
-  // overlay=false (vanlige sider): alltid solid, i flyt (sticky).
-  // overlay=true (forsiden): gjennomsiktig over hero, solid ved scroll (fixed).
-  const solid = !overlay || scrolled || open;
-  // Logofarge: hvit over hero, text-fg (temaavhengig) på solid bar.
-  const brand = solid ? "text-fg" : "text-white";
-  const navText = solid
-    ? "text-muted hover:text-fg"
-    : "text-white/75 hover:text-white";
-  const bar = solid ? "bg-fg" : "bg-white";
+  // «over» = gjennomsiktig modus: kun på forsiden, over hero, og KUN på desktop.
+  // På mobil er navbaren alltid solid (fast, synlig) – da slipper vi krem-/
+  // safe-area-stripen på toppen, og baren henger med gjennom hele siden.
+  const over = overlay && !scrolled && !open;
+  // Mobil: alltid mørk tekst (solid bar). Desktop: hvit over hero, ellers mørk.
+  const brand = "text-fg " + (over ? "md:text-white" : "md:text-fg");
+  const navText =
+    "text-muted hover:text-fg " +
+    (over ? "md:text-white/75 md:hover:text-white" : "md:text-muted md:hover:text-fg");
+  // Aktiv språk-knapp følger samme logikk.
+  const langActive = "text-fg " + (over ? "md:text-white" : "md:text-fg");
+  // Hamburger-strekene er alltid mørke (baren er solid på mobil).
+  const bar = "bg-fg";
 
   return (
     <>
@@ -124,11 +116,13 @@ export function Header({
         (overlay ? "fixed" : "sticky") +
         // pt-safe: på iPhone går headeren helt opp under klokka/batteriet
         // (samme frostede glass), så innhold aldri synes over navbaren.
-        " inset-x-0 top-0 z-40 pt-[env(safe-area-inset-top)] transition-[transform,background-color,border-color] duration-500 will-change-transform " +
-        (solid
-          ? "border-b border-line bg-canvas/85 backdrop-blur"
-          : "border-b border-transparent bg-transparent") +
-        (headerHidden ? " -translate-y-full" : " translate-y-0")
+        " inset-x-0 top-0 z-40 pt-[env(safe-area-inset-top)] transition-colors duration-500 " +
+        // Mobil: ALLTID solid frostet bar (ingen krem-stripe, henger med hele veien).
+        // Desktop: gjennomsiktig over hero, solid når man har scrollet forbi.
+        "border-b border-line bg-canvas/95 backdrop-blur " +
+        (over
+          ? "md:border-transparent md:bg-transparent md:backdrop-blur-0"
+          : "md:border-line md:bg-canvas/85 md:backdrop-blur")
       }
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
@@ -188,7 +182,7 @@ export function Header({
               className={
                 "px-1 transition-opacity " +
                 (lang === "no"
-                  ? (solid ? "text-fg" : "text-white") + " font-semibold"
+                  ? langActive + " font-semibold"
                   : "opacity-55 hover:opacity-100")
               }
             >
@@ -204,7 +198,7 @@ export function Header({
               className={
                 "px-1 transition-opacity " +
                 (lang === "en"
-                  ? (solid ? "text-fg" : "text-white") + " font-semibold"
+                  ? langActive + " font-semibold"
                   : "opacity-55 hover:opacity-100")
               }
             >
