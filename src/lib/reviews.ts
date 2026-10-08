@@ -31,6 +31,9 @@ export type ReviewConfig = {
   taKey: string | null;
   taLoc: string | null;
   taEnabled: boolean;
+  tpKey: string | null;
+  tpBusinessUnitId: string | null;
+  tpEnabled: boolean;
 };
 
 function envConfig(): ReviewConfig {
@@ -41,6 +44,9 @@ function envConfig(): ReviewConfig {
     taKey: process.env.TRIPADVISOR_API_KEY || null,
     taLoc: process.env.TRIPADVISOR_LOCATION_ID || null,
     taEnabled: true,
+    tpKey: process.env.TRUSTPILOT_API_KEY || null,
+    tpBusinessUnitId: process.env.TRUSTPILOT_BUSINESS_UNIT_ID || null,
+    tpEnabled: true,
   };
 }
 
@@ -62,13 +68,17 @@ async function getReviewConfig(): Promise<ReviewConfig> {
       taKey: (d.tripadvisor_api_key as string) || env.taKey,
       taLoc: (d.tripadvisor_location_id as string) || env.taLoc,
       taEnabled: d.tripadvisor_enabled !== false,
+      tpKey: (d.trustpilot_api_key as string) || env.tpKey,
+      tpBusinessUnitId:
+        (d.trustpilot_business_unit_id as string) || env.tpBusinessUnitId,
+      tpEnabled: d.trustpilot_enabled !== false,
     };
   } catch {
     return env; // ingen service-nøkkel → env-styrt som før
   }
 }
 
-export type SourceKey = "internal" | "google" | "tripadvisor";
+export type SourceKey = "internal" | "google" | "tripadvisor" | "trustpilot";
 
 export type ReviewSource = {
   key: SourceKey;
@@ -274,14 +284,97 @@ async function tripadvisorSource(cfg: ReviewConfig): Promise<{
   }
 }
 
+/* ---------------- Trustpilot (Business Units API, public) ----------------
+ *   GET /v1/business-units/{id}            -> score.trustScore / score.stars
+ *                                             numberOfReviews.total, name.identifying
+ *   GET /v1/business-units/{id}/reviews    -> reviews[]{stars,title,text,createdAt,
+ *                                             consumer.displayName}
+ *   Auth: «apikey»-header. Nøkkel + Business Unit-ID settes i admin → Rating
+ *   (eller env). «Se alle»-lenken bygges fra name.identifying (domenet), som
+ *   er Trustpilots egen URL-form: trustpilot.com/review/<domene>. */
+type TpUnit = {
+  displayName?: string;
+  name?: { identifying?: string };
+  numberOfReviews?: { total?: number };
+  score?: { stars?: number; trustScore?: number };
+};
+type TpReviews = {
+  reviews?: Array<{
+    stars?: number;
+    title?: string;
+    text?: string;
+    createdAt?: string;
+    consumer?: { displayName?: string };
+  }>;
+};
+
+async function trustpilotSource(cfg: ReviewConfig): Promise<{
+  source: ReviewSource;
+  recent: AggregatedReview[];
+} | null> {
+  const key = cfg.tpKey;
+  const unit = cfg.tpBusinessUnitId;
+  if (!cfg.tpEnabled || !key || !unit) return null;
+  const base = `https://api.trustpilot.com/v1/business-units/${encodeURIComponent(unit)}`;
+  const opts = {
+    headers: { apikey: key, accept: "application/json" },
+    next: { revalidate: REVALIDATE, tags: ["reviews"] },
+  };
+  try {
+    const [uRes, rRes] = await Promise.all([
+      fetch(base, opts),
+      fetch(`${base}/reviews?orderBy=createdat.desc&perPage=20`, opts),
+    ]);
+    if (!uRes.ok) return null;
+    const u = (await uRes.json()) as TpUnit;
+    const rating = u.score?.stars ?? u.score?.trustScore ?? 0;
+    const count = u.numberOfReviews?.total ?? 0;
+    const domain = u.name?.identifying ?? null;
+    const url = domain ? `https://www.trustpilot.com/review/${domain}` : null;
+
+    let recent: AggregatedReview[] = [];
+    if (rRes.ok) {
+      const rv = (await rRes.json()) as TpReviews;
+      recent = (rv.reviews ?? [])
+        .map((r) => ({
+          source: "trustpilot" as const,
+          sourceLabel: "Trustpilot",
+          author: r.consumer?.displayName ?? "Trustpilot-bruker",
+          rating: Number(r.stars) || 0,
+          text: (r.text ?? r.title ?? "").trim(),
+          when: r.createdAt ? relTime(r.createdAt) : "",
+          url,
+          photo: null,
+          ts: r.createdAt ? Date.parse(r.createdAt) || 0 : 0,
+        }))
+        .filter((r) => r.text.length > 0)
+        .sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0));
+    }
+    return {
+      source: {
+        key: "trustpilot",
+        label: "Trustpilot",
+        configured: true,
+        rating,
+        count,
+        url,
+      },
+      recent,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /* ---------------- Samlet ---------------- */
 export async function getReviewsSummary(
   internal: InternalOverview,
 ): Promise<ReviewsSummary> {
   const cfg = await getReviewConfig();
-  const [google, tripadvisor] = await Promise.all([
+  const [google, tripadvisor, trustpilot] = await Promise.all([
     googleSource(cfg),
     tripadvisorSource(cfg),
+    trustpilotSource(cfg),
   ]);
 
   const internalSource: ReviewSource = {
@@ -316,6 +409,10 @@ export async function getReviewsSummary(
   if (tripadvisor) {
     sources.push(tripadvisor.source);
     recent.push(...tripadvisor.recent);
+  }
+  if (trustpilot) {
+    sources.push(trustpilot.source);
+    recent.push(...trustpilot.recent);
   }
 
   // Antalls-vektet snitt over kilder som faktisk har vurderinger.
@@ -367,28 +464,33 @@ async function internalPublicSource(): Promise<ReviewSource | null> {
  *  kun eksterne (Google/TripAdvisor) anmeldelser tas med i `recent`. */
 export async function getPublicReviewsSummary(): Promise<ReviewsSummary> {
   const cfg = await getReviewConfig();
-  const [internal, google, tripadvisor] = await Promise.all([
+  const [internal, google, tripadvisor, trustpilot] = await Promise.all([
     internalPublicSource(),
     googleSource(cfg),
     tripadvisorSource(cfg),
+    trustpilotSource(cfg),
   ]);
 
   const sources: ReviewSource[] = [];
   if (internal) sources.push(internal);
   if (google) sources.push(google.source);
   if (tripadvisor) sources.push(tripadvisor.source);
-  // Flett Google og Tripadvisor (G, T, G, T …) så begge kildene synes.
+  if (trustpilot) sources.push(trustpilot.source);
+  // Flett de eksterne kildene (G, T, TP, G, T, TP …) så alle synes.
   // Kun gode anmeldelser (4–5 stjerner) med litt tekst på forsiden. Terskelen
-  // er lav (minst 8 tegn) så flest mulig av Googles ~5 anmeldelser kommer med
-  // og karusellen får nok kort til å bla i.
+  // er lav (minst 8 tegn) så flest mulig anmeldelser kommer med og karusellen
+  // får nok kort til å bla i.
   const good = (list: AggregatedReview[]) =>
     list.filter((r) => r.rating >= 4 && r.text.length >= 8);
-  const g = good(google?.recent ?? []);
-  const t = good(tripadvisor?.recent ?? []);
+  const lists = [
+    good(google?.recent ?? []),
+    good(tripadvisor?.recent ?? []),
+    good(trustpilot?.recent ?? []),
+  ];
   const recent: AggregatedReview[] = [];
-  for (let i = 0; i < Math.max(g.length, t.length); i++) {
-    if (g[i]) recent.push(g[i]);
-    if (t[i]) recent.push(t[i]);
+  const maxLen = Math.max(0, ...lists.map((l) => l.length));
+  for (let i = 0; i < maxLen; i++) {
+    for (const l of lists) if (l[i]) recent.push(l[i]);
   }
 
   let wSum = 0;
@@ -419,11 +521,15 @@ export type ReviewConfigStatus = {
   taLocationId: string;
   taEnabled: boolean;
   taKeySet: boolean;
+  tpBusinessUnitId: string;
+  tpEnabled: boolean;
+  tpKeySet: boolean;
 };
 
 export async function getReviewConfigAdmin(): Promise<ReviewConfigStatus> {
   const envG = Boolean(process.env.GOOGLE_PLACES_API_KEY);
   const envT = Boolean(process.env.TRIPADVISOR_API_KEY);
+  const envTp = Boolean(process.env.TRUSTPILOT_API_KEY);
   const fallback: ReviewConfigStatus = {
     googlePlaceId: process.env.GOOGLE_PLACES_ID || "",
     googleEnabled: true,
@@ -431,6 +537,9 @@ export async function getReviewConfigAdmin(): Promise<ReviewConfigStatus> {
     taLocationId: process.env.TRIPADVISOR_LOCATION_ID || "",
     taEnabled: true,
     taKeySet: envT,
+    tpBusinessUnitId: process.env.TRUSTPILOT_BUSINESS_UNIT_ID || "",
+    tpEnabled: true,
+    tpKeySet: envTp,
   };
   try {
     const sb = await createClient();
@@ -448,6 +557,10 @@ export async function getReviewConfigAdmin(): Promise<ReviewConfigStatus> {
       taLocationId: (d.tripadvisor_location_id as string) || fallback.taLocationId,
       taEnabled: d.tripadvisor_enabled !== false,
       taKeySet: Boolean(d.tripadvisor_api_key) || envT,
+      tpBusinessUnitId:
+        (d.trustpilot_business_unit_id as string) || fallback.tpBusinessUnitId,
+      tpEnabled: d.trustpilot_enabled !== false,
+      tpKeySet: Boolean(d.trustpilot_api_key) || envTp,
     };
   } catch {
     return fallback;
@@ -461,6 +574,7 @@ export type ReviewConnectionTest = {
   config: SourceTest;
   google: SourceTest;
   tripadvisor: SourceTest;
+  trustpilot: SourceTest;
 };
 
 /** Ufiltrert, ubufret test av kildene, med Googles/TripAdvisors egen
@@ -551,5 +665,29 @@ export async function testReviewConnections(): Promise<ReviewConnectionTest> {
     }
   }
 
-  return { config, google, tripadvisor };
+  let trustpilot: SourceTest;
+  if (!cfg.tpEnabled) trustpilot = { ok: false, message: "Skrudd av." };
+  else if (!cfg.tpKey || !cfg.tpBusinessUnitId)
+    trustpilot = { ok: false, message: "API-nøkkel eller Business Unit-ID mangler." };
+  else {
+    try {
+      const res = await fetch(
+        `https://api.trustpilot.com/v1/business-units/${encodeURIComponent(cfg.tpBusinessUnitId)}`,
+        { headers: { apikey: cfg.tpKey, accept: "application/json" }, cache: "no-store" },
+      );
+      if (!res.ok) trustpilot = { ok: false, message: await errText(res) };
+      else {
+        const d = (await res.json()) as TpUnit;
+        const stars = d.score?.stars ?? d.score?.trustScore ?? "–";
+        trustpilot = {
+          ok: true,
+          message: `${d.displayName ?? "Stedet"}: ${stars} ★ fra ${d.numberOfReviews?.total ?? 0} anmeldelser.`,
+        };
+      }
+    } catch (e) {
+      trustpilot = { ok: false, message: "Nettverksfeil: " + (e instanceof Error ? e.message : String(e)) };
+    }
+  }
+
+  return { config, google, tripadvisor, trustpilot };
 }

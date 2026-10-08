@@ -25,8 +25,8 @@ export function ReviewConfigForm({ status }: { status: ReviewConfigStatus }) {
       <div>
         <h2 className="font-display text-lg font-bold">Koble til omdømmekilder</h2>
         <p className="mt-1 text-sm text-muted">
-          Legg inn API-nøkler og ID-er her, så telles Google og TripAdvisor
-          automatisk med i det samlede snittet. Nøkler lagres trygt (kun admin,
+          Legg inn API-nøkler og ID-er her, så telles Google, TripAdvisor og
+          Trustpilot automatisk med i det samlede snittet. Nøkler lagres trygt (kun admin,
           aldri synlig for besøkende). Oppdatering slår inn innen 6 timer (cache).
         </p>
       </div>
@@ -121,6 +121,55 @@ export function ReviewConfigForm({ status }: { status: ReviewConfigStatus }) {
           TripAdvisors Content API krever egen tilgang, og nøkkelen bør låses til
           domenet i deres konsoll. Vilkårene krever en lenke tilbake ved offentlig
           visning (håndtert automatisk).
+        </p>
+      </div>
+
+      {/* Trustpilot */}
+      <div className="grid gap-3 border border-line bg-surface-2 p-5 sm:grid-cols-2">
+        <div className="flex items-center justify-between sm:col-span-2">
+          <h3 className="font-semibold text-fg">Trustpilot</h3>
+          <KeyBadge set={status.tpKeySet} />
+        </div>
+        <Field label="Business Unit-ID">
+          <Input
+            name="trustpilot_business_unit_id"
+            autoComplete="off"
+            spellCheck={false}
+            data-1p-ignore
+            data-lpignore="true"
+            data-form-type="other"
+            defaultValue={status.tpBusinessUnitId}
+            placeholder="f.eks. 5f2a…"
+          />
+        </Field>
+        <Field label="API-nøkkel">
+          <Input
+            name="trustpilot_api_key"
+            type="text"
+            className="[-webkit-text-security:disc]"
+            autoComplete="off"
+            spellCheck={false}
+            data-1p-ignore
+            data-lpignore="true"
+            data-form-type="other"
+            placeholder={
+              status.tpKeySet ? "•••• – la stå tomt for å beholde" : "Lim inn API-nøkkel"
+            }
+          />
+        </Field>
+        <label className="flex items-center gap-2 text-sm text-fg sm:col-span-2">
+          <input
+            type="checkbox"
+            name="trustpilot_enabled"
+            defaultChecked={status.tpEnabled}
+            className="accent-[#F47721]"
+          />
+          Vis Trustpilot i det samlede omdømmet
+        </label>
+        <p className="text-xs text-muted sm:col-span-2">
+          Trustpilots Business Units API krever en Trustpilot Business-konto med
+          API-tilgang. Business Unit-ID-en finner du i Trustpilot Business under
+          API-innstillinger (eller via «find»-endepunktet på domenet deres).
         </p>
       </div>
 

@@ -22,6 +22,8 @@ export async function saveReviewConfig(formData: FormData): Promise<void> {
   const googleKey = trimmed("google_api_key");
   const taLocationId = trimmed("tripadvisor_location_id");
   const taKey = trimmed("tripadvisor_api_key");
+  const tpUnitId = trimmed("trustpilot_business_unit_id");
+  const tpKey = trimmed("trustpilot_api_key");
 
   // Vern mot nettleserens autofyll: en e-postadresse er aldri en Place-ID,
   // og Google-API-nøkler starter alltid med «AIza». Ser verdien ut som
@@ -33,13 +35,17 @@ export async function saveReviewConfig(formData: FormData): Promise<void> {
     google_enabled: formData.get("google_enabled") === "on",
     tripadvisor_location_id: taLocationId || null,
     tripadvisor_enabled: formData.get("tripadvisor_enabled") === "on",
+    trustpilot_business_unit_id: tpUnitId || null,
+    trustpilot_enabled: formData.get("trustpilot_enabled") === "on",
     updated_at: new Date().toISOString(),
   };
   if (!looksLikeLogin(googlePlaceId)) patch.google_place_id = googlePlaceId || null;
   if (looksLikeLogin(taLocationId)) delete patch.tripadvisor_location_id;
+  if (looksLikeLogin(tpUnitId)) delete patch.trustpilot_business_unit_id;
   // Behold eksisterende nøkkel hvis feltet er tomt eller ikke ser ut som en nøkkel.
   if (googleKey && googleKey.startsWith("AIza")) patch.google_api_key = googleKey;
   if (taKey && !looksLikeLogin(taKey)) patch.tripadvisor_api_key = taKey;
+  if (tpKey && !looksLikeLogin(tpKey)) patch.trustpilot_api_key = tpKey;
 
   await sb.from("review_config").upsert(patch, { onConflict: "id" });
   // Tøm bufrede Google/TripAdvisor-svar, så ny nøkkel slår inn med en gang

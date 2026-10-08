@@ -23,6 +23,7 @@ const nf = (n: number) => n.toFixed(1).replace(".", ",");
 function sourceBadge(key: string): string {
   if (key === "google") return "G";
   if (key === "tripadvisor") return "TA";
+  if (key === "trustpilot") return "TP";
   return "★";
 }
 
@@ -50,7 +51,7 @@ export default async function AdminRating() {
           <div>
             <h2 className="font-display text-lg font-bold">Samlet omdømme</h2>
             <p className="mt-1 text-sm text-muted">
-              Antalls-vektet snitt på tvers av Google, TripAdvisor og egne kunder.
+              Antalls-vektet snitt på tvers av Google, TripAdvisor, Trustpilot og egne kunder.
             </p>
           </div>
           <div className="text-right">
@@ -64,7 +65,7 @@ export default async function AdminRating() {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {summary.sources.map((s) => (
             <div key={s.key} className="border border-line bg-surface-2 p-4">
               <div className="flex items-center justify-between">

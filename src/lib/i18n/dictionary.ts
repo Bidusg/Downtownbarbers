@@ -180,6 +180,7 @@ export const dictionary: Dict = {
   "reviews.fromGoogle": { no: "Anmeldelser fra Google", en: "Reviews from Google" },
   "reviews.seeAll": { no: "Se alle på Google", en: "See all on Google" },
   "reviews.seeAllTa": { no: "Se alle på Tripadvisor", en: "See all on Tripadvisor" },
+  "reviews.seeAllTp": { no: "Se alle på Trustpilot", en: "See all on Trustpilot" },
 
   // ---- Footer ----
   "footer.rights": {

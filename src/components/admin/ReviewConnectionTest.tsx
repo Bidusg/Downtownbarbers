@@ -41,7 +41,7 @@ export function ReviewConnectionTest() {
           {pending ? "Tester …" : "Test kobling"}
         </button>
         <span className="text-xs text-muted">
-          Henter direkte fra Google/TripAdvisor nå og viser nøyaktig hva de svarer.
+          Henter direkte fra Google/TripAdvisor/Trustpilot nå og viser nøyaktig hva de svarer.
         </span>
       </div>
       {res && "error" in res && <p className="text-sm text-danger">{res.error}</p>}
@@ -50,6 +50,7 @@ export function ReviewConnectionTest() {
           <Row label="Lagrede nøkler" t={res.config} />
           <Row label="Google" t={res.google} />
           <Row label="TripAdvisor" t={res.tripadvisor} />
+          <Row label="Trustpilot" t={res.trustpilot} />
         </ul>
       )}
     </div>

@@ -52,8 +52,23 @@ function TripadvisorIcon({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
-const SourceIcon = ({ k, className }: { k: string; className?: string }) =>
-  k === "google" ? <GoogleIcon className={className} /> : <TripadvisorIcon className={className} />;
+/** Nøytral kildemarkør for Trustpilot (ingen logo-kopi – kilden står også i tekst). */
+function TrustpilotIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={`inline-flex items-center justify-center rounded-full bg-[#00b67a] font-display text-[10px] font-bold text-white ${className}`}
+    >
+      ★
+    </span>
+  );
+}
+
+const SourceIcon = ({ k, className }: { k: string; className?: string }) => {
+  if (k === "google") return <GoogleIcon className={className} />;
+  if (k === "trustpilot") return <TrustpilotIcon className={className} />;
+  return <TripadvisorIcon className={className} />;
+};
 
 const nf = (n: number) => n.toFixed(1).replace(".", ",");
 
@@ -125,7 +140,11 @@ function ReviewCard({ r }: { r: AggregatedReview }) {
 
 export function GoogleReviews({ summary }: { summary: ReviewsSummary }) {
   const external = summary.sources.filter(
-    (s) => (s.key === "google" || s.key === "tripadvisor") && s.count > 0,
+    (s) =>
+      (s.key === "google" ||
+        s.key === "tripadvisor" ||
+        s.key === "trustpilot") &&
+      s.count > 0,
   );
   const reviews = summary.recent.filter((r) => r.source !== "internal").slice(0, 9);
   if (external.length === 0 || reviews.length === 0) return null;
@@ -169,7 +188,13 @@ export function GoogleReviews({ summary }: { summary: ReviewsSummary }) {
                   className="inline-flex items-center gap-2 text-sm font-semibold text-accent-soft transition-colors hover:text-fg"
                 >
                   <SourceIcon k={s.key} />
-                  {s.key === "google" ? <T k="reviews.seeAll" /> : <T k="reviews.seeAllTa" />}
+                  {s.key === "google" ? (
+                    <T k="reviews.seeAll" />
+                  ) : s.key === "trustpilot" ? (
+                    <T k="reviews.seeAllTp" />
+                  ) : (
+                    <T k="reviews.seeAllTa" />
+                  )}
                   <span aria-hidden>→</span>
                 </a>
               ),
