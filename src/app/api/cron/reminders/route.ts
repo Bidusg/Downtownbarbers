@@ -17,6 +17,7 @@ export const dynamic = "force-dynamic";
 function fmtDate(iso: string) {
   try {
     return new Date(iso).toLocaleDateString("nb-NO", {
+      timeZone: "Europe/Oslo",
       weekday: "long",
       day: "2-digit",
       month: "long",
@@ -29,6 +30,8 @@ function fmtDate(iso: string) {
 function fmtTime(iso: string) {
   try {
     return new Date(iso).toLocaleTimeString("nb-NO", {
+      // Serveren kjører i UTC – uten Europe/Oslo blir påminnelsen 2 timer feil.
+      timeZone: "Europe/Oslo",
       hour: "2-digit",
       minute: "2-digit",
     });

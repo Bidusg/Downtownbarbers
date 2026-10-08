@@ -116,6 +116,9 @@ function refresh() {
 function fmtDay(iso: string) {
   try {
     return new Date(iso).toLocaleDateString("nb-NO", {
+      // Serveren kjører i UTC – uten Oslo-tidssone havner dato/tid feil
+      // (i e-post m.m.). Europe/Oslo gir riktig norsk dag.
+      timeZone: "Europe/Oslo",
       weekday: "long",
       day: "2-digit",
       month: "long",
@@ -127,6 +130,9 @@ function fmtDay(iso: string) {
 function fmtClock(iso: string) {
   try {
     return new Date(iso).toLocaleTimeString("nb-NO", {
+      // Viktig: uten Europe/Oslo formateres den lagrede UTC-tiden i UTC, så
+      // 17:00 Oslo (lagret 15:00 UTC) ble vist som «15:00» i bekreftelsen.
+      timeZone: "Europe/Oslo",
       hour: "2-digit",
       minute: "2-digit",
     });

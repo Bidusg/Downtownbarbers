@@ -285,6 +285,10 @@ export function DayCalendar({
   } | null>(null);
   // Satt når en vertikal flytting faktisk endret tiden – hindrer at klikk åpner modal.
   const blkDragged = useRef(false);
+  // Tidspunkt for siste dra-for-lengde. Et «click» fyrer rett etter pointerup,
+  // og da er resize-staten alt nullet – uten denne sperren ville klikket truffet
+  // den ledige kolonnen og åpnet «Ny booking». 500 ms dekker etterslepet.
+  const lastResizeAt = useRef(0);
 
   const today = new Date().toLocaleDateString("en-CA", {
     timeZone: "Europe/Oslo",
@@ -387,6 +391,7 @@ export function DayCalendar({
   function beginResize(e: React.PointerEvent, b: AgendaBooking) {
     e.preventDefault();
     e.stopPropagation();
+    lastResizeAt.current = Date.now();
     setResizeMsg(null);
     const startMin = osloMinutes(b.start_at);
     const endMin = osloMinutes(b.end_at);
@@ -409,6 +414,7 @@ export function DayCalendar({
   function endResize() {
     const cur = resize;
     const newEnd = resizeEnd;
+    lastResizeAt.current = Date.now();
     setResize(null);
     setResizeEnd(null);
     if (!cur || newEnd == null || newEnd === cur.endMin) return;
@@ -822,6 +828,8 @@ export function DayCalendar({
                   style={{ height: SPAN * PX }}
                   onClick={(e) => {
                     if (moved.current || dragId || move || resize) return;
+                    // Et klikk rett etter dra-for-lengde skal ikke åpne «Ny booking».
+                    if (Date.now() - lastResizeAt.current < 500) return;
                     if (!canBook) return;
                     const el = e.target as HTMLElement;
                     if (el.closest("button, [role=button], a, input, select")) return;
@@ -1078,6 +1086,12 @@ export function DayCalendar({
                             onPointerDown={(ev) => beginResize(ev, b)}
                             onPointerMove={moveResize}
                             onPointerUp={endResize}
+                            onClick={(ev) => {
+                              // Hindre at klikket bobler til timen (detaljer) eller
+                              // den ledige kolonnen («Ny booking»).
+                              ev.stopPropagation();
+                              ev.preventDefault();
+                            }}
                             title="Dra for å endre lengde"
                             aria-label="Endre lengde"
                             className="absolute right-1 left-1 z-20 flex h-3 cursor-ns-resize items-center justify-center rounded-b-md"

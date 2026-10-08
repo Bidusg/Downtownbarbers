@@ -41,14 +41,18 @@ set search_path = public
 as $$
 begin
   -- Ble nettopp avbestilt (og var det ikke fra før) → stemple tid + hvem.
-  if new.status = 'cancelled' and coalesce(old.status, '') <> 'cancelled' then
+  -- NB: old.status er enum (booking_status). Vi må IKKE coalesce'e mot '' –
+  -- det tvinger en cast av '' til enumet og feiler alle status-oppdateringer
+  -- («invalid input value for enum booking_status: ""»). «is distinct from»
+  -- håndterer null trygt uten noen tekst-cast.
+  if new.status = 'cancelled' and old.status is distinct from 'cancelled' then
     new.cancelled_at := now();
     -- Anonym (token / Min side) = kunden selv. Innlogget = oss (ansatt/eier).
     new.cancelled_by := case when auth.uid() is null then 'customer' else 'staff' end;
 
   -- Gjenåpnes en avbestilt time (f.eks. satt tilbake til confirmed) → nullstill
   -- stemplene, så oversikten alltid speiler faktisk status.
-  elsif new.status <> 'cancelled' and coalesce(old.status, '') = 'cancelled' then
+  elsif new.status is distinct from 'cancelled' and old.status = 'cancelled' then
     new.cancelled_at := null;
     new.cancelled_by := null;
   end if;
