@@ -125,7 +125,7 @@ export function Header({
           : "border-b border-line bg-canvas/85 backdrop-blur")
       }
     >
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
+      <div className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
         <Link href="/#top" aria-label="Downtown Barbers – til toppen">
           <LogoMark className={"h-11 transition-colors " + brand} />
         </Link>
@@ -262,60 +262,65 @@ export function Header({
         </div>
       </div>
 
-      {/* Mobilmeny */}
-      {open && (
-        <nav className="border-t border-line bg-canvas px-5 py-4 md:hidden">
-          <div className="flex flex-col gap-1">
-            {visibleNav.map((n) => (
-              <Link
-                key={n.href}
-                href={n.href}
-                onClick={() => setOpen(false)}
-                className="border-b border-line py-3 text-sm font-medium text-fg last:border-0"
-              >
-                {t(n.labelKey)}
-              </Link>
-            ))}
-            <Link
-              href="/booking"
-              onClick={() => setOpen(false)}
-              className="mt-3 bg-accent-soft px-5 py-3 text-center text-sm font-semibold text-[#211E1A]"
-            >
-              {t("header.book")}
-            </Link>
-            <a
-              href="/?login=1"
-              onClick={(e) => {
-                e.preventDefault();
-                setOpen(false);
-                setLoginOpen(true);
-              }}
-              className="mt-2 border border-line-2 px-5 py-3 text-center text-sm font-semibold text-fg"
-            >
-              {t("header.login")}
-            </a>
-            <a
-              href={telHref}
-              onClick={() => setOpen(false)}
-              className="mt-3 flex items-center gap-2 text-sm font-medium text-fg"
-            >
-              <PhoneIcon className="h-4 w-4 text-accent-soft" />
-              {phone}
-            </a>
-            <a
-              href={mapHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setOpen(false)}
-              className="mt-2 flex items-center gap-2 text-sm font-medium text-fg"
-            >
-              <PinIcon className="h-4 w-4 text-accent-soft" />
-              {address}
-            </a>
-          </div>
-        </nav>
-      )}
     </header>
+
+    {/* Mobilmeny – fast overlegg som dekker HELE skjermen, så ingenting av siden
+        bak noensinne synes gjennom uansett hvor langt man har scrollet. Ligger
+        UTENFOR <header> (headeren har backdrop-blur, som ellers ville «fanget»
+        et fixed-barn og klippet det). z-30 < header z-40 → logo + kryss i
+        topplinja ligger alltid oppå og kan trykkes. */}
+    {open && (
+      <nav className="fixed inset-0 z-30 overflow-y-auto bg-canvas px-5 pb-10 pt-[calc(env(safe-area-inset-top)+5.5rem)] md:hidden">
+        <div className="mx-auto flex max-w-6xl flex-col gap-1">
+          {visibleNav.map((n) => (
+            <Link
+              key={n.href}
+              href={n.href}
+              onClick={() => setOpen(false)}
+              className="border-b border-line py-3 text-sm font-medium text-fg last:border-0"
+            >
+              {t(n.labelKey)}
+            </Link>
+          ))}
+          <Link
+            href="/booking"
+            onClick={() => setOpen(false)}
+            className="mt-3 bg-accent-soft px-5 py-3 text-center text-sm font-semibold text-[#211E1A]"
+          >
+            {t("header.book")}
+          </Link>
+          <a
+            href="/?login=1"
+            onClick={(e) => {
+              e.preventDefault();
+              setOpen(false);
+              setLoginOpen(true);
+            }}
+            className="mt-2 border border-line-2 px-5 py-3 text-center text-sm font-semibold text-fg"
+          >
+            {t("header.login")}
+          </a>
+          <a
+            href={telHref}
+            onClick={() => setOpen(false)}
+            className="mt-3 flex items-center gap-2 text-sm font-medium text-fg"
+          >
+            <PhoneIcon className="h-4 w-4 text-accent-soft" />
+            {phone}
+          </a>
+          <a
+            href={mapHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setOpen(false)}
+            className="mt-2 flex items-center gap-2 text-sm font-medium text-fg"
+          >
+            <PinIcon className="h-4 w-4 text-accent-soft" />
+            {address}
+          </a>
+        </div>
+      </nav>
+    )}
     <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} {...loginFlags} />
     </>
   );
