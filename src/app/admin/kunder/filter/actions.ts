@@ -7,8 +7,9 @@ import {
   type CustomerFilter,
   type CustomerFilterRow,
 } from "@/lib/customer-filter";
+import { after } from "next/server";
 import { renderMarketingEmail, sendEmailBatch } from "@/lib/email";
-import { kickMarketingWorker } from "@/lib/marketing-worker";
+import { kickMarketingWorker, runMarketingWorker } from "@/lib/marketing-worker";
 import { siteUrl } from "@/lib/site-url";
 
 /** Kjør kunde-filteret (kun admin/eier). Returnerer radene som matcher. */
@@ -194,10 +195,22 @@ export async function sendFilterCampaign(input: {
     }
   }
 
-  try {
-    await kickMarketingWorker(siteUrl());
-  } catch {
-    // Workeren kan også startes av cron – utsendingen er allerede kø-lagt.
-  }
+  // Start bakgrunnsjobben ETTER at svaret er sendt (blokkerer aldri skjermen).
+  // Første runde kjøres direkte; kjedes videre ved behov. Feiler alt, tar
+  // natt-cronen køen – mottakerne er allerede kø-lagt.
+  const base = siteUrl();
+  after(async () => {
+    try {
+      const r = await runMarketingWorker();
+      if (r.more) await kickMarketingWorker(base);
+    } catch {
+      try {
+        await kickMarketingWorker(base);
+      } catch {
+        /* cron er backup */
+      }
+    }
+  });
+
   return { ok: true, count: recips.length };
 }
