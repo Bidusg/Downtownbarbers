@@ -347,7 +347,7 @@ function CampaignModal({
       setErr("Emne og melding er påkrevd.");
       return;
     }
-    setCountdown(60);
+    setCountdown(15);
     timer.current = setInterval(() => {
       setCountdown((c) => {
         if (c === null) return null;
@@ -365,6 +365,12 @@ function CampaignModal({
     if (timer.current) clearInterval(timer.current);
     setCountdown(null);
     setMsg("Utsending avbrutt.");
+  }
+
+  function sendNow() {
+    if (timer.current) clearInterval(timer.current);
+    setCountdown(null);
+    fireSend();
   }
 
   function fireSend() {
@@ -537,6 +543,14 @@ function CampaignModal({
                     Sender om <b className="text-fg">{countdown}s</b> …
                   </span>
                   <Button
+                    variant="subtle"
+                    onClick={sendNow}
+                    disabled={busy}
+                    className="px-4 py-2 text-sm"
+                  >
+                    Send likevel
+                  </Button>
+                  <Button
                     variant="danger"
                     onClick={cancelSend}
                     className="px-4 py-2 text-sm"
@@ -556,7 +570,7 @@ function CampaignModal({
               )}
             </div>
             <p className="text-right text-[11px] text-muted">
-              Etter du trykker send har du 60 sekunder på deg til å avbryte.
+              Etter du trykker send har du 15 sekunder på deg til å avbryte – eller «Send likevel» for å sende med en gang.
             </p>
           </div>
         )}
