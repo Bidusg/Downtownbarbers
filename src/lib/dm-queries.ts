@@ -239,6 +239,28 @@ export async function getRestStatus(
     const recipientCache = new Map<string, Recipient[]>();
     for (const [key, list] of groups) {
       const [subject, segment] = key.split("\u0000");
+      // «filter»-utsendinger har ikke et segment vi kan regne om. «Resten» =
+      // denne utsendingens egne køede mottakere som ennå ikke er sendt.
+      if (segment === "filter") {
+        for (let i = 0; i < list.length; i++) {
+          const s = list[i];
+          const { count: total } = await sb
+            .from("marketing_queue")
+            .select("id", { count: "exact", head: true })
+            .eq("send_id", s.id);
+          const { count: done } = await sb
+            .from("marketing_queue")
+            .select("id", { count: "exact", head: true })
+            .eq("send_id", s.id)
+            .eq("status", "sent");
+          out[s.id] = {
+            rest: Math.max(0, (total ?? 0) - (done ?? 0)),
+            latest: i === 0 && !seenSubject.has(subject),
+          };
+        }
+        seenSubject.add(subject);
+        continue;
+      }
       // Alle utsendinger med samme emne (også eldre enn de 20 i loggen).
       const { data: same } = await sb.from("marketing_sends").select("id").eq("subject", subject);
       const ids = (same ?? []).map((x) => x.id as string);

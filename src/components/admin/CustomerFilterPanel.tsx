@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import type { BarberOption } from "@/lib/customer-filter";
 import type { CustomerFilter, CustomerFilterRow } from "@/lib/customer-filter";
 import {
@@ -294,9 +294,22 @@ function CampaignModal({
   const [busy, startBusy] = useTransition();
   const [sent, setSent] = useState(false);
 
-  // Angrevindu
+  // Angrevindu. Selve utsendingen fyres av ÉN gang via et eget timeout + en
+  // «fired»-vakt, slik at den aldri kan bli kalt flere ganger (nedtellingen er
+  // kun kosmetisk). Serveren har i tillegg en dobbel-sperre.
   const [countdown, setCountdown] = useState<number | null>(null);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fireRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const firedRef = useRef(false);
+
+  function clearTimers() {
+    if (tickRef.current) clearInterval(tickRef.current);
+    if (fireRef.current) clearTimeout(fireRef.current);
+    tickRef.current = null;
+    fireRef.current = null;
+  }
+  // Rydd timere når popupen lukkes/komponenten forsvinner.
+  useEffect(() => clearTimers, []);
 
   function applyTemplate(key: string) {
     setTemplate(key);
@@ -347,33 +360,36 @@ function CampaignModal({
       setErr("Emne og melding er påkrevd.");
       return;
     }
+    if (firedRef.current || countdown !== null) return; // allerede i gang
+    clearTimers();
     setCountdown(15);
-    timer.current = setInterval(() => {
-      setCountdown((c) => {
-        if (c === null) return null;
-        if (c <= 1) {
-          if (timer.current) clearInterval(timer.current);
-          fireSend();
-          return null;
-        }
-        return c - 1;
-      });
+    // Kun visuell nedtelling – ingen utsending her.
+    tickRef.current = setInterval(() => {
+      setCountdown((c) => (c && c > 0 ? c - 1 : c));
     }, 1000);
+    // Den faktiske utsendingen – nøyaktig én gang etter 15 sek.
+    fireRef.current = setTimeout(() => doFire(), 15000);
+  }
+
+  function doFire() {
+    clearTimers();
+    setCountdown(null);
+    fireSend();
   }
 
   function cancelSend() {
-    if (timer.current) clearInterval(timer.current);
+    clearTimers();
     setCountdown(null);
     setMsg("Utsending avbrutt.");
   }
 
   function sendNow() {
-    if (timer.current) clearInterval(timer.current);
-    setCountdown(null);
-    fireSend();
+    doFire();
   }
 
   function fireSend() {
+    if (firedRef.current) return; // kan bare fyre ÉN gang
+    firedRef.current = true;
     startBusy(async () => {
       const res = await sendFilterCampaign({
         filter,

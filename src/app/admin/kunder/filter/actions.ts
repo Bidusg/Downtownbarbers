@@ -124,6 +124,22 @@ export async function sendFilterCampaign(input: {
 
   const sb = await createClient();
 
+  // DOBBEL-SPERRE: samme emne på «filter»-segmentet startet de siste 10 min →
+  // nekt. Hindrer at en feil i nettleseren kan fyre av utsendingen flere ganger.
+  const { data: dup } = await sb
+    .from("marketing_sends")
+    .select("id")
+    .eq("channel", "email")
+    .eq("segment", "filter")
+    .eq("subject", subject)
+    .gte("created_at", new Date(Date.now() - 10 * 60_000).toISOString())
+    .limit(1);
+  if (dup && dup.length > 0)
+    return {
+      error:
+        "En lik utsending ble nettopp startet (siste 10 min). Sjekk Markedsføring → SMS/e-post før du sender igjen.",
+    };
+
   // Mottakere = filtertreff med samtykke + e-post. Token hentes for avmelding.
   const rows = await filterCustomers(input.filter);
   const ids = rows.filter((r) => r.consent && r.email).map((r) => r.id);
