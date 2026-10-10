@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getCustomersPage } from "@/lib/admin-queries";
 import { CustomerTable } from "@/components/admin/CustomerTable";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -21,7 +22,17 @@ export default async function AdminKunder({
     <div className="mx-auto max-w-5xl">
       <PageHeader
         title="Kundekartotek"
-        actions={<span className="text-sm text-muted">{total} kunder</span>}
+        actions={
+          <div className="flex items-center gap-4">
+            <Link
+              href="/admin/kunder/filter"
+              className="text-sm font-semibold text-accent-soft hover:underline"
+            >
+              Filtrer kunder →
+            </Link>
+            <span className="text-sm text-muted">{total} kunder</span>
+          </div>
+        }
       />
 
       <details className="mb-6 border border-line bg-surface">
