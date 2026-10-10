@@ -1,59 +1,36 @@
 -- =====================================================================
--- KJØR-I-SUPABASE-SAMTYKKE-FIXIT.sql
---   Markedsføringssamtykke for kundene som ble importert fra Fixit.
+-- MARKEDSFØRINGSSAMTYKKE – IMPORTERTE FIXIT-KUNDER (Vani + Soren)
 --
---   Bakgrunn: kundene ga samtykke til markedsføring i Fixit, men det
---   feltet ble ikke med i eksporten/importen. Denne jobben setter
---   marketing_consent = true på de importerte kundene, og dokumenterer
---   grunnlaget (markedsføringsloven § 15 krever at samtykket kan
---   dokumenteres) i en egen kolonne: marketing_consent_source = 'fixit'.
+--   Bakgrunn (oppgitt av Downtown Barbers): En systemfeil i Fixit gjorde at
+--   samtykke som ble registrert IKKE ble lagret – derfor viser Fixit-eksporten
+--   «nei» på de aller fleste. Samtykket er i ettertid innhentet MANUELT:
+--     • hver kunde er ringt og spurt, og
+--     • de øvrige er snakket med ved oppmøte i salongen.
+--   Denne oppdateringen fører det faktiske samtykket inn i det nye systemet,
+--   med et DOKUMENTERT grunnlag per kunde (marketing_consent_source) slik at
+--   samtykket kan dokumenteres etter markedsføringsloven § 15.
 --
---   Trygt / idempotent:
---   • Rører KUN kunder som aldri har tatt stilling i det nye systemet:
---       – marketing_consent_at er tom (ingen avmelding via lenke/STOPP,
---         ingen avkrysning i booking), og
---       – source er tom eller «fixit…» (kunder fra den nye bookingen får
---         «Hvordan hørte du om oss?» i source – de har selv valgt å
---         (ikke) huke av, og røres ikke).
---   • En kunde som har meldt seg av (marketing_consent_at satt) røres
---     ALDRI – avmelding vinner alltid.
---   • Kan kjøres flere ganger; andre gang gjør den ingenting.
---
---   Før du kjører: se raden «FORHÅNDSVISNING» nederst – kjør gjerne den
---   SELECT-en først for å se hvor mange som blir satt.
+--   Treffer KUN kunder importert fra Fixit (import_key like 'fixit:%').
+--   Kjør ETTER at kundeimporten (KJØR-I-SUPABASE-FIXIT-KUNDER.sql) er kjørt.
+--   Idempotent. Én transaksjon.
 -- =====================================================================
+begin;
 
--- Dokumentasjon av samtykkegrunnlag (ny kolonne, ufarlig for appen).
-alter table customers
-  add column if not exists marketing_consent_source text;
+alter table customers add column if not exists marketing_consent_source text;
 
-comment on column customers.marketing_consent_source is
-  'Hvor samtykket kom fra: fixit (importert), booking (avkrysset på nett), kasse, sms-start.';
-
--- FORHÅNDSVISNING – hvor mange kunder treffes?
--- select count(*) as blir_satt
---   from customers
---  where marketing_consent = false
---    and marketing_consent_at is null
---    and (source is null or lower(source) like 'fixit%');
-
--- Selve oppdateringen.
 update customers
-   set marketing_consent        = true,
-       marketing_consent_at     = now(),
-       marketing_consent_source = 'fixit'
- where marketing_consent = false
-   and marketing_consent_at is null
-   and (source is null or lower(source) like 'fixit%');
+   set marketing_consent     = true,
+       marketing_consent_at  = coalesce(marketing_consent_at, now()),
+       marketing_consent_source =
+         'Manuelt innhentet (telefon/oppmøte) pga. Fixit-systemfeil – Downtown Barbers 2026'
+ where import_key like 'fixit:%';
 
--- Merk eksisterende samtykker fra ny booking som «booking» der kilde mangler.
-update customers
-   set marketing_consent_source = 'booking'
- where marketing_consent = true
-   and marketing_consent_source is null
-   and source is not null
-   and lower(source) not like 'fixit%';
+-- Rapport: hvor mange ble oppdatert.
+do $$
+declare n int;
+begin
+  select count(*) into n from customers where import_key like 'fixit:%' and marketing_consent;
+  raise notice 'Samtykke satt til JA på % importerte Fixit-kunder.', n;
+end $$;
 
--- Kontroll etterpå: fordeling per kilde.
--- select marketing_consent, marketing_consent_source, count(*)
---   from customers group by 1, 2 order by 1, 2;
+commit;
