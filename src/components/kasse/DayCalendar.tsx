@@ -1043,12 +1043,12 @@ export function DayCalendar({
                         >
                           <div className="flex items-center gap-1.5">
                             <Avatar
-                              name={b.customer ?? "?"}
+                              name={b.customer ?? "Drop-in"}
                               colorKey={b.customer_id ?? undefined}
                               size={16}
                             />
                             <span className="truncate text-xs font-semibold text-fg">
-                              {minToHHMM(startMin)} {b.customer ?? "—"}
+                              {minToHHMM(startMin)} {b.customer ?? "Drop-in"}
                             </span>
                             {(b.group_size ?? 1) > 1 && (
                               <span

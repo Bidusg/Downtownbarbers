@@ -249,6 +249,54 @@ export async function completeBooking(
     .eq("id", bookingId)
     .maybeSingle();
 
+  // Drop-in: timen har ingen kunde. Fyller kassereren inn kundeinfo ved
+  // betaling, OPPRETTER vi kundebildet her (eller gjenbruker en eksisterende
+  // match på e-post/telefon) og knytter det til timen FØR salget registreres,
+  // så salget havner på riktig kunde. Uten info forblir timen anonym.
+  const dinfo = o.customer;
+  const dropHasInfo =
+    !!dinfo &&
+    !!(dinfo.name?.trim() || dinfo.email?.trim() || dinfo.phone?.trim());
+  if (!b?.customer_id && dropHasInfo) {
+    const em = dinfo!.email?.trim().toLowerCase() || null;
+    const ph = dinfo!.phone?.trim() || null;
+    let cid: string | null = null;
+    if (em) {
+      const { data } = await sb
+        .from("customers")
+        .select("id")
+        .ilike("email", em)
+        .limit(1)
+        .maybeSingle();
+      cid = (data?.id as string) ?? null;
+    }
+    if (!cid && ph) {
+      const { data } = await sb
+        .from("customers")
+        .select("id")
+        .eq("phone", ph)
+        .limit(1)
+        .maybeSingle();
+      cid = (data?.id as string) ?? null;
+    }
+    if (!cid) {
+      const { data } = await sb
+        .from("customers")
+        .insert({
+          full_name: dinfo!.name?.trim() || "Kunde",
+          email: em,
+          phone: ph,
+        })
+        .select("id")
+        .maybeSingle();
+      cid = (data?.id as string) ?? null;
+    }
+    if (cid) {
+      await sb.from("bookings").update({ customer_id: cid }).eq("id", bookingId);
+      if (b) (b as { customer_id?: string | null }).customer_id = cid;
+    }
+  }
+
   // Registrer salget atomisk. Prisene settes server-side (booking + products).
   const products = (o.products ?? [])
     .filter((p) => p && p.id)
@@ -1094,6 +1142,74 @@ export async function createDeskBooking(
     return { ok: true };
   } catch {
     return { error: "Noe gikk galt ved booking." };
+  }
+}
+
+/**
+ * Drop-in: hold av tiden med en tjeneste UTEN å opprette en kunde. Timen er
+ * anonym til betaling; der kan kassereren fylle inn kundeinfo (se
+ * completeBooking) slik at et kundebilde opprettes først da. En drop-in er
+ * altså en funksjon – ikke en kunde i kartoteket.
+ */
+export async function createDropinBooking(input: {
+  service: string;
+  barber: string;
+  start: string;
+}): Promise<{ ok?: true; error?: string }> {
+  if (!input.service || !input.barber || !input.start)
+    return { error: "Velg tjeneste, barber og tid." };
+  try {
+    const sb = await createClient();
+    const [{ data: svc }, { data: st }] = await Promise.all([
+      sb
+        .from("services")
+        .select("id, duration_min, price_nok")
+        .eq("name", input.service)
+        .maybeSingle(),
+      sb.from("staff").select("id").eq("full_name", input.barber).maybeSingle(),
+    ]);
+    if (!st) return { error: "Fant ikke barberen." };
+    if (!svc) return { error: "Fant ikke tjenesten." };
+    const startMs = new Date(input.start).getTime();
+    if (Number.isNaN(startMs)) return { error: "Ugyldig tid." };
+    const endIso = new Date(
+      startMs + (Number(svc.duration_min) || 30) * 60000,
+    ).toISOString();
+
+    // Samme kollisjonssjekk som vanlig skranke-booking.
+    const { data: clash } = await sb
+      .from("bookings")
+      .select("start_at, end_at, customers(full_name)")
+      .eq("staff_id", st.id as string)
+      .in("status", ["pending", "confirmed", "completed"])
+      .lt("start_at", endIso)
+      .gt("end_at", input.start)
+      .limit(1);
+    if (clash && clash.length) {
+      const c = clash[0];
+      const who =
+        (c.customers as { full_name?: string } | null)?.full_name ??
+        "blokkering";
+      return {
+        error: `${input.barber} er allerede booket ${fmtClock(c.start_at as string)}–${fmtClock(c.end_at as string)} (${who}). Velg en annen tid.`,
+      };
+    }
+
+    const { error } = await sb.from("bookings").insert({
+      staff_id: st.id,
+      service_id: svc.id,
+      start_at: input.start,
+      end_at: endIso,
+      status: "confirmed",
+      price_nok: Number(svc.price_nok) || 0,
+      customer_id: null,
+      notes: "Drop-in",
+    });
+    if (error) return { error: error.message };
+    refresh();
+    return { ok: true };
+  } catch {
+    return { error: "Kunne ikke opprette drop-in." };
   }
 }
 

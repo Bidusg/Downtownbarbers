@@ -111,24 +111,37 @@ export async function runMarketingWorker(): Promise<{ sent: number; failed: numb
         );
       }
     } else {
-      // Fremhevet barber (type «ny_barber»): hent bilde + tittel én gang.
-      let featured:
-        | { name: string; title?: string; photoUrl?: string }
-        | undefined;
+      // Fremhevede barbere (type «ny_barber»): featured_barber kan være ÉN
+      // eller flere navn skilt med komma. Hent bilde + tittel for hver, én gang.
+      let barbers: { name: string; title?: string; photoUrl?: string }[] = [];
       if (send.featured_barber) {
-        const { data: st } = await svc
-          .from("staff")
-          .select("full_name, title, photo_url")
-          .eq("full_name", send.featured_barber as string)
-          .limit(1)
-          .maybeSingle();
-        featured = st
-          ? {
-              name: st.full_name as string,
-              title: (st.title as string | null) ?? undefined,
-              photoUrl: (st.photo_url as string | null) ?? undefined,
-            }
-          : { name: send.featured_barber as string };
+        const names = String(send.featured_barber)
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        if (names.length) {
+          const { data: sts } = await svc
+            .from("staff")
+            .select("full_name, title, photo_url")
+            .in("full_name", names);
+          const byName = new Map(
+            ((sts ?? []) as {
+              full_name: string;
+              title: string | null;
+              photo_url: string | null;
+            }[]).map((s) => [s.full_name, s]),
+          );
+          barbers = names.map((n) => {
+            const s = byName.get(n);
+            return s
+              ? {
+                  name: s.full_name,
+                  title: s.title ?? undefined,
+                  photoUrl: s.photo_url ?? undefined,
+                }
+              : { name: n };
+          });
+        }
       }
       const items = rows.map((r) => ({
         to: r.email as string,
@@ -138,7 +151,7 @@ export async function runMarketingWorker(): Promise<{ sent: number; failed: numb
           body: (send.body as string) ?? "",
           unsubscribeUrl: `${base}/avmeld/${r.token}`,
           emailType: (send.email_type as string) ?? "standard",
-          barber: featured,
+          barbers,
         }),
       }));
       const res = await sendEmailBatch(items);

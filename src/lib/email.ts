@@ -696,6 +696,8 @@ export function renderMarketingEmail(opts: {
   emailType?: string;
   /** Fremhevet barber (brukes av 'ny_barber'): bilde + egen bestill-knapp. */
   barber?: { name: string; title?: string; photoUrl?: string };
+  /** Flere fremhevede barbere – hver får eget kort + «Bestill hos …»-knapp. */
+  barbers?: { name: string; title?: string; photoUrl?: string }[];
 }): string {
   const site = siteUrl();
   const paragraphs = opts.body
@@ -708,14 +710,30 @@ export function renderMarketingEmail(opts: {
     )
     .join("");
 
-  // Fremhevet barber → bilde-blokk + knapp som booker rett til denne barberen.
-  const hasBarber = Boolean(opts.barber && opts.barber.name.trim());
-  const barberHtml = hasBarber ? barberBlock(opts.barber!) : "";
+  // Fremhevede barbere → ett bilde-kort + egen bestill-knapp per barber.
+  // Bakoverkompatibelt: `barber` (én) tolkes som en liste på én.
+  const list = (
+    opts.barbers && opts.barbers.length
+      ? opts.barbers
+      : opts.barber
+        ? [opts.barber]
+        : []
+  ).filter((b) => b && b.name.trim());
+  const hasBarber = list.length > 0;
+  const barberHtml = hasBarber
+    ? list
+        .map(
+          (b) =>
+            barberBlock(b) +
+            ctaButton(
+              `${site}/booking?barber=${encodeURIComponent(b.name)}`,
+              `Bestill time hos ${escapeHtml(b.name.split(" ")[0])}`,
+            ),
+        )
+        .join("")
+    : "";
   const cta = hasBarber
-    ? ctaButton(
-        `${site}/booking?barber=${encodeURIComponent(opts.barber!.name)}`,
-        `Bestill time hos ${escapeHtml(opts.barber!.name.split(" ")[0])}`,
-      )
+    ? ""
     : ctaButton(
         `${site}/booking`,
         opts.emailType === "kampanje" ? "Se tilbudet" : "Bestill time",

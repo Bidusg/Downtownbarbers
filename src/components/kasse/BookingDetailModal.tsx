@@ -102,10 +102,10 @@ export function BookingDetailModal({
       >
         {/* Topp */}
         <div className="mb-4 flex items-start gap-3">
-          <Avatar name={b.customer ?? "?"} colorKey={b.customer_id ?? undefined} size={40} />
+          <Avatar name={b.customer ?? "Drop-in"} colorKey={b.customer_id ?? undefined} size={40} />
           <div className="min-w-0 flex-1">
             <p className="truncate font-display text-lg font-bold">
-              {b.customer ?? "—"}
+              {b.customer ?? "Drop-in"}
             </p>
             <p className="text-xs text-muted">
               {hhmm(b.start_at)}–{hhmm(b.end_at)} ·{" "}

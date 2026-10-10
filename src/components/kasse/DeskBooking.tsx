@@ -7,6 +7,7 @@ import type { ShopBarber, ShopService } from "@/lib/shop-queries";
 import { isAddonCategory } from "@/lib/service-categories";
 import {
   createDeskBooking,
+  createDropinBooking,
   rescheduleBooking,
   searchCustomers,
   getSlots,
@@ -164,6 +165,8 @@ function Dialog({
   );
   const [customerName, setCustomerName] = useState(prefill?.customerName ?? "");
   const [newCustomer, setNewCustomer] = useState(false);
+  // Drop-in: timen holdes av UTEN kunde. Kunde fylles evt. inn ved betaling.
+  const [dropin, setDropin] = useState(false);
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<CustomerHit[]>([]);
   const [nyNavn, setNyNavn] = useState("");
@@ -256,22 +259,24 @@ function Dialog({
   // Ny kunde krever navn OG telefon (påkrevd). E-post er fortsatt valgfri.
   const phoneOk = nyTlf.trim().length >= 3;
   const newCustomerReady = newCustomer && nyNavn.trim().length > 0 && phoneOk;
-  const readyCustomer = locked || !!customerId || newCustomerReady;
+  const readyCustomer = locked || !!customerId || newCustomerReady || dropin;
   const timeReady = !!date && isValidTime(time);
   const canSubmit =
     readyCustomer && barber && timeReady && (mode === "reschedule" || service);
 
   // Gyldighet per steg (ny booking): Tjeneste → Barber → Tid → Kunde.
   const stepValid = [!!service, !!barber, timeReady, readyCustomer];
-  const custHint = newCustomer
-    ? !nyNavn.trim()
-      ? "Fyll inn navn"
-      : !phoneOk
-        ? "Telefon er påkrevd"
-        : null
-    : !customerId
-      ? "Velg et treff, eller trykk «Ny kunde»"
-      : null;
+  const custHint = dropin
+    ? null
+    : newCustomer
+      ? !nyNavn.trim()
+        ? "Fyll inn navn"
+        : !phoneOk
+          ? "Telefon er påkrevd"
+          : null
+      : !customerId
+        ? "Velg et treff, eller trykk «Ny kunde»"
+        : null;
 
   function submit() {
     setError(null);
@@ -280,15 +285,17 @@ function Dialog({
       const res =
         mode === "reschedule" && bookingId
           ? await rescheduleBooking(bookingId, startIso, barber)
-          : await createDeskBooking({
-              customerId,
-              name: newCustomer ? nyNavn : customerName,
-              email: newCustomer ? nyEpost : undefined,
-              phone: newCustomer ? nyTlf : undefined,
-              service,
-              barber,
-              start: startIso,
-            });
+          : dropin
+            ? await createDropinBooking({ service, barber, start: startIso })
+            : await createDeskBooking({
+                customerId,
+                name: newCustomer ? nyNavn : customerName,
+                email: newCustomer ? nyEpost : undefined,
+                phone: newCustomer ? nyTlf : undefined,
+                service,
+                barber,
+                start: startIso,
+              });
       if (res.error) {
         setError(res.error);
       } else {
@@ -521,11 +528,15 @@ function Dialog({
             <button
               type="button"
               onClick={() => {
-                setNewCustomer(true);
+                // Drop-in: ingen kunde opprettes. Holder bare av tiden.
+                setDropin(true);
+                setNewCustomer(false);
                 setCustomerId(undefined);
                 setCustomerName("");
-                setNyNavn("Drop-in");
-                setNyTlf("00000000");
+                setNyNavn("");
+                setNyTlf("");
+                setNyEpost("");
+                setQ("");
               }}
               className="act"
             >
@@ -535,6 +546,7 @@ function Dialog({
           <button
             type="button"
             onClick={() => {
+              setDropin(false);
               setNewCustomer((v) => !v);
               setCustomerId(undefined);
               setCustomerName("");
@@ -547,7 +559,20 @@ function Dialog({
         </span>
       </div>
 
-      {newCustomer ? (
+      {dropin ? (
+        <div className="flex items-center justify-between rounded-md border border-dashed border-line-2 bg-canvas px-3 py-2 text-sm">
+          <span className="text-muted">
+            Drop-in – ingen kunde. Kundeinfo kan fylles inn ved betaling.
+          </span>
+          <button
+            type="button"
+            onClick={() => setDropin(false)}
+            className="act"
+          >
+            Angre
+          </button>
+        </div>
+      ) : newCustomer ? (
         <div className="space-y-2">
           <input
             value={nyNavn}
