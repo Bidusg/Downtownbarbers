@@ -10,12 +10,12 @@ import {
   getRecentInbound,
   SEGMENTS,
 } from "@/lib/dm-queries";
-import { sendMarketing, resumeMarketing, sendToRest, previewRest } from "./actions";
+import { sendMarketing } from "./actions";
 import { getPublicBarbers } from "@/lib/queries";
 import { after } from "next/server";
 import { kickMarketingWorker } from "@/lib/marketing-worker";
 import { siteUrl } from "@/lib/site-url";
-import { SendRestButton } from "@/components/admin/SendRestButton";
+import { SendLogTable } from "@/components/admin/SendLogTable";
 import { SendMarketingButton } from "@/components/admin/SendMarketingButton";
 import { AutoRefresh } from "@/components/kasse/AutoRefresh";
 
@@ -28,12 +28,6 @@ const INBOUND_LABEL: Record<string, string> = {
 export const dynamic = "force-dynamic";
 // Server actions på siden (utsending) kjører første bolk i bakgrunnen etter svaret.
 export const maxDuration = 60;
-
-const SEG_LABEL: Record<string, string> = {
-  all: "Alle med samtykke",
-  gullkunder: "Gullkunder",
-  inaktiv: "Inaktive",
-};
 
 function fmt(iso: string) {
   try {
@@ -51,9 +45,10 @@ export default async function AdminMarkedsforing({
   searchParams: Promise<{ sendt?: string; startet?: string; feil?: string; kanal?: string; utelatt?: string; detalj?: string }>;
 }) {
   const sp = await searchParams;
-  const [stats, sends, inbound, barbers] = await Promise.all([
+  const [stats, sends, archived, inbound, barbers] = await Promise.all([
     getConsentStats(),
-    getMarketingSends(20),
+    getMarketingSends(50),
+    getMarketingSends(100, { archived: true }),
     getRecentInbound(15),
     getPublicBarbers(),
   ]);
@@ -241,68 +236,13 @@ export default async function AdminMarkedsforing({
       <Card padded={false}>
         <div className="border-b border-line px-6 py-4">
           <h2 className="font-display text-lg font-bold">Sendt før</h2>
+          <p className="mt-1 text-xs text-muted">
+            Huk av rader og trykk «Arkiver valgte» for å rydde loggen. «Merk duplikater»
+            huker av rader som deler emne + segment og beholder den mest komplette.
+            Arkivering sletter ingenting – du kan gjenopprette.
+          </p>
         </div>
-        {sends.length === 0 ? (
-          <p className="px-6 py-8 text-sm text-muted">Ingen utsendinger enda.</p>
-        ) : (
-          <Table>
-            <THead>
-              <Tr head>
-                <Th>Tid</Th>
-                <Th>Emne</Th>
-                <Th>Segment</Th>
-                <Th>Status</Th>
-                <Th align="right">Sendt</Th>
-              </Tr>
-            </THead>
-            <TBody>
-              {sends.map((s) => (
-                <Tr key={s.id}>
-                  <Td muted className="whitespace-nowrap">{fmt(s.created_at)}</Td>
-                  <Td>{s.subject}</Td>
-                  <Td muted>{SEG_LABEL[s.segment ?? ""] ?? s.segment ?? "—"}</Td>
-                  <Td>
-                    {s.status === "done" || !s.status ? (
-                      <span className="flex flex-wrap items-center gap-x-2 text-xs text-muted">
-                        Ferdig{s.failed ? ` · ${s.failed} feilet` : ""}
-                        {s.channel !== "sms" && (
-                          <SendRestButton
-                            action={sendToRest.bind(null, s.id)}
-                            preview={previewRest.bind(null, s.id)}
-                            subject={s.subject}
-                          />
-                        )}
-                      </span>
-                    ) : s.status === "failed" ? (
-                      <form action={resumeMarketing.bind(null, s.id)}>
-                        <span className="text-xs text-danger">Stoppet</span>{" "}
-                        <button type="submit" className="act act-accent">Fortsett</button>
-                      </form>
-                    ) : (
-                      <span className="flex flex-col gap-1">
-                        <span className="inline-flex items-center gap-2 text-xs text-accent-soft">
-                          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent-soft" />
-                          {s.status === "queued" && (s.recipient_count ?? 0) === 0 ? "I kø – starter …" : "Sender …"}{" "}
-                          {Math.round(((s.recipient_count ?? 0) / Math.max(1, s.total ?? 1)) * 100)} %
-                        </span>
-                        <span className="h-1 w-28 overflow-hidden rounded-full bg-line">
-                          <span
-                            className="block h-full bg-accent-soft transition-[width]"
-                            style={{ width: `${Math.round(((s.recipient_count ?? 0) / Math.max(1, s.total ?? 1)) * 100)}%` }}
-                          />
-                        </span>
-                        {s.last_error && <span className="text-[11px] text-danger">{s.last_error.slice(0, 120)}</span>}
-                      </span>
-                    )}
-                  </Td>
-                  <Td align="right" nums>
-                    {s.total ? `${s.recipient_count} / ${s.total}` : s.recipient_count}
-                  </Td>
-                </Tr>
-              ))}
-            </TBody>
-          </Table>
-        )}
+        <SendLogTable sends={sends} archived={archived} />
       </Card>
 
       {/* Innkommende svar (STOPP/START) */}

@@ -113,6 +113,55 @@ export async function sendMarketing(formData: FormData): Promise<void> {
   redirect(`/admin/markedsforing?startet=${recipients.length}&kanal=${channel}`);
 }
 
+/* ------------------------- ARKIVER / GJENOPPRETT ------------------------- */
+
+/**
+ * Arkiver (skjul) utsendinger fra loggen. Rader SLETTES IKKE – de får bare
+ * `archived_at` satt, så «hvem har fått den»-oversikten beholdes. Kun admin.
+ */
+export async function archiveMarketingSends(
+  ids: string[],
+): Promise<{ ok?: true; count?: number; error?: string }> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { error: "Ingen tilgang." };
+  const clean = (ids ?? []).filter(Boolean);
+  if (clean.length === 0) return { error: "Ingen rader valgt." };
+  const sb = await createClient();
+  const { error } = await sb
+    .from("marketing_sends")
+    .update({ archived_at: new Date().toISOString() })
+    .in("id", clean);
+  if (error) {
+    // Vanligste årsak: kolonnen archived_at finnes ikke ennå.
+    if (/archived_at/.test(error.message))
+      return {
+        error:
+          "Kjør KJØR-I-SUPABASE-ARKIVER-UTSENDINGER.sql i Supabase først – da virker arkivering.",
+      };
+    return { error: error.message };
+  }
+  revalidatePath("/admin/markedsforing");
+  return { ok: true, count: clean.length };
+}
+
+/** Gjenopprett arkiverte utsendinger (tilbake i loggen). Kun admin. */
+export async function unarchiveMarketingSends(
+  ids: string[],
+): Promise<{ ok?: true; count?: number; error?: string }> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { error: "Ingen tilgang." };
+  const clean = (ids ?? []).filter(Boolean);
+  if (clean.length === 0) return { error: "Ingen rader valgt." };
+  const sb = await createClient();
+  const { error } = await sb
+    .from("marketing_sends")
+    .update({ archived_at: null })
+    .in("id", clean);
+  if (error) return { error: error.message };
+  revalidatePath("/admin/markedsforing");
+  return { ok: true, count: clean.length };
+}
+
 /** Start/gjenoppta en utsending som står i kø (f.eks. etter feil). Kun admin. */
 export async function resumeMarketing(sendId: string): Promise<void> {
   const me = await getUserRole();

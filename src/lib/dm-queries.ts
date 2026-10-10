@@ -144,24 +144,51 @@ export type MarketingSend = {
   channel?: string;
   last_error?: string | null;
   updated_at?: string | null;
+  archived_at?: string | null;
 };
 
-export async function getMarketingSends(limit = 20): Promise<MarketingSend[]> {
+/**
+ * Henter utsendingsloggen. Som standard kun AKTIVE (ikke-arkiverte) rader;
+ * med `{ archived: true }` kun de arkiverte. Tåler at nyeste kolonner
+ * (updated_at / archived_at) ikke er migrert ennå – da vises alt.
+ */
+export async function getMarketingSends(
+  limit = 20,
+  opts: { archived?: boolean } = {},
+): Promise<MarketingSend[]> {
   try {
     const sb = await createClient();
-    // Tål at nyeste kolonner (updated_at) ikke er migrert ennå.
-    const full = await sb
-      .from("marketing_sends")
-      .select("id, subject, segment, recipient_count, created_at, status, total, failed, channel, last_error, updated_at")
-      .order("created_at", { ascending: false })
-      .limit(limit);
-    if (!full.error) return (full.data as MarketingSend[]) ?? [];
-    const { data } = await sb
-      .from("marketing_sends")
-      .select("id, subject, segment, recipient_count, created_at, status, total, failed, channel, last_error")
-      .order("created_at", { ascending: false })
-      .limit(limit);
-    return (data as MarketingSend[]) ?? [];
+    const run = (sel: string, withArchive: boolean) => {
+      const base = sb
+        .from("marketing_sends")
+        .select(sel)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (!withArchive) return base;
+      return opts.archived
+        ? base.not("archived_at", "is", null)
+        : base.is("archived_at", null);
+    };
+    // 1) Nyeste skjema (med updated_at + archived_at + arkivfilter).
+    const full = await run(
+      "id, subject, segment, recipient_count, created_at, status, total, failed, channel, last_error, updated_at, archived_at",
+      true,
+    );
+    if (!full.error) return (full.data as unknown as MarketingSend[]) ?? [];
+    // 2) Uten updated_at, men med archived_at-filter.
+    const mid = await run(
+      "id, subject, segment, recipient_count, created_at, status, total, failed, channel, last_error, archived_at",
+      true,
+    );
+    if (!mid.error) return (mid.data as unknown as MarketingSend[]) ?? [];
+    // 3) archived_at-kolonnen finnes ikke ennå (SQL ikke kjørt): ingen arkiverte,
+    //    og den aktive loggen viser alt som før.
+    if (opts.archived) return [];
+    const { data } = await run(
+      "id, subject, segment, recipient_count, created_at, status, total, failed, channel, last_error",
+      false,
+    );
+    return (data as unknown as MarketingSend[]) ?? [];
   } catch {
     return [];
   }
