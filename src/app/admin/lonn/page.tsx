@@ -123,7 +123,7 @@ export default async function AdminLonn({
                           ? `Ansatt ${r.employedDays} av ${r.daysInMonth} dager: − ${kr(r.employmentDeductionNok ?? 0)}`
                           : "",
                         (r.deductionNok ?? 0) > 0
-                          ? `Fravær ${r.absenceDays} av ${r.workdays} arbeidsdager: − ${kr(r.deductionNok ?? 0)}`
+                          ? `Fravær ${String(Math.round((r.absenceDays ?? 0) * 100) / 100).replace(".", ",")} av ${r.workdays} arbeidsdager: − ${kr(r.deductionNok ?? 0)}`
                           : "",
                       ].filter(Boolean).join("\n")}
                     >
@@ -131,7 +131,7 @@ export default async function AdminLonn({
                       <span className="block text-[10px]">
                         {(r.employmentDeductionNok ?? 0) > 0 ? `ansatt ${r.employedDays}/${r.daysInMonth} d` : ""}
                         {(r.employmentDeductionNok ?? 0) > 0 && (r.deductionNok ?? 0) > 0 ? " · " : ""}
-                        {(r.deductionNok ?? 0) > 0 ? `fravær ${r.absenceDays} d` : ""}
+                        {(r.deductionNok ?? 0) > 0 ? `fravær ${String(Math.round((r.absenceDays ?? 0) * 100) / 100).replace(".", ",")} d` : ""}
                       </span>
                     </span>
                   ) : (

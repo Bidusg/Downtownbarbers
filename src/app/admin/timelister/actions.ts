@@ -187,6 +187,7 @@ const overlaps = (a1: string, a2: string, b1: string, b2: string) => a1 < b2 && 
 function revalidateSchedule() {
   revalidatePath("/admin/timelister");
   revalidatePath("/admin/fravaer");
+  revalidatePath("/admin/lonn");
   revalidatePath("/admin/bookinger");
   revalidatePath("/kasse/kalender");
   revalidatePath("/booking");
@@ -339,6 +340,8 @@ function readException(formData: FormData) {
   const rawStart = hhmm(String(formData.get("start_time") ?? "").trim());
   const rawEnd = hhmm(String(formData.get("end_time") ?? "").trim());
   const note = String(formData.get("note") ?? "").trim() || null;
+  // Betalt/ubetalt fri (kun for 'off'). Standard: betalt.
+  const paid = kind === "off" ? String(formData.get("paid") ?? "true") !== "false" : true;
   let start_time: string | null = rawStart || null;
   let end_time: string | null = rawEnd || null;
   let error: string | null = null;
@@ -352,7 +355,12 @@ function readException(formData: FormData) {
     start_time = null;
     end_time = null;
   }
-  return { kind, start_time, end_time, note, error };
+  return { kind, start_time, end_time, note, paid, error };
+}
+
+/** Er feilen at paid-kolonnen ikke finnes ennå (SQL ikke kjørt)? */
+function missingPaid(msg: string | undefined): boolean {
+  return !!msg && /paid/i.test(msg) && /column|schema cache/i.test(msg);
 }
 
 /**
@@ -372,8 +380,15 @@ export async function createStaffException(formData: FormData): Promise<Res> {
   if (clash) return { error: clash };
   const { error } = await sb
     .from("staff_exceptions")
-    .insert({ staff_id, date, kind: ex.kind, start_time: ex.start_time, end_time: ex.end_time, note: ex.note });
-  if (error) return { error: `Kunne ikke lagre: ${error.message}` };
+    .insert({ staff_id, date, kind: ex.kind, start_time: ex.start_time, end_time: ex.end_time, note: ex.note, paid: ex.paid });
+  if (error && missingPaid(error.message)) {
+    if (!ex.paid)
+      return { error: "Ubetalt fri krever at KJØR-I-SUPABASE-FRI-BETALT.sql er kjørt i Supabase." };
+    const r2 = await sb
+      .from("staff_exceptions")
+      .insert({ staff_id, date, kind: ex.kind, start_time: ex.start_time, end_time: ex.end_time, note: ex.note });
+    if (r2.error) return { error: `Kunne ikke lagre: ${r2.error.message}` };
+  } else if (error) return { error: `Kunne ikke lagre: ${error.message}` };
   revalidateSchedule();
   return { ok: true };
 }
@@ -393,9 +408,17 @@ export async function updateStaffException(id: string, formData: FormData): Prom
   if (clash) return { error: clash };
   const { error } = await sb
     .from("staff_exceptions")
-    .update({ date, kind: ex.kind, start_time: ex.start_time, end_time: ex.end_time, note: ex.note })
+    .update({ date, kind: ex.kind, start_time: ex.start_time, end_time: ex.end_time, note: ex.note, paid: ex.paid })
     .eq("id", id);
-  if (error) return { error: `Kunne ikke lagre: ${error.message}` };
+  if (error && missingPaid(error.message)) {
+    if (!ex.paid)
+      return { error: "Ubetalt fri krever at KJØR-I-SUPABASE-FRI-BETALT.sql er kjørt i Supabase." };
+    const r2 = await sb
+      .from("staff_exceptions")
+      .update({ date, kind: ex.kind, start_time: ex.start_time, end_time: ex.end_time, note: ex.note })
+      .eq("id", id);
+    if (r2.error) return { error: `Kunne ikke lagre: ${r2.error.message}` };
+  } else if (error) return { error: `Kunne ikke lagre: ${error.message}` };
   revalidateSchedule();
   return { ok: true };
 }

@@ -1,11 +1,10 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import Link from "next/link";
 import type { Absence, DayOff, StaffOption } from "@/lib/ops-queries";
 import { ABSENCE_KINDS } from "@/lib/absence-kinds";
 import { createAbsence, deleteAbsence, updateAbsenceKind, updateAbsence } from "@/app/admin/fravaer/actions";
-import { deleteStaffException } from "@/app/admin/timelister/actions";
+import { deleteStaffException, updateStaffException } from "@/app/admin/timelister/actions";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { Card } from "@/components/ui/Card";
 import {
@@ -87,6 +86,38 @@ export function AbsenceManager({
   const [err, setErr] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [ed, setEd] = useState({ from_date: "", to_date: "", kind: "ulonnet", reason: "" });
+  // Redigering av fri fra timelister (staff_exceptions).
+  const [offEdit, setOffEdit] = useState<{
+    id: string;
+    date: string;
+    whole: boolean;
+    start: string;
+    end: string;
+    paid: boolean;
+    note: string;
+  } | null>(null);
+
+  function saveOff() {
+    if (!offEdit) return;
+    setErr(null);
+    if (!offEdit.date) return setErr("Velg dato.");
+    if (!offEdit.whole && (!offEdit.start || !offEdit.end || offEdit.end <= offEdit.start))
+      return setErr("Sett gyldig tidsrom for fri (slutt etter start), eller velg hele dagen.");
+    const fd = new FormData();
+    fd.set("date", offEdit.date);
+    fd.set("kind", "off");
+    if (!offEdit.whole) {
+      fd.set("start_time", offEdit.start);
+      fd.set("end_time", offEdit.end);
+    }
+    fd.set("note", offEdit.note);
+    fd.set("paid", offEdit.paid ? "true" : "false");
+    start(async () => {
+      const res = await updateStaffException(offEdit.id, fd);
+      if (res?.error) setErr(res.error);
+      else setOffEdit(null);
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -223,8 +254,9 @@ export function AbsenceManager({
 
       {err && !open && <p className="text-sm text-danger">{err}</p>}
       <p className="text-xs text-muted">
-        Ulønnet permisjon og ugyldig fravær trekkes i grunnlønnen (grunnlønn ÷ arbeidsdager i
-        måneden × fraværsdager). Sykdom, ferie og annet trekkes ikke.
+        Ulønnet permisjon, ugyldig fravær og ubetalt fri trekkes i grunnlønnen (grunnlønn ÷
+        arbeidsdager i måneden × fraværsdager; delvis ubetalt fri regnes som andel av dagen).
+        Sykdom, ferie, annet og betalt fri trekkes ikke.
       </p>
       <Card padded={false}>
         <Table>
@@ -249,27 +281,103 @@ export function AbsenceManager({
             {rows.map((row) => {
               if (row.type === "dayoff") {
                 const d = row.d;
+                if (offEdit?.id === d.id) {
+                  const o = offEdit;
+                  return (
+                    <Tr key={"off-" + d.id}>
+                      <Td className="font-medium text-fg">{d.staffName}</Td>
+                      <Td colSpan={2}>
+                        <Input type="date" value={o.date} onChange={(e) => setOffEdit({ ...o, date: e.target.value })} />
+                        <label className="mt-2 flex items-center gap-2 text-xs text-fg">
+                          <input
+                            type="checkbox"
+                            checked={o.whole}
+                            onChange={(e) => setOffEdit({ ...o, whole: e.target.checked })}
+                            className="accent-[#F47721]"
+                          />
+                          Hele dagen
+                        </label>
+                        {!o.whole && (
+                          <span className="mt-2 flex items-center gap-1.5">
+                            <Input type="time" value={o.start} onChange={(e) => setOffEdit({ ...o, start: e.target.value })} />
+                            <span className="text-muted">–</span>
+                            <Input type="time" value={o.end} onChange={(e) => setOffEdit({ ...o, end: e.target.value })} />
+                          </span>
+                        )}
+                      </Td>
+                      <Td>
+                        <select
+                          value={o.paid ? "betalt" : "ubetalt"}
+                          onChange={(e) => setOffEdit({ ...o, paid: e.target.value === "betalt" })}
+                          className={
+                            "rounded-md border bg-canvas px-2 py-1 text-xs " +
+                            (o.paid ? "border-line-2 text-fg" : "border-danger/50 text-danger")
+                          }
+                        >
+                          <option value="betalt">Betalt fri</option>
+                          <option value="ubetalt">Ubetalt fri – trekkes i lønn</option>
+                        </select>
+                      </Td>
+                      <Td>
+                        <Input value={o.note} onChange={(e) => setOffEdit({ ...o, note: e.target.value })} placeholder="Beskrivelse" />
+                      </Td>
+                      <Td align="right">
+                        <span className="flex justify-end gap-3 text-xs">
+                          <button className="act act-accent" disabled={pending} onClick={saveOff}>
+                            {pending ? "Lagrer …" : "Lagre"}
+                          </button>
+                          <button className="act" onClick={() => setOffEdit(null)}>
+                            Avbryt
+                          </button>
+                        </span>
+                      </Td>
+                    </Tr>
+                  );
+                }
                 return (
                   <Tr key={"off-" + d.id}>
                     <Td className="font-medium text-fg">{d.staffName}</Td>
                     <Td muted>{no(d.date)}</Td>
                     <Td muted>{no(d.date)}</Td>
                     <Td>
-                      <span className="inline-flex items-center rounded-md border border-line-2 bg-surface-2 px-2 py-1 text-xs font-semibold text-fg">
-                        Fri{d.start_time && d.end_time ? ` ${d.start_time}–${d.end_time}` : " hele dagen"}
+                      <span
+                        className={
+                          "inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold " +
+                          (d.paid
+                            ? "border-line-2 bg-surface-2 text-fg"
+                            : "border-danger/50 bg-danger/10 text-danger")
+                        }
+                      >
+                        {d.paid ? "Betalt fri" : "Ubetalt fri"}
+                        {d.start_time && d.end_time ? ` ${d.start_time}–${d.end_time}` : " · hele dagen"}
                       </span>
                     </Td>
                     <Td muted>
                       {d.note ?? "—"}
                       <span className="mt-0.5 block text-[10px] tracking-wide text-muted uppercase">
-                        Fra timelister · trekkes ikke
+                        Fra timelister · {d.paid ? "trekkes ikke" : "trekkes i lønn"}
                       </span>
                     </Td>
                     <Td align="right">
                       <span className="flex items-center justify-end gap-3">
-                        <Link href="/admin/timelister" className="act act-accent">
-                          Endre
-                        </Link>
+                        <button
+                          className="act act-accent"
+                          onClick={() => {
+                            setErr(null);
+                            setEditId(null);
+                            setOffEdit({
+                              id: d.id,
+                              date: d.date,
+                              whole: !(d.start_time && d.end_time),
+                              start: d.start_time ?? "",
+                              end: d.end_time ?? "",
+                              paid: d.paid,
+                              note: d.note ?? "",
+                            });
+                          }}
+                        >
+                          Rediger
+                        </button>
                         <ConfirmButton
                           label="Slett"
                           confirmLabel="Ja, slett"
@@ -368,6 +476,7 @@ export function AbsenceManager({
                       className="act act-accent"
                       onClick={() => {
                         setErr(null);
+                        setOffEdit(null);
                         setEditId(a.id);
                         setEd({ from_date: a.from_date, to_date: a.to_date, kind: a.kind, reason: a.reason ?? "" });
                       }}

@@ -165,7 +165,7 @@ function PayslipDoc({
         )}
         {(row.deductionNok ?? 0) > 0 && (
           <Line
-            label={`Trekk fravær (${row.absenceDays} av ${row.workdays} arbeidsdager)`}
+            label={`Trekk fravær (${String(Math.round((row.absenceDays ?? 0) * 100) / 100).replace(".", ",")} av ${row.workdays} arbeidsdager)`}
             value={`− ${kr(row.deductionNok ?? 0)}`}
           />
         )}

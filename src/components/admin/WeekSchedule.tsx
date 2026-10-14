@@ -46,6 +46,7 @@ function SingleDayDialog({
   const [start, setStart] = useState(pick.start);
   const [end, setEnd] = useState(pick.end);
   const [note, setNote] = useState("");
+  const [paid, setPaid] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [pending, run] = useTransition();
   const field =
@@ -61,6 +62,7 @@ function SingleDayDialog({
     setStart(e.start_time ?? "");
     setEnd(e.end_time ?? "");
     setNote(e.note ?? "");
+    setPaid(e.paid !== false);
   }
   function resetForm() {
     setEditId(null);
@@ -68,6 +70,7 @@ function SingleDayDialog({
     setStart(pick.start);
     setEnd(pick.end);
     setNote("");
+    setPaid(true);
   }
 
   function save() {
@@ -83,6 +86,7 @@ function SingleDayDialog({
       fd.set("end_time", end);
     }
     fd.set("note", note);
+    if (kind === "off") fd.set("paid", paid ? "true" : "false");
     run(async () => {
       const r = editId ? await updateStaffException(editId, fd) : await createStaffException(fd);
       if (r?.error) return setErr(r.error);
@@ -145,6 +149,16 @@ function SingleDayDialog({
                     {e.kind === "extra" ? "Vakt" : "Fri"}{" "}
                     {e.start_time && e.end_time ? `${e.start_time}–${e.end_time}` : "hele dagen"}
                   </span>
+                  {e.kind === "off" && (
+                    <span
+                      className={
+                        "ml-2 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase " +
+                        (e.paid === false ? "bg-danger/15 text-danger" : "bg-surface-2 text-muted")
+                      }
+                    >
+                      {e.paid === false ? "Ubetalt" : "Betalt"}
+                    </span>
+                  )}
                   {e.note && <span className="block truncate text-xs text-muted">{e.note}</span>}
                 </span>
                 <span className="flex shrink-0 gap-3 text-xs">
@@ -191,7 +205,33 @@ function SingleDayDialog({
             </label>
           </div>
           {kind === "off" && (
-            <p className="text-[11px] text-muted">Tøm tidene for fri hele dagen, eller sett tidsrommet som er fri.</p>
+            <>
+              <p className="text-[11px] text-muted">Tøm tidene for fri hele dagen, eller sett tidsrommet som er fri.</p>
+              <div>
+                <p className="mb-1 text-xs text-muted">Lønn</p>
+                <div className="flex overflow-hidden rounded-md border border-line-2 text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setPaid(true)}
+                    className={"flex-1 px-3 py-2 " + (paid ? "bg-accent text-accent-fg" : "text-muted")}
+                  >
+                    Betalt fri
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaid(false)}
+                    className={"flex-1 px-3 py-2 " + (!paid ? "bg-danger text-white" : "text-muted")}
+                  >
+                    Ubetalt fri
+                  </button>
+                </div>
+                {!paid && (
+                  <p className="mt-1 text-[11px] text-danger">
+                    Trekkes i grunnlønnen: hele dagen = 1 dag, deler av dagen = andel av planlagte timer.
+                  </p>
+                )}
+              </div>
+            </>
           )}
           <label className="block text-xs text-muted">
             Notat (valgfritt)

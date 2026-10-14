@@ -524,18 +524,20 @@ export type DayOff = {
   start_time: string | null;
   end_time: string | null;
   note: string | null;
+  /** true = betalt fri, false = ubetalt (trekkes i lønn). */
+  paid: boolean;
 };
 
 export async function getDaysOff(): Promise<DayOff[]> {
   try {
     const sb = await createClient();
-    const { data, error } = await sb
-      .from("staff_exceptions")
-      .select("id, staff_id, date, start_time, end_time, note, staff(full_name)")
-      .eq("kind", "off")
-      .order("date", { ascending: false });
-    if (error) return [];
-    return ((data ?? []) as Record<string, unknown>[]).map((r) => {
+    const sel = (cols: string) =>
+      sb.from("staff_exceptions").select(cols).eq("kind", "off").order("date", { ascending: false });
+    let res = await sel("id, staff_id, date, start_time, end_time, note, paid, staff(full_name)");
+    // paid-kolonnen mangler (SQL ikke kjørt ennå) → hent uten.
+    if (res.error) res = await sel("id, staff_id, date, start_time, end_time, note, staff(full_name)");
+    if (res.error) return [];
+    return ((res.data ?? []) as unknown as Record<string, unknown>[]).map((r) => {
       const st = r.staff as { full_name?: string } | null;
       return {
         id: r.id as string,
@@ -545,6 +547,7 @@ export async function getDaysOff(): Promise<DayOff[]> {
         start_time: ((r.start_time as string | null) ?? null)?.slice(0, 5) ?? null,
         end_time: ((r.end_time as string | null) ?? null)?.slice(0, 5) ?? null,
         note: (r.note as string | null) ?? null,
+        paid: r.paid !== false,
       };
     });
   } catch {
@@ -725,6 +728,8 @@ export type StaffException = {
   start_time: string | null; // HH:MM, null = hele dagen (for 'off')
   end_time: string | null;
   note: string | null;
+  /** Kun for 'off': true = betalt fri, false = ubetalt. */
+  paid: boolean;
 };
 
 export type BookingBlock = {
@@ -769,12 +774,12 @@ export async function getStaffExceptions(): Promise<StaffException[]> {
     const today = new Date().toLocaleDateString("en-CA", {
       timeZone: "Europe/Oslo",
     }); // YYYY-MM-DD i Oslo-tid
-    const { data } = await sb
-      .from("staff_exceptions")
-      .select("id, staff_id, date, kind, start_time, end_time, note, staff(full_name)")
-      .gte("date", today)
-      .order("date");
-    return (data ?? []).map((r) => {
+    const sel = (cols: string) =>
+      sb.from("staff_exceptions").select(cols).gte("date", today).order("date");
+    let res = await sel("id, staff_id, date, kind, start_time, end_time, note, paid, staff(full_name)");
+    if (res.error) res = await sel("id, staff_id, date, kind, start_time, end_time, note, staff(full_name)");
+    const data = (res.data ?? []) as unknown as Record<string, unknown>[];
+    return data.map((r) => {
       const st = r.staff as { full_name?: string } | null;
       const t = (v: unknown) => (v ? String(v).slice(0, 5) : null);
       return {
@@ -786,6 +791,7 @@ export async function getStaffExceptions(): Promise<StaffException[]> {
         start_time: t(r.start_time),
         end_time: t(r.end_time),
         note: (r.note as string) ?? null,
+        paid: r.paid !== false,
       };
     });
   } catch {
