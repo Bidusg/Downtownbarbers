@@ -212,6 +212,29 @@ async function receiptExtras(
  * fullført, og feilen returneres slik at kassen kan vise den – i stedet
  * for at et salg forsvinner uten spor (jf. live-test 19. sept).
  */
+
+/* ---------- Etterregistrering: salget telles på riktig dag ---------- */
+
+/** yyyy-mm-dd i Oslo-tid. */
+function osloDay(d: Date | string): string {
+  return new Date(d).toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" });
+}
+
+/**
+ * Flytt et salg til dagen det faktisk skjedde (sold_at). Brukes når et salg
+ * registreres i etterkant, så det havner i riktig dags oppgjør og rapporter
+ * og ikke på dagen det ble tastet inn. Service-rolle fordi sales bare har
+ * admin-RLS. Best-effort: feiler stille (salget står da på i dag).
+ */
+async function backdateSale(saleId: unknown, soldAtIso: string): Promise<void> {
+  if (typeof saleId !== "string") return;
+  try {
+    await createServiceClient().from("sales").update({ sold_at: soldAtIso }).eq("id", saleId);
+  } catch {
+    // best-effort
+  }
+}
+
 export async function completeBooking(
   bookingId: string,
   opts?: CompleteOptions | string,
@@ -318,6 +341,13 @@ export async function completeBooking(
         saleErr.message ||
         "Salget ble ikke registrert. Ingenting er lagret – prøv igjen.",
     };
+  }
+
+  // Timen var en tidligere dag (f.eks. lørdag, betalt inn mandag): salget
+  // skal telles på timens dag – ikke på dagen det ble registrert.
+  const startAt = (b as { start_at?: string | null } | null)?.start_at;
+  if (startAt && osloDay(startAt) < osloDay(new Date())) {
+    await backdateSale(saleId, startAt);
   }
 
   // --- Alt under er best-effort. Salget er allerede trygt registrert. ---
@@ -533,6 +563,8 @@ export type GiftCardPayment = {
 
 export type WalkinInput = {
   staffId?: string;
+  /** Salgsdato (yyyy-mm-dd) ved etterregistrering. Utelatt/i dag = nå. */
+  soldDate?: string;
   paymentMethod: string;
   /** Hovedbehandling (bakoverkompatibel – brukes hvis `services` mangler). */
   service?: string;
@@ -659,6 +691,12 @@ export async function recordWalkinSale(
       return {
         error: error.message || "Salget ble ikke registrert. Prøv igjen.",
       };
+    }
+
+    // Etterregistrert hurtigsalg: legg salget på valgt dag (midt på dagen).
+    const sd = input.soldDate?.trim();
+    if (sd && /^\d{4}-\d{2}-\d{2}$/.test(sd) && sd < osloDay(new Date())) {
+      await backdateSale(saleId, `${sd}T11:00:00.000Z`);
     }
 
     // Venn/familie-tag på salget (0054) – kun når venn/familie er på. Service-

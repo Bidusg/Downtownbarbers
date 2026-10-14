@@ -75,6 +75,9 @@ export function QuickSale({
   const [allow, setAllow] = useState<KasseAllowances | null>(null);
 
   const [barberId, setBarberId] = useState("");
+  // Salgsdato – for salg som registreres i etterkant (standard: i dag).
+  const todayIso = () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" });
+  const [soldDate, setSoldDate] = useState(todayIso);
   const [serviceName, setServiceName] = useState("");
   // Tillegg (kategori «Tillegg») – flere kan velges i samme salg.
   const [addonNames, setAddonNames] = useState<string[]>([]);
@@ -118,6 +121,7 @@ export function QuickSale({
   }
   function reset() {
     setStep(0);
+    setSoldDate(todayIso());
     setBarberId("");
     setServiceName("");
     setAddonNames([]);
@@ -364,6 +368,7 @@ export function QuickSale({
     start(async () => {
       const res = await recordWalkinSale({
         staffId: barberId || undefined,
+        soldDate: soldDate !== todayIso() ? soldDate : undefined,
         paymentMethod: useSplit ? (splitEntries[0]?.method ?? "Delt") : method,
         service: serviceName || undefined,
         services: allServiceNames,
@@ -447,6 +452,55 @@ export function QuickSale({
               {/* Steg 0: Ansatt */}
               {step === 0 && (
                 <div>
+                  {/* Salgsdato: etterregistrering havner på riktig dag */}
+                  <div className="mb-4 rounded-lg border border-line bg-canvas p-3">
+                    <p className="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
+                      Salgsdato
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {[0, 1, 2].map((back) => {
+                        const d = new Date(`${todayIso()}T12:00:00Z`);
+                        d.setUTCDate(d.getUTCDate() - back);
+                        const iso = d.toISOString().slice(0, 10);
+                        const label =
+                          back === 0
+                            ? "I dag"
+                            : back === 1
+                              ? "I går"
+                              : d.toLocaleDateString("nb-NO", { weekday: "long", timeZone: "UTC" });
+                        return (
+                          <button
+                            key={iso}
+                            type="button"
+                            onClick={() => setSoldDate(iso)}
+                            className={"act " + (soldDate === iso ? "act-accent ring-1 ring-accent-soft" : "")}
+                          >
+                            {label.charAt(0).toUpperCase() + label.slice(1)}
+                          </button>
+                        );
+                      })}
+                      <input
+                        type="date"
+                        value={soldDate}
+                        max={todayIso()}
+                        onChange={(e) => e.target.value && setSoldDate(e.target.value)}
+                        className="rounded-md border border-line-2 bg-surface px-2 py-1.5 text-xs text-fg"
+                        aria-label="Velg salgsdato"
+                      />
+                    </div>
+                    {soldDate !== todayIso() && (
+                      <p className="mt-2 text-xs text-accent-soft">
+                        Etterregistrering – salget telles i oppgjøret for{" "}
+                        {new Date(`${soldDate}T12:00:00Z`).toLocaleDateString("nb-NO", {
+                          weekday: "long",
+                          day: "numeric",
+                          month: "long",
+                          timeZone: "UTC",
+                        })}
+                        , ikke i dag.
+                      </p>
+                    )}
+                  </div>
                   <p className="mb-3 text-xs text-muted">
                     Hvem tar salget? (valgfritt – salget krediteres barberen)
                   </p>
@@ -842,6 +896,17 @@ export function QuickSale({
                 <div>
                   {/* Oppsummering */}
                   <div className="mb-4 space-y-1 rounded-lg border border-line bg-canvas p-3 text-sm">
+                    {soldDate !== todayIso() && (
+                      <Row
+                        label="Salgsdato"
+                        value={new Date(`${soldDate}T12:00:00Z`).toLocaleDateString("nb-NO", {
+                          weekday: "short",
+                          day: "numeric",
+                          month: "short",
+                          timeZone: "UTC",
+                        })}
+                      />
+                    )}
                     {barberName && (
                       <Row label="Barber" value={barberName} />
                     )}
