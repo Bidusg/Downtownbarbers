@@ -52,3 +52,21 @@ export function osloToUtcISO(date: string, time: string): string {
   }
   return new Date(guess).toISOString();
 }
+
+/**
+ * <input type="datetime-local">-verdi («YYYY-MM-DDTHH:mm», norsk tid) → ISO
+ * (UTC). Tom/ugyldig → null. Brukes bl.a. av driftsmeldinger, der «10:00»
+ * tidligere ble tolket som 10:00 UTC og meldingen kom to timer for sent.
+ */
+export function osloLocalToIso(v: string | null | undefined): string | null {
+  const m = (v ?? "").trim().match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+  return m ? osloToUtcISO(m[1], m[2]) : null;
+}
+
+/** ISO → «YYYY-MM-DDTHH:mm» i norsk tid (prefylling av datetime-local). */
+export function isoToOsloLocal(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const t = new Date(iso).getTime();
+  if (isNaN(t)) return "";
+  return new Date(osloWallClockMs(t)).toISOString().slice(0, 16);
+}

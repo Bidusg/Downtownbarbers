@@ -8,6 +8,7 @@ import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { redirect } from "next/navigation";
 import { createNotice, updateNotice, toggleNotice, deleteNotice } from "./actions";
+import { isoToOsloLocal } from "@/lib/oslo-time";
 
 export const dynamic = "force-dynamic";
 
@@ -30,16 +31,28 @@ const LEVEL_TONE: Record<NoticeLevel, BadgeTone> = {
   critical: "danger",
 };
 
-/** Gjør en ISO-dato om til en datetime-local-verdi (YYYY-MM-DDTHH:mm) for prefylling. */
+/** ISO → datetime-local-verdi i norsk tid (prefylling ved redigering). */
 function toLocalInput(iso: string | null) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "";
-  const pad = (x: number) => String(x).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-    d.getHours(),
-  )}:${pad(d.getMinutes())}`;
+  return isoToOsloLocal(iso);
 }
+
+/** Hvor meldingen faktisk vises akkurat nå. */
+function liveStatus(n: { active: boolean; starts_at: string | null; ends_at: string | null }) {
+  const now = Date.now();
+  if (!n.active) return { label: "Av – vises ikke", tone: "neutral" as BadgeTone };
+  if (n.starts_at && new Date(n.starts_at).getTime() > now)
+    return { label: `Planlagt – vises fra ${fmt(n.starts_at)}`, tone: "accent" as BadgeTone };
+  if (n.ends_at && new Date(n.ends_at).getTime() < now)
+    return { label: "Utløpt – vises ikke lenger", tone: "danger" as BadgeTone };
+  return { label: "Vises nå", tone: "success" as BadgeTone };
+}
+
+const WHERE_LABEL: Record<string, string> = {
+  all: "Admin, kasse og ansattportalen",
+  admin: "Admin",
+  shop: "Kassa",
+  ansatt: "Ansattportalen",
+};
 
 function fmt(iso: string | null) {
   if (!iso) return "—";
@@ -50,6 +63,7 @@ function fmt(iso: string | null) {
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "Europe/Oslo",
     });
   } catch {
     return iso;
@@ -185,8 +199,14 @@ export default async function AdminMeldinger({
                       <Badge tone="neutral">
                         {AUDIENCE_LABEL[n.audience] ?? n.audience}
                       </Badge>
-                      {!n.active && <Badge tone="neutral">Av</Badge>}
+                      {(() => {
+                        const st = liveStatus(n);
+                        return <Badge tone={st.tone}>{st.label}</Badge>;
+                      })()}
                     </div>
+                    <p className="mt-1 text-xs text-muted">
+                      Vises i: {WHERE_LABEL[n.audience] ?? n.audience}
+                    </p>
                     <p className="mt-2 font-medium text-fg">{n.title}</p>
                     {n.body && (
                       <p className="mt-1 whitespace-pre-line text-sm text-muted">

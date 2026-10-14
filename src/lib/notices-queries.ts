@@ -62,7 +62,6 @@ export async function getActiveNotices(
 ): Promise<Notice[]> {
   try {
     const sb = await createClient();
-    const nowIso = new Date().toISOString();
     const { data } = await sb
       .from("notices")
       .select(
@@ -70,10 +69,17 @@ export async function getActiveNotices(
       )
       .eq("active", true)
       .in("audience", ["all", audience])
-      .or(`starts_at.is.null,starts_at.lte.${nowIso}`)
-      .or(`ends_at.is.null,ends_at.gte.${nowIso}`)
       .order("created_at", { ascending: false });
-    return (data ?? []).map((r) => normalize(r as Record<string, unknown>));
+    // Tidsvinduet (fra/til) sjekkes her i stedet for med to .or()-filtre i
+    // spørringen – enklere og uten tvil om hvordan filtrene kombineres.
+    const now = Date.now();
+    return (data ?? [])
+      .map((r) => normalize(r as Record<string, unknown>))
+      .filter(
+        (n) =>
+          (!n.starts_at || new Date(n.starts_at).getTime() <= now) &&
+          (!n.ends_at || new Date(n.ends_at).getTime() >= now),
+      );
   } catch {
     return [];
   }

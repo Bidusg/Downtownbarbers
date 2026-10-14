@@ -8,18 +8,25 @@ import type { NoticeAudience, NoticeLevel } from "@/lib/notices-queries";
 const LEVELS: NoticeLevel[] = ["info", "warning", "critical"];
 const AUDIENCES: NoticeAudience[] = ["all", "admin", "shop", "ansatt"];
 
-/** Konverterer en datetime-local-verdi til ISO, eller null hvis tom. */
+import { osloLocalToIso } from "@/lib/oslo-time";
+
+/** datetime-local (norsk tid) → ISO, eller null hvis tom. */
 function toIsoOrNull(v: string): string | null {
-  const s = v.trim();
-  if (!s) return null;
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? null : d.toISOString();
+  return osloLocalToIso(v);
+}
+
+/** Meldinger vises i admin-, kasse- og ansatt-layoutene. */
+function revalidateNotices() {
+  revalidatePath("/admin/meldinger");
+  revalidatePath("/admin", "layout");
+  revalidatePath("/kasse", "layout");
+  revalidatePath("/ansatt", "layout");
 }
 
 /** Oppretter en ny driftsmelding. Kun admin. */
-export async function createNotice(formData: FormData): Promise<void> {
+export async function createNotice(formData: FormData): Promise<{ error?: string } | void> {
   const me = await getUserRole();
-  if (!me || !isAdminRole(me.role)) return;
+  if (!me || !isAdminRole(me.role)) return { error: "Ikke tilgang." };
 
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
@@ -41,7 +48,7 @@ export async function createNotice(formData: FormData): Promise<void> {
     : "all";
 
   const sb = await createClient();
-  await sb.from("notices").insert({
+  const { error } = await sb.from("notices").insert({
     title,
     body: body || null,
     level,
@@ -51,8 +58,9 @@ export async function createNotice(formData: FormData): Promise<void> {
     ends_at,
     created_by: me.userId,
   });
+  if (error) return { error: `Kunne ikke lagre meldingen: ${error.message}` };
 
-  revalidatePath("/admin/meldinger");
+  revalidateNotices();
 }
 
 /** Oppdaterer en eksisterende driftsmelding. Kun admin. */
@@ -96,7 +104,7 @@ export async function updateNotice(formData: FormData): Promise<void> {
     })
     .eq("id", id);
 
-  revalidatePath("/admin/meldinger");
+  revalidateNotices();
 }
 
 /** Slår en melding av eller på. Kun admin. */
@@ -106,7 +114,7 @@ export async function toggleNotice(id: string, active: boolean): Promise<void> {
 
   const sb = await createClient();
   await sb.from("notices").update({ active }).eq("id", id);
-  revalidatePath("/admin/meldinger");
+  revalidateNotices();
 }
 
 /** Sletter en melding. Kun admin. */
@@ -116,5 +124,5 @@ export async function deleteNotice(id: string): Promise<void> {
 
   const sb = await createClient();
   await sb.from("notices").delete().eq("id", id);
-  revalidatePath("/admin/meldinger");
+  revalidateNotices();
 }
