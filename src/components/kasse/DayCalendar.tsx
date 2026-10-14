@@ -111,12 +111,12 @@ export function DayCalendar({
 }) {
   const router = useRouter();
 
-  // ---- Visningsvindu: butikkens åpningstid denne dagen -------------------
-  // Utvides automatisk hvis noen er booket eller har vakt utenfor (overtid),
-  // så ingenting havner utenfor kalenderen.
+  // ---- Visningsvindu: fast 09–21 som før -------------------------------
+  // Utvides bare hvis noen er booket eller har vakt utenfor (overtid), så
+  // ingenting havner utenfor kalenderen.
   const { OPEN, CLOSE } = (() => {
-    let lo = schedule ? (schedule.shopOpen ?? Infinity) : DEFAULT_OPEN;
-    let hi = schedule ? (schedule.shopClose ?? -Infinity) : DEFAULT_CLOSE;
+    let lo = DEFAULT_OPEN;
+    let hi = DEFAULT_CLOSE;
     for (const a of agenda) {
       if (a.status === "cancelled") continue;
       lo = Math.min(lo, osloMinutes(a.start_at));
@@ -129,10 +129,6 @@ export function DayCalendar({
           hi = Math.max(hi, b.end);
         }
       }
-    }
-    if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi <= lo) {
-      lo = 10 * 60; // stengt dag uten noe registrert
-      hi = 18 * 60;
     }
     lo = Math.max(0, Math.floor(lo / 60) * 60);
     hi = Math.min(24 * 60, Math.ceil(hi / 60) * 60);
@@ -755,18 +751,11 @@ export function DayCalendar({
               className="inline-block h-3.5 w-5 rounded-sm border border-line-2"
               style={{
                 background:
-                  "repeating-linear-gradient(135deg, oklch(var(--surface-2)) 0 3px, oklch(var(--line)) 3px 5px)",
+                  "repeating-linear-gradient(135deg, oklch(var(--surface-2) / 0.45) 0 3px, oklch(var(--line) / 0.35) 3px 5px)",
               }}
             />
-            Ikke på jobb / stengt
+            Ikke på jobb
           </span>
-          {schedule.shopOpen != null && schedule.shopClose != null ? (
-            <span>
-              Åpent {minToHHMM(schedule.shopOpen)}–{minToHHMM(schedule.shopClose)}
-            </span>
-          ) : (
-            <span>Butikken er stengt denne dagen</span>
-          )}
         </div>
       )}
 
@@ -932,7 +921,7 @@ export function DayCalendar({
                           className="pointer-events-none absolute inset-0 z-0"
                           style={{
                             background:
-                              "repeating-linear-gradient(135deg, oklch(var(--surface-2)) 0 6px, oklch(var(--line)) 6px 9px)",
+                              "repeating-linear-gradient(135deg, oklch(var(--surface-2) / 0.45) 0 7px, oklch(var(--line) / 0.35) 7px 9px)",
                           }}
                         />
                         {list.length === 0 && (
