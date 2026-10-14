@@ -186,6 +186,7 @@ const overlaps = (a1: string, a2: string, b1: string, b2: string) => a1 < b2 && 
 
 function revalidateSchedule() {
   revalidatePath("/admin/timelister");
+  revalidatePath("/admin/fravaer");
   revalidatePath("/admin/bookinger");
   revalidatePath("/kasse/kalender");
   revalidatePath("/booking");

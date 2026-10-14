@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import type { Absence, StaffOption } from "@/lib/ops-queries";
+import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
+import type { Absence, DayOff, StaffOption } from "@/lib/ops-queries";
 import { ABSENCE_KINDS } from "@/lib/absence-kinds";
 import { createAbsence, deleteAbsence, updateAbsenceKind, updateAbsence } from "@/app/admin/fravaer/actions";
+import { deleteStaffException } from "@/app/admin/timelister/actions";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { Card } from "@/components/ui/Card";
 import {
@@ -23,13 +25,63 @@ function no(iso: string) {
   return `${d}.${m}.${y}`;
 }
 
+/** Dagens dato i Oslo (YYYY-MM-DD). */
+function todayOslo(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" });
+}
+
+type Row =
+  | { type: "absence"; sort: string; a: Absence }
+  | { type: "dayoff"; sort: string; d: DayOff };
+
 export function AbsenceManager({
-  absences,
+  absences: allAbsences,
+  daysOff: allDaysOff = [],
   staff,
 }: {
   absences: Absence[];
+  daysOff?: DayOff[];
   staff: StaffOption[];
 }) {
+  // Filter: én barber (eller alle) + periode.
+  const [who, setWho] = useState<string>("alle");
+  const [period, setPeriod] = useState<"alle" | "kommende" | "tidligere">("alle");
+  const today = todayOslo();
+
+  const inPeriod = (from: string, to: string) =>
+    period === "alle" ? true : period === "kommende" ? to >= today : to < today;
+
+  const absences = useMemo(
+    () =>
+      allAbsences.filter(
+        (a) => (who === "alle" || a.staff_id === who) && inPeriod(a.from_date, a.to_date),
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allAbsences, who, period, today],
+  );
+  const daysOff = useMemo(
+    () =>
+      allDaysOff.filter(
+        (d) => (who === "alle" || d.staff_id === who) && inPeriod(d.date, d.date),
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allDaysOff, who, period, today],
+  );
+  const rows: Row[] = useMemo(
+    () =>
+      [
+        ...absences.map((a) => ({ type: "absence" as const, sort: a.from_date, a })),
+        ...daysOff.map((d) => ({ type: "dayoff" as const, sort: d.date, d })),
+      ].sort((x, y) => (x.sort < y.sort ? 1 : x.sort > y.sort ? -1 : 0)),
+    [absences, daysOff],
+  );
+
+  // Antall per barber (uavhengig av barber-filteret) til filter-knappene.
+  const countFor = (id: string) =>
+    allAbsences.filter((a) => a.staff_id === id && inPeriod(a.from_date, a.to_date)).length +
+    allDaysOff.filter((d) => d.staff_id === id && inPeriod(d.date, d.date)).length;
+  const withEntries = staff.filter((s) => countFor(s.id) > 0 || who === s.id);
+
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
@@ -38,8 +90,11 @@ export function AbsenceManager({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted">{absences.length} registrerte fravær</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted">
+          {absences.length} fravær · {daysOff.length} fridager fra timelister
+          {who !== "alle" && <> for {staff.find((s) => s.id === who)?.full_name ?? "valgt barber"}</>}
+        </p>
         <Button
           variant="primary"
           onClick={() => {
@@ -65,7 +120,7 @@ export function AbsenceManager({
             }
             className="grid gap-3 sm:grid-cols-2"
           >
-            <Select name="staff_id" required defaultValue="">
+            <Select name="staff_id" required defaultValue={who === "alle" ? "" : who} key={who}>
               <option value="" disabled>
                 Velg ansatt …
               </option>
@@ -103,6 +158,69 @@ export function AbsenceManager({
         </Card>
       )}
 
+      {/* Filter: barber for barber + periode */}
+      <div className="space-y-3 rounded-lg border border-line bg-surface p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-xs font-semibold tracking-wide text-muted uppercase">Barber</span>
+          <button
+            type="button"
+            onClick={() => setWho("alle")}
+            className={"act " + (who === "alle" ? "act-accent ring-1 ring-accent-soft" : "")}
+          >
+            Alle
+          </button>
+          {withEntries.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => setWho(s.id)}
+              className={"act " + (who === s.id ? "act-accent ring-1 ring-accent-soft" : "")}
+            >
+              {s.full_name}
+              <span className="ml-1.5 rounded-full bg-surface-2 px-1.5 text-[10px] font-bold text-muted">
+                {countFor(s.id)}
+              </span>
+            </button>
+          ))}
+          {staff.length > withEntries.length && (
+            <select
+              value={withEntries.some((s) => s.id === who) || who === "alle" ? "" : who}
+              onChange={(e) => e.target.value && setWho(e.target.value)}
+              className="rounded-md border border-line-2 bg-canvas px-2 py-1.5 text-xs text-fg"
+              aria-label="Velg annen barber"
+            >
+              <option value="">Andre …</option>
+              {staff
+                .filter((s) => !withEntries.includes(s))
+                .map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.full_name}
+                  </option>
+                ))}
+            </select>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-xs font-semibold tracking-wide text-muted uppercase">Periode</span>
+          {(
+            [
+              ["alle", "Alle"],
+              ["kommende", "Pågående og kommende"],
+              ["tidligere", "Tidligere"],
+            ] as const
+          ).map(([v, l]) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setPeriod(v)}
+              className={"act " + (period === v ? "act-accent ring-1 ring-accent-soft" : "")}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {err && !open && <p className="text-sm text-danger">{err}</p>}
       <p className="text-xs text-muted">
         Ulønnet permisjon og ugyldig fravær trekkes i grunnlønnen (grunnlønn ÷ arbeidsdager i
@@ -121,11 +239,51 @@ export function AbsenceManager({
             </Tr>
           </THead>
           <TBody>
-            {absences.length === 0 && (
-              <TableEmpty colSpan={6}>Ingen fravær registrert enda.</TableEmpty>
+            {rows.length === 0 && (
+              <TableEmpty colSpan={6}>
+                {who === "alle" && period === "alle"
+                  ? "Ingen fravær registrert enda."
+                  : "Ingen fravær eller fridager for dette utvalget."}
+              </TableEmpty>
             )}
-            {absences.map((a) =>
-              editId === a.id ? (
+            {rows.map((row) => {
+              if (row.type === "dayoff") {
+                const d = row.d;
+                return (
+                  <Tr key={"off-" + d.id}>
+                    <Td className="font-medium text-fg">{d.staffName}</Td>
+                    <Td muted>{no(d.date)}</Td>
+                    <Td muted>{no(d.date)}</Td>
+                    <Td>
+                      <span className="inline-flex items-center rounded-md border border-line-2 bg-surface-2 px-2 py-1 text-xs font-semibold text-fg">
+                        Fri{d.start_time && d.end_time ? ` ${d.start_time}–${d.end_time}` : " hele dagen"}
+                      </span>
+                    </Td>
+                    <Td muted>
+                      {d.note ?? "—"}
+                      <span className="mt-0.5 block text-[10px] tracking-wide text-muted uppercase">
+                        Fra timelister · trekkes ikke
+                      </span>
+                    </Td>
+                    <Td align="right">
+                      <span className="flex items-center justify-end gap-3">
+                        <Link href="/admin/timelister" className="act act-accent">
+                          Endre
+                        </Link>
+                        <ConfirmButton
+                          label="Slett"
+                          confirmLabel="Ja, slett"
+                          pendingLabel="Sletter …"
+                          disabled={pending}
+                          onConfirm={() => deleteStaffException(d.id)}
+                        />
+                      </span>
+                    </Td>
+                  </Tr>
+                );
+              }
+              const a = row.a;
+              return editId === a.id ? (
                 <Tr key={a.id}>
                   <Td className="font-medium text-fg">{a.staffName}</Td>
                   <Td>
@@ -226,8 +384,8 @@ export function AbsenceManager({
                   </span>
                 </Td>
               </Tr>
-              ),
-            )}
+              );
+            })}
           </TBody>
         </Table>
       </Card>

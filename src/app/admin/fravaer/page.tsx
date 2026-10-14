@@ -1,13 +1,14 @@
 import { AbsenceManager } from "@/components/admin/AbsenceManager";
 import { LeaveRequestsAdmin } from "@/components/admin/LeaveRequestsAdmin";
-import { getAbsences, getStaffOptions, getLeaveRequests } from "@/lib/ops-queries";
+import { getAbsences, getDaysOff, getStaffOptions, getLeaveRequests } from "@/lib/ops-queries";
 import { PageHeader } from "@/components/ui/PageHeader";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminFravaer() {
-  const [absences, staff, requests] = await Promise.all([
+  const [absences, daysOff, staff, requests] = await Promise.all([
     getAbsences(),
+    getDaysOff(),
     getStaffOptions(),
     getLeaveRequests(),
   ]);
@@ -18,7 +19,7 @@ export default async function AdminFravaer() {
         description="Behandle fri-søknader og registrer ferie, sykdom og annet fravær per ansatt."
       />
       <LeaveRequestsAdmin requests={requests} />
-      <AbsenceManager absences={absences} staff={staff} />
+      <AbsenceManager absences={absences} daysOff={daysOff} staff={staff} />
     </div>
   );
 }

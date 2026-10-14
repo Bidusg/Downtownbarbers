@@ -228,13 +228,14 @@ export default async function Home({
         {/* ===================== HERO ===================== */}
         <section className="cine-vignette relative flex min-h-[100svh] items-end overflow-hidden">
           <div className="absolute inset-0">
-            <ScaleIn className="h-full w-full" from={1.2} to={1.04}>
-              <HeroCarousel slides={heroSlidesFinal} poster="/media/hero/poster.jpg" />
-            </ScaleIn>
+            {/* Zoom-effekten ligger i HeroCarousel (av på stående mobil, så
+                hele bildet vises). */}
+            <HeroCarousel slides={heroSlidesFinal} poster="/media/hero/poster.jpg" />
           </div>
-          {/* Overlays for lesbarhet / filmatisk dybde */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/70" />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-transparent to-transparent" />
+          {/* Overlays for lesbarhet / filmatisk dybde. Lettere på mobil, så
+              bildet i midten ikke blir mørklagt. */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-black/40 md:via-black/45 md:to-black/70" />
+          <div className="absolute inset-0 hidden bg-gradient-to-r from-black/80 via-transparent to-transparent md:block" />
 
           <div className="relative mx-auto w-full max-w-6xl px-6 pt-28 pb-[20vh] text-center sm:px-5 sm:pt-40 sm:pb-32 sm:text-left">
             <p

@@ -514,6 +514,44 @@ export async function getAbsences(): Promise<Absence[]> {
   }
 }
 
+/** «Fri denne dagen» lagt inn i Timelister (staff_exceptions kind=off).
+ *  Vises sammen med fravær så admin har én samlet oversikt. */
+export type DayOff = {
+  id: string;
+  staff_id: string;
+  staffName: string;
+  date: string;
+  start_time: string | null;
+  end_time: string | null;
+  note: string | null;
+};
+
+export async function getDaysOff(): Promise<DayOff[]> {
+  try {
+    const sb = await createClient();
+    const { data, error } = await sb
+      .from("staff_exceptions")
+      .select("id, staff_id, date, start_time, end_time, note, staff(full_name)")
+      .eq("kind", "off")
+      .order("date", { ascending: false });
+    if (error) return [];
+    return ((data ?? []) as Record<string, unknown>[]).map((r) => {
+      const st = r.staff as { full_name?: string } | null;
+      return {
+        id: r.id as string,
+        staff_id: r.staff_id as string,
+        staffName: st?.full_name ?? "—",
+        date: r.date as string,
+        start_time: ((r.start_time as string | null) ?? null)?.slice(0, 5) ?? null,
+        end_time: ((r.end_time as string | null) ?? null)?.slice(0, 5) ?? null,
+        note: (r.note as string | null) ?? null,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
 /* ---------------------------- TIMELISTER ---------------------------- */
 export type StaffHour = {
   id: string;
