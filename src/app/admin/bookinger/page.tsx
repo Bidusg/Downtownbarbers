@@ -1,4 +1,4 @@
-import { getDayAgenda, getBarbers, getBarbersOnDuty, getServices, getOffDutyReasons } from "@/lib/shop-queries";
+import { getDayAgenda, getBarbers, getBarbersOnDuty, getServices, getOffDutyReasons, getDaySchedule } from "@/lib/shop-queries";
 import { DayCalendar } from "@/components/kasse/DayCalendar";
 import { PageHeader } from "@/components/ui/PageHeader";
 
@@ -17,12 +17,13 @@ export default async function AdminBookinger({
   const date =
     sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : osloToday();
 
-  const [agenda, barbers, services, onDuty, offReasons] = await Promise.all([
+  const [agenda, barbers, services, onDuty, offReasons, schedule] = await Promise.all([
     getDayAgenda(date),
     getBarbers(),
     getServices(),
     getBarbersOnDuty(date),
     getOffDutyReasons(date),
+    getDaySchedule(date),
   ]);
 
   return (
@@ -41,6 +42,7 @@ export default async function AdminBookinger({
         canResize
         onDuty={onDuty}
         offReasons={offReasons}
+        schedule={schedule}
       />
     </div>
   );

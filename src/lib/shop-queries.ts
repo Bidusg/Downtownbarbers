@@ -199,3 +199,122 @@ export async function getOffDutyReasons(date: string): Promise<Record<string, st
   }
   return out;
 }
+
+/* ---------------- Arbeidstid per barber (til kalender-skyggelegging) ---------------- */
+
+export type ShiftBlock = { start: number; end: number; kind: "turnus" | "vakt" };
+
+export type DaySchedule = {
+  /** Butikkens åpningstid denne ukedagen i minutter etter midnatt (null = stengt / ukjent). */
+  shopOpen: number | null;
+  shopClose: number | null;
+  /** Barbernavn → arbeidsblokker denne dagen (tom liste = ikke på jobb). */
+  shifts: Record<string, ShiftBlock[]>;
+};
+
+const toMin = (t: string | null | undefined): number | null => {
+  if (!t) return null;
+  const [h, m] = String(t).split(":").map(Number);
+  return Number.isFinite(h) ? h * 60 + (m || 0) : null;
+};
+
+/** Trekk et tidsrom fra en liste med blokker. */
+function subtract(blocks: ShiftBlock[], s: number, e: number): ShiftBlock[] {
+  const out: ShiftBlock[] = [];
+  for (const b of blocks) {
+    if (e <= b.start || s >= b.end) {
+      out.push(b);
+      continue;
+    }
+    if (s > b.start) out.push({ ...b, end: s });
+    if (e < b.end) out.push({ ...b, start: e });
+  }
+  return out;
+}
+
+/**
+ * Når jobber hver barber en gitt dag? Samme regler som bookingen:
+ *  - turnus (ukedag, uke A/B, gyldig fra/til)
+ *  - «Vakt denne dagen» erstatter turnusen den dagen
+ *  - fravær / fri hele dagen = ingen arbeidstid (med mindre det er satt vakt)
+ *  - delvis fri trekkes fra
+ * Leses med service-rollen (kun visning; shop har ikke lesetilgang til turnus).
+ * Feiler stille → null (kalenderen viser da som før, uten skyggelegging).
+ */
+export async function getDaySchedule(date: string): Promise<DaySchedule | null> {
+  try {
+    const { createServiceClient } = await import("@/lib/supabase/service");
+    const { getSiteSettings } = await import("@/lib/site-settings");
+    const sb = createServiceClient();
+    const dow = new Date(`${date}T12:00:00Z`).getUTCDay();
+
+    const [settings, parityRes, staffRes, hoursRes, excRes, absRes] = await Promise.all([
+      getSiteSettings(),
+      sb.rpc("turnus_week_parity", { p_date: date }),
+      sb.from("staff").select("id, full_name").eq("active", true),
+      sb
+        .from("staff_hours")
+        .select("staff_id, weekday, start_time, end_time, week_parity, valid_from, valid_to")
+        .eq("weekday", dow),
+      sb.from("staff_exceptions").select("staff_id, kind, start_time, end_time").eq("date", date),
+      sb.from("absences").select("staff_id").lte("from_date", date).gte("to_date", date),
+    ]);
+    if (staffRes.error || hoursRes.error) return null;
+
+    const day = settings.hours?.[String(dow)] ?? null;
+    const shopOpen = day ? toMin(day.open) : null;
+    const shopClose = day ? toMin(day.close) : null;
+    const parity = typeof parityRes.data === "number" ? parityRes.data : null;
+
+    const shifts: Record<string, ShiftBlock[]> = {};
+    const exc = (excRes.data ?? []) as {
+      staff_id: string;
+      kind: string;
+      start_time: string | null;
+      end_time: string | null;
+    }[];
+    const absent = new Set(((absRes.data ?? []) as { staff_id: string }[]).map((a) => a.staff_id));
+
+    for (const st of (staffRes.data ?? []) as { id: string; full_name: string }[]) {
+      const mine = exc.filter((e) => e.staff_id === st.id);
+      const extra = mine.filter((e) => e.kind === "extra" && e.start_time && e.end_time);
+      let blocks: ShiftBlock[];
+      if (extra.length > 0) {
+        blocks = extra.map((e) => ({ start: toMin(e.start_time)!, end: toMin(e.end_time)!, kind: "vakt" as const }));
+      } else {
+        const fullOff = mine.some((e) => e.kind === "off" && !e.start_time);
+        if (fullOff || absent.has(st.id)) {
+          blocks = [];
+        } else {
+          blocks = ((hoursRes.data ?? []) as {
+            staff_id: string;
+            start_time: string;
+            end_time: string;
+            week_parity: number | null;
+            valid_from: string | null;
+            valid_to: string | null;
+          }[])
+            .filter(
+              (h) =>
+                h.staff_id === st.id &&
+                (h.week_parity == null || h.week_parity === 0 || parity == null || h.week_parity === parity) &&
+                (!h.valid_from || h.valid_from <= date) &&
+                (!h.valid_to || h.valid_to >= date),
+            )
+            .map((h) => ({ start: toMin(h.start_time)!, end: toMin(h.end_time)!, kind: "turnus" as const }));
+        }
+      }
+      for (const e of mine) {
+        if (e.kind === "off" && e.start_time && e.end_time) {
+          blocks = subtract(blocks, toMin(e.start_time)!, toMin(e.end_time)!);
+        }
+      }
+      shifts[st.full_name] = blocks
+        .filter((b) => b.end > b.start)
+        .sort((a, b) => a.start - b.start);
+    }
+    return { shopOpen, shopClose, shifts };
+  } catch {
+    return null;
+  }
+}

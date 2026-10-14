@@ -9,7 +9,7 @@ import {
   useTransition,
 } from "react";
 import { useRouter } from "next/navigation";
-import type { AgendaBooking, ShopBarber, ShopService } from "@/lib/shop-queries";
+import type { AgendaBooking, DaySchedule, ShopBarber, ShopService } from "@/lib/shop-queries";
 import { colorAt } from "@/lib/colors";
 import { Avatar } from "@/components/ui/Avatar";
 import { DeskBooking, DeskBookingDialog } from "@/components/kasse/DeskBooking";
@@ -23,9 +23,10 @@ import {
   setBookingLength,
 } from "@/app/kasse/actions";
 
-const OPEN = 9 * 60; // 09:00
-const CLOSE = 21 * 60; // 21:00
-const SPAN = CLOSE - OPEN;
+// Standard visningsvindu når åpningstid ikke er kjent. Selve vinduet regnes ut
+// per dag i komponenten (butikkens åpningstid, utvidet ved overtid).
+const DEFAULT_OPEN = 9 * 60; // 09:00
+const DEFAULT_CLOSE = 21 * 60; // 21:00
 const PX = 1.3; // piksler per minutt
 const HEADER_H = 44;
 
@@ -40,7 +41,7 @@ function osloMinutes(iso: string): number {
     const [h, m] = s.split(":").map(Number);
     return h * 60 + m;
   } catch {
-    return OPEN;
+    return DEFAULT_OPEN;
   }
 }
 
@@ -86,6 +87,7 @@ export function DayCalendar({
   canBook = true,
   onDuty,
   offReasons = {},
+  schedule = null,
 }: {
   date: string;
   agenda: AgendaBooking[];
@@ -104,8 +106,39 @@ export function DayCalendar({
   onDuty?: string[] | null;
   /** Navn → hvorfor ikke på vakt (fravær/fri). */
   offReasons?: Record<string, string>;
+  /** Åpningstid + arbeidstid per barber. Uten = ingen skyggelegging. */
+  schedule?: DaySchedule | null;
 }) {
   const router = useRouter();
+
+  // ---- Visningsvindu: butikkens åpningstid denne dagen -------------------
+  // Utvides automatisk hvis noen er booket eller har vakt utenfor (overtid),
+  // så ingenting havner utenfor kalenderen.
+  const { OPEN, CLOSE } = (() => {
+    let lo = schedule ? (schedule.shopOpen ?? Infinity) : DEFAULT_OPEN;
+    let hi = schedule ? (schedule.shopClose ?? -Infinity) : DEFAULT_CLOSE;
+    for (const a of agenda) {
+      if (a.status === "cancelled") continue;
+      lo = Math.min(lo, osloMinutes(a.start_at));
+      hi = Math.max(hi, osloMinutes(a.end_at));
+    }
+    if (schedule) {
+      for (const list of Object.values(schedule.shifts)) {
+        for (const b of list) {
+          lo = Math.min(lo, b.start);
+          hi = Math.max(hi, b.end);
+        }
+      }
+    }
+    if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi <= lo) {
+      lo = 10 * 60; // stengt dag uten noe registrert
+      hi = 18 * 60;
+    }
+    lo = Math.max(0, Math.floor(lo / 60) * 60);
+    hi = Math.min(24 * 60, Math.ceil(hi / 60) * 60);
+    return { OPEN: lo, CLOSE: hi };
+  })();
+  const SPAN = CLOSE - OPEN;
 
   // ---- Sveip mellom dager (touch) med «bounce» -------------------------------
   // dragX: live forskyvning mens fingeren er på skjermen (gummistrikk).
@@ -326,7 +359,14 @@ export function DayCalendar({
   };
 
   const hours: number[] = [];
-  for (let h = 9; h <= 21; h++) hours.push(h);
+  for (let h = OPEN / 60; h <= CLOSE / 60; h++) hours.push(h);
+
+  /** Arbeidsblokker for en kolonne (null = ukjent → ingen skyggelegging). */
+  const shiftsFor = (name: string) => (schedule ? (schedule.shifts[name] ?? []) : null);
+  const inShift = (name: string, min: number) => {
+    const list = shiftsFor(name);
+    return list === null || list.some((b) => min >= b.start && min < b.end);
+  };
 
   const prettyDate = (() => {
     try {
@@ -704,6 +744,32 @@ export function DayCalendar({
         </p>
       )}
 
+      {schedule && (
+        <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-muted">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-3.5 w-5 rounded-sm border border-line-2 bg-surface" style={{ boxShadow: "inset 3px 0 0 oklch(var(--accent-soft))" }} />
+            På jobb – kan bookes
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span
+              className="inline-block h-3.5 w-5 rounded-sm border border-line-2"
+              style={{
+                background:
+                  "repeating-linear-gradient(135deg, oklch(var(--surface-2)) 0 3px, oklch(var(--line)) 3px 5px)",
+              }}
+            />
+            Ikke på jobb / stengt
+          </span>
+          {schedule.shopOpen != null && schedule.shopClose != null ? (
+            <span>
+              Åpent {minToHHMM(schedule.shopOpen)}–{minToHHMM(schedule.shopClose)}
+            </span>
+          ) : (
+            <span>Butikken er stengt denne dagen</span>
+          )}
+        </div>
+      )}
+
       {/* Hvem er IKKE på vakt (turnus, fri, fravær) – så ingen «forsvinner» uforklart. */}
       {onDuty && (() => {
         const shown = new Set(columns.map((c) => c.barber.full_name));
@@ -765,7 +831,7 @@ export function DayCalendar({
           <div className="sticky left-0 z-20 w-12 shrink-0 bg-surface">
             <div style={{ height: HEADER_H }} className="border-b border-line" />
             <div className="relative" style={{ height: SPAN * PX }}>
-              {hours.map((h) => (
+              {hours.filter((h) => h * 60 < CLOSE).map((h) => (
                 <div
                   key={h}
                   className="absolute -translate-y-1/2 pr-2 text-right text-[10px] text-muted"
@@ -855,18 +921,75 @@ export function DayCalendar({
                   onMouseLeave={() => setHoverSlot(null)}
                 >
                   {/* «+ 14:15»-markør der man kan klikke for ny booking (mus) */}
-                  {hoverSlot && hoverSlot.col === col.barber.full_name && hoverSlot.min >= OPEN && hoverSlot.min < CLOSE && (
-                    <div
-                      className="pointer-events-none absolute right-1 left-1 z-[1] flex items-center rounded border border-dashed border-accent-soft/70 bg-accent-soft/10 px-2 text-[11px] font-semibold text-accent-soft"
-                      style={{ top: (hoverSlot.min - OPEN) * PX, height: 15 * PX * 2 }}
-                    >
-                      + {String(Math.floor(hoverSlot.min / 60)).padStart(2, "0")}:{String(hoverSlot.min % 60).padStart(2, "0")}
-                    </div>
-                  )}
+                  {/* Arbeidstid: hvitt = på jobb (kan bookes), skravert = ikke på jobb */}
+                  {(() => {
+                    const list = shiftsFor(col.barber.full_name);
+                    if (list === null) return null;
+                    return (
+                      <>
+                        <div
+                          aria-hidden
+                          className="pointer-events-none absolute inset-0 z-0"
+                          style={{
+                            background:
+                              "repeating-linear-gradient(135deg, oklch(var(--surface-2)) 0 6px, oklch(var(--line)) 6px 9px)",
+                          }}
+                        />
+                        {list.length === 0 && (
+                          <div className="pointer-events-none absolute inset-x-0 top-3 z-0 text-center text-[11px] font-semibold text-muted">
+                            Ikke på jobb
+                          </div>
+                        )}
+                        {list.map((b, i) => {
+                          const s0 = Math.max(b.start, OPEN);
+                          const e0 = Math.min(b.end, CLOSE);
+                          if (e0 <= s0) return null;
+                          return (
+                            <div
+                              key={i}
+                              aria-hidden
+                              className="pointer-events-none absolute inset-x-0 z-0 bg-surface"
+                              style={{
+                                top: (s0 - OPEN) * PX,
+                                height: (e0 - s0) * PX,
+                                boxShadow: `inset 3px 0 0 ${color}`,
+                              }}
+                            >
+                              <span
+                                className="absolute top-0.5 right-1.5 text-[10px] font-semibold"
+                                style={{ color }}
+                              >
+                                {b.kind === "vakt" ? "Vakt " : ""}
+                                {minToHHMM(b.start)}–{minToHHMM(b.end)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </>
+                    );
+                  })()}
+
+                  {hoverSlot && hoverSlot.col === col.barber.full_name && hoverSlot.min >= OPEN && hoverSlot.min < CLOSE && (() => {
+                    const ok = inShift(col.barber.full_name, hoverSlot.min);
+                    return (
+                      <div
+                        className={
+                          "pointer-events-none absolute right-1 left-1 z-[1] flex items-center rounded border border-dashed px-2 text-[11px] font-semibold " +
+                          (ok
+                            ? "border-accent-soft/70 bg-accent-soft/10 text-accent-soft"
+                            : "border-line-2 bg-surface/80 text-muted")
+                        }
+                        style={{ top: (hoverSlot.min - OPEN) * PX, height: 15 * PX * 2 }}
+                      >
+                        + {String(Math.floor(hoverSlot.min / 60)).padStart(2, "0")}:{String(hoverSlot.min % 60).padStart(2, "0")}
+                        {!ok && <span className="ml-1 font-normal">· utenfor arbeidstid</span>}
+                      </div>
+                    );
+                  })()}
                   {hours.map((h) => (
                     <div
                       key={h}
-                      className="absolute right-0 left-0 border-t border-line/40"
+                      className="pointer-events-none absolute right-0 left-0 z-0 border-t border-line/40"
                       style={{ top: (h * 60 - OPEN) * PX }}
                     />
                   ))}
