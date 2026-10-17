@@ -246,10 +246,13 @@ export function ShopSettlementForm({
             placeholder="Notat (valgfritt) – f.eks. forklaring på avvik"
           />
           {err && <p className="text-sm text-danger">{err}</p>}
+          {!Object.values(counted).some((v) => v.trim() !== "") && (
+            <p className="text-xs text-muted">Fyll inn talte beløp for å kunne lagre.</p>
+          )}
           <Button
             type="submit"
             variant="primary"
-            disabled={pending || loading}
+            disabled={pending || loading || !Object.values(counted).some((v) => v.trim() !== "")}
             className="px-4 py-2 text-sm"
           >
             {pending ? "Leverer …" : "Lever oppgjør"}

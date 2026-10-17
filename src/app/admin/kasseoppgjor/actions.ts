@@ -35,6 +35,20 @@ export async function createSettlement(
     }
   }
 
+
+  // Vern mot tomt skjema: ingen talte felt fylt ut, men det finnes salg den
+  // dagen → nesten alltid et feiltrykk (det var slik «0 kr (manko)»-radene
+  // oppsto). Bevisst 0 må tastes inn som 0.
+  {
+    const anyFilled = ["counted_cash", "counted_card", "counted_vipps"].some(
+      (f) => String(formData.get(f) ?? "").trim() !== "",
+    );
+    const exp = await getExpectedByMethodForDate(settle_date);
+    if (!anyFilled && exp.cash + exp.card + exp.vipps > 0) {
+      return { error: "Fyll inn talte beløp før du lagrer (skriv 0 hvis det faktisk er 0)." };
+    }
+  }
+
   const counted_cash = num(formData.get("counted_cash"));
   const counted_card = num(formData.get("counted_card"));
   const counted_vipps = num(formData.get("counted_vipps"));
@@ -87,6 +101,28 @@ export async function createSettlement(
     }
   } catch {
     // confirmed-kolonnen finnes ikke enda → fall videre til vanlig insert.
+  }
+
+  // Finnes det allerede et oppgjør for dagen, OPPDATERER vi det i stedet for å
+  // lage en ny rad. Tidligere ble det to rader samme dag (én med 0 kr som så
+  // ut som manko).
+  {
+    const { data: prev } = await sb
+      .from("cash_settlements")
+      .select("id")
+      .eq("settle_date", settle_date)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (prev?.id) {
+      const { error: upErr } = await sb
+        .from("cash_settlements")
+        .update(values)
+        .eq("id", prev.id as string);
+      if (upErr) return { error: `Kunne ikke lagre oppgjøret: ${upErr.message}` };
+      revalidatePath("/admin/kasseoppgjor");
+      return { ok: true };
+    }
   }
 
   const { error } = await sb.from("cash_settlements").insert({
