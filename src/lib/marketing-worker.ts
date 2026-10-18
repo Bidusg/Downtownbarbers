@@ -100,7 +100,7 @@ export async function runMarketingWorker(): Promise<{ sent: number; failed: numb
         await Promise.all(
           chunk.map(async (r) => {
             const msg = `${send.body}\n\nAvmeld: ${base}/avmeld/${r.token} · eller svar STOPP`;
-            const ok = r.phone ? await sendSms(r.phone as string, msg) : false;
+            const ok = r.phone ? await sendSms(r.phone as string, msg, { kind: "markedsføring" }) : false;
             if (ok) sent++;
             else failed++;
             await svc

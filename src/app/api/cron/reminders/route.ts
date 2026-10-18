@@ -133,6 +133,7 @@ export async function GET(req: NextRequest) {
             varighet: "",
             ...salon,
           }),
+          { kind: "påminnelse", bookingId: b.id },
         );
         if (ok) texted++;
       }

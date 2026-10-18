@@ -73,6 +73,7 @@ export async function sendTestSms(
   const ok = await sendSms(
     to,
     "Test-SMS fra Downtown Barbers. SMS-oppsettet virker ✅",
+    { kind: "test" },
   );
   return ok
     ? { ok: true, message: `Test-SMS sendt via ${cfg.provider} til ${to}.` }
@@ -154,7 +155,7 @@ export async function sendTemplateTestSms(
   if (!cfg.enabled || cfg.provider === "")
     return { ok: false, message: "Ingen SMS-leverandør er konfigurert/aktivert enda." };
   const vars = Object.fromEntries(SMS_VARIABLES.map((v) => [v.key, v.example]));
-  const ok = await sendSms(to.trim(), renderSms(template, vars));
+  const ok = await sendSms(to.trim(), renderSms(template, vars), { kind: "test" });
   return ok
     ? { ok: true, message: `Test sendt til ${to.trim()}.` }
     : { ok: false, message: "Kunne ikke sende. Sjekk leverandør og nummerformat (+47…)." };

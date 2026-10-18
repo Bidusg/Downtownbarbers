@@ -143,6 +143,7 @@ export async function createBooking(
         durationMin: (svc?.duration_min as number | null) ?? null,
         barber: input.barberName,
         startIso,
+        bookingId: (bookingId as string) ?? null,
       });
     } catch {
       /* SMS skal aldri velte en lagret booking */

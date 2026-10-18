@@ -181,9 +181,16 @@ export function toE164(phone: string): string {
 
 /* ---------------- Leverandør-drivere ---------------- */
 
+/** Siste feilmelding fra leverandøren (til SMS-loggen). */
+let lastProviderError: string | null = null;
+
 async function viaGatewayApi(c: SmsConfig, dests: string[], body: string): Promise<number> {
   const token = c.gatewayapiToken;
-  if (!token) return 0;
+  lastProviderError = null;
+  if (!token) {
+    lastProviderError = "API-token mangler";
+    return 0;
+  }
   const recipients = dests
     .map((d) => Number(d.replace("+", "")))
     .filter((n) => Number.isFinite(n) && n > 0)
@@ -198,8 +205,20 @@ async function viaGatewayApi(c: SmsConfig, dests: string[], body: string): Promi
       },
       body: JSON.stringify({ sender: c.sender, message: body, recipients }),
     });
-    return res.ok ? recipients.length : 0;
-  } catch {
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const j = (await res.json()) as { message?: string; code?: string };
+        detail = j.message ?? j.code ?? "";
+      } catch {
+        /* ingen JSON */
+      }
+      lastProviderError = `GatewayAPI svarte ${res.status}${detail ? `: ${detail}` : ""}`;
+      return 0;
+    }
+    return recipients.length;
+  } catch (e) {
+    lastProviderError = e instanceof Error ? e.message : "nettverksfeil";
     return 0;
   }
 }
@@ -281,10 +300,87 @@ async function sendWith(c: SmsConfig, to: string, body: string): Promise<boolean
   }
 }
 
-/** Send én SMS. Returnerer true hvis forsøkt sendt OK, false hvis hoppet over/feilet. */
-export async function sendSms(to: string, body: string): Promise<boolean> {
+export type SmsKind = "bekreftelse" | "påminnelse" | "test" | "markedsføring" | "annet";
+
+/** Lagre forsøket i sms_log (best-effort – feiler aldri utsendingen). */
+async function logSms(row: {
+  to: string;
+  kind: SmsKind;
+  body: string;
+  status: "sendt" | "feilet" | "hoppet over";
+  error?: string | null;
+  bookingId?: string | null;
+}): Promise<void> {
+  try {
+    await createServiceClient().from("sms_log").insert({
+      to_number: row.to,
+      kind: row.kind,
+      body: row.body,
+      status: row.status,
+      error: row.error ?? null,
+      booking_id: row.bookingId ?? null,
+    });
+  } catch {
+    /* loggen er bare til innsyn */
+  }
+}
+
+/**
+ * Send én SMS. Returnerer true hvis sendt OK, false hvis hoppet over/feilet.
+ * Hvert forsøk logges i sms_log (admin → Integrasjoner → SMS-logg).
+ */
+export async function sendSms(
+  to: string,
+  body: string,
+  meta?: { kind?: SmsKind; bookingId?: string | null },
+): Promise<boolean> {
   const c = await getSmsConfig();
-  return sendWith(c, to, body);
+  const kind = meta?.kind ?? "annet";
+  const dest = toE164(to);
+  let skip: string | null = null;
+  if (!c.enabled || c.provider === "") skip = "SMS er ikke aktivert/satt opp";
+  else if (!dest) skip = "ugyldig telefonnummer";
+  else if (!body?.trim()) skip = "tom tekst";
+  if (skip) {
+    await logSms({ to: dest || to, kind, body, status: "hoppet over", error: skip, bookingId: meta?.bookingId });
+    return false;
+  }
+  lastProviderError = null;
+  const ok = await sendWith(c, to, body);
+  await logSms({
+    to: dest,
+    kind,
+    body,
+    status: ok ? "sendt" : "feilet",
+    error: ok ? null : (lastProviderError ?? "leverandøren avviste meldingen"),
+    bookingId: meta?.bookingId,
+  });
+  return ok;
+}
+
+export type SmsLogRow = {
+  id: string;
+  created_at: string;
+  to_number: string | null;
+  kind: string;
+  body: string | null;
+  status: string;
+  error: string | null;
+};
+
+/** Siste SMS-forsøk (admin). Tom liste hvis tabellen ikke finnes ennå. */
+export async function getSmsLog(limit = 50): Promise<{ rows: SmsLogRow[]; missingTable: boolean }> {
+  try {
+    const { data, error } = await createServiceClient()
+      .from("sms_log")
+      .select("id, created_at, to_number, kind, body, status, error")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) return { rows: [], missingTable: /sms_log|schema cache|does not exist/i.test(error.message) };
+    return { rows: (data ?? []) as SmsLogRow[], missingTable: false };
+  } catch {
+    return { rows: [], missingTable: false };
+  }
 }
 
 /**

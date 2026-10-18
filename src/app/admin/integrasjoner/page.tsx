@@ -1,5 +1,6 @@
 import { config } from "@/lib/config";
-import { getSmsConfigAdmin } from "@/lib/sms";
+import { getSmsConfigAdmin, getSmsLog } from "@/lib/sms";
+import { SmsLog } from "@/components/admin/SmsLog";
 import { SmsConfigForm } from "@/components/admin/SmsConfigForm";
 import { SmsTemplateForm } from "@/components/admin/SmsTemplateForm";
 import { getSmsTemplates } from "@/lib/sms-templates";
@@ -75,10 +76,11 @@ export default async function AdminIntegrasjoner({
   searchParams: Promise<{ varsellagret?: string; varselfeil?: string }>;
 }) {
   const sp = await searchParams;
-  const [sms, notify, smsTpl] = await Promise.all([
+  const [sms, notify, smsTpl, smsLog] = await Promise.all([
     getSmsConfigAdmin(),
     getBookingNotify(),
     createClient().then((sb) => getSmsTemplates(sb)),
+    getSmsLog(50),
   ]);
 
   const resendSet = Boolean(process.env.RESEND_API_KEY);
@@ -220,6 +222,18 @@ export default async function AdminIntegrasjoner({
           </p>
         </div>
         <SmsTemplateForm initial={smsTpl} />
+      </div>
+
+      {/* SMS-logg */}
+      <div id="sms-logg" className="border border-line bg-surface p-6">
+        <div className="mb-4">
+          <h2 className="font-display text-lg font-bold">SMS-logg</h2>
+          <p className="mt-1 text-sm text-muted">
+            Alle SMS-er systemet har sendt – bekreftelser, påminnelser, tester og
+            markedsføring – med status. «Feilet» viser hva leverandøren svarte.
+          </p>
+        </div>
+        <SmsLog rows={smsLog.rows} missingTable={smsLog.missingTable} />
       </div>
     </div>
   );

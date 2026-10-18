@@ -42,6 +42,7 @@ export async function sendBookingConfirmationSms(o: {
   durationMin?: number | null;
   barber: string;
   startIso: string;
+  bookingId?: string | null;
 }): Promise<boolean> {
   try {
     if (!o.phone?.trim()) return false;
@@ -60,7 +61,7 @@ export async function sendBookingConfirmationSms(o: {
       tid: smsTime(o.startIso),
       ...salon,
     });
-    return await sendSms(o.phone, text);
+    return await sendSms(o.phone, text, { kind: "bekreftelse", bookingId: o.bookingId ?? null });
   } catch {
     return false;
   }

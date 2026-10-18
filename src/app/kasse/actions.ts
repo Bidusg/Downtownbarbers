@@ -1173,6 +1173,7 @@ export async function createDeskBooking(
           durationMin: s2?.duration_min ?? null,
           barber: st2?.full_name || input.barber,
           startIso: bk.start_at as string,
+          bookingId: newId,
         });
       }
       if (bk && c?.email) {

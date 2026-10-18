@@ -373,6 +373,7 @@ export async function createBookingGroup(
             ? "flere barbere"
             : (barbers.find((b) => b.name === resolvedBarber)?.display ?? resolvedBarber ?? ""),
         startIso: osloToUtcISO(input.date, input.time),
+        bookingId: first ?? null,
       });
     } catch {
       /* SMS skal aldri velte en lagret booking */
