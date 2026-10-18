@@ -1,7 +1,5 @@
-import Link from "next/link";
 import { config } from "@/lib/config";
 import { getSmsConfigAdmin } from "@/lib/sms";
-import { getReviewConfigAdmin } from "@/lib/reviews";
 import { SmsConfigForm } from "@/components/admin/SmsConfigForm";
 import { SmsTemplateForm } from "@/components/admin/SmsTemplateForm";
 import { getSmsTemplates } from "@/lib/sms-templates";
@@ -77,9 +75,8 @@ export default async function AdminIntegrasjoner({
   searchParams: Promise<{ varsellagret?: string; varselfeil?: string }>;
 }) {
   const sp = await searchParams;
-  const [sms, review, notify, smsTpl] = await Promise.all([
+  const [sms, notify, smsTpl] = await Promise.all([
     getSmsConfigAdmin(),
-    getReviewConfigAdmin(),
     getBookingNotify(),
     createClient().then((sb) => getSmsTemplates(sb)),
   ]);
@@ -105,29 +102,26 @@ export default async function AdminIntegrasjoner({
         description="Koble til og test eksterne tjenester. Hemmeligheter lagres trygt (kun admin) og vises aldri tilbake."
       />
 
+      {/* Teknisk advarsel – vises bare hvis noe mangler */}
+      {!serviceRoleSet && (
+        <p className="border border-danger/40 bg-danger/5 px-4 py-3 text-sm text-danger">
+          SUPABASE_SERVICE_ROLE_KEY mangler i Vercel – automatiske varsler,
+          planlagte jobber og SMS virker ikke før den er lagt inn.
+        </p>
+      )}
+
       {/* Statusoversikt */}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3">
         <IntegrationCard
           title="SMS"
           status={sms.configured ? "ok" : "off"}
-          badge={sms.configured ? `Aktiv · ${sms.effectiveProvider}` : "Ikke aktiv"}
+          badge={sms.configured ? "Aktiv" : "Ikke aktiv"}
         >
           {sms.configured
             ? `Avsender: ${sms.sender}. Konfigureres nedenfor.`
             : "Ingen leverandør satt opp. Konfigurer nedenfor."}
         </IntegrationCard>
 
-        <IntegrationCard
-          title="Omdømme (Google / TripAdvisor)"
-          status={review.googleKeySet || review.taKeySet ? "ok" : "off"}
-          badge={review.googleKeySet ? "Google satt" : review.taKeySet ? "TA satt" : "Ikke satt"}
-        >
-          Google-anmeldelser og TripAdvisor konfigureres på{" "}
-          <Link href="/admin/rating" className="text-accent-soft hover:underline">
-            Rating &amp; omdømme
-          </Link>
-          . Place-ID {review.googlePlaceId ? "er satt." : "mangler."}
-        </IntegrationCard>
 
         <IntegrationCard
           title="E-post (Resend)"
@@ -151,15 +145,6 @@ export default async function AdminIntegrasjoner({
             : `Vipps er i ${vippsMode}-modus. Test nedenfor.`}
         </IntegrationCard>
 
-        <IntegrationCard
-          title="Supabase service-role"
-          status={serviceRoleSet ? "ok" : "off"}
-          badge={serviceRoleSet ? "Satt" : "Mangler"}
-        >
-          {serviceRoleSet
-            ? "Nøkkelen for automatiske oppgaver er på plass (automatiske varsler, planlagte jobber og SMS-utsending)."
-            : "SUPABASE_SERVICE_ROLE_KEY mangler i Vercel — automatiske varsler, planlagte jobber og SMS vil ikke virke."}
-        </IntegrationCard>
       </div>
 
       {/* Vipps – status + test av nøklene fra Vercel */}
@@ -213,11 +198,11 @@ export default async function AdminIntegrasjoner({
       {/* SMS-konfig */}
       <div className="border border-line bg-surface p-6">
         <div className="mb-4">
-          <h2 className="font-display text-lg font-bold">SMS-leverandør</h2>
+          <h2 className="font-display text-lg font-bold">SMS (GatewayAPI)</h2>
           <p className="mt-1 text-sm text-muted">
-            Velg leverandør og lim inn nøkkel. Anbefalt: GatewayAPI (nordisk,
-            rimelig). Lagres kun for admin. Bruk test-knappen nederst for å
-            bekrefte at det virker.
+            Lag konto på gatewayapi.com, lag en API-token og lim den inn her.
+            Avsendernavnet (maks 11 tegn) er det kunden ser som avsender.
+            Lagre, og send en test til ditt eget nummer under «SMS-tekster».
           </p>
         </div>
         <SmsConfigForm status={sms} />
