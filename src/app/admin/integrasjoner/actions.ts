@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getUserRole, isAdminRole } from "@/lib/auth";
 import { sendSms, getSmsConfig } from "@/lib/sms";
+import { DEFAULT_SMS_TEMPLATES, SMS_VARIABLES, renderSms } from "@/lib/sms-templates";
 
 /**
  * Lagre SMS-leverandørkonfig. Kun admin. Nøkler oppdateres bare når det
@@ -108,4 +109,45 @@ export async function saveBookingNotify(formData: FormData): Promise<void> {
     .from("settings")
     .upsert({ key: "booking_notify", value: { enabled: enabled && !!email, email } }, { onConflict: "key" });
   revalidatePath("/admin/integrasjoner");
+}
+
+
+/* ------------------------------ SMS-TEKSTER ------------------------------ */
+
+/** Lagre påminnelsesteksten. Tom tekst = tilbake til standard. Kun admin. */
+export async function saveSmsTemplates(
+  formData: FormData,
+): Promise<{ ok?: true; error?: string }> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { error: "Ingen tilgang." };
+  const reminder = String(formData.get("reminder") ?? "").trim();
+  if (reminder.length > 600) return { error: "Teksten er for lang (maks 600 tegn)." };
+  const sb = await createClient();
+  const { error } = await sb
+    .from("settings")
+    .upsert(
+      { key: "sms_templates", value: { reminder: reminder || DEFAULT_SMS_TEMPLATES.reminder } },
+      { onConflict: "key" },
+    );
+  if (error) return { error: `Kunne ikke lagre: ${error.message}` };
+  revalidatePath("/admin/integrasjoner");
+  return { ok: true };
+}
+
+/** Send påminnelsesteksten (med eksempeldata) som test til et nummer. */
+export async function sendTemplateTestSms(
+  template: string,
+  to: string,
+): Promise<{ ok: boolean; message: string }> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { ok: false, message: "Kun admin." };
+  if (!to.trim()) return { ok: false, message: "Skriv inn et mottakernummer." };
+  const cfg = await getSmsConfig();
+  if (!cfg.enabled || cfg.provider === "")
+    return { ok: false, message: "Ingen SMS-leverandør er konfigurert/aktivert enda." };
+  const vars = Object.fromEntries(SMS_VARIABLES.map((v) => [v.key, v.example]));
+  const ok = await sendSms(to.trim(), renderSms(template, vars));
+  return ok
+    ? { ok: true, message: `Test sendt til ${to.trim()}.` }
+    : { ok: false, message: "Kunne ikke sende. Sjekk leverandør og nummerformat (+47…)." };
 }

@@ -3,6 +3,9 @@ import { config } from "@/lib/config";
 import { getSmsConfigAdmin } from "@/lib/sms";
 import { getReviewConfigAdmin } from "@/lib/reviews";
 import { SmsConfigForm } from "@/components/admin/SmsConfigForm";
+import { SmsTemplateForm } from "@/components/admin/SmsTemplateForm";
+import { getSmsTemplates } from "@/lib/sms-templates";
+import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { getBookingNotify, saveBookingNotify } from "./actions";
 import { SubmitButton } from "@/components/ui/SubmitButton";
@@ -74,10 +77,11 @@ export default async function AdminIntegrasjoner({
   searchParams: Promise<{ varsellagret?: string; varselfeil?: string }>;
 }) {
   const sp = await searchParams;
-  const [sms, review, notify] = await Promise.all([
+  const [sms, review, notify, smsTpl] = await Promise.all([
     getSmsConfigAdmin(),
     getReviewConfigAdmin(),
     getBookingNotify(),
+    createClient().then((sb) => getSmsTemplates(sb)),
   ]);
 
   const resendSet = Boolean(process.env.RESEND_API_KEY);
@@ -217,6 +221,20 @@ export default async function AdminIntegrasjoner({
           </p>
         </div>
         <SmsConfigForm status={sms} />
+      </div>
+
+      {/* SMS-tekster */}
+      <div className="border border-line bg-surface p-6">
+        <div className="mb-4">
+          <h2 className="font-display text-lg font-bold">SMS-tekster</h2>
+          <p className="mt-1 text-sm text-muted">
+            Bestem hvordan påminnelsen kunden får dagen før timen er formulert.
+            Trykk på en variabel for å sette inn navn, tid osv. – den fylles
+            ut automatisk for hver kunde. Hold deg under 160 tegn, så koster
+            det én SMS.
+          </p>
+        </div>
+        <SmsTemplateForm initial={smsTpl.reminder} />
       </div>
     </div>
   );

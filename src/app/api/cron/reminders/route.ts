@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { sendBookingReminderEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
+import { getSmsTemplates, renderSms } from "@/lib/sms-templates";
 import { runFollowups } from "@/lib/followups";
 
 /**
@@ -93,6 +94,8 @@ export async function GET(req: NextRequest) {
 
     let emailed = 0;
     let texted = 0;
+    // Redigerbar SMS-tekst (admin → Integrasjoner → SMS-tekster).
+    const smsTpl = await getSmsTemplates(sb);
 
     for (const b of rows) {
       const date = fmtDate(b.start_at);
@@ -118,7 +121,14 @@ export async function GET(req: NextRequest) {
       if (b.phone) {
         const ok = await sendSms(
           b.phone,
-          `Påminnelse: ${service} hos Downtown Barbers ${date} kl. ${time}. Osterhaus' gate 10. Trenger du å endre? Ring +47 463 58 764.`,
+          renderSms(smsTpl.reminder, {
+            fornavn: (b.customer_name ?? "").trim().split(/\s+/)[0] ?? "",
+            navn: b.customer_name ?? "",
+            tjeneste: service,
+            barber,
+            dato: date,
+            tid: time,
+          }),
         );
         if (ok) texted++;
       }
