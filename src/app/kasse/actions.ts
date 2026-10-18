@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { sendBookingConfirmationSms } from "@/lib/sms-booking";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getUserRole, isAdminRole } from "@/lib/auth";
 import { getLoyaltyStatus } from "@/lib/loyalty-queries";
@@ -1156,11 +1157,24 @@ export async function createDeskBooking(
       const { data: bk } = await sb
         .from("bookings")
         .select(
-          "price_nok, start_at, customers(full_name, email), services(name), staff(full_name)",
+          "price_nok, start_at, customers(full_name, email, phone), services(name, duration_min), staff(full_name)",
         )
         .eq("id", newId)
         .maybeSingle();
-      const c = bk?.customers as { full_name?: string; email?: string } | null;
+      const c = bk?.customers as { full_name?: string; email?: string; phone?: string | null } | null;
+      // Bekreftelse på SMS (bare fremtidige timer, se sendBookingConfirmationSms).
+      if (bk && (c?.phone || input.phone)) {
+        const s2 = bk.services as { name?: string; duration_min?: number | null } | null;
+        const st2 = bk.staff as { full_name?: string } | null;
+        await sendBookingConfirmationSms({
+          phone: c?.phone || input.phone,
+          name: c?.full_name ?? input.name ?? "",
+          service: s2?.name ?? input.service,
+          durationMin: s2?.duration_min ?? null,
+          barber: st2?.full_name || input.barber,
+          startIso: bk.start_at as string,
+        });
+      }
       if (bk && c?.email) {
         const s = bk.services as { name?: string } | null;
         const st = bk.staff as { full_name?: string } | null;

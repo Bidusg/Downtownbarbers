@@ -4,16 +4,23 @@
  * standardteksten – så påminnelser virker uansett.
  *
  * Variabler i teksten byttes ut ved utsending:
- *   {fornavn} {navn} {tjeneste} {barber} {dato} {tid}
+ *   {fornavn} {navn} {tjeneste} {varighet} {barber} {dato} {tid} {adresse} {telefon}
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type SmsTemplates = {
+  /** Bekreftelse rett etter at kunden har booket. */
+  confirmation: string;
+  /** Send bekreftelses-SMS? (koster én SMS per booking) */
+  confirmationEnabled: boolean;
   /** Påminnelse dagen før timen. */
   reminder: string;
 };
 
 export const DEFAULT_SMS_TEMPLATES: SmsTemplates = {
+  confirmation:
+    "Hei {fornavn}, dette er en bekreftelse på at du har booket {tjeneste} {varighet} hos {barber} kl. {tid} den {dato}. Vi gleder oss til å se deg på {adresse}. Trenger du å endre? Ring {telefon}.",
+  confirmationEnabled: true,
   reminder:
     "Påminnelse: {tjeneste} hos Downtown Barbers {dato} kl. {tid}. Osterhaus' gate 10. Trenger du å endre? Ring +47 463 58 764.",
 };
@@ -22,9 +29,12 @@ export const SMS_VARIABLES: { key: string; label: string; example: string }[] = 
   { key: "fornavn", label: "Fornavn", example: "Ola" },
   { key: "navn", label: "Fullt navn", example: "Ola Nordmann" },
   { key: "tjeneste", label: "Behandling", example: "Herreklipp" },
+  { key: "varighet", label: "Varighet", example: "30'" },
   { key: "barber", label: "Barber", example: "Kochari" },
   { key: "dato", label: "Dato", example: "fredag 24. oktober" },
   { key: "tid", label: "Klokkeslett", example: "14:30" },
+  { key: "adresse", label: "Adresse", example: "Osterhaus' gate 10" },
+  { key: "telefon", label: "Telefon", example: "+47 463 58 764" },
 ];
 
 /** Bytt ut {variabler}. Ukjente variabler står igjen uendret. */
@@ -67,6 +77,8 @@ export async function getSmsTemplates(sb: SupabaseClient): Promise<SmsTemplates>
     const { data } = await sb.from("settings").select("value").eq("key", "sms_templates").maybeSingle();
     const v = (data?.value ?? {}) as Partial<SmsTemplates>;
     return {
+      confirmation: v.confirmation?.trim() || DEFAULT_SMS_TEMPLATES.confirmation,
+      confirmationEnabled: v.confirmationEnabled !== false,
       reminder: v.reminder?.trim() || DEFAULT_SMS_TEMPLATES.reminder,
     };
   } catch {

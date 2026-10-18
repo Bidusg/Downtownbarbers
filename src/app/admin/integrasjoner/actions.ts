@@ -114,27 +114,35 @@ export async function saveBookingNotify(formData: FormData): Promise<void> {
 
 /* ------------------------------ SMS-TEKSTER ------------------------------ */
 
-/** Lagre påminnelsesteksten. Tom tekst = tilbake til standard. Kun admin. */
+/** Lagre SMS-tekstene. Tom tekst = tilbake til standard. Kun admin. */
 export async function saveSmsTemplates(
   formData: FormData,
 ): Promise<{ ok?: true; error?: string }> {
   const me = await getUserRole();
   if (!me || !isAdminRole(me.role)) return { error: "Ingen tilgang." };
   const reminder = String(formData.get("reminder") ?? "").trim();
-  if (reminder.length > 600) return { error: "Teksten er for lang (maks 600 tegn)." };
+  const confirmation = String(formData.get("confirmation") ?? "").trim();
+  const confirmationEnabled = formData.get("confirmationEnabled") === "true";
+  if (reminder.length > 600 || confirmation.length > 600)
+    return { error: "Teksten er for lang (maks 600 tegn)." };
   const sb = await createClient();
-  const { error } = await sb
-    .from("settings")
-    .upsert(
-      { key: "sms_templates", value: { reminder: reminder || DEFAULT_SMS_TEMPLATES.reminder } },
-      { onConflict: "key" },
-    );
+  const { error } = await sb.from("settings").upsert(
+    {
+      key: "sms_templates",
+      value: {
+        reminder: reminder || DEFAULT_SMS_TEMPLATES.reminder,
+        confirmation: confirmation || DEFAULT_SMS_TEMPLATES.confirmation,
+        confirmationEnabled,
+      },
+    },
+    { onConflict: "key" },
+  );
   if (error) return { error: `Kunne ikke lagre: ${error.message}` };
   revalidatePath("/admin/integrasjoner");
   return { ok: true };
 }
 
-/** Send påminnelsesteksten (med eksempeldata) som test til et nummer. */
+/** Send en SMS-tekst (med eksempeldata) som test til et nummer. */
 export async function sendTemplateTestSms(
   template: string,
   to: string,

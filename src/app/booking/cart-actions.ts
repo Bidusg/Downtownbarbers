@@ -7,6 +7,7 @@ import { getPublicServiceExclusions } from "@/lib/service-catalog-queries";
 import { sendBookingConfirmation, sendNewBookingAlert } from "@/lib/email";
 import { siteUrl } from "@/lib/site-url";
 import { osloToUtcISO } from "@/lib/oslo-time";
+import { sendBookingConfirmationSms } from "@/lib/sms-booking";
 import { isValidEmail, isValidNorwegianPhone, titleCase } from "@/lib/validate";
 import { customerBookingLimited, ipRateLimited, isHoneypotTripped } from "@/lib/abuse-guard";
 
@@ -349,6 +350,32 @@ export async function createBookingGroup(
       });
     } catch {
       /* e-post skal aldri velte en lagret booking */
+    }
+
+    // Bekreftelse på SMS. Varighet = sum av behandlingene i handlekurven.
+    try {
+      const names = Array.from(new Set(input.lines.flatMap((l) => [l.serviceName, ...l.addonNames])));
+      const { data: svcs } = await sb.from("services").select("name, duration_min").in("name", names);
+      const dur = new Map(((svcs ?? []) as { name: string; duration_min: number | null }[]).map((x) => [x.name, x.duration_min ?? 0]));
+      const total = input.mode === "group"
+        ? 0
+        : input.lines.reduce(
+            (sum, l) => sum + (dur.get(l.serviceName) ?? 0) + l.addonNames.reduce((a, n) => a + (dur.get(n) ?? 0), 0),
+            0,
+          );
+      await sendBookingConfirmationSms({
+        phone: input.phone,
+        name,
+        service: summary,
+        durationMin: total || null,
+        barber:
+          input.mode === "group"
+            ? "flere barbere"
+            : (barbers.find((b) => b.name === resolvedBarber)?.display ?? resolvedBarber ?? ""),
+        startIso: osloToUtcISO(input.date, input.time),
+      });
+    } catch {
+      /* SMS skal aldri velte en lagret booking */
     }
 
     // Varsle salongen (innstilling: settings.booking_notify). Aldri blokkerende.

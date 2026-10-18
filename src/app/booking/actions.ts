@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { osloToUtcISO } from "@/lib/oslo-time";
 import { sendBookingConfirmation } from "@/lib/email";
+import { sendBookingConfirmationSms } from "@/lib/sms-booking";
 import { siteUrl } from "@/lib/site-url";
 import { isValidEmail, isValidNorwegianPhone, titleCase } from "@/lib/validate";
 
@@ -126,6 +127,26 @@ export async function createBooking(
       barberPhotoUrl,
       barberTitle,
     });
+
+    // Bekreftelse på SMS (tekst styres i admin → Integrasjoner → SMS-tekster).
+    try {
+      const { data: svc } = await sb
+        .from("services")
+        .select("duration_min")
+        .eq("name", input.serviceName)
+        .limit(1)
+        .maybeSingle();
+      await sendBookingConfirmationSms({
+        phone: input.phone,
+        name,
+        service: input.serviceName,
+        durationMin: (svc?.duration_min as number | null) ?? null,
+        barber: input.barberName,
+        startIso,
+      });
+    } catch {
+      /* SMS skal aldri velte en lagret booking */
+    }
 
     return {
       ok: true,

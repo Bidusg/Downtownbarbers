@@ -213,13 +213,13 @@ export default async function AdminIntegrasjoner({
         <div className="mb-4">
           <h2 className="font-display text-lg font-bold">SMS-tekster</h2>
           <p className="mt-1 text-sm text-muted">
-            Bestem hvordan påminnelsen kunden får dagen før timen er formulert.
-            Trykk på en variabel for å sette inn navn, tid osv. – den fylles
-            ut automatisk for hver kunde. Hold deg under 160 tegn, så koster
-            det én SMS.
+            Bestem hvordan bekreftelsen og påminnelsen til kunden er formulert.
+            Trykk på en variabel for å sette inn navn, tid, barber osv. – den
+            fylles ut automatisk for hver kunde. Hold deg under 160 tegn, så
+            koster det én SMS.
           </p>
         </div>
-        <SmsTemplateForm initial={smsTpl.reminder} />
+        <SmsTemplateForm initial={smsTpl} />
       </div>
     </div>
   );

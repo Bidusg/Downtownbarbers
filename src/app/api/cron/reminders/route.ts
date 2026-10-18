@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { sendBookingReminderEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { getSmsTemplates, renderSms } from "@/lib/sms-templates";
+import { salonSmsVars } from "@/lib/sms-booking";
 import { runFollowups } from "@/lib/followups";
 
 /**
@@ -96,6 +97,7 @@ export async function GET(req: NextRequest) {
     let texted = 0;
     // Redigerbar SMS-tekst (admin → Integrasjoner → SMS-tekster).
     const smsTpl = await getSmsTemplates(sb);
+    const salon = await salonSmsVars();
 
     for (const b of rows) {
       const date = fmtDate(b.start_at);
@@ -128,6 +130,8 @@ export async function GET(req: NextRequest) {
             barber,
             dato: date,
             tid: time,
+            varighet: "",
+            ...salon,
           }),
         );
         if (ok) texted++;
