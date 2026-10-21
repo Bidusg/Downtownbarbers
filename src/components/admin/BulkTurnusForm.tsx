@@ -127,6 +127,14 @@ export function BulkTurnusForm({
               <Input type="time" name="end_time" defaultValue="17:00" required />
             </label>
             <label className="flex flex-col gap-1 text-xs text-muted">
+              Pause fra (valgfritt)
+              <Input type="time" name="pause_start" />
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-muted">
+              Pause til
+              <Input type="time" name="pause_end" />
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-muted">
               Gjelder fra (valgfritt)
               <Input type="date" name="valid_from" />
             </label>

@@ -162,6 +162,14 @@ export function StaffHoursManager({
               <Input name="end_time" type="time" required className="mt-1 block w-full" defaultValue="19:00" />
             </label>
             <label className="text-xs text-muted">
+              Pause fra (valgfritt)
+              <Input name="pause_start" type="time" className="mt-1 block w-full" />
+            </label>
+            <label className="text-xs text-muted">
+              Pause til
+              <Input name="pause_end" type="time" className="mt-1 block w-full" />
+            </label>
+            <label className="text-xs text-muted">
               Gjelder fra (valgfritt)
               <Input name="valid_from" type="date" className="mt-1 block w-full" />
             </label>
@@ -224,6 +232,22 @@ export function StaffHoursManager({
                           defaultValue={h.end_time}
                           className="w-28"
                         />
+                        <span className="text-xs text-muted">Pause</span>
+                        <Input
+                          name="pause_start"
+                          type="time"
+                          defaultValue={h.pause_start ?? ""}
+                          className="w-28"
+                          aria-label="Pause fra"
+                        />
+                        <span className="text-muted">–</span>
+                        <Input
+                          name="pause_end"
+                          type="time"
+                          defaultValue={h.pause_end ?? ""}
+                          className="w-28"
+                          aria-label="Pause til"
+                        />
                         <Select
                           name="week_parity"
                           defaultValue={String(h.week_parity)}
@@ -262,6 +286,11 @@ export function StaffHoursManager({
                       <span className="w-28 text-fg">{WEEKDAYS[h.weekday]}</span>
                       <span className="font-display text-muted">
                         {h.start_time}–{h.end_time}
+                        {h.pause_start && h.pause_end && (
+                          <span className="ml-2 rounded bg-surface-2 px-1.5 py-0.5 text-[11px] text-muted">
+                            Pause {h.pause_start}–{h.pause_end}
+                          </span>
+                        )}
                       </span>
                       <span className="flex items-center gap-1.5">
                         <Badge

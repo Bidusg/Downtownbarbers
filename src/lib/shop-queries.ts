@@ -210,6 +210,8 @@ export type DaySchedule = {
   shopClose: number | null;
   /** Barbernavn → arbeidsblokker denne dagen (tom liste = ikke på jobb). */
   shifts: Record<string, ShiftBlock[]>;
+  /** Barbernavn → faste pauser fra turnusen denne dagen. */
+  pauses: Record<string, { start: number; end: number }[]>;
 };
 
 const toMin = (t: string | null | undefined): number | null => {
@@ -254,8 +256,16 @@ export async function getDaySchedule(date: string): Promise<DaySchedule | null> 
       sb.from("staff").select("id, full_name").eq("active", true),
       sb
         .from("staff_hours")
-        .select("staff_id, weekday, start_time, end_time, week_parity, valid_from, valid_to")
-        .eq("weekday", dow),
+        .select("staff_id, weekday, start_time, end_time, week_parity, valid_from, valid_to, pause_start, pause_end")
+        .eq("weekday", dow)
+        .then(async (r) =>
+          r.error
+            ? await sb
+                .from("staff_hours")
+                .select("staff_id, weekday, start_time, end_time, week_parity, valid_from, valid_to")
+                .eq("weekday", dow)
+            : r,
+        ),
       sb.from("staff_exceptions").select("staff_id, kind, start_time, end_time").eq("date", date),
       sb.from("absences").select("staff_id").lte("from_date", date).gte("to_date", date),
     ]);
@@ -267,6 +277,7 @@ export async function getDaySchedule(date: string): Promise<DaySchedule | null> 
     const parity = typeof parityRes.data === "number" ? parityRes.data : null;
 
     const shifts: Record<string, ShiftBlock[]> = {};
+    const pauses: Record<string, { start: number; end: number }[]> = {};
     const exc = (excRes.data ?? []) as {
       staff_id: string;
       kind: string;
@@ -286,22 +297,32 @@ export async function getDaySchedule(date: string): Promise<DaySchedule | null> 
         if (fullOff || absent.has(st.id)) {
           blocks = [];
         } else {
-          blocks = ((hoursRes.data ?? []) as {
+          const rows = ((hoursRes.data ?? []) as unknown as {
             staff_id: string;
             start_time: string;
             end_time: string;
             week_parity: number | null;
             valid_from: string | null;
             valid_to: string | null;
-          }[])
-            .filter(
-              (h) =>
-                h.staff_id === st.id &&
-                (h.week_parity == null || h.week_parity === 0 || parity == null || h.week_parity === parity) &&
-                (!h.valid_from || h.valid_from <= date) &&
-                (!h.valid_to || h.valid_to >= date),
-            )
-            .map((h) => ({ start: toMin(h.start_time)!, end: toMin(h.end_time)!, kind: "turnus" as const }));
+            pause_start?: string | null;
+            pause_end?: string | null;
+          }[]).filter(
+            (h) =>
+              h.staff_id === st.id &&
+              (h.week_parity == null || h.week_parity === 0 || parity == null || h.week_parity === parity) &&
+              (!h.valid_from || h.valid_from <= date) &&
+              (!h.valid_to || h.valid_to >= date),
+          );
+          blocks = rows.map((h) => ({ start: toMin(h.start_time)!, end: toMin(h.end_time)!, kind: "turnus" as const }));
+          // Fast pause: trekkes fra arbeidstiden og vises som «Pause».
+          for (const h of rows) {
+            const ps = toMin(h.pause_start ?? null);
+            const pe = toMin(h.pause_end ?? null);
+            if (ps != null && pe != null && pe > ps) {
+              blocks = subtract(blocks, ps, pe);
+              (pauses[st.full_name] ??= []).push({ start: ps, end: pe });
+            }
+          }
         }
       }
       for (const e of mine) {
@@ -313,7 +334,7 @@ export async function getDaySchedule(date: string): Promise<DaySchedule | null> 
         .filter((b) => b.end > b.start)
         .sort((a, b) => a.start - b.start);
     }
-    return { shopOpen, shopClose, shifts };
+    return { shopOpen, shopClose, shifts, pauses };
   } catch {
     return null;
   }

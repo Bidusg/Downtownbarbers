@@ -924,6 +924,23 @@ export function DayCalendar({
                               "repeating-linear-gradient(135deg, oklch(var(--surface-2) / 0.45) 0 7px, oklch(var(--line) / 0.35) 7px 9px)",
                           }}
                         />
+                        {(schedule?.pauses?.[col.barber.full_name] ?? []).map((p, i) => {
+                          const s0 = Math.max(p.start, OPEN);
+                          const e0 = Math.min(p.end, CLOSE);
+                          if (e0 <= s0) return null;
+                          return (
+                            <div
+                              key={`pause-${i}`}
+                              aria-hidden
+                              className="pointer-events-none absolute inset-x-0 z-0 flex items-start justify-center border-y border-dashed border-line-2"
+                              style={{ top: (s0 - OPEN) * PX, height: (e0 - s0) * PX }}
+                            >
+                              <span className="mt-0.5 rounded bg-surface px-1.5 text-[10px] font-semibold text-muted">
+                                ☕ Pause {minToHHMM(p.start)}–{minToHHMM(p.end)}
+                              </span>
+                            </div>
+                          );
+                        })}
                         {list.length === 0 && (
                           <div className="pointer-events-none absolute inset-x-0 top-3 z-0 text-center text-[11px] font-semibold text-muted">
                             Ikke på jobb

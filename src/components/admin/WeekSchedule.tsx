@@ -426,8 +426,8 @@ export function WeekSchedule({
                         return (
                           <div
                             key={j}
-                            title={`${h.start_time}–${h.end_time}`}
-                            className="absolute top-0 flex h-6 items-center justify-center rounded"
+                            title={`${h.start_time}–${h.end_time}${h.pause_start && h.pause_end ? ` · pause ${h.pause_start}–${h.pause_end}` : ""}`}
+                            className="absolute top-0 flex h-6 items-center justify-center overflow-hidden rounded"
                             style={{
                               left: `${left}%`,
                               width: `${width}%`,
@@ -437,6 +437,19 @@ export function WeekSchedule({
                             <span className="truncate px-1 text-[10px] font-semibold text-[#211E1A]">
                               {compact(h.start_time)}–{compact(h.end_time)}
                             </span>
+                            {/* Fast pause: lys «hull» i båndet */}
+                            {h.pause_start && h.pause_end && b > a && (
+                              <span
+                                title={`Pause ${h.pause_start}–${h.pause_end}`}
+                                className="absolute top-0 bottom-0 bg-surface/80"
+                                style={{
+                                  left: `${((toMin(h.pause_start) - a) / (b - a)) * 100}%`,
+                                  width: `${((toMin(h.pause_end) - toMin(h.pause_start)) / (b - a)) * 100}%`,
+                                  backgroundImage:
+                                    "repeating-linear-gradient(135deg, transparent 0 3px, oklch(var(--line)) 3px 4px)",
+                                }}
+                              />
+                            )}
                           </div>
                         );
                       })}

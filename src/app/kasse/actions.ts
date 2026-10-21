@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { sendBookingConfirmationSms } from "@/lib/sms-booking";
 import { createServiceClient } from "@/lib/supabase/service";
+import { osloToUtcISO } from "@/lib/oslo-time";
 import { getUserRole, isAdminRole } from "@/lib/auth";
 import { getLoyaltyStatus } from "@/lib/loyalty-queries";
 import { getShopContext } from "@/lib/shop-settings";
@@ -1351,5 +1352,99 @@ export async function getSlots(
     return (data as string[]) ?? [];
   } catch {
     return [];
+  }
+}
+
+
+/* ------------------------------ REBOOK ------------------------------ */
+
+export type RebookOptions = {
+  /** Datoen N uker frem (yyyy-mm-dd). */
+  date: string;
+  /** Samme klokkeslett som timen som nettopp ble betalt. */
+  wantedTime: string;
+  /** Er samme klokkeslett ledig hos samme barber? */
+  sameTimeFree: boolean;
+  /** Nærmeste ledige tider den dagen (når samme tid er tatt). */
+  alternatives: string[];
+  service: string;
+  barber: string;
+  customerName: string;
+  error?: string;
+};
+
+function osloParts(iso: string): { date: string; time: string } {
+  const d = new Date(iso);
+  return {
+    date: d.toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" }),
+    time: d.toLocaleTimeString("en-GB", { timeZone: "Europe/Oslo", hour: "2-digit", minute: "2-digit" }),
+  };
+}
+
+/** Forslag til ny time N uker etter timen som nettopp ble betalt. */
+export async function rebookOptions(bookingId: string, weeks: number): Promise<RebookOptions> {
+  const empty: RebookOptions = {
+    date: "", wantedTime: "", sameTimeFree: false, alternatives: [], service: "", barber: "", customerName: "",
+  };
+  const w = Math.round(Number(weeks));
+  if (!Number.isFinite(w) || w < 1 || w > 52) return { ...empty, error: "Velg 1–52 uker." };
+  try {
+    const sb = await createClient();
+    const { data: b } = await sb
+      .from("bookings")
+      .select("start_at, customers(full_name), services(name), staff(full_name)")
+      .eq("id", bookingId)
+      .maybeSingle();
+    if (!b) return { ...empty, error: "Fant ikke timen." };
+    const service = (b.services as { name?: string } | null)?.name ?? "";
+    const barber = (b.staff as { full_name?: string } | null)?.full_name ?? "";
+    const customerName = (b.customers as { full_name?: string } | null)?.full_name ?? "";
+    if (!service || !barber) return { ...empty, error: "Timen mangler tjeneste eller barber." };
+
+    const { date: d0, time } = osloParts(b.start_at as string);
+    const t = new Date(`${d0}T12:00:00Z`);
+    t.setUTCDate(t.getUTCDate() + w * 7);
+    const date = t.toISOString().slice(0, 10);
+
+    const slots = await getSlots(barber, service, date);
+    const sameTimeFree = slots.includes(time);
+    const toMin = (x: string) => Number(x.slice(0, 2)) * 60 + Number(x.slice(3, 5));
+    const alternatives = sameTimeFree
+      ? []
+      : [...slots].sort((a, c) => Math.abs(toMin(a) - toMin(time)) - Math.abs(toMin(c) - toMin(time))).slice(0, 6).sort();
+    return { date, wantedTime: time, sameTimeFree, alternatives, service, barber, customerName };
+  } catch {
+    return { ...empty, error: "Kunne ikke hente ledige tider." };
+  }
+}
+
+/** Book den nye timen for samme kunde (samme tjeneste og barber). */
+export async function rebookCreate(
+  bookingId: string,
+  date: string,
+  time: string,
+): Promise<{ ok?: true; error?: string }> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time))
+    return { error: "Ugyldig dato/tid." };
+  try {
+    const sb = await createClient();
+    const { data: b } = await sb
+      .from("bookings")
+      .select("customer_id, services(name), staff(full_name)")
+      .eq("id", bookingId)
+      .maybeSingle();
+    if (!b) return { error: "Fant ikke timen." };
+    if (!b.customer_id)
+      return { error: "Timen har ingen kunde registrert (drop-in uten navn) – book ny time via «+ Ny booking»." };
+    const service = (b.services as { name?: string } | null)?.name ?? "";
+    const barber = (b.staff as { full_name?: string } | null)?.full_name ?? "";
+    return await createDeskBooking({
+      customerId: (b.customer_id as string | null) ?? undefined,
+      service,
+      barber,
+      start: osloToUtcISO(date, time),
+    });
+  } catch {
+    return { error: "Kunne ikke booke ny time." };
   }
 }

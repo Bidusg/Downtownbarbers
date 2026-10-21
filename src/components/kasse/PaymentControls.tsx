@@ -1,5 +1,6 @@
 "use client";
 
+import { RebookPanel } from "@/components/kasse/RebookPanel";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   completeBooking,
@@ -78,6 +79,8 @@ export function PaymentControls({
   onDone: () => void;
 }) {
   const [pending, start] = useTransition();
+  // Etter godkjent betaling: vis «Rebook» før vi lukker.
+  const [paid, setPaid] = useState(false);
   // Hvilken betalingsknapp som ble trykket – kun den viser «Registrerer …».
   const [payingMethod, setPayingMethod] = useState<string | null>(null);
   const hasEmail = !!customerEmail;
@@ -239,7 +242,7 @@ export function PaymentControls({
         setError(res.error);
         return; // timen forblir åpen – ikke lukk
       }
-      onDone();
+      setPaid(true);
     });
   }
 
@@ -266,7 +269,7 @@ export function PaymentControls({
         setError(res.error);
         return;
       }
-      onDone();
+      setPaid(true);
     });
   }
 
@@ -347,7 +350,7 @@ export function PaymentControls({
       if (!alive) return;
       if (res.status === "paid") {
         setVippsState("paid");
-        onDone();
+        setPaid(true);
         return;
       }
       if (res.status === "failed") {
@@ -399,6 +402,11 @@ export function PaymentControls({
       </div>
     </div>
   );
+
+  // =================== ETTER BETALING: REBOOK ===================
+  if (paid) {
+    return <RebookPanel bookingId={bookingId} onClose={onDone} />;
+  }
 
   // =================== STEG 1: BEHANDLING ===================
   if (step === 1) {

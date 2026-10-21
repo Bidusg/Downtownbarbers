@@ -7,6 +7,31 @@ import { getUserRole, isAdminRole } from "@/lib/auth";
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
 
 /**
+ * Fast pause i turnusen (valgfri). Begge tomme = ingen pause.
+ * Må ligge innenfor vakten og ha slutt etter start.
+ */
+function readPause(
+  formData: FormData,
+  start: string,
+  end: string,
+): { pause: { pause_start: string | null; pause_end: string | null }; error?: string } {
+  const ps = String(formData.get("pause_start") ?? "").trim().slice(0, 5);
+  const pe = String(formData.get("pause_end") ?? "").trim().slice(0, 5);
+  const none = { pause_start: null, pause_end: null };
+  if (!ps && !pe) return { pause: none };
+  if (!ps || !pe) return { pause: none, error: "Fyll inn både start og slutt på pausen (eller la begge stå tomme)." };
+  if (pe <= ps) return { pause: none, error: "Pausen må slutte etter at den starter." };
+  if (ps < start.slice(0, 5) || pe > end.slice(0, 5)) return { pause: none, error: "Pausen må ligge innenfor vakten." };
+  return { pause: { pause_start: ps, pause_end: pe } };
+}
+
+/** Er feilen at pause-kolonnene ikke finnes ennå (SQL ikke kjørt)? */
+function missingPause(msg: string | undefined): boolean {
+  return !!msg && /pause_(start|end)/.test(msg);
+}
+const PAUSE_SQL_MSG = "Kjør KJØR-I-SUPABASE-TURNUS-PAUSE.sql i Supabase for å kunne lagre pause.";
+
+/**
  * Bulk-turnus: sett arbeidstid for flere ukedager (og paritet) på én gang.
  * F.eks. man–fre 09–17. Kan valgfritt erstatte eksisterende vakter for de
  * valgte dagene (samme paritet) først. Kun admin/eier.
@@ -33,6 +58,8 @@ export async function bulkSetStaffHours(
   if (days.length === 0) return { error: "Velg minst én ukedag." };
   if (!start_time || !end_time || end_time <= start_time)
     return { error: "Sett gyldig start/slutt (slutt etter start)." };
+  const bp = readPause(formData, start_time, end_time);
+  if (bp.error) return { error: bp.error };
 
   const sb = await createClient();
 
@@ -83,9 +110,11 @@ export async function bulkSetStaffHours(
     end_time,
     week_parity,
     ...(valid_from ? { valid_from } : {}),
+    ...(bp.pause.pause_start ? bp.pause : {}),
   }));
   const { error } = await sb.from("staff_hours").insert(rows);
   if (error) {
+    if (missingPause(error.message)) return { error: PAUSE_SQL_MSG };
     if (/valid_from|valid_to/.test(error.message))
       return { error: "Kjør KJØR-I-SUPABASE-TURNUS-FRA-DATO.sql i Supabase først (startdato-støtte)." };
     return { error: `Kunne ikke lagre turnus: ${error.message}` };
@@ -248,12 +277,18 @@ export async function createStaffHour(formData: FormData): Promise<Res> {
   const valid_from = /^\d{4}-\d{2}-\d{2}$/.test(rawFrom) ? rawFrom : null;
   if (!staff_id || Number.isNaN(weekday) || !start_time || !end_time) return { error: "Fyll inn ansatt, ukedag og tider." };
   if (end_time <= start_time) return { error: "Slutt må være etter start." };
+  const cp = readPause(formData, start_time, end_time);
+  if (cp.error) return { error: cp.error };
   const clash = await turnusConflict(sb, staff_id, weekday, week_parity, start_time, end_time, valid_from);
   if (clash) return { error: clash };
   const { error } = await sb
     .from("staff_hours")
-    .insert({ staff_id, weekday, start_time, end_time, week_parity, ...(valid_from ? { valid_from } : {}) });
-  if (error) return { error: `Kunne ikke lagre: ${error.message}` };
+    .insert({
+      staff_id, weekday, start_time, end_time, week_parity,
+      ...(valid_from ? { valid_from } : {}),
+      ...(cp.pause.pause_start ? cp.pause : {}),
+    });
+  if (error) return { error: missingPause(error.message) ? PAUSE_SQL_MSG : `Kunne ikke lagre: ${error.message}` };
   revalidateSchedule();
   return { ok: true };
 }
@@ -276,6 +311,8 @@ export async function updateStaffHour(formData: FormData): Promise<Res> {
   if (!(Number.isInteger(week_parity) && week_parity >= 0 && week_parity <= 6))
     week_parity = 0;
   if (!id || !start_time || !end_time || end_time <= start_time) return { error: "Slutt må være etter start." };
+  const up = readPause(formData, start_time, end_time);
+  if (up.error) return { error: up.error };
   const { data: cur } = await sb.from("staff_hours").select("staff_id, weekday, valid_from").eq("id", id).maybeSingle();
   if (!cur) return { error: "Fant ikke vakten." };
   const clash = await turnusConflict(
@@ -283,7 +320,15 @@ export async function updateStaffHour(formData: FormData): Promise<Res> {
     ((cur as Record<string, unknown>).valid_from as string | null) ?? null, id,
   );
   if (clash) return { error: clash };
-  const { error } = await sb.from("staff_hours").update({ start_time, end_time, week_parity }).eq("id", id);
+  let { error } = await sb
+    .from("staff_hours")
+    .update({ start_time, end_time, week_parity, ...up.pause })
+    .eq("id", id);
+  // Før pause-SQL er kjørt: lagre resten hvis det ikke ble satt pause.
+  if (error && missingPause(error.message)) {
+    if (up.pause.pause_start) return { error: PAUSE_SQL_MSG };
+    ({ error } = await sb.from("staff_hours").update({ start_time, end_time, week_parity }).eq("id", id));
+  }
   if (error) return { error: `Kunne ikke lagre: ${error.message}` };
   revalidateSchedule();
   return { ok: true };

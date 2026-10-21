@@ -566,6 +566,8 @@ export type StaffHour = {
   week_parity: number; // 0 = hver uke, 1 = uke A, 2 = uke B
   valid_from?: string | null; // turnus starter (YYYY-MM-DD), null = alltid
   valid_to?: string | null; // turnus slutter, null = løpende
+  pause_start?: string | null; // fast pause (HH:MM), null = ingen
+  pause_end?: string | null;
 };
 
 export const WEEKDAYS = [
@@ -582,12 +584,14 @@ export async function getStaffHours(): Promise<StaffHour[]> {
   try {
     const sb = await createClient();
     const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" });
-    const first = await sb
-      .from("staff_hours")
-      .select("id, staff_id, weekday, start_time, end_time, week_parity, valid_from, valid_to, staff(full_name)")
-      .order("weekday")
-      .order("valid_from", { ascending: true, nullsFirst: true });
-    let data: Record<string, unknown>[] | null = first.data as Record<string, unknown>[] | null;
+    const sel = (cols: string) =>
+      sb.from("staff_hours").select(cols).order("weekday").order("valid_from", { ascending: true, nullsFirst: true });
+    let first = await sel(
+      "id, staff_id, weekday, start_time, end_time, week_parity, valid_from, valid_to, pause_start, pause_end, staff(full_name)",
+    );
+    // Før TURNUS-PAUSE er kjørt: hent uten pause-kolonnene.
+    if (first.error) first = await sel("id, staff_id, weekday, start_time, end_time, week_parity, valid_from, valid_to, staff(full_name)");
+    let data: Record<string, unknown>[] | null = first.data as unknown as Record<string, unknown>[] | null;
     if (first.error) {
       // Før TURNUS-FRA-DATO er kjørt finnes ikke datokolonnene.
       const fb = await sb
@@ -611,6 +615,8 @@ export async function getStaffHours(): Promise<StaffHour[]> {
         week_parity: Number(r.week_parity ?? 0),
         valid_from: ((r as { valid_from?: string | null }).valid_from ?? null) as string | null,
         valid_to: ((r as { valid_to?: string | null }).valid_to ?? null) as string | null,
+        pause_start: ((r as { pause_start?: string | null }).pause_start ?? null)?.slice(0, 5) ?? null,
+        pause_end: ((r as { pause_end?: string | null }).pause_end ?? null)?.slice(0, 5) ?? null,
       };
     });
   } catch {
