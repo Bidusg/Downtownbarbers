@@ -4,6 +4,7 @@ import { sendBookingReminderEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { getSmsTemplates, renderSms } from "@/lib/sms-templates";
 import { salonSmsVars } from "@/lib/sms-booking";
+import { staffDisplayName } from "@/lib/staff-display";
 import { runFollowups } from "@/lib/followups";
 
 /**
@@ -127,7 +128,7 @@ export async function GET(req: NextRequest) {
             fornavn: (b.customer_name ?? "").trim().split(/\s+/)[0] ?? "",
             navn: b.customer_name ?? "",
             tjeneste: service,
-            barber,
+            barber: await staffDisplayName(barber),
             dato: date,
             tid: time,
             varighet: "",

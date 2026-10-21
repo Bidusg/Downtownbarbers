@@ -2,6 +2,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getSiteSettings } from "@/lib/site-settings";
 import { sendSms } from "@/lib/sms";
 import { getSmsTemplates, renderSms } from "@/lib/sms-templates";
+import { staffDisplayName } from "@/lib/staff-display";
 
 /** Felles verdier for {adresse} og {telefon} (fra nettside-innstillingene). */
 export async function salonSmsVars(): Promise<{ adresse: string; telefon: string }> {
@@ -56,7 +57,7 @@ export async function sendBookingConfirmationSms(o: {
       navn: o.name.trim(),
       tjeneste: o.service,
       varighet: o.durationMin ? `${o.durationMin}'` : "",
-      barber: o.barber,
+      barber: await staffDisplayName(o.barber),
       dato: smsDate(o.startIso),
       tid: smsTime(o.startIso),
       ...salon,

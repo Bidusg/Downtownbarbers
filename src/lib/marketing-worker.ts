@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/service";
+import { staffDisplayName } from "@/lib/staff-display";
 import { renderMarketingEmail, sendEmailBatch } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { siteUrl } from "@/lib/site-url";
@@ -131,16 +132,20 @@ export async function runMarketingWorker(): Promise<{ sent: number; failed: numb
               photo_url: string | null;
             }[]).map((s) => [s.full_name, s]),
           );
-          barbers = names.map((n) => {
-            const s = byName.get(n);
-            return s
-              ? {
-                  name: s.full_name,
-                  title: s.title ?? undefined,
-                  photoUrl: s.photo_url ?? undefined,
-                }
-              : { name: n };
-          });
+          barbers = await Promise.all(
+            names.map(async (n) => {
+              const s = byName.get(n);
+              const displayName = await staffDisplayName(n);
+              return s
+                ? {
+                    name: s.full_name,
+                    displayName,
+                    title: s.title ?? undefined,
+                    photoUrl: s.photo_url ?? undefined,
+                  }
+                : { name: n, displayName };
+            }),
+          );
         }
       }
       const items = rows.map((r) => ({

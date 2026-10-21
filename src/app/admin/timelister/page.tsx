@@ -4,6 +4,7 @@ import { BulkTurnusForm } from "@/components/admin/BulkTurnusForm";
 import { BookingBlocksManager } from "@/components/admin/BookingBlocksManager";
 import { RotationControl } from "@/components/admin/RotationControl";
 import { WeekSchedule } from "@/components/admin/WeekSchedule";
+import { TurnusOverview } from "@/components/admin/TurnusOverview";
 import {
   getStaffHours,
   getStaffOptions,
@@ -30,7 +31,7 @@ function weekStartFor(sel: number, current: number, weeks: number): string {
 export default async function AdminTimelister({
   searchParams,
 }: {
-  searchParams: Promise<{ uke?: string }>;
+  searchParams: Promise<{ uke?: string; ansatt?: string; vis?: string }>;
 }) {
   const sp = await searchParams;
   const [hours, staff, rotation, exceptions, blocks, absences] = await Promise.all([
@@ -49,12 +50,31 @@ export default async function AdminTimelister({
   const selected =
     Number.isInteger(req) && req >= 1 && req <= weeks ? req : rotation.currentIndex;
 
+  // Filter: én ansatt (eller alle) + visning (ukeplan / uke for uke).
+  const who = staff.find((s) => s.id === sp.ansatt)?.id ?? null;
+  const view: "plan" | "uker" = sp.vis === "uker" ? "uker" : "plan";
+  const shownStaff = who ? staff.filter((s) => s.id === who) : staff;
+  const shownHours = who ? hours.filter((h) => h.staff_id === who) : hours;
+  const shownExceptions = who ? exceptions.filter((e) => e.staff_id === who) : exceptions;
+  const href = (o: { uke?: number; ansatt?: string | null; vis?: string }) => {
+    const q = new URLSearchParams();
+    const u = o.uke ?? selected;
+    if (u) q.set("uke", String(u));
+    const a = o.ansatt === undefined ? who : o.ansatt;
+    if (a) q.set("ansatt", a);
+    const v = o.vis ?? view;
+    if (v !== "plan") q.set("vis", v);
+    return `/admin/timelister?${q.toString()}`;
+  };
+  const chip = (active: boolean) =>
+    "act " + (active ? "act-accent ring-1 ring-accent-soft" : "");
+
   const tab = (idx: number) => {
     const active = idx === selected;
     return (
       <a
         key={idx}
-        href={`/admin/timelister?uke=${idx}`}
+        href={href({ uke: idx })}
         className={
           "border-b-2 px-4 py-2 text-sm transition-colors " +
           (active
@@ -76,6 +96,39 @@ export default async function AdminTimelister({
 
       <RotationControl weeks={weeks} />
 
+      {/* Filter: ansatt + visning */}
+      <div className="mb-5 space-y-3 rounded-lg border border-line bg-surface p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-xs font-semibold tracking-wide text-muted uppercase">Ansatt</span>
+          <a href={href({ ansatt: null })} className={chip(!who)}>
+            Alle
+          </a>
+          {staff.map((s) => (
+            <a key={s.id} href={href({ ansatt: s.id })} className={chip(who === s.id)}>
+              {s.full_name}
+            </a>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-xs font-semibold tracking-wide text-muted uppercase">Visning</span>
+          <a href={href({ vis: "plan" })} className={chip(view === "plan")}>
+            Ukeplan
+          </a>
+          <a href={href({ vis: "uker" })} className={chip(view === "uker")}>
+            Uke for uke (hele rotasjonen)
+          </a>
+        </div>
+      </div>
+
+      {view === "uker" ? (
+        <TurnusOverview
+          hours={shownHours}
+          staff={shownStaff}
+          weeks={weeks}
+          currentIndex={rotation.currentIndex}
+        />
+      ) : (
+      <>
       {weeks > 1 && (
         <div className="mb-4 flex items-center justify-between border-b border-line">
           <div className="flex flex-wrap items-center gap-1">
@@ -91,19 +144,21 @@ export default async function AdminTimelister({
       )}
 
       <WeekSchedule
-        hours={hours}
-        staff={staff}
+        hours={shownHours}
+        staff={shownStaff}
         parity={selected}
         weekStart={weekStartFor(selected, rotation.currentIndex, weeks)}
-        exceptions={exceptions}
-        absences={absences}
+        exceptions={shownExceptions}
+        absences={who ? absences.filter((a) => a.staff_id === who) : absences}
       />
+      </>
+      )}
 
       <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted uppercase">
         Rediger turnus
       </h2>
       <BulkTurnusForm staff={staff} weeks={weeks} />
-      <StaffHoursManager hours={hours} staff={staff} weeks={weeks} />
+      <StaffHoursManager hours={shownHours} staff={shownStaff} weeks={weeks} />
 
       <div className="mt-10 mb-3">
         <h2 className="text-xs font-semibold tracking-wide text-muted uppercase">

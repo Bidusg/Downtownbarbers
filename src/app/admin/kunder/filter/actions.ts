@@ -1,5 +1,6 @@
 "use server";
 
+import { staffDisplayName } from "@/lib/staff-display";
 import { createClient } from "@/lib/supabase/server";
 import { getUserRole, isAdminRole } from "@/lib/auth";
 import {
@@ -41,16 +42,20 @@ async function resolveBarbers(names: string[]): Promise<BarberInfo[]> {
         photo_url: string | null;
       }[]).map((s) => [s.full_name, s]),
     );
-    return clean.map((n) => {
-      const s = byName.get(n);
-      return s
-        ? {
-            name: s.full_name,
-            title: s.title ?? undefined,
-            photoUrl: s.photo_url ?? undefined,
-          }
-        : { name: n };
-    });
+    return await Promise.all(
+      clean.map(async (n) => {
+        const s = byName.get(n);
+        const displayName = await staffDisplayName(n);
+        return s
+          ? {
+              name: s.full_name,
+              displayName,
+              title: s.title ?? undefined,
+              photoUrl: s.photo_url ?? undefined,
+            }
+          : { name: n, displayName };
+      }),
+    );
   } catch {
     return clean.map((n) => ({ name: n }));
   }

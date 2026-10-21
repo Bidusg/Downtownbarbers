@@ -12,6 +12,7 @@
 
 import { salon } from "@/lib/data/salon";
 import { siteUrl } from "@/lib/site-url";
+import { staffDisplayName } from "@/lib/staff-display";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
@@ -283,6 +284,8 @@ export async function sendBookingConfirmation(opts: {
   barberTitle?: string;
   barberPhotoUrl?: string;
 }): Promise<void> {
+  // Visningsnavn (som på nettsiden) i stedet for fullt navn.
+  opts = { ...opts, barber: await staffDisplayName(opts.barber) };
   const portalLink = opts.portalUrl
     ? `<p style="margin:18px 0 8px">
          <a href="${opts.portalUrl}"
@@ -371,6 +374,8 @@ export async function sendReceiptEmail(opts: {
   /** Splittbetaling: vises som «Kontant 200 kr · Kort 300 kr». */
   payments?: { method: string; amount: number }[];
 }): Promise<void> {
+  // Visningsnavn (som på nettsiden) i stedet for fullt navn.
+  opts = { ...opts, barber: await staffDisplayName(opts.barber) };
   const rows: [string, string][] = [
     ["Tjeneste", escapeHtml(opts.service)],
     ["Barber", escapeHtml(opts.barber)],
@@ -404,6 +409,8 @@ export async function sendNoShowEmail(opts: {
   date: string;
   fee?: string; // f.eks. "150 kr" – utelates hvis ikke satt
 }): Promise<boolean> {
+  // Visningsnavn (som på nettsiden) i stedet for fullt navn.
+  opts = { ...opts, barber: await staffDisplayName(opts.barber) };
   const site = siteUrl();
   const rows: [string, string][] = [
     ["Tjeneste", escapeHtml(opts.service)],
@@ -438,6 +445,8 @@ export async function sendBookingReminderEmail(opts: {
   barberTitle?: string;
   barberPhotoUrl?: string;
 }): Promise<boolean> {
+  // Visningsnavn (som på nettsiden) i stedet for fullt navn.
+  opts = { ...opts, barber: await staffDisplayName(opts.barber) };
   const html = shell(
     "Påminnelse om timen din",
     `Hei ${escapeHtml(
@@ -695,9 +704,9 @@ export function renderMarketingEmail(opts: {
   /** Type utsending – styrer oppsett: 'standard' | 'ny_barber' | 'kampanje'. */
   emailType?: string;
   /** Fremhevet barber (brukes av 'ny_barber'): bilde + egen bestill-knapp. */
-  barber?: { name: string; title?: string; photoUrl?: string };
+  barber?: { name: string; displayName?: string; title?: string; photoUrl?: string };
   /** Flere fremhevede barbere – hver får eget kort + «Bestill hos …»-knapp. */
-  barbers?: { name: string; title?: string; photoUrl?: string }[];
+  barbers?: { name: string; displayName?: string; title?: string; photoUrl?: string }[];
 }): string {
   const site = siteUrl();
   const paragraphs = opts.body
@@ -720,14 +729,15 @@ export function renderMarketingEmail(opts: {
         : []
   ).filter((b) => b && b.name.trim());
   const hasBarber = list.length > 0;
+  // Visningsnavn i teksten (displayName), fullt navn i bestill-lenken.
   const barberHtml = hasBarber
     ? list
         .map(
           (b) =>
-            barberBlock(b) +
+            barberBlock({ ...b, name: b.displayName?.trim() || b.name }) +
             ctaButton(
               `${site}/booking?barber=${encodeURIComponent(b.name)}`,
-              `Bestill time hos ${escapeHtml(b.name.split(" ")[0])}`,
+              `Bestill time hos ${escapeHtml((b.displayName?.trim() || b.name).split(" ")[0])}`,
             ),
         )
         .join("")
