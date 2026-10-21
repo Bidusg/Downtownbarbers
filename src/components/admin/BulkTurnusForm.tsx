@@ -30,6 +30,28 @@ export function BulkTurnusForm({
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState(false);
   const [pending, start] = useTransition();
+  // Arbeidstid + pause (styrt, så pausen kan forhåndsutfylles og oppsummeres).
+  const [from, setFrom] = useState("09:00");
+  const [to, setTo] = useState("17:00");
+  const [withPause, setWithPause] = useState(false);
+  const [pStart, setPStart] = useState("13:00");
+  const [pLen, setPLen] = useState(30);
+  const addMin = (hhmm: string, min: number) => {
+    const [h, m] = hhmm.split(":").map(Number);
+    const t = Math.min(23 * 60 + 59, h * 60 + m + min);
+    return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
+  };
+  const pEnd = addMin(pStart, pLen);
+  const pauseOk = !withPause || (pStart >= from && pEnd <= to && pEnd > pStart);
+
+  const step = (n: number, title: string) => (
+    <p className="mb-2 flex items-center gap-2 text-xs font-semibold tracking-wide text-fg uppercase">
+      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-accent-soft/15 text-[11px] text-accent-soft">
+        {n}
+      </span>
+      {title}
+    </p>
+  );
 
   return (
     <Card className="mb-6">
@@ -37,7 +59,7 @@ export function BulkTurnusForm({
         <div>
           <h3 className="font-semibold text-fg">Bulk-turnus</h3>
           <p className="text-xs text-muted">
-            Sett arbeidstid for flere dager på én gang (f.eks. man–fre 09–17).
+            Sett arbeidstid og fast pause for flere dager på én gang (f.eks. man–fre 10–19, pause 13–13:30).
           </p>
         </div>
         <Button
@@ -48,7 +70,7 @@ export function BulkTurnusForm({
           }}
           className="rounded-md px-3 py-1.5 text-xs"
         >
-          {open ? "Lukk" : "Åpne"}
+          {open ? "Lukk" : "Sett turnus"}
         </Button>
       </div>
 
@@ -67,8 +89,10 @@ export function BulkTurnusForm({
               }
             })
           }
-          className="mt-4 space-y-3"
+          className="mt-4 space-y-5"
         >
+          <div>
+          {step(1, "Hvem og hvilken uke")}
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1 text-xs text-muted">
               Ansatt
@@ -96,9 +120,10 @@ export function BulkTurnusForm({
               </Select>
             </label>
           </div>
+          </div>
 
           <div>
-            <span className="mb-1 block text-xs text-muted">Dager</span>
+            {step(2, "Dager")}
             <div className="flex flex-wrap gap-1.5">
               {DAYS.map((d) => (
                 <label
@@ -117,42 +142,97 @@ export function BulkTurnusForm({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1 text-xs text-muted">
-              Fra
-              <Input type="time" name="start_time" defaultValue="09:00" required />
-            </label>
-            <label className="flex flex-col gap-1 text-xs text-muted">
-              Til
-              <Input type="time" name="end_time" defaultValue="17:00" required />
-            </label>
-            <label className="flex flex-col gap-1 text-xs text-muted">
-              Pause fra (valgfritt)
-              <Input type="time" name="pause_start" />
-            </label>
-            <label className="flex flex-col gap-1 text-xs text-muted">
-              Pause til
-              <Input type="time" name="pause_end" />
-            </label>
-            <label className="flex flex-col gap-1 text-xs text-muted">
-              Gjelder fra (valgfritt)
-              <Input type="date" name="valid_from" />
-            </label>
-            <label className="flex items-center gap-2 text-xs text-muted">
-              <input type="checkbox" name="replace" className="accent-accent" />
-              Erstatt eksisterende for valgte dager
-            </label>
+          <div>
+            {step(3, "Arbeidstid")}
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="flex flex-col gap-1 text-xs text-muted">
+                Fra
+                <Input type="time" name="start_time" value={from} onChange={(e) => setFrom(e.target.value)} required />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-muted">
+                Til
+                <Input type="time" name="end_time" value={to} onChange={(e) => setTo(e.target.value)} required />
+              </label>
+            </div>
           </div>
-          <p className="text-xs text-muted">
-            Tom dato = gjelder med en gang. Med dato starter turnusen den dagen – kunder kan
-            booke fra da av. Kryss av «Erstatt» for å la den gamle turnusen gå frem til dagen før.
+
+          {/* Fast pause – eget, tydelig steg */}
+          <div className="rounded-lg border border-line bg-surface-2 p-3">
+            {step(4, "Fast pause (valgfritt)")}
+            <label className="flex items-center gap-2 text-sm text-fg">
+              <input
+                type="checkbox"
+                checked={withPause}
+                onChange={(e) => setWithPause(e.target.checked)}
+                className="accent-accent"
+              />
+              Legg inn fast pause hver av disse dagene
+            </label>
+            {withPause && (
+              <div className="mt-3 flex flex-wrap items-end gap-3">
+                <label className="flex flex-col gap-1 text-xs text-muted">
+                  Pausen starter
+                  <Input type="time" value={pStart} onChange={(e) => setPStart(e.target.value)} />
+                </label>
+                <div className="flex flex-col gap-1 text-xs text-muted">
+                  Lengde
+                  <div className="flex gap-1.5">
+                    {[15, 30, 45, 60].map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setPLen(m)}
+                        className={"act " + (pLen === m ? "act-accent ring-1 ring-accent-soft" : "")}
+                      >
+                        {m} min
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <p className="pb-2 text-sm text-fg">
+                  Pause <span className="font-semibold">{pStart}–{pEnd}</span>
+                </p>
+                <input type="hidden" name="pause_start" value={pStart} />
+                <input type="hidden" name="pause_end" value={pEnd} />
+              </div>
+            )}
+            {withPause && !pauseOk && (
+              <p className="mt-2 text-xs text-danger">Pausen må ligge innenfor arbeidstiden ({from}–{to}).</p>
+            )}
+          </div>
+
+          <div>
+            {step(5, "Når gjelder den")}
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="flex flex-col gap-1 text-xs text-muted">
+                Gjelder fra (valgfritt)
+                <Input type="date" name="valid_from" />
+              </label>
+              <label className="flex items-center gap-2 text-xs text-muted">
+                <input type="checkbox" name="replace" className="accent-accent" />
+                Erstatt eksisterende for valgte dager
+              </label>
+            </div>
+            <p className="mt-2 text-xs text-muted">
+              Tom dato = gjelder med en gang. Med dato starter turnusen den dagen – kunder kan
+              booke fra da av. Kryss av «Erstatt» for å la den gamle turnusen gå frem til dagen før.
+            </p>
+          </div>
+
+          <p className="rounded-md bg-accent-soft/10 px-3 py-2 text-sm text-fg">
+            Lagres som: <span className="font-semibold">{from}–{to}</span>
+            {withPause && (
+              <>
+                {" "}med pause <span className="font-semibold">{pStart}–{pEnd}</span>
+              </>
+            )}
           </p>
 
           <div className="flex items-center gap-3">
             <Button
               type="submit"
               variant="primary"
-              disabled={pending}
+              disabled={pending || !pauseOk}
               className="px-4 py-2 text-sm"
             >
               {pending ? "Lagrer …" : "Lagre turnus"}
