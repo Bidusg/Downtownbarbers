@@ -15,10 +15,11 @@ export function ResetForm() {
     >
       <p className="text-sm text-muted">Velg et nytt passord for kontoen din.</p>
       <div>
-        <label className="mb-1.5 block text-xs font-semibold tracking-wide text-muted uppercase">
+        <label htmlFor="f-password" className="mb-1.5 block text-xs font-semibold tracking-wide text-muted uppercase">
           Nytt passord
         </label>
         <input
+            id="f-password"
           type="password"
           name="password"
           required
@@ -28,10 +29,11 @@ export function ResetForm() {
         />
       </div>
       <div>
-        <label className="mb-1.5 block text-xs font-semibold tracking-wide text-muted uppercase">
+        <label htmlFor="f-confirm" className="mb-1.5 block text-xs font-semibold tracking-wide text-muted uppercase">
           Gjenta passord
         </label>
         <input
+            id="f-confirm"
           type="password"
           name="confirm"
           required
@@ -41,7 +43,7 @@ export function ResetForm() {
         />
       </div>
 
-      {state.error && <p className="text-sm text-danger">{state.error}</p>}
+      {state.error && <p role="alert" className="text-sm text-danger">{state.error}</p>}
 
       <button
         type="submit"

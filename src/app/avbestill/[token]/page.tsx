@@ -3,8 +3,13 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { T, TDyn } from "@/lib/i18n/T";
 import { PortalDate } from "@/components/portal/PortalDate";
+import { PublicPage } from "@/components/site/PublicPage";
+import { CancelSubmit } from "./CancelSubmit";
+import { PUBLIC_VIEWPORT } from "@/lib/public-viewport";
 
 export const dynamic = "force-dynamic";
+export const viewport = PUBLIC_VIEWPORT;
+export const metadata = { title: "Avbestill time | Downtown Barbers", robots: { index: false } };
 
 type BookingRow = {
   service_name: string | null;
@@ -26,11 +31,11 @@ async function cancelAction(formData: FormData) {
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <main className="mx-auto flex min-h-[70vh] max-w-lg items-center px-5 py-16">
-      <div className="w-full border border-line bg-surface p-8 text-center">
+    <PublicPage narrow>
+      <div className="rounded-[28px] bg-surface p-8 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04),0_20px_60px_-30px_rgba(0,0,0,0.25)] sm:p-12">
         {children}
       </div>
-    </main>
+    </PublicPage>
   );
 }
 
@@ -51,9 +56,9 @@ export default async function AvbestillPage({
     const bodyKey = key === "not_found" ? "portal.linkInvalid" : `cancelpage.${key}.p`;
     return (
       <Card>
-        <h1 className="font-display text-2xl font-bold text-fg"><T k={`cancelpage.${key}.h`} /></h1>
-        <p className="mt-3 text-sm text-muted"><T k={bodyKey} /></p>
-        <Link href="/" className="mt-6 inline-block text-sm text-accent-soft hover:underline">
+        <h1 className="m-title text-3xl sm:text-4xl"><T k={`cancelpage.${key}.h`} /></h1>
+        <p className="mt-4 text-muted"><T k={bodyKey} /></p>
+        <Link href="/" className="pill pill-soft mt-8">
           <T k="common.toFront" />
         </Link>
       </Card>
@@ -67,9 +72,9 @@ export default async function AvbestillPage({
   if (!b || !b.start_at) {
     return (
       <Card>
-        <h1 className="font-display text-2xl font-bold text-fg"><T k="cancelpage.not_found.h" /></h1>
-        <p className="mt-3 text-sm text-muted"><T k="portal.linkInvalid" /></p>
-        <Link href="/" className="mt-6 inline-block text-sm text-accent-soft hover:underline"><T k="common.toFront" /></Link>
+        <h1 className="m-title text-3xl sm:text-4xl"><T k="cancelpage.not_found.h" /></h1>
+        <p className="mt-4 text-muted"><T k="portal.linkInvalid" /></p>
+        <Link href="/" className="pill pill-soft mt-8"><T k="common.toFront" /></Link>
       </Card>
     );
   }
@@ -77,9 +82,9 @@ export default async function AvbestillPage({
   if (b.status === "cancelled") {
     return (
       <Card>
-        <h1 className="font-display text-2xl font-bold text-fg"><T k="cancelpage.already.h" /></h1>
-        <p className="mt-3 text-sm text-muted"><T k="cancelpage.already.p" /></p>
-        <Link href="/booking" className="mt-6 inline-block text-sm text-accent-soft hover:underline"><T k="common.bookNew" /></Link>
+        <h1 className="m-title text-3xl sm:text-4xl"><T k="cancelpage.already.h" /></h1>
+        <p className="mt-4 text-muted"><T k="cancelpage.already.p" /></p>
+        <Link href="/booking" className="pill pill-soft mt-8"><T k="common.bookNew" /></Link>
       </Card>
     );
   }
@@ -88,39 +93,32 @@ export default async function AvbestillPage({
 
   return (
     <Card>
-      <p className="text-[11px] font-semibold tracking-[0.3em] text-accent-soft uppercase">
-        Downtown Barbers
-      </p>
-      <h1 className="mt-2 font-display text-2xl font-bold text-fg"><T k="cancelpage.title" /></h1>
-      <div className="mx-auto mt-6 max-w-xs space-y-2 text-left text-sm">
-        <div className="flex justify-between border-b border-line pb-2">
+      <p className="m-eyebrow">Downtown Barbers</p>
+      <h1 className="m-title mt-2 text-3xl sm:text-4xl"><T k="cancelpage.title" /></h1>
+      <div className="mx-auto mt-8 max-w-sm divide-y divide-line rounded-2xl bg-canvas px-5 text-left text-[15px]">
+        <div className="flex justify-between gap-4 py-3.5">
           <span className="text-muted"><T k="cancelpage.service" /></span>
           <span className="font-medium text-fg">{b.service_name ? <TDyn text={b.service_name} map="services" /> : "—"}</span>
         </div>
-        <div className="flex justify-between border-b border-line pb-2">
+        <div className="flex justify-between gap-4 py-3.5">
           <span className="text-muted"><T k="cancelpage.barber" /></span>
           <span className="font-medium text-fg">{b.barber_name ?? "—"}</span>
         </div>
-        <div className="flex justify-between border-b border-line pb-2">
+        <div className="flex justify-between gap-4 py-3.5">
           <span className="text-muted"><T k="cancelpage.time" /></span>
-          <span className="font-medium capitalize text-fg"><PortalDate iso={b.start_at} withTime /></span>
+          <span className="text-right font-medium capitalize text-fg"><PortalDate iso={b.start_at} withTime /></span>
         </div>
       </div>
 
       {past ? (
-        <p className="mt-6 text-sm text-muted">
+        <p className="mt-8 text-muted">
           <T k="cancelpage.pastNote" />
         </p>
       ) : (
         <form action={cancelAction} className="mt-8">
           <input type="hidden" name="token" value={token} />
-          <button
-            type="submit"
-            className="w-full bg-danger px-6 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-          >
-            <T k="cancelpage.yes" />
-          </button>
-          <Link href="/" className="mt-4 inline-block text-sm text-muted hover:text-fg">
+          <CancelSubmit />
+          <Link href="/" className="pill pill-soft mt-3 w-full">
             <T k="cancelpage.no" />
           </Link>
         </form>

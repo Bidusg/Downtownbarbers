@@ -23,7 +23,9 @@ export function TierBadge({
       style={{
         borderColor: safe ? `${safe}66` : "var(--color-line-2, #444)",
         backgroundColor: safe ? `${safe}1f` : "var(--color-surface-2, #222)",
-        color: safe ?? "inherit",
+        // Teksten holdes i vanlig tekstfarge (lesbar på lys bakgrunn);
+        // nivåfargen vises i prikken og kanten.
+        color: "inherit",
       }}
     >
       <span

@@ -15,9 +15,9 @@ const initial: ProfilState = {};
 
 /** Liten status-linje (suksess/feil) under hvert skjema. */
 function Status({ state }: { state: ProfilState }) {
-  if (state.error) return <p className="text-sm text-danger">{state.error}</p>;
+  if (state.error) return <p role="alert" className="text-sm text-danger">{state.error}</p>;
   if (state.ok && state.message)
-    return <p className="text-sm text-accent-soft">{state.message}</p>;
+    return <p role="status" className="text-sm text-accent-ink">{state.message}</p>;
   return null;
 }
 

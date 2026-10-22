@@ -44,3 +44,11 @@ export function SplitRevealT({
   const { t } = useLanguage();
   return <SplitReveal text={t(k)} {...rest} />;
 }
+
+/** Ordbok-oppslag med variabler: <TF k="portal.hiName" vars={{ name: "Ola" }} /> → «Hei, Ola.» */
+export function TF({ k, vars }: { k: string; vars: Record<string, string | number> }) {
+  const { t } = useLanguage();
+  let out = t(k);
+  for (const [key, val] of Object.entries(vars)) out = out.split(`{${key}}`).join(String(val));
+  return <>{out}</>;
+}

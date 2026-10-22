@@ -9,6 +9,13 @@ import {
 } from "@/app/min-side/[token]/actions";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
+/* =====================================================================
+ * KOMMENDE TIMER på Min side – med selvbetjening:
+ *   • Endre tid: velg dag (neste 3 uker) → velg tid → bekreft flyttingen.
+ *   • Avbestill: bekreftes i kortet før noe skjer.
+ *   Tider vises på hel og halv time (samme som bookingen).
+ * ===================================================================== */
+
 export type UpcomingBooking = {
   id: string;
   start_at: string;
@@ -19,20 +26,6 @@ export type UpcomingBooking = {
 
 const OSLO = "Europe/Oslo";
 
-function fmtWhen(iso: string, locale: string) {
-  try {
-    return new Date(iso).toLocaleString(locale, {
-      timeZone: OSLO,
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
-}
 function osloYmd(d: Date) {
   // en-CA gir yyyy-mm-dd
   return d.toLocaleDateString("en-CA", { timeZone: OSLO });
@@ -61,24 +54,45 @@ function Row({ token, b }: { token: string; b: UpcomingBooking }) {
   const [pending, start] = useTransition();
   const [mode, setMode] = useState<"view" | "cancel" | "resched">("view");
   const [msg, setMsg] = useState<string | null>(null);
+  const [okMsg, setOkMsg] = useState<string | null>(null);
 
   const [date, setDate] = useState(() => osloYmd(new Date(b.start_at)));
   const [slots, setSlots] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [chosen, setChosen] = useState<string | null>(null);
 
-  const today = osloYmd(new Date());
+  const start_ = new Date(b.start_at);
+  const dayLabel = start_.toLocaleDateString(locale, { timeZone: OSLO, weekday: "long", day: "numeric", month: "long" });
+  const timeLabel = start_.toLocaleTimeString(locale, { timeZone: OSLO, hour: "2-digit", minute: "2-digit" });
+
+  // Neste 21 dager som velgbare dager.
+  const days = Array.from({ length: 21 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    return {
+      iso: osloYmd(d),
+      weekday: d.toLocaleDateString(locale, { timeZone: OSLO, weekday: "short" }),
+      dayNum: String(Number(osloYmd(d).slice(8))),
+      month: d.toLocaleDateString(locale, { timeZone: OSLO, month: "short" }),
+    };
+  });
 
   function loadSlots(d: string) {
     setLoading(true);
     setSlots(null);
-    portalSlots(token, b.id, d).then((s) => {
-      setSlots(s);
-      setLoading(false);
-    });
+    setChosen(null);
+    portalSlots(token, b.id, d)
+      .then((s) => setSlots(s.filter((x) => x.endsWith(":00") || x.endsWith(":30"))))
+      .catch(() => {
+        setSlots([]);
+        setMsg(t("portal.msg.error"));
+      })
+      .finally(() => setLoading(false));
   }
 
   function openResched() {
     setMsg(null);
+    setOkMsg(null);
     setMode("resched");
     loadSlots(date);
   }
@@ -92,60 +106,80 @@ function Row({ token, b }: { token: string; b: UpcomingBooking }) {
   function doCancel() {
     setMsg(null);
     start(async () => {
-      const r = await portalCancel(token, b.id);
-      if (r.status === "ok") {
-        router.refresh();
-      } else {
-        setMsg(t(CANCEL_KEYS[r.status] ?? CANCEL_KEYS.error));
-        setMode("view");
+      try {
+        const r = await portalCancel(token, b.id);
+        if (r.status === "ok") {
+          setOkMsg(t("portal.cancelledOk"));
+          router.refresh();
+        } else {
+          setMsg(t(CANCEL_KEYS[r.status] ?? CANCEL_KEYS.error));
+          setMode("view");
+        }
+      } catch {
+        setMsg(t("portal.msg.error"));
       }
     });
   }
 
-  function pick(hhmm: string) {
+  function doMove() {
+    if (!chosen) return;
     setMsg(null);
     start(async () => {
-      const r = await portalReschedule(token, b.id, date, hhmm);
-      if (r.status === "ok") {
-        router.refresh();
-      } else {
-        setMsg(t(RESCHED_KEYS[r.status] ?? RESCHED_KEYS.error));
-        if (r.status === "taken") loadSlots(date);
+      try {
+        const r = await portalReschedule(token, b.id, date, chosen);
+        if (r.status === "ok") {
+          setOkMsg(t("portal.movedOk"));
+          setMode("view");
+          router.refresh();
+        } else {
+          setMsg(t(RESCHED_KEYS[r.status] ?? RESCHED_KEYS.error));
+          if (r.status === "taken") loadSlots(date);
+          else setChosen(null);
+        }
+      } catch {
+        setMsg(t("portal.msg.error"));
       }
     });
   }
 
+  const chosenLabel = chosen
+    ? `${new Date(date + "T12:00:00").toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" })} ${t("common.at")} ${chosen}`
+    : "";
+
   return (
-    <li className="px-6 py-4">
-      <p className="font-medium text-fg">
+    <li className="rounded-[28px] bg-surface p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_40px_-24px_rgba(0,0,0,0.18)] sm:p-8">
+      <p className="text-sm font-medium text-muted first-letter:uppercase">{dayLabel}</p>
+      <p className="m-title mt-1 text-4xl tabular-nums sm:text-5xl">{timeLabel}</p>
+      <p className="mt-3 text-[17px] font-medium text-fg">
         {b.service ? tc("services", b.service) : t("portal.appointment")}
-      </p>
-      <p className="text-sm text-muted capitalize">
-        {fmtWhen(b.start_at, locale)}
-        {b.barber ? ` · ${t("portal.with")} ${b.barber}` : ""}
+        {b.barber ? <span className="font-normal text-muted"> · {t("portal.with")} {b.barber}</span> : null}
       </p>
       {b.addons && b.addons.length > 0 && (
-        <p className="mt-0.5 text-xs text-muted">
-          + {b.addons.map((a) => tc("services", a)).join(", ")}
-        </p>
+        <p className="mt-0.5 text-sm text-muted">+ {b.addons.map((a) => tc("services", a)).join(", ")}</p>
       )}
 
-      {msg && <p className="mt-2 text-sm text-danger">{msg}</p>}
+      <div aria-live="polite">
+        {msg && (
+          <p role="alert" className="mt-4 rounded-2xl bg-danger/10 px-4 py-3 text-[15px] text-danger">
+            {msg}
+          </p>
+        )}
+        {okMsg && <p className="mt-4 rounded-2xl bg-surface-2 px-4 py-3 text-[15px] text-fg">{okMsg}</p>}
+      </div>
 
       {mode === "view" && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            onClick={openResched}
-            className="border border-line-2 px-4 py-2 text-sm font-semibold text-fg transition-colors hover:bg-surface-2"
-          >
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button type="button" onClick={openResched} className="pill pill-dark">
             {t("portal.reschedule")}
           </button>
           <button
+            type="button"
             onClick={() => {
               setMsg(null);
+              setOkMsg(null);
               setMode("cancel");
             }}
-            className="px-4 py-2 text-sm text-muted transition-colors hover:text-danger"
+            className="pill pill-soft"
           >
             {t("portal.cancel")}
           </button>
@@ -153,65 +187,113 @@ function Row({ token, b }: { token: string; b: UpcomingBooking }) {
       )}
 
       {mode === "cancel" && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-sm text-fg">{t("portal.cancelQ")}</span>
-          <button
-            onClick={doCancel}
-            disabled={pending}
-            className="bg-danger px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            {pending ? "…" : t("portal.yesCancel")}
-          </button>
-          <button
-            onClick={() => setMode("view")}
-            disabled={pending}
-            className="px-3 py-2 text-sm text-muted hover:text-fg"
-          >
-            {t("portal.noKeep")}
-          </button>
+        <div className="mt-6 rounded-2xl bg-canvas p-4 sm:p-5">
+          <p className="font-medium text-fg">{t("portal.cancelQ")}</p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={doCancel}
+              disabled={pending}
+              aria-busy={pending}
+              className="pill bg-danger text-white hover:opacity-90 disabled:opacity-60"
+            >
+              {pending ? "…" : t("portal.yesCancel")}
+            </button>
+            <button type="button" onClick={() => setMode("view")} disabled={pending} className="pill pill-soft">
+              {t("portal.noKeep")}
+            </button>
+          </div>
         </div>
       )}
 
       {mode === "resched" && (
-        <div className="mt-3 border-t border-line pt-3">
-          <label className="mb-1 block text-xs font-semibold tracking-wide text-muted uppercase">
-            {t("portal.newDate")}
-          </label>
-          <input
-            type="date"
-            value={date}
-            min={today}
-            onChange={(e) => changeDate(e.target.value)}
-            className="mb-3 w-full max-w-[12rem] border border-line-2 bg-canvas px-3 py-2 text-sm text-fg outline-none focus:border-accent-soft"
-          />
-
-          {loading ? (
-            <p className="text-sm text-muted">{t("portal.loadingSlots")}</p>
-          ) : slots && slots.length === 0 ? (
-            <p className="text-sm text-muted">
-              {t("portal.noSlotsDay")}
-            </p>
-          ) : slots ? (
-            <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-              {slots.map((t) => (
+        <div className="mt-6 space-y-5 border-t border-line pt-6">
+          {chosen ? (
+            <div className="rounded-2xl bg-canvas p-4 sm:p-5">
+              <p className="text-fg">
+                {t("portal.moveQ")} <span className="font-semibold">{chosenLabel}</span>?
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
                 <button
-                  key={t}
-                  onClick={() => pick(t)}
+                  type="button"
+                  onClick={doMove}
                   disabled={pending}
-                  className="border border-line py-2 text-sm text-muted transition-colors hover:border-accent-soft hover:text-fg disabled:opacity-50"
+                  aria-busy={pending}
+                  className="pill pill-primary disabled:opacity-60"
                 >
-                  {t}
+                  {pending ? "…" : t("portal.yesMove")}
                 </button>
-              ))}
+                <button type="button" onClick={() => setChosen(null)} disabled={pending} className="pill pill-soft">
+                  {t("portal.back")}
+                </button>
+              </div>
             </div>
-          ) : null}
+          ) : (
+            <>
+              <div>
+                <p className="mb-3 text-[13px] font-semibold text-muted">{t("portal.pickDay")}</p>
+                <div className="snap-row -mx-6 gap-2 px-6 pb-1 sm:-mx-8 sm:px-8">
+                  {days.map((d) => {
+                    const on = d.iso === date;
+                    return (
+                      <button
+                        key={d.iso}
+                        type="button"
+                        onClick={() => changeDate(d.iso)}
+                        aria-pressed={on}
+                        aria-label={`${d.weekday} ${d.dayNum}. ${d.month}`}
+                        className={
+                          "flex w-16 flex-col items-center rounded-2xl py-2.5 transition-colors " +
+                          (on
+                            ? "bg-fg text-canvas"
+                            : "bg-canvas text-fg shadow-[0_0_0_1px_oklch(var(--line))] hover:shadow-[0_0_0_1px_oklch(var(--line-2))]")
+                        }
+                      >
+                        <span className={"text-[11px] font-medium " + (on ? "text-canvas/70" : "text-muted")}>{d.weekday}</span>
+                        <span className="text-xl font-semibold tracking-tight tabular-nums">{d.dayNum}</span>
+                        <span className={"text-[11px] " + (on ? "text-canvas/70" : "text-muted")}>{d.month}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-3 text-[13px] font-semibold text-muted">{t("portal.pickTime")}</p>
+                {loading ? (
+                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-6" aria-busy="true" aria-label={t("portal.loadingSlots")}>
+                    {Array.from({ length: 8 }).map((_, i) => (
+                      <span key={i} className="h-11 animate-pulse rounded-full bg-surface-2" />
+                    ))}
+                  </div>
+                ) : slots && slots.length === 0 ? (
+                  <p className="text-muted">{t("portal.noSlotsDay")}</p>
+                ) : slots ? (
+                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                    {slots.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setChosen(s)}
+                        className="min-h-11 rounded-full bg-canvas text-[15px] font-medium text-fg tabular-nums shadow-[0_0_0_1px_oklch(var(--line))] transition-colors hover:bg-fg hover:text-canvas"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </>
+          )}
 
           <button
+            type="button"
             onClick={() => {
               setMode("view");
               setMsg(null);
+              setChosen(null);
             }}
-            className="mt-3 text-sm text-muted hover:text-fg"
+            className="m-link min-h-11"
           >
             {t("portal.close")}
           </button>
@@ -221,29 +303,23 @@ function Row({ token, b }: { token: string; b: UpcomingBooking }) {
   );
 }
 
-function UpcomingTitle() {
+export function UpcomingBookings({ token, bookings }: { token: string; bookings: UpcomingBooking[] }) {
   const { t } = useLanguage();
-  return <>{t("portal.upcoming")}</>;
-}
-
-export function UpcomingBookings({
-  token,
-  bookings,
-}: {
-  token: string;
-  bookings: UpcomingBooking[];
-}) {
-  if (bookings.length === 0) return null;
+  if (bookings.length === 0) {
+    return (
+      <div className="mt-4 rounded-[28px] bg-surface p-8 text-center shadow-[0_0_0_1px_oklch(var(--line))]">
+        <p className="text-muted">{t("portal.noUpcoming")}</p>
+        <a href="/booking" className="pill pill-soft mt-5">
+          {t("common.bookNew")}
+        </a>
+      </div>
+    );
+  }
   return (
-    <div className="mb-6 border border-line bg-surface">
-      <h2 className="border-b border-line px-6 py-4 font-display text-lg font-bold">
-        <UpcomingTitle />
-      </h2>
-      <ul className="divide-y divide-line">
-        {bookings.map((b) => (
-          <Row key={b.id} token={token} b={b} />
-        ))}
-      </ul>
-    </div>
+    <ul className="mt-4 space-y-4">
+      {bookings.map((b) => (
+        <Row key={b.id} token={token} b={b} />
+      ))}
+    </ul>
   );
 }

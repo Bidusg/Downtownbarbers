@@ -45,11 +45,13 @@ function CustomerForm() {
         side – ingen passord nødvendig.
       </p>
       <div>
-        <label className="mb-1.5 block text-xs font-semibold tracking-wide text-muted uppercase">
+        <label htmlFor="f-email" className="mb-1.5 block text-xs font-semibold tracking-wide text-muted uppercase">
           E-post
         </label>
         <input
+            id="f-email"
           type="email"
+            spellCheck={false}
           name="email"
           required
           autoComplete="email"
@@ -81,24 +83,26 @@ function StaffForm({
   return (
     <>
       {accessDenied && (
-        <div className="mb-4 border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
+        <div role="alert" className="mb-4 border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
           Du har ikke tilgang til den siden. Logg inn med en konto som har
           tilgang.
         </div>
       )}
       {passwordReset && (
-        <div className="mb-4 border border-accent-soft/40 bg-accent-soft/10 px-4 py-3 text-sm text-accent-soft">
+        <div role="status" className="mb-4 border border-accent-soft/40 bg-accent-soft/10 px-4 py-3 text-sm text-accent-ink">
           Passordet er oppdatert. Logg inn med det nye passordet ditt.
         </div>
       )}
 
       <form action={formAction} className="space-y-4 border border-line bg-surface p-6">
         <div>
-          <label className="mb-1.5 block text-xs font-semibold tracking-wide text-muted uppercase">
+          <label htmlFor="f-email-staff" className="mb-1.5 block text-xs font-semibold tracking-wide text-muted uppercase">
             E-post
           </label>
           <input
+            id="f-email-staff"
             type="email"
+            spellCheck={false}
             name="email"
             required
             autoComplete="email"
@@ -106,10 +110,11 @@ function StaffForm({
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-xs font-semibold tracking-wide text-muted uppercase">
+          <label htmlFor="f-password" className="mb-1.5 block text-xs font-semibold tracking-wide text-muted uppercase">
             Passord
           </label>
           <input
+            id="f-password"
             type="password"
             name="password"
             required
@@ -118,7 +123,7 @@ function StaffForm({
           />
         </div>
 
-        {state.error && <p className="text-sm text-danger">{state.error}</p>}
+        {state.error && <p role="alert" className="text-sm text-danger">{state.error}</p>}
 
         <button
           type="submit"

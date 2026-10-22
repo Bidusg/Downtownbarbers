@@ -48,11 +48,13 @@ export function ForgotForm() {
               sette et nytt passord.
             </p>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold tracking-wide text-muted uppercase">
+              <label htmlFor="f-email" className="mb-1.5 block text-xs font-semibold tracking-wide text-muted uppercase">
                 E-post
               </label>
               <input
+            id="f-email"
                 type="email"
+            spellCheck={false}
                 name="email"
                 required
                 autoComplete="email"
