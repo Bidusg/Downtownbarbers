@@ -4,3 +4,8 @@ node_modules/
 .DS_Store
 /coverage
 next-env.d.ts
+
+# Playwright
+/playwright-report
+/test-results
+/blob-report
