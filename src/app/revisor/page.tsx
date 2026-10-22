@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { StatTile } from "@/components/ui/StatTile";
 import { Card } from "@/components/ui/Card";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -36,7 +37,7 @@ export default async function RevisorHome({
   const maxBarber = Math.max(1, ...sum.perBarber.map((b) => b.nok));
 
   const tab = (key: "days" | "months", label: string) => (
-    <a
+    <Link
       href={`/revisor?periode=${key}`}
       className={
         "border-b-2 px-3 py-2 text-sm transition-colors " +
@@ -46,7 +47,7 @@ export default async function RevisorHome({
       }
     >
       {label}
-    </a>
+    </Link>
   );
 
   return (
@@ -56,9 +57,9 @@ export default async function RevisorHome({
           <h1 className="font-display text-2xl font-bold">Regnskapsoversikt</h1>
           <p className="text-sm text-muted">
             Regnskaps- og lønnstilgang. Se{" "}
-            <a href="/revisor/rapport" className="font-medium text-accent-soft underline underline-offset-2 hover:text-fg">
+            <Link href="/revisor/rapport" className="font-medium text-accent-soft underline underline-offset-2 hover:text-fg">
               Perioderapport
-            </a>{" "}
+            </Link>{" "}
             for kvartal/halvår/helår.
           </p>
         </div>

@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { Fragment, useState, useTransition } from "react";
 import type { AdminService, Category } from "@/lib/admin-queries";
 import {
@@ -140,9 +142,9 @@ export function ServiceManager({
           {services.length} tjenester
           <span className="ml-2 text-xs">
             · Hvem som leverer hva settes nå per ansatt under{" "}
-            <a href="/admin/ansatte" className="text-accent-soft hover:underline">
+            <Link href="/admin/ansatte" className="text-accent-soft hover:underline">
               Ansatte → Rediger
-            </a>
+            </Link>
           </span>
         </p>
         <Button

@@ -78,7 +78,7 @@ export function RevenueChart({
         <AreaChart
           data={data}
           onClick={drillBase ? onChartClick : undefined}
-          margin={{ top: 8, right: 8, left: -12, bottom: 0 }}
+          margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
           style={drillBase ? { cursor: "pointer" } : undefined}
         >
           <defs>
@@ -98,14 +98,17 @@ export function RevenueChart({
             axisLine={false}
             tickLine={false}
             width={44}
-            tickFormatter={(v) => `${v / 1000}k`}
+            tickFormatter={(v: number) =>
+              v >= 1000 ? `${Math.round(v / 100) / 10}k`.replace(".", ",") : String(Math.round(v))
+            }
+            allowDecimals={false}
           />
           <Tooltip
             cursor={{ stroke: BRAND, strokeOpacity: 0.3 }}
             contentStyle={{
               background: "#211E1A",
               border: "none",
-              borderRadius: 0,
+              borderRadius: 10,
               color: "#F8F5EF",
               fontSize: 12,
             }}

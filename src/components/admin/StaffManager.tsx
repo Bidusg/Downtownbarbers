@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { createPortal } from "react-dom";
 
 import { useState, useTransition } from "react";
@@ -651,9 +653,9 @@ export function StaffManager({
               Åpne (offentlig)
             </a>
           )}
-          <a href={`/admin/ansattdokumenter?staff=${s.id}`} className="text-xs text-accent-soft hover:underline">
+          <Link href={`/admin/ansattdokumenter?staff=${s.id}`} className="text-xs text-accent-soft hover:underline">
             Dokumenter
-          </a>
+          </Link>
         </div>
       </Td>
       <Td>

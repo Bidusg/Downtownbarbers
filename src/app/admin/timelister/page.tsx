@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { StaffHoursManager } from "@/components/admin/StaffHoursManager";
 import { StaffExceptionsManager } from "@/components/admin/StaffExceptionsManager";
 import { BulkTurnusForm } from "@/components/admin/BulkTurnusForm";
@@ -72,7 +73,7 @@ export default async function AdminTimelister({
   const tab = (idx: number) => {
     const active = idx === selected;
     return (
-      <a
+      <Link
         key={idx}
         href={href({ uke: idx })}
         className={
@@ -83,7 +84,7 @@ export default async function AdminTimelister({
         }
       >
         {parityLabel(idx)}
-      </a>
+      </Link>
     );
   };
 
@@ -100,23 +101,23 @@ export default async function AdminTimelister({
       <div className="mb-5 space-y-3 rounded-lg border border-line bg-surface p-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className="mr-1 text-xs font-semibold tracking-wide text-muted uppercase">Ansatt</span>
-          <a href={href({ ansatt: null })} className={chip(!who)}>
+          <Link href={href({ ansatt: null })} className={chip(!who)}>
             Alle
-          </a>
+          </Link>
           {staff.map((s) => (
-            <a key={s.id} href={href({ ansatt: s.id })} className={chip(who === s.id)}>
+            <Link key={s.id} href={href({ ansatt: s.id })} className={chip(who === s.id)}>
               {s.full_name}
-            </a>
+            </Link>
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="mr-1 text-xs font-semibold tracking-wide text-muted uppercase">Visning</span>
-          <a href={href({ vis: "plan" })} className={chip(view === "plan")}>
+          <Link href={href({ vis: "plan" })} className={chip(view === "plan")}>
             Ukeplan
-          </a>
-          <a href={href({ vis: "uker" })} className={chip(view === "uker")}>
+          </Link>
+          <Link href={href({ vis: "uker" })} className={chip(view === "uker")}>
             Uke for uke (hele rotasjonen)
-          </a>
+          </Link>
         </div>
       </div>
 
@@ -168,9 +169,9 @@ export default async function AdminTimelister({
           Overstyr turnusen for enkeltdatoer: fri hele eller deler av dagen, eller
           en ekstravakt. Booking og ledige tider oppdateres automatisk. Ferie og
           annet fravær over flere dager registreres under{" "}
-          <a href="/admin/fravaer" className="text-accent-soft hover:underline">
+          <Link href="/admin/fravaer" className="text-accent-soft hover:underline">
             Fravær
-          </a>{" "}
+          </Link>{" "}
           – det blokkerer nå også booking.
         </p>
       </div>

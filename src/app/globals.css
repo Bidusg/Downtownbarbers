@@ -1113,3 +1113,12 @@ textarea:focus-visible {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Back-office: tall i tabeller står rett under hverandre, og hjemmesnekrede
+   kort (ramme + flate) får samme avrundede hjørner som Card-komponenten. */
+.bo-app table {
+  font-variant-numeric: tabular-nums;
+}
+.bo-app :is(div, section, form, aside, details).border.border-line:is(.bg-surface, .bg-surface-2):not(.rounded-full) {
+  border-radius: 14px;
+}
