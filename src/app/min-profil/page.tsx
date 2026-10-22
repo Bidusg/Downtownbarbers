@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { ProfileCard, EmailCard, PasswordCard } from "./ProfilForms";
+import { LanguageToggle } from "@/components/i18n/PageTranslator";
 
 export const metadata = { title: "Min profil | Downtown Barbers" };
 export const dynamic = "force-dynamic";
@@ -57,13 +58,14 @@ export default async function MinProfil() {
 
   return (
     <main className="mx-auto min-h-screen max-w-2xl bg-canvas px-5 py-10 text-fg">
-      <div className="mb-6">
+      <div className="mb-6 flex items-center justify-between gap-3">
         <Link
           href={home}
           className="text-xs font-semibold tracking-wide text-muted uppercase hover:text-fg"
         >
           ← Tilbake
         </Link>
+        <LanguageToggle />
       </div>
 
       <PageHeader

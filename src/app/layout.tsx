@@ -6,6 +6,7 @@ import { SectionFlagsProvider } from "@/components/site/SectionFlagsProvider";
 import { getSectionFlags } from "@/lib/site-section-flags";
 import { getSiteTexts } from "@/lib/site-texts";
 import { getDbContentEn } from "@/lib/content-en";
+import { PageTranslator } from "@/components/i18n/PageTranslator";
 import { siteUrl } from "@/lib/site-url";
 
 // Fontene ligger i repoet (src/fonts, OFL-lisens) og serveres fra vårt eget
@@ -82,6 +83,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full">
         <LanguageProvider overrides={textOverrides} content={dbContent}>
           <SectionFlagsProvider flags={sectionFlags}>
+            <PageTranslator />
             {children}
           </SectionFlagsProvider>
         </LanguageProvider>

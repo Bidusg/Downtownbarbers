@@ -13,6 +13,7 @@ import { usePathname } from "next/navigation";
 import { LogoutButton } from "@/components/admin/LogoutButton";
 import { LogoMark } from "@/components/site/LogoMark";
 import { OPEN_COMMAND_PALETTE_EVENT } from "@/components/admin/CommandPalette";
+import { LanguageToggle } from "@/components/i18n/PageTranslator";
 
 /* =====================================================================
  * Delt back-office-topbar for admin / revisor / ansatt / kasse.
@@ -828,6 +829,8 @@ export function Topbar({
                 <Icon name="search" className="h-4 w-4" />
               </button>
             )}
+
+            <LanguageToggle />
 
             {initial && (
               <UserMenu role={role} email={email} initial={initial} />
