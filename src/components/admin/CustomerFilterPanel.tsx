@@ -418,7 +418,7 @@ function CampaignModal({
           <h2 className="font-display text-lg font-bold">
             Send e-post til {recipientCount} kunder
           </h2>
-          <button onClick={onClose} className="text-muted hover:text-fg" aria-label="Lukk">
+          <button type="button" onClick={onClose} className="x-btn" aria-label="Lukk">
             ✕
           </button>
         </div>

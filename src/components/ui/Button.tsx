@@ -11,12 +11,12 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 export type ButtonVariant = "primary" | "danger" | "subtle" | "ghost" | "link";
 
 const BASE =
-  "bo-btn inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed";
+  "bo-btn inline-flex items-center justify-center rounded-lg disabled:opacity-40 disabled:cursor-not-allowed [@media(pointer:coarse)]:min-h-11";
 
 const VARIANT: Record<ButtonVariant, string> = {
   primary:
-    "shine-btn bg-accent font-semibold text-accent-fg hover:bg-accent-hover",
-  danger: "shine-btn bg-danger font-semibold text-white hover:opacity-90",
+    "bg-accent font-semibold text-accent-fg hover:bg-accent-hover",
+  danger: "bg-danger font-semibold text-white hover:opacity-90",
   subtle: "border border-line-2 font-semibold text-fg hover:border-accent-soft",
   // Synlige «pill»-knapper (ikke bare tekst) – se .act i globals.css.
   ghost: "act",

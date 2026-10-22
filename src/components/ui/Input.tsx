@@ -7,7 +7,7 @@ import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react
  * sted, så alle skjemafelt i admin ser like ut.
  */
 const FIELD_BASE =
-  "w-full rounded-md border border-line-2 bg-canvas px-3 py-2 text-sm text-fg outline-none transition-colors focus:border-accent-soft disabled:opacity-40";
+  "w-full rounded-lg border border-line-2 bg-canvas px-3 py-2 text-sm text-fg transition-colors focus:border-accent-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-soft/40 disabled:opacity-40 [@media(pointer:coarse)]:min-h-11";
 
 export const Input = forwardRef<
   HTMLInputElement,
@@ -47,7 +47,7 @@ export function Field({
     <div className={"space-y-1.5 " + className}>
       <label
         htmlFor={htmlFor}
-        className="block text-xs font-semibold tracking-wide text-muted uppercase"
+        className="block text-[13px] font-medium text-fg"
       >
         {label}
       </label>

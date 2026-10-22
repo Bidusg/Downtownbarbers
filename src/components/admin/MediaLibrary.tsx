@@ -341,14 +341,13 @@ function SectionPanel({
                 >
                   {p.active ? "Skjul" : "Vis"}
                 </button>
-                <button
-                  type="button"
+                <ConfirmButton
+                  label="Fjern"
+                  question="Fjerne fra denne plassen?"
+                  confirmLabel="Ja, fjern"
                   disabled={pending}
-                  onClick={() => run(() => removePlacement(p.id))}
-                  className="act act-danger"
-                >
-                  Fjern
-                </button>
+                  onConfirm={() => run(() => removePlacement(p.id))}
+                />
               </div>
             </div>
           ))}

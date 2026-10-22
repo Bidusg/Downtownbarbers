@@ -727,6 +727,21 @@ export function Topbar({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
+  // Esc lukker øverste popup i hele back-office: «klikker» på bakteppet
+  // (popupene lukkes allerede ved klikk utenfor), så hver popup slipper egen kode.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      const overlays = Array.from(
+        document.querySelectorAll<HTMLElement>('.fixed.inset-0[class*="bg-black/"]'),
+      );
+      const top = overlays[overlays.length - 1];
+      if (top) top.click();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 4);
     onScroll();

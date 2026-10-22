@@ -26,7 +26,8 @@
 
   --accent: 23% 0.012 50;
   --accent-hover: 32% 0.015 50;
-  --accent-soft: 58% 0.17 42;
+  /* Litt mørkere enn før, så oransje TEKST har nok kontrast (≥ 4.5:1). */
+  --accent-soft: 54% 0.17 42;
   --accent-ink: 50% 0.15 42;
   --accent-fg: 97.3% 0.007 85;
 
@@ -868,7 +869,8 @@ body {
   color: white;
 }
 @media (pointer: coarse) {
-  .act { padding: 0.5rem 0.85rem; font-size: 0.8125rem; } /* større trykkflate på iPad/mobil */
+  /* Større trykkflate på iPad/mobil (minst 44 px, Apples anbefaling). */
+  .act { padding: 0.5rem 0.9rem; font-size: 0.875rem; min-height: 44px; }
 }
 
 /* =====================================================================
@@ -1024,4 +1026,90 @@ body {
 .cine :focus-visible:not([tabindex="-1"]) {
   outline: 2px solid var(--color-accent-soft);
   outline-offset: 3px;
+}
+
+
+/* =====================================================================
+ * BACK-OFFICE 2.0 – roligere, mer moderne og bedre på iPad.
+ *   • Ingen konstant bevegelse (glidende strek, skinn på barer/fliser).
+ *   • Avrundede kort og fliser, tydelige fokusringer på felt.
+ *   • Raske trykk uten forsinkelse (touch-action) og 44 px lukkeknapper.
+ * ===================================================================== */
+button,
+a,
+label,
+[role="button"],
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+.bo-accent-line {
+  animation: none;
+  opacity: 0.35;
+}
+.bo-bar-fill::after,
+.bo-tile::after {
+  display: none;
+}
+.bo-tile:hover,
+.bo-btn:hover:not(:disabled) {
+  transform: none;
+}
+.bo-card,
+.bo-tile {
+  border-radius: 16px;
+}
+.act {
+  border-radius: 10px;
+  min-height: 34px;
+}
+
+/* Fokusring på skjemafelt (mange felt har outline-none + bare en tynn kant). */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid oklch(var(--accent-soft) / 0.55);
+  outline-offset: 1px;
+}
+
+/* Popup-bakteppe: siden bak scroller ikke med. */
+.fixed.inset-0[class*="bg-black/"] {
+  overscroll-behavior: contain;
+}
+
+/* Lukkeknapp (✕) i popuper: rund, 44 × 44 px. */
+.x-btn {
+  display: inline-flex;
+  height: 44px;
+  width: 44px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  font-size: 1.125rem;
+  line-height: 1;
+  color: oklch(var(--muted));
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.x-btn:hover {
+  background: oklch(var(--fg) / 0.06);
+  color: oklch(var(--fg));
+}
+.x-btn:focus-visible {
+  outline: 2px solid oklch(var(--accent-soft));
+  outline-offset: 2px;
+}
+
+/* Back-office bruker Inter overalt (også titler og tall): roligere, mer
+   moderne og lettere å lese på iPad. Playfair er forbeholdt nettsiden. */
+.bo-app .font-display {
+  font-family: var(--font-sans);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.bo-app {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }

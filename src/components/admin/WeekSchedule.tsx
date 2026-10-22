@@ -1,5 +1,7 @@
 "use client";
 
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
+
 import { useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
@@ -121,7 +123,7 @@ function SingleDayDialog({
               Vakt eller fri for én dato. En vakt her erstatter turnusen den dagen.
             </p>
           </div>
-          <button onClick={onClose} className="p-1 text-muted hover:text-fg" aria-label="Lukk">
+          <button type="button" onClick={onClose} className="x-btn" aria-label="Lukk">
             ✕
           </button>
         </div>
@@ -165,9 +167,13 @@ function SingleDayDialog({
                   <button onClick={() => startEdit(e)} className="act act-accent" disabled={pending}>
                     Endre
                   </button>
-                  <button onClick={() => remove(e.id)} className="act act-danger" disabled={pending}>
-                    Slett
-                  </button>
+                  <ConfirmButton
+                    label="Slett"
+                    question="Slette denne?"
+                    confirmLabel="Ja, slett"
+                    onConfirm={() => remove(e.id)}
+                    disabled={pending}
+                  />
                 </span>
               </li>
             ))}

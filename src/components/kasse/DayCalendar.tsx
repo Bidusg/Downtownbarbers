@@ -1289,7 +1289,7 @@ export function DayCalendar({
               <h2 className="font-display text-lg font-bold">⛔ Blokkert tid</h2>
               <button
                 onClick={() => setBlockSel(null)}
-                className="p-1 text-muted hover:text-fg"
+                className="x-btn"
                 aria-label="Lukk"
               >
                 ✕
@@ -1416,7 +1416,7 @@ function BlockDialog({
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-lg font-bold">Blokker tid / pause</h2>
-          <button onClick={onClose} className="text-muted hover:text-fg" aria-label="Lukk">
+          <button type="button" onClick={onClose} className="x-btn" aria-label="Lukk">
             ✕
           </button>
         </div>
@@ -1507,7 +1507,7 @@ function TransferDialog({
       >
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-display text-lg font-bold">Flytt til {toBarber}?</h2>
-          <button onClick={onClose} className="text-muted hover:text-fg" aria-label="Lukk">
+          <button type="button" onClick={onClose} className="x-btn" aria-label="Lukk">
             ✕
           </button>
         </div>

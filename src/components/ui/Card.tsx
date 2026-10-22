@@ -25,9 +25,9 @@ export function Card({
       {(title || actions) && (
         <div className="flex items-center justify-between gap-2 border-b border-line px-5 py-3">
           {title && (
-            <span className="text-xs font-semibold tracking-wide text-muted uppercase">
+            <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-fg">
               {title}
-            </span>
+            </h2>
           )}
           {actions}
         </div>

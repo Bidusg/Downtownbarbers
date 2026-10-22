@@ -682,9 +682,9 @@ function Dialog({
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-lg font-bold">{title}</h2>
-          <button
+          <button type="button"
             onClick={onClose}
-            className="text-muted hover:text-fg"
+            className="x-btn"
             aria-label="Lukk"
           >
             ✕

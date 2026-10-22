@@ -161,7 +161,7 @@ function PinPanel({
       >
         <div className="mb-4 flex items-center justify-between">
           <p className="font-display text-xl font-bold text-fg">{staff.full_name}</p>
-          <button onClick={onClose} className="text-2xl leading-none text-muted hover:text-fg">
+          <button type="button" aria-label="Lukk" onClick={onClose} className="x-btn">
             ×
           </button>
         </div>
@@ -190,13 +190,14 @@ function PinPanel({
                   key={d}
                   onClick={() => press(d)}
                   disabled={pending}
-                  className="rounded-xl border border-line-2 bg-surface py-5 font-display text-2xl text-fg hover:border-accent-soft active:bg-surface-2 disabled:opacity-40"
+                  className="rounded-xl border border-line-2 bg-surface py-5 text-2xl font-medium tabular-nums text-fg hover:border-accent-soft active:bg-surface-2 disabled:opacity-40"
                 >
                   {d}
                 </button>
               ))}
               <button
                 onClick={() => setPin(pin.slice(0, -1))}
+                aria-label="Slett siste siffer"
                 className="rounded-xl border border-line-2 bg-surface py-5 text-base text-muted hover:text-fg active:bg-surface-2"
               >
                 ←
@@ -204,7 +205,7 @@ function PinPanel({
               <button
                 onClick={() => press("0")}
                 disabled={pending}
-                className="rounded-xl border border-line-2 bg-surface py-5 font-display text-2xl text-fg hover:border-accent-soft active:bg-surface-2 disabled:opacity-40"
+                className="rounded-xl border border-line-2 bg-surface py-5 text-2xl font-medium tabular-nums text-fg hover:border-accent-soft active:bg-surface-2 disabled:opacity-40"
               >
                 0
               </button>

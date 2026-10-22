@@ -510,7 +510,7 @@ export function PaymentControls({
                       <button
                         onClick={() => setQty(p.id, qty - 1)}
                         disabled={qty <= 0}
-                        className="h-6 w-6 rounded border border-line-2 text-muted hover:text-fg disabled:opacity-30"
+                        className="flex h-11 w-11 items-center justify-center rounded-full border border-line-2 text-lg text-fg hover:bg-surface-2 disabled:opacity-30"
                         aria-label={`Færre ${p.name}`}
                       >
                         −
@@ -520,7 +520,7 @@ export function PaymentControls({
                       </span>
                       <button
                         onClick={() => setQty(p.id, qty + 1)}
-                        className="h-6 w-6 rounded border border-line-2 text-muted hover:text-fg"
+                        className="flex h-11 w-11 items-center justify-center rounded-full border border-line-2 text-lg text-fg hover:bg-surface-2"
                         aria-label={`Flere ${p.name}`}
                       >
                         +

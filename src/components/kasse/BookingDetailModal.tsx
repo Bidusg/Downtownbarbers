@@ -121,9 +121,9 @@ export function BookingDetailModal({
               </span>
             </p>
           </div>
-          <button
+          <button type="button"
             onClick={onClose}
-            className="rounded-full px-2 text-muted hover:text-fg"
+            className="x-btn"
             aria-label="Lukk"
           >
             ✕

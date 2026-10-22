@@ -26,7 +26,7 @@ export default async function AdminLayout({
   ]);
 
   return (
-    <div className="min-h-screen overflow-x-clip bg-canvas text-fg">
+    <div className="bo-app min-h-screen overflow-x-clip bg-canvas text-fg">
       <Topbar
         role="Admin"
         homeHref="/admin"

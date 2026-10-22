@@ -19,7 +19,7 @@ export default async function KasseLayout({
   ]);
 
   return (
-    <div className="min-h-screen overflow-x-clip bg-canvas text-fg">
+    <div className="bo-app min-h-screen overflow-x-clip bg-canvas text-fg">
       <Topbar role="Kasse" homeHref="/kasse" nav={kasseNav} />
       {missing.length > 0 && (
         <div className="px-4 pt-4 sm:px-6">
