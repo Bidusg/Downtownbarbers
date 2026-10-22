@@ -220,10 +220,10 @@ export const dictionary: Dict = {
 
   // ---- Booking-side ----
   "booking.eyebrow": { no: "Bestill time", en: "Book appointment" },
-  "booking.heading": { no: "Slå deg ned.", en: "Have a seat." },
+  "booking.heading": { no: "Bestill time", en: "Book an appointment" },
   "booking.intro": {
-    no: "Fire steg: tjeneste, barber, tid og info. Bekreftelse på e-post med en gang.",
-    en: "Four steps: service, barber, time and details. Email confirmation right away.",
+    no: "Tre steg: tjeneste, tid og bekreft. Ferdig på under ett minutt.",
+    en: "Three steps: service, time and confirm. Done in under a minute.",
   },
 
   // ---- Butikk-side ----
@@ -444,6 +444,53 @@ export const dictionary: Dict = {
   "wiz.remembered": { no: "Vi har fylt inn opplysningene fra sist.", en: "We filled in your details from last time." },
   "wiz.notYou": { no: "Ikke deg?", en: "Not you?" },
   "wiz.swapTo": { no: "Bytt til", en: "Switch to" },
+  "step.confirm": { no: "Bekreft", en: "Confirm" },
+  "wiz.stepWord": { no: "Steg", en: "Step" },
+  "wiz.of": { no: "av", en: "of" },
+  "wiz.back": { no: "Tilbake", en: "Back" },
+  "wiz.change": { no: "Endre", en: "Change" },
+  "wiz.h.service": { no: "Hva vil du ha?", en: "What would you like?" },
+  "wiz.h.time": { no: "Når passer det?", en: "When suits you?" },
+  "wiz.h.confirm": { no: "Bekreft timen", en: "Confirm your booking" },
+  "wiz.groupOn": { no: "Vi er flere personer", en: "We're a group" },
+  "wiz.groupOff": { no: "Bare meg", en: "Just me" },
+  "wiz.groupHint": {
+    no: "Velg antall per tjeneste – én per person. Dere får time samtidig.",
+    en: "Choose a number per service – one per person. You'll be booked at the same time.",
+  },
+  "wiz.selectedCount": { no: "valgt", en: "selected" },
+  "wiz.chooseTimeBtn": { no: "Velg tid", en: "Choose time" },
+  "wiz.barberLabel": { no: "Barber", en: "Barber" },
+  "wiz.barberPerPerson": { no: "Barber for hver person", en: "Barber for each person" },
+  "wiz.optional": { no: "valgfritt", en: "optional" },
+  "wiz.taken": {
+    no: "Beklager – tiden du valgte ble nettopp tatt av noen andre. Velg en ny tid under.",
+    en: "Sorry – the time you picked was just taken. Please choose a new time below.",
+  },
+  "wiz.emailPh": { no: "navn@eksempel.no", en: "name@example.com" },
+  "wiz.err.name": { no: "Skriv inn navnet ditt.", en: "Please enter your name." },
+  "wiz.err.email": {
+    no: "Sjekk e-posten – den skal se ut som navn@gmail.com.",
+    en: "Check your email – it should look like name@gmail.com.",
+  },
+  "wiz.err.phoneNo": {
+    no: "Sjekk nummeret – 8 sifre, f.eks. 912 34 567.",
+    en: "Check the number – 8 digits, e.g. 912 34 567.",
+  },
+  "wiz.err.phone": { no: "Sjekk telefonnummeret.", en: "Check the phone number." },
+  "wiz.err.network": {
+    no: "Vi fikk ikke kontakt. Sjekk nettet og prøv igjen – eller ring oss på",
+    en: "We couldn't connect. Check your connection and try again – or call us on",
+  },
+  "wiz.done.title": { no: "Takk, {name}! Timen er booket.", en: "Thanks, {name}! You're booked." },
+  "wiz.done.sent": {
+    no: "Bekreftelsen er sendt på e-post og SMS.",
+    en: "A confirmation has been sent by email and text.",
+  },
+  "wiz.where": { no: "Hvor", en: "Where" },
+  "wiz.addToCal": { no: "Legg i kalender", en: "Add to calendar" },
+  "wiz.manage": { no: "Min side", en: "My page" },
+  "wiz.needCancel": { no: "Må du avbestille?", en: "Need to cancel?" },
   "wiz.addPerson": { no: "Legg til for en person til", en: "Add for another person" },
   "wiz.addingFor": { no: "Velg tjeneste for person", en: "Choose a service for person" },
 };

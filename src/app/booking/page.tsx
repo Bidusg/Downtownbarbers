@@ -1,7 +1,6 @@
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
-import { BackToTop } from "@/components/site/BackToTop";
-import { SmoothScroll, FadeUp } from "@/components/site/motion/CineFx";
+import { SmoothScroll } from "@/components/site/motion/CineFx";
 import { BookingWizard } from "@/components/booking/BookingWizard";
 import { getPublicServices, getPublicBarbers } from "@/lib/queries";
 import {
@@ -42,21 +41,18 @@ export default async function BookingPage({
 
   return (
     <SmoothScroll>
-      <div className="cine cine-grain min-h-screen bg-canvas text-fg">
+      <div className="cine min-h-screen bg-canvas text-fg">
         <Header />
-        <section className="mx-auto max-w-3xl px-5 pt-10 pb-20 sm:pt-16">
-          <FadeUp>
-            <p className="text-[10px] font-semibold tracking-[0.34em] text-accent-soft uppercase">
+        <main id="main" className="mx-auto max-w-3xl px-5 pt-8 pb-24 sm:pt-14">
+          <div>
+            <p className="m-eyebrow">
               <T k="booking.eyebrow" />
             </p>
-            <h1 className="mt-4 font-display text-4xl font-bold leading-[1] sm:text-5xl">
+            <h1 className="m-title mt-2 text-4xl sm:text-6xl">
               <T k="booking.heading" />
             </h1>
-            <p className="mt-5 max-w-md text-muted">
-              <T k="booking.intro" />
-            </p>
-          </FadeUp>
-          <div className="mt-10">
+          </div>
+          <div className="mt-10 sm:mt-14">
             <BookingWizard
               services={services}
               barbers={barbers}
@@ -67,12 +63,13 @@ export default async function BookingPage({
               closedWeekdays={closedWeekdays}
               initialServiceName={sp.service}
               initialBarberName={sp.barber}
+              address={settings.address}
+              phoneNumber={settings.phone}
             />
           </div>
-        </section>
+        </main>
         <Footer />
       </div>
-      <BackToTop />
     </SmoothScroll>
   );
 }

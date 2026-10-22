@@ -1021,7 +1021,7 @@ body {
 .cine button {
   -webkit-tap-highlight-color: transparent;
 }
-.cine :focus-visible {
+.cine :focus-visible:not([tabindex="-1"]) {
   outline: 2px solid var(--color-accent-soft);
   outline-offset: 3px;
 }

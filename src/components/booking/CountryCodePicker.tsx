@@ -93,7 +93,7 @@ export function CountryCodePicker({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="flex h-full items-center gap-2 border border-line-2 bg-canvas px-2.5 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
+        className="flex h-full min-h-11 items-center gap-2 rounded-xl border border-line-2 bg-surface px-3 text-base text-fg transition-colors focus:border-fg focus:outline-none"
       >
         <Flag iso={iso} />
         <span className="tabular-nums">{value}</span>
@@ -103,17 +103,18 @@ export function CountryCodePicker({
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 z-50 mt-1 w-72 max-w-[calc(100vw-2rem)] rounded-md border border-line bg-surface shadow-2xl">
+        <div className="absolute top-full left-0 z-50 mt-2 w-72 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl bg-surface shadow-[0_0_0_1px_oklch(var(--line)),0_24px_60px_-20px_rgba(0,0,0,0.35)]">
           <div className="border-b border-line p-2">
             <input
               ref={search}
               value={q}
               onChange={(e) => setQ(e.target.value)}
+              aria-label={locale.startsWith("en") ? "Search country or code" : "Søk land eller kode"}
               placeholder={locale.startsWith("en") ? "Search country or code" : "Søk land eller kode"}
-              className="w-full border border-line-2 bg-canvas px-2.5 py-2 text-sm text-fg outline-none focus:border-accent-soft"
+              className="w-full rounded-xl border border-line-2 bg-canvas px-3 py-2.5 text-base text-fg focus:border-fg focus:outline-none"
             />
           </div>
-          <ul role="listbox" className="max-h-64 overflow-y-auto overscroll-contain py-1">
+          <ul role="listbox" data-lenis-prevent className="max-h-64 overflow-y-auto overscroll-contain py-1">
             {list.length === 0 && <li className="px-3 py-2 text-sm text-muted">—</li>}
             {list.map(([c, code]) => {
               const active = c === iso;
@@ -130,8 +131,8 @@ export function CountryCodePicker({
                       setQ("");
                     }}
                     className={
-                      "flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors hover:bg-accent-soft/10 " +
-                      (active ? "bg-accent-soft/15 font-semibold text-fg" : "text-fg")
+                      "flex min-h-11 w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors hover:bg-surface-2 " +
+                      (active ? "bg-surface-2 font-semibold text-fg" : "text-fg")
                     }
                   >
                     <Flag iso={c} />

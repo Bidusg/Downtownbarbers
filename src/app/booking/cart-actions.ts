@@ -182,7 +182,15 @@ export type CartBookingInput = {
  */
 export async function createBookingGroup(
   input: CartBookingInput,
-): Promise<{ ok?: true; error?: string; portalUrl?: string; cancelUrl?: string }> {
+): Promise<{
+  ok?: true;
+  error?: string;
+  /** "taken" = tiden ble tatt av noen andre → send kunden tilbake til tidsvalg. */
+  code?: "taken";
+  portalUrl?: string;
+  cancelUrl?: string;
+  barber?: string;
+}> {
   const name = titleCase(input.name);
   if (!name) return { error: "Navn mangler." };
   if (!isValidEmail(input.email)) return { error: "Ugyldig e-postadresse." };
@@ -217,88 +225,143 @@ export async function createBookingGroup(
     // Starttid tolkes som Oslo-tid uansett hvor serveren kjører (Vercel = UTC).
     const baseStart = new Date(osloToUtcISO(input.date, input.time));
 
-    // Resolve «hvilken som helst» til konkret barber (single-modus).
-    async function resolveSingleBarber(total: number): Promise<string | null> {
-      const chosen = input.lines.find((l) => l.barberName)?.barberName ?? null;
-      if (chosen) return chosen;
-      const perLine = await Promise.all(
-        input.lines.map((l) =>
-          eligibleBarbers(l.serviceName, barbers, exclusions),
-        ),
-      );
-      const candidates = perLine.reduce((acc, cur) =>
-        acc.filter((n) => cur.includes(n)),
-      );
-      // Første kandidat som er ledig for hele blokka på valgt tid.
-      for (const b of candidates) {
-        const { data } = await sb.rpc("available_slots_dur", {
-          p_barber: b,
-          p_minutes: total,
-          p_date: input.date,
-        });
-        if (((data as string[]) ?? []).includes(input.time)) return b;
-      }
-      return candidates[0] ?? null;
+    const TAKEN = {
+      error: "Beklager – den tiden ble nettopp tatt. Velg en ny tid.",
+      code: "taken" as const,
+    };
+
+    /** Er `minutes` ledige fra valgt starttid hos barberen (samme regel som tidene kunden ser)? */
+    async function isFree(barber: string, minutes: number): Promise<boolean> {
+      const { data } = await sb.rpc("available_slots_dur", {
+        p_barber: barber,
+        p_minutes: minutes,
+        p_date: input.date,
+      });
+      return ((data as string[]) ?? []).includes(input.time);
     }
 
-    const created: string[] = [];
+    // Bygg linjene som skal lagres (barber, start, hvor mye som må være ledig).
+    type Row = {
+      service: string;
+      barber: string;
+      start: string;
+      person: string | null;
+      addonNames: string[];
+      extra_min: number;
+      check_min: number;
+    };
+    const rows: Row[] = [];
     let resolvedBarber: string | null = null; // faktisk barber (single-modus)
 
     if (input.mode === "single") {
       const total = input.lines.reduce((s, l) => s + lineMinutes(l), 0);
-      const barber = await resolveSingleBarber(total);
-      if (!barber) return { error: "Ingen barber tilgjengelig for valget." };
-      resolvedBarber = barber;
+      const chosen = input.lines.find((l) => l.barberName)?.barberName ?? null;
+      let candidates: string[];
+      if (chosen) {
+        candidates = [chosen];
+      } else {
+        const perLine = await Promise.all(
+          input.lines.map((l) => eligibleBarbers(l.serviceName, barbers, exclusions)),
+        );
+        candidates = perLine.reduce((acc, cur) => acc.filter((n) => cur.includes(n)));
+      }
+      // «Hvem som helst»: første barber som faktisk er ledig hele blokka.
+      for (const b of candidates) {
+        if (await isFree(b, total)) {
+          resolvedBarber = b;
+          break;
+        }
+      }
+      if (!resolvedBarber) return TAKEN;
       let cursor = new Date(baseStart);
+      input.lines.forEach((l, i) => {
+        rows.push({
+          service: l.serviceName,
+          barber: resolvedBarber as string,
+          start: cursor.toISOString(),
+          person: l.person || null,
+          addonNames: l.addonNames,
+          extra_min: l.addonMinutes || 0,
+          // Første linje sjekker hele blokka; resten ligger rett etter.
+          check_min: i === 0 ? total : 0,
+        });
+        cursor = new Date(cursor.getTime() + lineMinutes(l) * 60000);
+      });
+    } else {
       for (const l of input.lines) {
-        const addonIds = await addonServiceIds(sb, l.addonNames);
+        if (!l.barberName) return { error: "Velg barber for hver person i gruppen." };
+        rows.push({
+          service: l.serviceName,
+          barber: l.barberName,
+          start: baseStart.toISOString(),
+          person: l.person || null,
+          addonNames: l.addonNames,
+          extra_min: l.addonMinutes || 0,
+          check_min: lineMinutes(l),
+        });
+      }
+    }
+
+    const withAddons = await Promise.all(
+      rows.map(async (r) => ({ ...r, addons: await addonServiceIds(sb, r.addonNames) })),
+    );
+
+    let created: string[] = [];
+    // Alt-eller-ingenting i databasen (KJØR-I-SUPABASE-BOOKING-ATOMISK.sql).
+    const { data: ids, error: groupErr } = await sb.rpc("create_booking_group", {
+      p_lines: withAddons.map((r) => ({
+        service: r.service,
+        barber: r.barber,
+        start: r.start,
+        person: r.person,
+        addons: r.addons,
+        extra_min: r.extra_min,
+        check_min: r.check_min,
+      })),
+      p_name: name,
+      p_email: input.email.trim(),
+      p_phone: input.phone.trim(),
+      p_source: input.source?.trim() || null,
+      p_group: group,
+      p_notes: noteClean,
+    });
+
+    if (!groupErr) {
+      created = ((ids as string[] | null) ?? []).filter(Boolean);
+    } else if (/SLOT_TAKEN/.test(groupErr.message)) {
+      return TAKEN;
+    } else if (
+      groupErr.code === "PGRST202" ||
+      /create_booking_group/.test(groupErr.message)
+    ) {
+      // SQL-en er ikke kjørt ennå → gammel vei, men sjekk at tiden er ledig først.
+      for (const r of withAddons) {
+        if (r.check_min > 0 && !(await isFree(r.barber, r.check_min))) return TAKEN;
+      }
+      for (const r of withAddons) {
         const { data: id, error } = await sb.rpc("create_booking_line", {
-          p_service: l.serviceName,
-          p_barber: barber,
-          p_start: cursor.toISOString(),
+          p_service: r.service,
+          p_barber: r.barber,
+          p_start: r.start,
           p_name: name,
           p_email: input.email.trim(),
           p_phone: input.phone.trim(),
           p_source: input.source?.trim() || null,
           p_group: group,
-          p_person: l.person || null,
-          p_addons: addonIds,
-          p_extra_min: l.addonMinutes || 0,
+          p_person: r.person,
+          p_addons: r.addons,
+          p_extra_min: r.extra_min,
           p_notes: noteClean,
         });
         if (error) {
           console.error("create_booking_line feilet:", error.message);
-          return { error: "Kunne ikke lagre hele bestillingen. Prøv igjen." };
+          return { error: "Kunne ikke lagre hele bestillingen. Ring oss, så ordner vi det." };
         }
         if (id) created.push(id as string);
-        cursor = new Date(cursor.getTime() + lineMinutes(l) * 60000);
       }
     } else {
-      // group: hver linje samme starttid, egen barber.
-      for (const l of input.lines) {
-        if (!l.barberName)
-          return { error: "Velg barber for hver person i gruppen." };
-        const addonIds = await addonServiceIds(sb, l.addonNames);
-        const { data: id, error } = await sb.rpc("create_booking_line", {
-          p_service: l.serviceName,
-          p_barber: l.barberName,
-          p_start: baseStart.toISOString(),
-          p_name: name,
-          p_email: input.email.trim(),
-          p_phone: input.phone.trim(),
-          p_source: input.source?.trim() || null,
-          p_group: group,
-          p_person: l.person || null,
-          p_addons: addonIds,
-          p_extra_min: l.addonMinutes || 0,
-          p_notes: noteClean,
-        });
-        if (error) {
-          console.error("create_booking_line feilet:", error.message);
-          return { error: "Kunne ikke lagre hele bestillingen. Prøv igjen." };
-        }
-        if (id) created.push(id as string);
-      }
+      console.error("create_booking_group feilet:", groupErr.message);
+      return { error: "Kunne ikke lagre bestillingen. Prøv igjen, eller ring oss." };
     }
 
     if (!created.length) return { error: "Kunne ikke lagre bestillingen." };
@@ -389,7 +452,7 @@ export async function createBookingGroup(
       const v = (cfg?.value ?? null) as { enabled?: boolean; email?: string } | null;
       if (v?.enabled && v.email) {
         const barberFor = (l: CartLineInput) =>
-          input.mode === "group" ? l.barberName : (input.lines.find((x) => x.barberName)?.barberName ?? null);
+          input.mode === "group" ? l.barberName : resolvedBarber;
         const whenDate = new Date(`${input.date}T12:00:00Z`).toLocaleDateString("nb-NO", {
           weekday: "long",
           day: "numeric",
@@ -416,7 +479,15 @@ export async function createBookingGroup(
       /* varsling skal aldri velte en lagret booking */
     }
 
-    return { ok: true, portalUrl, cancelUrl };
+    return {
+      ok: true,
+      portalUrl,
+      cancelUrl,
+      barber:
+        input.mode === "single"
+          ? (barbers.find((b) => b.name === resolvedBarber)?.display ?? resolvedBarber ?? undefined)
+          : undefined,
+    };
   } catch {
     return { error: "Noe gikk galt. Prøv igjen." };
   }
