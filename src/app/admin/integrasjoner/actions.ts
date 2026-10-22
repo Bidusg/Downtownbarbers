@@ -160,3 +160,53 @@ export async function sendTemplateTestSms(
     ? { ok: true, message: `Test sendt til ${to.trim()}.` }
     : { ok: false, message: "Kunne ikke sende. Sjekk leverandør og nummerformat (+47…)." };
 }
+
+/* ------------------------- OVERSETTELSE (DeepL) ------------------------- */
+
+export type DeeplState = { ok: boolean; message: string } | null;
+
+/** Lagre DeepL-nøkkel og av/på for automatisk oversettelse. Tomt nøkkelfelt beholder lagret nøkkel. */
+export async function saveDeeplConfig(_prev: DeeplState, formData: FormData): Promise<DeeplState> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { ok: false, message: "Kun admin." };
+  const key = String(formData.get("deepl_api_key") ?? "").trim();
+  if (key && (/\s/.test(key) || key.length < 20)) {
+    return { ok: false, message: "Det ser ikke ut som en DeepL-nøkkel. Kopier hele nøkkelen fra deepl.com." };
+  }
+  const patch: Record<string, unknown> = {
+    id: 1,
+    auto: formData.get("auto") === "on",
+    updated_at: new Date().toISOString(),
+  };
+  if (key) patch.deepl_api_key = key;
+  const sb = await createClient();
+  const { error } = await sb.from("translation_config").upsert(patch, { onConflict: "id" });
+  if (error) {
+    return {
+      ok: false,
+      message: /translation_config/.test(error.message)
+        ? "Kjør KJØR-I-SUPABASE-DEEPL.sql i Supabase først."
+        : "Kunne ikke lagre.",
+    };
+  }
+  revalidatePath("/admin/integrasjoner");
+  if (key) {
+    const { deeplUsage } = await import("@/lib/deepl");
+    try {
+      await deeplUsage(key);
+    } catch (e) {
+      return { ok: false, message: `Lagret, men: ${(e as Error).message}` };
+    }
+  }
+  return { ok: true, message: key ? "Lagret – nøkkelen virker." : "Lagret." };
+}
+
+/** «Oversett alt som mangler nå». */
+export async function translateAllNow(_prev: DeeplState): Promise<DeeplState> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { ok: false, message: "Kun admin." };
+  const { translateMissing } = await import("@/lib/auto-translate");
+  const r = await translateMissing();
+  revalidatePath("/admin/integrasjoner");
+  return { ok: r.ok, message: r.message };
+}

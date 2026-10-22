@@ -1,5 +1,7 @@
 "use server";
 
+import { autoTranslateAfterSave } from "@/lib/auto-translate";
+
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getUserRole, isAdminRole } from "@/lib/auth";
@@ -87,6 +89,7 @@ export async function createService(formData: FormData): Promise<ActionResult> {
   revalidatePath("/admin/tjenester");
   revalidatePath("/booking");
   revalidatePath("/", "layout");
+  await autoTranslateAfterSave();
   return { ok: true };
 }
 
@@ -102,6 +105,7 @@ export async function updateService(id: string, formData: FormData): Promise<Act
   revalidatePath("/admin/tjenester");
   revalidatePath("/booking");
   revalidatePath("/", "layout");
+  await autoTranslateAfterSave();
   return { ok: true };
 }
 

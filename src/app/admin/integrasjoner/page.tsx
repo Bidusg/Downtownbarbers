@@ -10,6 +10,8 @@ import { getBookingNotify, saveBookingNotify } from "./actions";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { TripletexCard } from "@/components/admin/TripletexCard";
 import { VippsCard } from "@/components/admin/VippsCard";
+import { DeeplCard } from "@/components/admin/DeeplCard";
+import { getDeeplConfig, deeplUsage } from "@/lib/deepl";
 import { TRIPLETEX, tripletexConfigured } from "@/lib/tripletex/config";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -82,6 +84,28 @@ export default async function AdminIntegrasjoner({
     createClient().then((sb) => getSmsTemplates(sb)),
     getSmsLog(50),
   ]);
+
+  // DeepL: nøkkel, forbruk og hvor mange tekster som er oversatt.
+  const deepl = await getDeeplConfig();
+  let deeplUse: { used: number; limit: number } | null = null;
+  let deeplErr: string | null = null;
+  if (deepl.key) {
+    try {
+      deeplUse = await deeplUsage(deepl.key);
+    } catch (e) {
+      deeplErr = (e as Error).message;
+    }
+  }
+  let translatedCount: number | null = null;
+  try {
+    const sbc = await createClient();
+    const { count, error } = await sbc
+      .from("content_translations")
+      .select("key", { count: "exact", head: true });
+    if (!error) translatedCount = count ?? 0;
+  } catch {
+    /* tabellen mangler */
+  }
 
   const resendSet = Boolean(process.env.RESEND_API_KEY);
   const emailFromSet = Boolean(process.env.EMAIL_FROM);
@@ -161,6 +185,16 @@ export default async function AdminIntegrasjoner({
         configured={tripletexConfigured()}
         postingEnabled={TRIPLETEX.postingEnabled}
         env={TRIPLETEX.env}
+      />
+
+      {/* Oversettelse (DeepL) */}
+      <DeeplCard
+        keySet={!!deepl.key}
+        fromEnv={deepl.fromEnv}
+        auto={deepl.auto}
+        usage={deeplUse}
+        usageError={deeplErr}
+        translatedCount={translatedCount}
       />
 
       {/* Varsling ved ny booking */}

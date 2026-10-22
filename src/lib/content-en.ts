@@ -14,12 +14,21 @@ export type DbContent = Record<string, Record<string, string>>;
 export async function getDbContentEn(): Promise<DbContent> {
   try {
     const sb = await createClient();
-    const [svc, cats] = await Promise.all([
+    const [svc, cats, tr] = await Promise.all([
       sb.from("services").select("name, description, name_en, description_en"),
       sb.from("service_categories").select("name, name_en"),
+      sb.from("content_translations").select("map, key, en"),
     ]);
-    if (svc.error) return {};
-    const out: Record<string, string> = {};
+    const result: DbContent = {};
+    // 1) Automatiske/lagrede oversettelser (DeepL) – laveste prioritet.
+    if (!tr.error) {
+      for (const r of (tr.data ?? []) as { map: string; key: string; en: string }[]) {
+        if (r.en?.trim()) (result[r.map] ??= {})[r.key] = r.en.trim();
+      }
+    }
+    if (svc.error) return result;
+    // 2) Engelsk skrevet for hånd i admin → Tjenester vinner.
+    const out: Record<string, string> = { ...(result.services ?? {}) };
     const put = (no: string | null, en: string | null) => {
       const n = (no ?? "").trim();
       const e = (en ?? "").trim();
@@ -39,7 +48,7 @@ export async function getDbContentEn(): Promise<DbContent> {
         put(r.name, r.name_en);
       }
     }
-    return { services: out };
+    return { ...result, services: out };
   } catch {
     return {};
   }

@@ -1,5 +1,7 @@
 "use server";
 
+import { autoTranslateAfterSave } from "@/lib/auto-translate";
+
 import { revalidatePath } from "next/cache";
 import { saveSiteSettings, type SiteSettings } from "@/lib/site-settings";
 import { createClient } from "@/lib/supabase/server";
@@ -14,6 +16,7 @@ export async function updateSite(
     revalidatePath("/");
     revalidatePath("/admin/nettside");
   }
+  if (res.ok) await autoTranslateAfterSave();
   return res;
 }
 
@@ -39,6 +42,7 @@ export async function saveSiteTexts(
   revalidatePath("/");
   revalidatePath("/booking");
   revalidatePath("/admin/nettside");
+  await autoTranslateAfterSave();
   return { ok: true };
 }
 
@@ -250,6 +254,7 @@ export async function createCraft(formData: FormData): Promise<Result> {
     return { error: "Kunne ikke lagre blokken. Prøv igjen." };
   }
   refreshSite();
+  await autoTranslateAfterSave();
   return { ok: true };
 }
 
@@ -269,6 +274,7 @@ export async function saveCraftText(
     .eq("id", id);
   if (error) return { error: "Kunne ikke lagre." };
   refreshSite();
+  await autoTranslateAfterSave();
   return { ok: true };
 }
 
