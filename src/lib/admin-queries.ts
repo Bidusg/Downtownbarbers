@@ -10,6 +10,8 @@ export type AdminService = {
   online_bookable: boolean;
   category_id: string | null;
   categoryName: string;
+  name_en?: string | null;
+  description_en?: string | null;
 };
 
 export type Category = { id: string; name: string };
@@ -87,12 +89,13 @@ export async function getCategories(): Promise<Category[]> {
 export async function getServicesAdmin(): Promise<AdminService[]> {
   try {
     const sb = await createClient();
-    const { data } = await sb
-      .from("services")
-      .select(
-        "id, name, description, price_nok, duration_min, active, online_bookable, category_id, service_categories(name)",
-      )
-      .order("sort_order");
+    const base =
+      "id, name, description, price_nok, duration_min, active, online_bookable, category_id, service_categories(name)";
+    // Engelske felt (KJØR-I-SUPABASE-ENGELSK-TJENESTER.sql); uten dem → uten.
+    const withEn = await sb.from("services").select(`${base}, name_en, description_en`).order("sort_order");
+    const data = (
+      withEn.error ? (await sb.from("services").select(base).order("sort_order")).data : withEn.data
+    ) as unknown as Record<string, unknown>[] | null;
     return (
       (data ?? []).map((r) => {
         const cat = r.service_categories as { name?: string } | null;
@@ -106,6 +109,8 @@ export async function getServicesAdmin(): Promise<AdminService[]> {
           online_bookable: r.online_bookable ?? true,
           category_id: r.category_id,
           categoryName: cat?.name ?? "—",
+          name_en: (r.name_en as string | null | undefined) ?? null,
+          description_en: (r.description_en as string | null | undefined) ?? null,
         } as AdminService;
       })
     );

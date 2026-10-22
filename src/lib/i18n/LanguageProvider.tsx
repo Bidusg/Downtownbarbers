@@ -17,6 +17,7 @@ import {
 } from "react";
 import { dictionary, type Lang } from "./dictionary";
 import type { TextOverrides } from "@/lib/site-texts-config";
+import { translateContent } from "./content-map";
 
 const STORAGE_KEY = "dtb_lang";
 
@@ -24,6 +25,8 @@ type LanguageContextValue = {
   lang: Lang;
   setLang: (lang: Lang) => void;
   t: (key: string) => string;
+  /** Oversett DB-innhold (tjenester, kategorier …) – engelske felt fra admin først. */
+  tc: (map: string, text: string) => string;
 };
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
@@ -31,10 +34,13 @@ const LanguageContext = createContext<LanguageContextValue | null>(null);
 export function LanguageProvider({
   children,
   overrides = {},
+  content = {},
 }: {
   children: ReactNode;
   /** Admin-overstyringer av faste tekster (site_texts); ordboken er fallback. */
   overrides?: TextOverrides;
+  /** Engelske tekster fra databasen per kart (f.eks. services.name_en). */
+  content?: Record<string, Record<string, string>>;
 }) {
   const [lang, setLangState] = useState<Lang>("no");
 
@@ -76,8 +82,13 @@ export function LanguageProvider({
     [lang, overrides],
   );
 
+  const tc = useCallback(
+    (map: string, text: string) => translateContent(map, text, lang, content[map]),
+    [lang, content],
+  );
+
   return (
-    <LanguageContext.Provider value={{ lang, setLang, t }}>
+    <LanguageContext.Provider value={{ lang, setLang, t, tc }}>
       {children}
     </LanguageContext.Provider>
   );
@@ -91,6 +102,7 @@ export function useLanguage(): LanguageContextValue {
       lang: "no",
       setLang: () => {},
       t: (key: string) => dictionary[key]?.no ?? key,
+      tc: (_map: string, text: string) => text,
     };
   }
   return ctx;

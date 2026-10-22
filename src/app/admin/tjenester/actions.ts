@@ -6,6 +6,14 @@ import { getUserRole, isAdminRole } from "@/lib/auth";
 
 type ActionResult = { ok?: true; error?: string };
 
+/** Uten engelske kolonner (SQL ikke kjørt) lagres resten likevel. */
+function withoutEn<T extends { name_en: unknown; description_en: unknown }>(row: T) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { name_en, description_en, ...rest } = row;
+  return rest;
+}
+const missingEnCol = (msg: string) => /name_en|description_en/.test(msg);
+
 /** Felles validering for opprett/endre tjeneste. */
 function readServiceForm(formData: FormData):
   | { error: string }
@@ -16,6 +24,8 @@ function readServiceForm(formData: FormData):
         price_nok: number;
         duration_min: number;
         category_id: string | null;
+        name_en: string | null;
+        description_en: string | null;
       };
     } {
   const name = String(formData.get("name") ?? "").trim();
@@ -33,6 +43,8 @@ function readServiceForm(formData: FormData):
       price_nok,
       duration_min,
       category_id: String(formData.get("category_id") ?? "") || null,
+      name_en: String(formData.get("name_en") ?? "").trim() || null,
+      description_en: String(formData.get("description_en") ?? "").trim() || null,
     },
   };
 }
@@ -41,11 +53,18 @@ export async function createService(formData: FormData): Promise<ActionResult> {
   const parsed = readServiceForm(formData);
   if ("error" in parsed) return { error: parsed.error };
   const sb = await createClient();
-  const { data: inserted, error } = await sb
+  let { data: inserted, error } = await sb
     .from("services")
     .insert({ ...parsed.row, active: true })
     .select("id")
     .single();
+  if (error && missingEnCol(error.message)) {
+    ({ data: inserted, error } = await sb
+      .from("services")
+      .insert({ ...withoutEn(parsed.row), active: true })
+      .select("id")
+      .single());
+  }
   if (error) return { error: `Kunne ikke lagre tjenesten: ${error.message}` };
 
   // Ny tjeneste leveres av alle aktive ansatte som standard (fjern avhukingen
@@ -67,6 +86,7 @@ export async function createService(formData: FormData): Promise<ActionResult> {
 
   revalidatePath("/admin/tjenester");
   revalidatePath("/booking");
+  revalidatePath("/", "layout");
   return { ok: true };
 }
 
@@ -74,10 +94,14 @@ export async function updateService(id: string, formData: FormData): Promise<Act
   const parsed = readServiceForm(formData);
   if ("error" in parsed) return { error: parsed.error };
   const sb = await createClient();
-  const { error } = await sb.from("services").update(parsed.row).eq("id", id);
+  let { error } = await sb.from("services").update(parsed.row).eq("id", id);
+  if (error && missingEnCol(error.message)) {
+    ({ error } = await sb.from("services").update(withoutEn(parsed.row)).eq("id", id));
+  }
   if (error) return { error: `Kunne ikke lagre endringene: ${error.message}` };
   revalidatePath("/admin/tjenester");
   revalidatePath("/booking");
+  revalidatePath("/", "layout");
   return { ok: true };
 }
 

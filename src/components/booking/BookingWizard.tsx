@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { getCartSlots, createBookingGroup, findNextCartSlot } from "@/app/booking/cart-actions";
 import { isValidEmail, isValidNorwegianPhone } from "@/lib/validate";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
-import { translateContent } from "@/lib/i18n/content-map";
 import { CountryCodePicker } from "@/components/booking/CountryCodePicker";
 
 /* =====================================================================
@@ -138,11 +137,11 @@ export function BookingWizard({
   address?: string;
   phoneNumber?: string;
 }) {
-  const { lang, t } = useLanguage();
+  const { lang, t, tc: tcx } = useLanguage();
   const locale = lang === "en" ? "en-GB" : "nb-NO";
   // Oversett DB-innhold; usynlig brytepunkt etter «/» («Maskinklipp/Lineup»).
-  const tc = (s: string) => translateContent("services", s, lang).replace(/\//g, "/​");
-  const tt = (s: string) => translateContent("titles", s, lang);
+  const tc = (s: string) => tcx("services", s).replace(/\//g, "/​");
+  const tt = (s: string) => tcx("titles", s);
   const fmtWhen = (iso: string, hhmm: string) => {
     const [y, m, d] = iso.split("-").map(Number);
     if (!y || !m || !d) return `${iso} ${t("common.at")} ${hhmm}`;

@@ -8,7 +8,6 @@ import {
   portalSlots,
 } from "@/app/min-side/[token]/actions";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
-import { translateContent } from "@/lib/i18n/content-map";
 
 export type UpcomingBooking = {
   id: string;
@@ -57,7 +56,7 @@ const RESCHED_KEYS: Record<string, string> = {
 
 function Row({ token, b }: { token: string; b: UpcomingBooking }) {
   const router = useRouter();
-  const { lang, t } = useLanguage();
+  const { lang, t, tc } = useLanguage();
   const locale = lang === "en" ? "en-GB" : "nb-NO";
   const [pending, start] = useTransition();
   const [mode, setMode] = useState<"view" | "cancel" | "resched">("view");
@@ -119,7 +118,7 @@ function Row({ token, b }: { token: string; b: UpcomingBooking }) {
   return (
     <li className="px-6 py-4">
       <p className="font-medium text-fg">
-        {b.service ? translateContent("services", b.service, lang) : t("portal.appointment")}
+        {b.service ? tc("services", b.service) : t("portal.appointment")}
       </p>
       <p className="text-sm text-muted capitalize">
         {fmtWhen(b.start_at, locale)}
@@ -127,7 +126,7 @@ function Row({ token, b }: { token: string; b: UpcomingBooking }) {
       </p>
       {b.addons && b.addons.length > 0 && (
         <p className="mt-0.5 text-xs text-muted">
-          + {b.addons.map((a) => translateContent("services", a, lang)).join(", ")}
+          + {b.addons.map((a) => tc("services", a)).join(", ")}
         </p>
       )}
 

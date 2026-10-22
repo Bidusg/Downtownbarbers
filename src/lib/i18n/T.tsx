@@ -17,7 +17,6 @@
 import type { ComponentProps } from "react";
 import { SplitReveal } from "@/components/site/motion/CineFx";
 import { useLanguage } from "./LanguageProvider";
-import { translateContent } from "./content-map";
 
 /** Ordbok-oppslag for gjeldende språk (fallback: nøkkelens `no`, så nøkkelen). */
 export function T({ k }: { k: string }) {
@@ -33,8 +32,8 @@ export function TOr({ no, en }: { no: string; en: string }) {
 
 /** Oversett en norsk DB-verdi via et oversettelseskart; fallback = norsk tekst. */
 export function TDyn({ text, map }: { text: string; map: string }) {
-  const { lang } = useLanguage();
-  return <>{translateContent(map, text, lang)}</>;
+  const { tc } = useLanguage();
+  return <>{tc(map, text)}</>;
 }
 
 /** Animert tittel (SplitReveal) med tekst hentet fra ordboken. */

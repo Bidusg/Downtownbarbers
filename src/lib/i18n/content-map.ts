@@ -191,19 +191,50 @@ export const contentMaps: Record<string, ContentMap> = {
  *    og ALLE delene finnes i kartet, oversettes hver del og settes sammen.
  *  • Ellers returneres den originale norske teksten (trygg fallback).
  */
+/** Normalisert nøkkel: ignorer mellomrom i endene/dobbelt og typografiske tegn. */
+export function contentKey(text: string): string {
+  return text
+    .normalize("NFC")
+    .replace(/[\u2018\u2019\u2032]/g, "'")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+const normalized: Record<string, Map<string, string>> = {};
+function normMap(map: string): Map<string, string> {
+  if (!normalized[map]) {
+    const m = new Map<string, string>();
+    for (const [k, v] of Object.entries(contentMaps[map] ?? {})) m.set(contentKey(k), v.en);
+    normalized[map] = m;
+  }
+  return normalized[map];
+}
+
+/**
+ * Oversett én DB-verdi til gjeldende språk.
+ *  • `extra` (engelske felt fra databasen, satt i admin) vinner.
+ *  • Så kartet over (tåler små forskjeller i mellomrom/apostrof/store bokstaver).
+ *  • Ellers: hvis strengen er en «–»-sammensetning (f.eks. ukedagsintervall)
+ *    og ALLE delene finnes i kartet, oversettes hver del og settes sammen.
+ *  • Ellers returneres den originale norske teksten (trygg fallback).
+ */
 export function translateContent(
   map: string,
   text: string,
   lang: Lang,
+  extra?: Record<string, string>,
 ): string {
-  if (lang !== "en") return text;
-  const m = contentMaps[map];
-  if (!m) return text;
-  const direct = m[text];
-  if (direct) return direct.en;
+  if (lang !== "en" || !text) return text;
+  const key = contentKey(text);
+  const fromDb = extra?.[key];
+  if (fromDb) return fromDb;
+  const m = normMap(map);
+  const direct = m.get(key);
+  if (direct) return direct;
   if (text.includes("–")) {
     const parts = text.split("–");
-    const mapped = parts.map((p) => m[p.trim()]?.en);
+    const mapped = parts.map((p) => extra?.[contentKey(p)] ?? m.get(contentKey(p)));
     if (mapped.every((x): x is string => Boolean(x))) return mapped.join("–");
   }
   return text;

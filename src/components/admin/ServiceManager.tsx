@@ -82,6 +82,24 @@ function ServiceForm({
           defaultValue={service?.description ?? ""}
           className="sm:col-span-2"
         />
+        <div className="sm:col-span-2 border-t border-line pt-3">
+          <p className="text-xs font-semibold text-muted">
+            Engelsk (vises når nettsiden står på EN – tomt = norsk tekst)
+          </p>
+        </div>
+        <Input
+          name="name_en"
+          placeholder="Navn på engelsk, f.eks. Men's haircut"
+          aria-label="Navn på engelsk"
+          defaultValue={service?.name_en ?? ""}
+        />
+        <Input
+          name="description_en"
+          placeholder="Beskrivelse på engelsk"
+          aria-label="Beskrivelse på engelsk"
+          defaultValue={service?.description_en ?? ""}
+          className="sm:col-span-2"
+        />
         {err && <p className="text-sm text-danger sm:col-span-2">{err}</p>}
         <div className="flex gap-2 sm:col-span-2">
           <Button type="submit" variant="primary" disabled={saving} className="px-4 py-2 text-sm">
