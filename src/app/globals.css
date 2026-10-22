@@ -27,6 +27,7 @@
   --accent: 23% 0.012 50;
   --accent-hover: 32% 0.015 50;
   --accent-soft: 58% 0.17 42;
+  --accent-ink: 50% 0.15 42;
   --accent-fg: 97.3% 0.007 85;
 
   --danger: 44% 0.15 27;
@@ -47,6 +48,7 @@
   --color-accent: oklch(var(--accent));
   --color-accent-hover: oklch(var(--accent-hover));
   --color-accent-soft: oklch(var(--accent-soft));
+  --color-accent-ink: oklch(var(--accent-ink));
   --color-accent-fg: oklch(var(--accent-fg));
   --color-danger: oklch(var(--danger));
 
@@ -867,4 +869,159 @@ body {
 }
 @media (pointer: coarse) {
   .act { padding: 0.5rem 0.85rem; font-size: 0.8125rem; } /* større trykkflate på iPad/mobil */
+}
+
+/* =====================================================================
+ * MODERNE (Apple/Tesla-nivå) – lyst, rent og luftig for de offentlige
+ * sidene. Store sans-titler med tett sporing, avrundede «fliser», pille-
+ * knapper og frostet glass. Merkeoransje brukes på hovedhandlingen.
+ * ===================================================================== */
+.cine {
+  /* Mørkere oransje for TEKST (kontrast ≥ 4.5:1 på lys bakgrunn). */
+  --accent-ink: 50% 0.15 42;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer components {
+/* Display-titler: Inter, tett sporing, balansert linjeskift. */
+.m-title {
+  font-family: var(--font-sans);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  line-height: 1.04;
+  text-wrap: balance;
+}
+.m-lead {
+  font-family: var(--font-sans);
+  letter-spacing: -0.012em;
+  text-wrap: pretty;
+}
+.m-eyebrow {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: oklch(var(--accent-ink, 50% 0.15 42));
+}
+
+/* Pille-knapper. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  border-radius: 9999px;
+  padding: 0.7rem 1.4rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  touch-action: manipulation;
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease,
+    box-shadow 0.3s ease,
+    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.pill:active {
+  transform: scale(0.97);
+}
+.pill-primary {
+  background: var(--color-accent-soft);
+  /* Mørk tekst på merkeoransje – hvit tekst gir for svak kontrast. */
+  color: #1d1a17;
+}
+.pill-primary:hover {
+  background: color-mix(in oklab, var(--color-accent-soft) 88%, black);
+  box-shadow: 0 10px 30px -12px color-mix(in oklab, var(--color-accent-soft) 80%, transparent);
+}
+.pill-dark {
+  background: oklch(var(--fg));
+  color: oklch(var(--canvas));
+}
+.pill-dark:hover {
+  background: oklch(var(--fg-soft));
+}
+.pill-soft {
+  background: oklch(var(--fg) / 0.06);
+  color: oklch(var(--fg));
+}
+.pill-soft:hover {
+  background: oklch(var(--fg) / 0.1);
+}
+.pill-glass {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  backdrop-filter: blur(16px) saturate(160%);
+}
+.pill-glass:hover {
+  background: rgba(255, 255, 255, 0.26);
+}
+.pill-sm {
+  min-height: 36px;
+  padding: 0.45rem 1rem;
+  font-size: 0.8125rem;
+}
+@media (pointer: coarse) {
+  .pill-sm {
+    min-height: 44px;
+  }
+}
+
+/* «Lenke med pil» – Apple-stil. */
+.m-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 600;
+  color: oklch(var(--accent-ink, 50% 0.15 42));
+}
+.m-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Avrundet flis (kort/seksjon). */
+.tile {
+  border-radius: 28px;
+  overflow: hidden;
+  isolation: isolate;
+}
+@media (max-width: 639px) {
+  .tile {
+    border-radius: 22px;
+  }
+}
+
+/* Horisontal snap-rad (team, galleri) uten synlig scrollbar. */
+.snap-row {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 1.25rem;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.snap-row::-webkit-scrollbar {
+  display: none;
+}
+.snap-row > * {
+  scroll-snap-align: start;
+  flex: none;
+}
+
+}
+
+.cine a,
+.cine button {
+  -webkit-tap-highlight-color: transparent;
+}
+.cine :focus-visible {
+  outline: 2px solid var(--color-accent-soft);
+  outline-offset: 3px;
 }

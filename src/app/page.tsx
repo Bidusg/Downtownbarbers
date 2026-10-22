@@ -5,14 +5,8 @@ import { ScrollProgress } from "@/components/site/ScrollProgress";
 import { BackToTop } from "@/components/site/BackToTop";
 import { HeroCarousel, type Slide } from "@/components/site/HeroCarousel";
 import { GoogleReviews } from "@/components/site/GoogleReviews";
-import {
-  SmoothScroll,
-  Parallax,
-  FadeUp,
-  Hairline,
-  ScaleIn,
-} from "@/components/site/motion/CineFx";
-import { T, TOr, TDyn, SplitRevealT } from "@/lib/i18n/T";
+import { SmoothScroll, Parallax, FadeUp } from "@/components/site/motion/CineFx";
+import { T, TDyn, SplitRevealT } from "@/lib/i18n/T";
 import {
   getPublicServices,
   getPublicBarbers,
@@ -37,14 +31,6 @@ export const viewport = PUBLIC_VIEWPORT;
 export const metadata = {
   alternates: { canonical: "/" },
 };
-
-function Label({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-[10px] font-semibold tracking-[0.34em] text-accent-soft uppercase">
-      {children}
-    </p>
-  );
-}
 
 const rise = (ms: number) => ({ ["--rise-delay"]: `${ms}ms` }) as CSSProperties;
 
@@ -210,13 +196,29 @@ export default async function Home({
       : {}),
   };
 
+  const openDays = Object.values(s.hours ?? {}).filter((h) => h && h.open && h.close).length;
+  const mapHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.address)}`;
+  const telHref = `tel:${s.phone.replace(/\s/g, "")}`;
+  const stats = [
+    { value: s.established, label: "home.stats.since" },
+    ...(ratingLabel ? [{ value: `${ratingLabel.replace(" / 5", "")} ★`, label: "home.stats.rating" }] : []),
+    ...(team.length ? [{ value: String(team.length), label: "home.stats.barbers" }] : []),
+    ...(openDays ? [{ value: String(openDays), label: "home.stats.days" }] : []),
+  ];
+
   return (
     <SmoothScroll>
       <div
         id="top"
-        className="cine cine-grain bg-canvas text-fg"
+        className="cine bg-canvas text-fg"
         style={accentStyle}
       >
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[70] focus:rounded-full focus:bg-fg focus:px-4 focus:py-2 focus:text-sm focus:text-canvas"
+        >
+          <T k="home.skip" />
+        </a>
         <script
           type="application/ld+json"
           // JSON er generert server-side fra egne innstillinger (ingen brukerinput).
@@ -225,102 +227,103 @@ export default async function Home({
         <ScrollProgress />
         <Header overlay phone={s.phone} address={s.address} />
 
-        {/* ===================== HERO ===================== */}
-        <section className="cine-vignette relative flex min-h-[100svh] items-end overflow-hidden">
+        <main id="main">
+        {/* ===================== HERO (Tesla-stil: fullskjerm, sentrert) ===================== */}
+        <section className="relative flex min-h-[100svh] items-end overflow-hidden bg-black">
           <div className="absolute inset-0">
-            {/* Zoom-effekten ligger i HeroCarousel (av på stående mobil, så
-                hele bildet vises). */}
             <HeroCarousel slides={heroSlidesFinal} poster="/media/hero/poster.jpg" />
           </div>
-          {/* Overlays for lesbarhet / filmatisk dybde. Lettere på mobil, så
-              bildet i midten ikke blir mørklagt. */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-black/40 md:via-black/45 md:to-black/70" />
-          <div className="absolute inset-0 hidden bg-gradient-to-r from-black/80 via-transparent to-transparent md:block" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-black/35" />
 
-          <div className="relative mx-auto w-full max-w-6xl px-6 pt-28 pb-[20vh] text-center sm:px-5 sm:pt-40 sm:pb-32 sm:text-left">
+          <div className="relative mx-auto w-full max-w-4xl px-5 pb-[max(4.5rem,8vh)] text-center">
             <p
-              className="rise text-[10px] font-semibold tracking-[0.35em] text-accent-soft uppercase sm:text-[11px] sm:tracking-[0.4em]"
-              style={rise(100)}
+              className="rise text-[13px] font-semibold tracking-[-0.005em] text-white/75"
+              style={rise(80)}
             >
-              Oslo · Osterhaus&apos; gate 10 · <T k="home.hero.since" />{" "}
-              {s.established}
+              Oslo · Osterhaus&apos; gate 10 · <T k="home.hero.since" /> {s.established}
+            </p>
+            <h1
+              className="rise m-title mt-3 text-[2.6rem] text-white sm:text-6xl md:text-7xl"
+              style={rise(180)}
+            >
+              Downtown Barbers
+            </h1>
+            <p
+              className="rise m-lead mx-auto mt-4 hidden max-w-xl text-lg text-white/80 sm:block"
+              style={rise(300)}
+            >
+              <T k="home.hero.sub" />
             </p>
             <div
-              className="rise mt-8 flex flex-wrap items-center justify-center gap-4 sm:justify-start"
-              style={rise(260)}
+              className="rise mt-6 flex items-center justify-center gap-3 sm:mt-8"
+              style={rise(420)}
             >
-              <a
-                href="/booking"
-                className="cine-btn bg-accent-soft px-9 py-4 text-base font-semibold text-[#211E1A]"
-              >
+              <a href="/booking" className="pill pill-primary flex-1 sm:flex-none sm:min-w-52">
                 <T k="header.book" />
               </a>
-              {ratingLabel && (
-                <div className="flex flex-col gap-0.5 pl-1">
-                  <span className="text-sm text-white/85">
-                    <span className="text-accent-soft">★</span> {ratingLabel}
-                  </span>
-                  <span className="text-[11px] text-white/45">
-                    {ratingCount} <T k="home.hero.reviews" />
-                  </span>
-                </div>
-              )}
+              <a href="#tjenester" className="pill pill-glass flex-1 sm:flex-none sm:min-w-52">
+                <T k="home.hero.prices" />
+              </a>
             </div>
-          </div>
-
-          {/* Scroll-hint */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-7 flex justify-center">
-            <div className="bob flex flex-col items-center gap-1.5 text-white/55">
-              <span className="text-[9px] tracking-[0.35em] uppercase">Scroll</span>
-              <span aria-hidden>↓</span>
-            </div>
+            {ratingLabel && (
+              <p className="rise mt-6 text-[13px] text-white/70 tabular-nums" style={rise(540)}>
+                <span className="text-accent-soft" aria-hidden>★</span> {ratingLabel} ·{" "}
+                {ratingCount} <T k="home.hero.reviews" />
+              </p>
+            )}
           </div>
         </section>
 
         {/* ===================== TEAM ===================== */}
         {on("team") && (
-        <section id="team" className="scroll-mt-20 border-b border-line bg-surface">
-          <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
-            <Label>
-              <T k="home.team.eyebrow" />
-            </Label>
-            <SplitRevealT
-              as="h2"
-              k="home.team.title"
-              className="mt-4 font-display text-3xl font-bold sm:text-4xl"
-            />
-            <div className="mt-14 grid grid-cols-3 gap-x-4 gap-y-8 sm:grid-cols-4 sm:gap-6 md:grid-cols-6">
+        <section id="team" className="scroll-mt-16 bg-surface">
+          <div className="mx-auto max-w-6xl px-5 py-20 md:py-32">
+            <FadeUp>
+              <p className="m-eyebrow"><T k="home.team.eyebrow" /></p>
+              <h2 className="m-title mt-2 text-4xl sm:text-5xl md:text-6xl">
+                <T k="home.team.title" />
+              </h2>
+              <p className="m-lead mt-4 max-w-xl text-lg text-muted">
+                <T k="home.team.lead" />
+              </p>
+            </FadeUp>
+            <div className="snap-row -mx-5 mt-12 px-5 pb-2 md:mx-0 md:mt-16 md:grid md:grid-cols-3 md:gap-6 md:overflow-visible md:px-0 lg:grid-cols-4">
               {team.map((m, i) => (
-                <FadeUp key={m.name} delay={i * 0.05}>
-                  <div className="group text-center">
-                    <div className="mx-auto aspect-square w-full max-w-[96px] overflow-hidden rounded-full bg-surface-2 ring-1 ring-line transition-all duration-500 group-hover:-translate-y-1 group-hover:ring-accent-soft">
+                <FadeUp key={m.name} delay={Math.min(i, 4) * 0.06} className="w-[72%] sm:w-[44%] md:w-auto">
+                  <a
+                    href={`/booking?barber=${encodeURIComponent(m.name)}`}
+                    className="group block"
+                  >
+                    <div className="tile relative aspect-[4/5] bg-surface-2">
                       {m.photo ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={m.photo}
-                          alt={m.display}
-                          className="h-full w-full object-cover"
+                          alt=""
+                          width={800}
+                          height={1000}
+                          loading="lazy"
+                          className="h-full w-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.03]"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center font-display text-xl font-bold text-fg group-hover:text-accent-soft sm:text-3xl">
-                          {m.display.charAt(0)}
+                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-b from-surface-2 to-line">
+                          <span className="m-title text-7xl text-fg/25">{m.display.charAt(0)}</span>
                         </div>
                       )}
                     </div>
-                    <p className="mt-3 font-medium text-fg">{m.display}</p>
-                    <p className="text-xs text-muted">
-                      <TDyn text={m.title} map="titles" />
-                    </p>
-                    {/* «Book nå» vises alltid. Har barberen ingen turnus/ekstravakter,
-                        viser bookingen rett og slett ingen ledige tider. */}
-                    <a
-                      href={`/booking?barber=${encodeURIComponent(m.name)}`}
-                      className="mt-3 inline-block border border-line px-3 py-1.5 text-[11px] font-semibold tracking-[0.12em] text-fg uppercase transition-colors hover:border-accent-soft hover:bg-accent-soft hover:text-[#211E1A]"
-                      aria-label={m.display}
-                    >
-                      <T k="home.team.book" />
-                    </a>
-                  </div>
+                    <div className="mt-4 flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-lg font-semibold tracking-tight text-fg">{m.display}</p>
+                        <p className="text-sm text-muted">
+                          <TDyn text={m.title} map="titles" />
+                        </p>
+                      </div>
+                      <span className="pill pill-soft pill-sm shrink-0 group-hover:bg-fg group-hover:text-canvas">
+                        <span className="sr-only"><T k="home.team.bookWith" /> {m.display}: </span>
+                        <T k="home.team.book" />
+                      </span>
+                    </div>
+                  </a>
                 </FadeUp>
               ))}
             </div>
@@ -330,90 +333,109 @@ export default async function Home({
 
         {/* ===================== TJENESTER ===================== */}
         {on("tjenester") && (
-        <section id="tjenester" className="scroll-mt-20 border-b border-line">
-          <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
-            <Label>
-              <T k="home.services.eyebrow" />
-            </Label>
-            <SplitRevealT
-              as="h2"
-              k="home.services.title"
-              className="mt-4 font-display text-3xl font-bold sm:text-4xl"
-            />
-            <div className="mt-12 gap-6 sm:columns-2 lg:columns-3">
+        <section id="tjenester" className="scroll-mt-16">
+          <div className="mx-auto max-w-6xl px-5 py-20 md:py-32">
+            <FadeUp>
+              <p className="m-eyebrow"><T k="home.services.eyebrow" /></p>
+              <h2 className="m-title mt-2 text-4xl sm:text-5xl md:text-6xl">
+                <T k="home.services.title" />
+              </h2>
+              <p className="m-lead mt-4 max-w-xl text-lg text-muted">
+                <T k="home.services.lead" />
+              </p>
+            </FadeUp>
+            <div className="mt-12 grid items-start gap-5 md:mt-16 md:grid-cols-2 lg:grid-cols-3">
               {serviceCategories.map((cat, ci) => (
-                <div key={cat.name} className="mb-6 break-inside-avoid">
-                  <FadeUp delay={ci * 0.08}>
-                    <div className="border border-line bg-surface p-7 transition-all duration-500 hover:-translate-y-1.5 hover:border-accent-soft">
-                      <h3 className="mb-5 text-sm font-semibold tracking-[0.12em] text-accent-soft uppercase">
-                        <TDyn text={cat.name} map="services" />
-                      </h3>
-                      <ul className="space-y-4">
-                        {cat.services.map((sv) => (
-                          <li
-                            key={sv.name}
-                            className="border-b border-line pb-4 last:border-0 last:pb-0"
+                <FadeUp key={cat.name} delay={ci * 0.06}>
+                  <div className="tile bg-surface p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_40px_-24px_rgba(0,0,0,0.18)]">
+                    <h3 className="px-4 pt-4 pb-2 text-xl font-semibold tracking-tight text-fg">
+                      <TDyn text={cat.name} map="services" />
+                    </h3>
+                    <ul>
+                      {cat.services.map((sv) => (
+                        <li key={sv.name}>
+                          <a
+                            href={`/booking?service=${encodeURIComponent(sv.name)}`}
+                            className="group block rounded-2xl px-4 py-3.5 transition-colors hover:bg-surface-2"
                           >
-                            <div className="flex items-baseline justify-between gap-4">
+                            <span className="flex items-baseline justify-between gap-4">
                               <span className="font-medium text-fg">
                                 <TDyn text={sv.name} map="services" />
                               </span>
-                              <span className="font-display text-sm whitespace-nowrap text-accent-soft">
+                              <span className="text-[15px] font-semibold whitespace-nowrap text-fg tabular-nums">
                                 {priceVaries(sv.name) && (
-                                  <span className="mr-1 text-[10px] font-semibold tracking-[0.12em] text-accent-soft/80 uppercase">
+                                  <span className="mr-1 text-xs font-medium text-muted">
                                     <T k="common.from" />
                                   </span>
                                 )}
                                 {sv.price}
                               </span>
-                            </div>
-                            <p className="mt-1.5 text-sm leading-relaxed text-muted">
-                              <TDyn text={sv.description} map="services" />
-                            </p>
-                            <p className="mt-1 text-xs text-muted">{sv.duration}</p>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </FadeUp>
-                </div>
+                            </span>
+                            {sv.description && (
+                              <span className="mt-1 block text-sm leading-relaxed text-muted">
+                                <TDyn text={sv.description} map="services" />
+                              </span>
+                            )}
+                            <span className="mt-2 flex items-center justify-between text-xs text-muted">
+                              <span className="tabular-nums">{sv.duration}</span>
+                              <span className="font-semibold text-accent-ink opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                                <T k="header.book" /> ›
+                              </span>
+                            </span>
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </FadeUp>
               ))}
             </div>
           </div>
         </section>
         )}
 
-        {/* ===================== HÅNDVERKET ===================== */}
+        {/* ===================== HÅNDVERKET (bento) ===================== */}
         {on("handverket") && (
-        <section id="handverket" className="scroll-mt-20 border-b border-line">
-          <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
-            <Label>
-              <T k="home.craft.eyebrow" />
-            </Label>
-            <SplitRevealT
-              as="h2"
-              k="home.craft.title"
-              className="mt-5 max-w-2xl font-display text-3xl font-bold leading-[1.1] sm:text-4xl"
-            />
-            <Hairline className="mt-10" />
-            <div className="mt-8 grid gap-4 sm:grid-cols-2 sm:gap-6 md:mt-14 md:grid-cols-3">
+        <section id="handverket" className="scroll-mt-16 bg-surface">
+          <div className="mx-auto max-w-6xl px-5 py-20 md:py-32">
+            <FadeUp>
+              <p className="m-eyebrow"><T k="home.craft.eyebrow" /></p>
+              <SplitRevealT
+                as="h2"
+                k="home.craft.title"
+                className="m-title mt-2 max-w-3xl text-4xl sm:text-5xl md:text-6xl"
+              />
+              <p className="m-lead mt-4 max-w-xl text-lg text-muted">
+                <T k="home.craft.lead" />
+              </p>
+            </FadeUp>
+            <div className="mt-12 grid gap-4 md:mt-16 md:grid-cols-2 md:gap-5">
               {craftFinal.map((c, i) => (
-                <FadeUp key={c.img} delay={i * 0.08}>
-                  <figure className="group relative aspect-[4/3] overflow-hidden sm:aspect-[3/4]">
-                    <Parallax className="absolute inset-x-0 -top-[10%] h-[120%]" amount={8}>
+                <FadeUp
+                  key={c.img}
+                  delay={i * 0.06}
+                  className={i === 0 ? "md:col-span-2" : ""}
+                >
+                  <figure
+                    className={
+                      "tile group relative bg-surface-2 " +
+                      (i === 0 ? "aspect-[4/5] sm:aspect-[16/9] md:aspect-[21/9]" : "aspect-[4/5] sm:aspect-[4/3]")
+                    }
+                  >
+                    <Parallax className="absolute inset-x-0 -top-[8%] h-[116%]" amount={6}>
                       <img
                         src={c.img}
-                        alt={c.title}
+                        alt=""
                         loading="lazy"
-                        className="h-full w-full object-cover transition-transform duration-[1.2s] ease-out group-hover:scale-105"
+                        className="h-full w-full object-cover transition-transform duration-[1.2s] ease-out group-hover:scale-[1.04]"
                       />
                     </Parallax>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
-                    <figcaption className="absolute right-4 bottom-4 left-4 sm:right-6 sm:bottom-6 sm:left-6">
-                      <p className="font-display text-xl font-bold text-white sm:text-2xl">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />
+                    <figcaption className="absolute right-6 bottom-6 left-6 sm:right-8 sm:bottom-8 sm:left-8">
+                      <p className={"m-title text-white " + (i === 0 ? "text-3xl sm:text-5xl" : "text-2xl sm:text-3xl")}>
                         <TDyn text={c.title} map="settings" />
                       </p>
-                      <p className="mt-1.5 text-sm text-white/75">
+                      <p className="mt-2 max-w-md text-[15px] text-white/80">
                         <TDyn text={c.text} map="settings" />
                       </p>
                     </figcaption>
@@ -425,62 +447,94 @@ export default async function Home({
         </section>
         )}
 
-        {/* ===================== GALLERI ===================== */}
+        {/* ===================== GALLERI (snap-rad) ===================== */}
         {on("galleri") && (
-        <section id="galleri" className="scroll-mt-20 border-b border-line bg-surface">
-          <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
-            <Label>
-              <T k="home.gallery.eyebrow" />
-            </Label>
-            <SplitRevealT
-              as="h2"
-              k="home.gallery.title"
-              className="mt-4 font-display text-3xl font-bold sm:text-4xl"
-            />
-            <div className="mt-8 columns-2 gap-2.5 sm:mt-12 sm:gap-5">
+        <section id="galleri" className="scroll-mt-16 overflow-hidden">
+          <div className="mx-auto max-w-6xl px-5 py-20 md:py-32">
+            <FadeUp>
+              <p className="m-eyebrow"><T k="home.gallery.eyebrow" /></p>
+              <h2 className="m-title mt-2 text-4xl sm:text-5xl md:text-6xl">
+                <T k="home.gallery.title" />
+              </h2>
+              <p className="m-lead mt-4 max-w-xl text-lg text-muted">
+                <T k="home.gallery.lead" />
+              </p>
+            </FadeUp>
+            <div className="snap-row -mx-5 mt-12 px-5 pb-2 md:mt-16">
               {galleryFinal.map((g) => (
-                <FadeUp key={g.src} className="mb-2.5 block break-inside-avoid sm:mb-5">
-                  <div className="overflow-hidden">
-                    <ScaleIn from={1.14} to={1}>
-                      <img
-                        src={g.src}
-                        alt={g.alt}
-                        loading="lazy"
-                        className="block h-auto w-full"
-                      />
-                    </ScaleIn>
-                  </div>
-                </FadeUp>
+                <div
+                  key={g.src}
+                  className="tile aspect-[4/5] w-[80%] bg-surface-2 sm:w-[46%] lg:w-[31%]"
+                >
+                  <img
+                    src={g.src}
+                    alt={g.alt}
+                    width={1200}
+                    height={1500}
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
               ))}
             </div>
           </div>
         </section>
         )}
 
+        {/* ===================== BANNER + NØKKELTALL (Tesla-stil) ===================== */}
+        {on("banner") && (
+        <section className="px-3 pb-3 sm:px-5 sm:pb-5">
+          <div className="tile relative mx-auto flex min-h-[78svh] max-w-[1400px] flex-col justify-between bg-black text-white">
+            <Parallax className="absolute inset-x-0 -top-[10%] h-[120%]" amount={8}>
+              <img
+                src={bannerImg}
+                alt=""
+                loading="lazy"
+                className="h-full w-full object-cover object-center"
+              />
+            </Parallax>
+            <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/10 to-black/80" />
+            <FadeUp className="relative px-6 pt-14 text-center sm:pt-20">
+              <p className="text-[13px] font-semibold text-white/75">Osterhaus&apos; gate 10 · Oslo</p>
+              <h2 className="m-title mt-2 text-4xl sm:text-6xl">
+                <T k="home.stats.title" />
+              </h2>
+            </FadeUp>
+            {stats.length > 0 && (
+              <FadeUp className="relative px-6 pb-10 sm:pb-14">
+                <dl className="mx-auto grid max-w-4xl grid-cols-2 gap-y-8 sm:grid-cols-4">
+                  {stats.map((st) => (
+                    <div key={st.label} className="flex flex-col-reverse text-center">
+                      <dt className="mt-1 text-[13px] text-white/70"><T k={st.label} /></dt>
+                      <dd className="m-title text-3xl tabular-nums sm:text-4xl">{st.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </FadeUp>
+            )}
+          </div>
+        </section>
+        )}
+
+        {/* ===================== ANMELDELSER ===================== */}
+        {on("anmeldelser") && <GoogleReviews summary={omdomme} />}
+
         {/* ===================== OM OSS ===================== */}
         {on("about") && (
-        <section className="border-b border-line">
-          <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 md:grid-cols-2 md:py-24">
+        <section className="bg-surface">
+          <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-20 md:grid-cols-2 md:gap-16 md:py-32">
             <FadeUp>
-              <Label>
-                <T k="home.about.eyebrow" />
-              </Label>
-              <p className="mt-6 font-display text-xl leading-[1.3] sm:text-3xl sm:leading-[1.2]">
+              <p className="m-eyebrow"><T k="home.about.eyebrow" /></p>
+              <p className="m-title mt-3 text-2xl text-fg sm:text-[2.1rem] sm:leading-[1.15]">
                 <TDyn text={s.about_text} map="settings" />
               </p>
-              <a
-                href="/booking"
-                className="group mt-9 inline-flex items-center gap-2 text-sm font-semibold text-accent-soft transition-colors hover:text-fg"
-              >
-                <T k="home.about.cta" />
-                <span aria-hidden className="transition-transform group-hover:translate-x-1">
-                  →
-                </span>
+              <a href="/booking" className="m-link mt-8 text-[17px]">
+                <T k="home.about.cta" /> <span aria-hidden>›</span>
               </a>
             </FadeUp>
-            <FadeUp delay={0.1}>
-              <div className="relative aspect-[4/3] overflow-hidden md:aspect-[4/5]">
-                <Parallax className="absolute inset-x-0 -top-[12%] h-[124%]" amount={10}>
+            <FadeUp delay={0.08}>
+              <div className="tile relative aspect-[4/5] bg-surface-2">
+                <Parallax className="absolute inset-x-0 -top-[8%] h-[116%]" amount={6}>
                   <img
                     src={aboutImg}
                     alt="Barber som renser nakkelinjen hos Downtown Barbers"
@@ -488,59 +542,31 @@ export default async function Home({
                     className="h-full w-full object-cover"
                   />
                 </Parallax>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-                <span className="absolute bottom-5 left-5 text-[10px] font-semibold tracking-[0.34em] text-white/90 uppercase">
-                  Osterhaus&apos; gate 10 · Oslo
-                </span>
               </div>
             </FadeUp>
           </div>
         </section>
         )}
 
-        {/* ===================== BANNER (parallax) ===================== */}
-        {on("banner") && (
-        <section className="cine-vignette relative flex min-h-[55svh] items-center justify-center overflow-hidden border-b border-line sm:min-h-[80vh]">
-          <Parallax className="absolute inset-x-0 -top-[15%] h-[130%]" amount={16}>
-            <img
-              src={bannerImg}
-              alt="Downtown Barbers neonskilt"
-              loading="lazy"
-              className="h-full w-full object-cover object-center"
-            />
-          </Parallax>
-          <div className="absolute inset-0 bg-black/70" />
-          <FadeUp className="relative px-5 text-center" blur>
-            <p className="text-[11px] font-semibold tracking-[0.4em] text-accent-soft uppercase">
-              Downtown Barbers · Oslo
-            </p>
-            <p className="mx-auto mt-6 max-w-3xl font-display text-3xl leading-[1.1] font-bold text-white sm:text-5xl">
-              <TDyn text={s.slogan} map="settings" />
-            </p>
-          </FadeUp>
-        </section>
-        )}
-
-        {/* ===================== ANMELDELSER ===================== */}
-        {on("anmeldelser") && <GoogleReviews summary={omdomme} />}
-
-        {/* ===================== CTA (cream «intermisjon») ===================== */}
+        {/* ===================== CTA ===================== */}
         {on("cta") && (
-        <section className="border-b border-line bg-accent text-accent-fg">
-          <div className="mx-auto max-w-6xl px-5 py-20 text-center md:py-28">
+        <section>
+          <div className="mx-auto max-w-4xl px-5 py-24 text-center md:py-36">
             <FadeUp>
-              <h2 className="mx-auto max-w-2xl font-display text-4xl leading-[1.05] font-bold sm:text-5xl">
+              <h2 className="m-title text-5xl sm:text-7xl">
                 <TDyn text={s.cta_title} map="settings" />
               </h2>
-              <p className="mx-auto mt-6 max-w-md text-base opacity-75">
+              <p className="m-lead mx-auto mt-5 max-w-lg text-lg text-muted">
                 <TDyn text={s.cta_text} map="settings" />
               </p>
-              <a
-                href="/booking"
-                className="cine-btn mt-11 inline-block bg-[#211E1A] px-10 py-4 text-sm font-semibold tracking-[0.1em] text-[#F8F5EF] uppercase"
-              >
-                <T k="home.cta.button" />
-              </a>
+              <div className="mt-10 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
+                <a href="/booking" className="pill pill-primary sm:min-w-52">
+                  <T k="home.cta.button" />
+                </a>
+                <a href={telHref} className="pill pill-soft sm:min-w-52">
+                  <T k="home.contact.call" />
+                </a>
+              </div>
             </FadeUp>
           </div>
         </section>
@@ -548,51 +574,76 @@ export default async function Home({
 
         {/* ===================== ÅPNINGSTIDER + KONTAKT ===================== */}
         {on("apningstider") && (
-        <section id="apningstider" className="scroll-mt-20 border-b border-line">
-          <div className="mx-auto grid max-w-6xl gap-14 px-5 py-16 md:grid-cols-2 md:py-24">
+        <section id="apningstider" className="scroll-mt-16 bg-surface">
+          <div className="mx-auto max-w-6xl px-5 py-20 md:py-32">
             <FadeUp>
-              <Label>
-                <T k="home.hours.eyebrow" />
-              </Label>
-              <ul className="mt-8 space-y-3.5">
-                {s.opening_hours.map((o) => (
-                  <li
-                    key={o.day}
-                    className="flex justify-between border-b border-line pb-3.5 text-sm"
-                  >
-                    <span className="text-fg">
-                      <TDyn text={o.day} map="days" />
-                    </span>
-                    <span className="text-muted">
-                      <TDyn text={o.hours} map="days" />
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <h2 className="m-title text-4xl sm:text-5xl md:text-6xl">
+                <T k="home.contact.title" />
+              </h2>
             </FadeUp>
-            <FadeUp delay={0.1} id="kontakt" className="scroll-mt-28">
-              <Label>
-                <T k="home.contact.eyebrow" />
-              </Label>
-              <div className="mt-8 space-y-3 text-fg">
-                <p>{s.address}</p>
-                <p>
-                  <a href={`tel:${s.phone}`} className="hover:text-accent-soft">
-                    {s.phone}
-                  </a>
-                </p>
-                {s.email && (
-                  <p>
-                    <a href={`mailto:${s.email}`} className="hover:text-accent-soft">
-                      {s.email}
+            <div className="mt-12 grid gap-5 md:mt-16 md:grid-cols-2">
+              <FadeUp>
+                <div className="tile h-full bg-canvas p-7 sm:p-9">
+                  <h3 className="text-xl font-semibold tracking-tight">
+                    <T k="home.hours.eyebrow" />
+                  </h3>
+                  <dl className="mt-6">
+                    {s.opening_hours.map((o) => (
+                      <div
+                        key={o.day}
+                        className="flex justify-between gap-4 border-b border-line py-3.5 text-[15px] last:border-0"
+                      >
+                        <dt className="text-fg">
+                          <TDyn text={o.day} map="days" />
+                        </dt>
+                        <dd className="text-muted tabular-nums">
+                          <TDyn text={o.hours} map="days" />
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              </FadeUp>
+              <FadeUp delay={0.06} id="kontakt" className="scroll-mt-24">
+                <div className="tile flex h-full flex-col bg-canvas p-7 sm:p-9">
+                  <h3 className="text-xl font-semibold tracking-tight">
+                    <T k="home.contact.eyebrow" />
+                  </h3>
+                  <address className="mt-6 space-y-2 text-[17px] not-italic text-fg">
+                    <p>{s.address}</p>
+                    <p>
+                      <a href={telHref} className="tabular-nums hover:text-accent-ink">
+                        {s.phone}
+                      </a>
+                    </p>
+                    {s.email && (
+                      <p>
+                        <a href={`mailto:${s.email}`} className="break-all hover:text-accent-ink">
+                          {s.email}
+                        </a>
+                      </p>
+                    )}
+                  </address>
+                  <div className="mt-auto flex flex-wrap gap-3 pt-8">
+                    <a href={telHref} className="pill pill-dark">
+                      <T k="home.contact.call" />
                     </a>
-                  </p>
-                )}
-              </div>
-            </FadeUp>
+                    <a
+                      href={mapHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="pill pill-soft"
+                    >
+                      <T k="home.contact.directions" /> <span aria-hidden>↗</span>
+                    </a>
+                  </div>
+                </div>
+              </FadeUp>
+            </div>
           </div>
         </section>
         )}
+        </main>
 
         <Footer />
       </div>

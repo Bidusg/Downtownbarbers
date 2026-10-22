@@ -129,6 +129,36 @@ export const dictionary: Dict = {
   // ---- Forside: hero ----
   "home.hero.since": { no: "Siden", en: "Since" },
   "home.hero.reviews": { no: "vurderinger", en: "reviews" },
+  "home.hero.sub": {
+    no: "Fades, skjegg og klassisk barbering midt i Oslo. Book på sekunder.",
+    en: "Fades, beards and classic shaves in central Oslo. Book in seconds.",
+  },
+  "home.hero.prices": { no: "Se priser", en: "See prices" },
+  "home.hero.pause": { no: "Pause bakgrunnsvisning", en: "Pause background" },
+  "home.hero.play": { no: "Spill av bakgrunnsvisning", en: "Play background" },
+  "home.skip": { no: "Hopp til innhold", en: "Skip to content" },
+  "home.team.lead": {
+    no: "Velg din barber – eller la oss finne første ledige.",
+    en: "Pick your barber – or let us find the first one available.",
+  },
+  "home.team.bookWith": { no: "Book hos", en: "Book with" },
+  "home.services.lead": {
+    no: "Tydelige priser. Trykk på en tjeneste for å bestille.",
+    en: "Clear prices. Tap a service to book it.",
+  },
+  "home.craft.lead": {
+    no: "Hvert klipp er et lite håndverk – fra første strøk til siste finish.",
+    en: "Every cut is a small piece of craft – from the first stroke to the final finish.",
+  },
+  "home.gallery.lead": { no: "Ekte klipp fra stolene våre.", en: "Real cuts from our chairs." },
+  "home.stats.title": { no: "Midt i Oslo sentrum.", en: "In the heart of Oslo." },
+  "home.stats.since": { no: "Åpnet", en: "Opened" },
+  "home.stats.rating": { no: "Snittvurdering", en: "Average rating" },
+  "home.stats.barbers": { no: "Barberer", en: "Barbers" },
+  "home.stats.days": { no: "Dager åpent i uka", en: "Days open a week" },
+  "home.contact.call": { no: "Ring oss", en: "Call us" },
+  "home.contact.directions": { no: "Veibeskrivelse", en: "Directions" },
+  "home.contact.title": { no: "Kom innom.", en: "Come by." },
 
   // ---- Forside: om oss ----
   "home.about.eyebrow": { no: "Om oss", en: "About us" },

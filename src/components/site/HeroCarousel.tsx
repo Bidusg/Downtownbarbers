@@ -8,6 +8,7 @@ import {
   type CSSProperties,
 } from "react";
 import { ScaleIn } from "@/components/site/motion/CineFx";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 export type Slide =
   | { type: "video"; src: string }
@@ -38,6 +39,8 @@ export function HeroCarousel({
   const [failed, setFailed] = useState<Set<number>>(() => new Set());
   const videoRefs = useRef<Record<number, HTMLVideoElement | null>>({});
   const advancing = useRef(false);
+  const [paused, setPaused] = useState(false);
+  const { t } = useLanguage();
 
   useEffect(() => {
     const m = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -65,6 +68,10 @@ export function HeroCarousel({
     advancing.current = false;
     if (reduced || n <= 1) return;
     const slide = slides[index];
+    if (paused) {
+      for (const v of [videoRefs.current[index], backRefs.current[index]]) v?.pause();
+      return;
+    }
     let timer: ReturnType<typeof setTimeout>;
 
     if (slide.type === "image") {
@@ -84,7 +91,7 @@ export function HeroCarousel({
       timer = setTimeout(go, 9000);
     }
     return () => clearTimeout(timer);
-  }, [index, reduced, n, slides, go, portrait]);
+  }, [index, reduced, n, slides, go, portrait, paused]);
 
   // Reduced motion: kun ett rolig stillbilde.
   // Stående mobil: hele motivet synlig, uskarp kopi bak.
@@ -96,7 +103,7 @@ export function HeroCarousel({
     return (
       <div className="absolute inset-0">
         {portrait && <img src={poster} alt="" aria-hidden className={backdrop} />}
-        <div className={portrait ? "absolute inset-x-0 top-[84px] bottom-[36%]" : "absolute inset-0"}>
+        <div className={portrait ? "absolute inset-x-0 top-[84px] bottom-[37%]" : "absolute inset-0"}>
           <img src={poster} alt="" aria-hidden className={`h-full w-full ${fit}`} />
         </div>
       </div>
@@ -107,6 +114,7 @@ export function HeroCarousel({
   const next = (index + 1) % n;
 
   return (
+    <>
     <ScaleIn className="absolute inset-0" from={portrait ? 1 : 1.2} to={portrait ? 1 : 1.04}>
       {/* Basislag: posteren vises alltid bak, så et bilde som ikke laster
           aldri gir en hvit/blank flate – da ser man posteren i stedet. */}
@@ -144,7 +152,7 @@ export function HeroCarousel({
               ))}
             {/* Stående mobil: motivet plasseres i feltet mellom menyen og
                 teksten/knappen, så ingenting overlapper eller kuttes. */}
-            <div className={portrait ? "absolute inset-x-0 top-[84px] bottom-[36%]" : "absolute inset-0"}>
+            <div className={portrait ? "absolute inset-x-0 top-[84px] bottom-[37%]" : "absolute inset-0"}>
             {live &&
               (slide.type === "video" ? (
                 <video
@@ -175,7 +183,7 @@ export function HeroCarousel({
                   }}
                   className={
                     `absolute inset-0 h-full w-full ${fit}` +
-                    (active && !portrait ? " kenburns" : "")
+                    (active && !portrait && !paused ? " kenburns" : "")
                   }
                 />
               ))}
@@ -184,5 +192,25 @@ export function HeroCarousel({
         );
       })}
     </ScaleIn>
+    {n > 1 && (
+      <button
+        type="button"
+        onClick={() => setPaused((p) => !p)}
+        aria-pressed={paused}
+        aria-label={paused ? t("home.hero.play") : t("home.hero.pause")}
+        className="absolute right-4 bottom-4 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white ring-1 ring-white/30 backdrop-blur-md transition-colors hover:bg-white/25 sm:right-6 sm:bottom-6"
+      >
+        {paused ? (
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+            <path d="M7 5h4v14H7zM13 5h4v14h-4z" />
+          </svg>
+        )}
+      </button>
+    )}
+    </>
   );
 }

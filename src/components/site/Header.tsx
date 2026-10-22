@@ -75,6 +75,21 @@ export function Header({
   }, []);
   const [scrolled, setScrolled] = useState(false);
 
+  // Mobilmeny: Esc lukker, og siden bak låses mens menyen er åpen.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    const prev = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.documentElement.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
   const telHref = `tel:${phone.replace(/\s/g, "")}`;
   const shortAddress = address.split(",")[0];
   const mapHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
@@ -122,20 +137,20 @@ export function Header({
         // opp til toppen uten krem-stripe. Scrollet forbi hero: frostet krembar.
         (over
           ? "border-b border-transparent bg-transparent"
-          : "border-b border-line bg-canvas/85 backdrop-blur")
+          : "border-b border-line/60 bg-canvas/75 backdrop-blur-xl backdrop-saturate-150")
       }
     >
-      <div className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
+      <div className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-5 py-2.5">
         <Link href="/#top" aria-label="Downtown Barbers – til toppen">
-          <LogoMark className={"h-11 transition-colors " + brand} />
+          <LogoMark className={"h-10 transition-colors " + brand} />
         </Link>
 
-        <nav className="hidden items-center gap-9 md:flex">
+        <nav className="hidden items-center gap-8 md:flex">
           {visibleNav.map((n) => (
             <Link
               key={n.href}
               href={n.href}
-              className={"text-[13px] font-medium transition-colors " + navText}
+              className={"text-[13px] font-normal tracking-[-0.01em] transition-colors " + navText}
             >
               {t(n.labelKey)}
             </Link>
@@ -180,7 +195,7 @@ export function Header({
               onClick={() => setLang("no")}
               aria-pressed={lang === "no"}
               className={
-                "px-1 transition-opacity " +
+                "min-h-11 px-2 transition-opacity " +
                 (lang === "no"
                   ? langActive + " font-semibold"
                   : "opacity-55 hover:opacity-100")
@@ -196,7 +211,7 @@ export function Header({
               onClick={() => setLang("en")}
               aria-pressed={lang === "en"}
               className={
-                "px-1 transition-opacity " +
+                "min-h-11 px-2 transition-opacity " +
                 (lang === "en"
                   ? langActive + " font-semibold"
                   : "opacity-55 hover:opacity-100")
@@ -224,7 +239,7 @@ export function Header({
           </a>
           <Link
             href="/booking"
-            className="shine-btn hidden bg-accent-soft px-5 py-2.5 text-[13px] font-semibold text-[#211E1A] transition-transform hover:-translate-y-0.5 sm:inline-block"
+            className="pill pill-primary pill-sm hidden sm:inline-flex"
           >
             {t("header.book")}
           </Link>
@@ -235,7 +250,7 @@ export function Header({
             aria-label={open ? t("header.closeMenu") : t("header.openMenu")}
             aria-expanded={open}
             onClick={() => setOpen((o) => !o)}
-            className="flex h-10 w-10 flex-col items-center justify-center gap-1.5 md:hidden"
+            className="flex h-11 w-11 flex-col items-center justify-center gap-1.5 md:hidden"
           >
             <span
               className={
@@ -270,14 +285,18 @@ export function Header({
         et fixed-barn og klippet det). z-30 < header z-40 → logo + kryss i
         topplinja ligger alltid oppå og kan trykkes. */}
     {open && (
-      <nav className="fixed inset-0 z-30 overflow-y-auto bg-canvas px-5 pb-10 pt-[calc(env(safe-area-inset-top)+5.5rem)] md:hidden">
+      <nav
+        data-lenis-prevent
+        aria-label="Meny"
+        className="fixed inset-0 z-30 overflow-y-auto overscroll-contain bg-canvas px-6 pb-10 pt-[calc(env(safe-area-inset-top)+5rem)] md:hidden"
+      >
         <div className="mx-auto flex max-w-6xl flex-col gap-1">
           {visibleNav.map((n) => (
             <Link
               key={n.href}
               href={n.href}
               onClick={() => setOpen(false)}
-              className="border-b border-line py-3 text-sm font-medium text-fg last:border-0"
+              className="py-2.5 text-[1.75rem] font-semibold tracking-[-0.03em] text-fg"
             >
               {t(n.labelKey)}
             </Link>
@@ -285,7 +304,7 @@ export function Header({
           <Link
             href="/booking"
             onClick={() => setOpen(false)}
-            className="mt-3 bg-accent-soft px-5 py-3 text-center text-sm font-semibold text-[#211E1A]"
+            className="pill pill-primary mt-8"
           >
             {t("header.book")}
           </Link>
@@ -296,16 +315,16 @@ export function Header({
               setOpen(false);
               setLoginOpen(true);
             }}
-            className="mt-2 border border-line-2 px-5 py-3 text-center text-sm font-semibold text-fg"
+            className="pill pill-soft mt-3"
           >
             {t("header.login")}
           </a>
           <a
             href={telHref}
             onClick={() => setOpen(false)}
-            className="mt-3 flex items-center gap-2 text-sm font-medium text-fg"
+            className="mt-8 flex min-h-11 items-center gap-2 text-[15px] font-medium text-fg"
           >
-            <PhoneIcon className="h-4 w-4 text-accent-soft" />
+            <PhoneIcon className="h-4 w-4 text-accent-ink" />
             {phone}
           </a>
           <a
@@ -313,9 +332,9 @@ export function Header({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setOpen(false)}
-            className="mt-2 flex items-center gap-2 text-sm font-medium text-fg"
+            className="flex min-h-11 items-center gap-2 text-[15px] font-medium text-fg"
           >
-            <PinIcon className="h-4 w-4 text-accent-soft" />
+            <PinIcon className="h-4 w-4 text-accent-ink" />
             {address}
           </a>
         </div>

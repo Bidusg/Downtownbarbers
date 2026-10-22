@@ -173,7 +173,7 @@ export function SplitReveal({
 export function FadeUp({
   children,
   className = "",
-  y = 42,
+  y = 28,
   delay = 0,
   blur = false,
   as: Tag = "div",
@@ -205,7 +205,7 @@ export function FadeUp({
         opacity: 1,
         y: 0,
         filter: "blur(0px)",
-        duration: 1.1,
+        duration: 0.9,
         delay,
         ease: "power3.out",
         scrollTrigger: { trigger: el, start },

@@ -13,7 +13,7 @@ import { T } from "@/lib/i18n/T";
 function Stars({ value, className = "" }: { value: number; className?: string }) {
   const rounded = Math.round(value);
   return (
-    <span className={`inline-flex gap-0.5 ${className}`} aria-label={`${value} av 5 stjerner`}>
+    <span role="img" className={`inline-flex gap-0.5 ${className}`} aria-label={`${value} av 5 stjerner`}>
       {[1, 2, 3, 4, 5].map((i) => (
         <svg
           key={i}
@@ -76,7 +76,7 @@ function SourceChip({ s }: { s: ReviewSource }) {
   const inner = (
     <>
       <SourceIcon k={s.key} className="h-5 w-5" />
-      <span className="font-display text-xl font-bold text-fg">{nf(s.rating)}</span>
+      <span className="text-xl font-semibold tracking-tight text-fg tabular-nums">{nf(s.rating)}</span>
       <span className="flex flex-col leading-tight">
         <Stars value={s.rating} />
         <span className="text-[11px] text-muted">
@@ -90,18 +90,18 @@ function SourceChip({ s }: { s: ReviewSource }) {
       href={s.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center gap-2.5 rounded-full border border-line bg-surface px-4 py-2 transition-colors hover:border-accent-soft"
+      className="flex items-center gap-2.5 rounded-full bg-surface px-4 py-2 shadow-sm ring-1 ring-line/70 transition-colors hover:ring-accent-soft"
     >
       {inner}
     </a>
   ) : (
-    <div className="flex items-center gap-2.5 rounded-full border border-line bg-surface px-4 py-2">{inner}</div>
+    <div className="flex items-center gap-2.5 rounded-full bg-surface px-4 py-2 shadow-sm ring-1 ring-line/70">{inner}</div>
   );
 }
 
 function ReviewCard({ r }: { r: AggregatedReview }) {
   return (
-    <figure className="flex h-full flex-col border border-line bg-surface p-6 sm:p-7">
+    <figure className="flex h-full flex-col rounded-[22px] bg-surface p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_40px_-24px_rgba(0,0,0,0.18)] sm:p-7">
       <div className="flex items-center gap-3">
         {r.photo ? (
           <img
@@ -112,7 +112,7 @@ function ReviewCard({ r }: { r: AggregatedReview }) {
             className="h-10 w-10 rounded-full object-cover"
           />
         ) : (
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 font-display font-bold text-fg ring-1 ring-line">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 font-semibold text-fg">
             {r.author.charAt(0).toUpperCase()}
           </span>
         )}
@@ -150,14 +150,14 @@ export function GoogleReviews({ summary }: { summary: ReviewsSummary }) {
   if (external.length === 0 || reviews.length === 0) return null;
 
   return (
-    <section id="anmeldelser" className="border-b border-line bg-surface-2">
-      <div className="mx-auto max-w-6xl px-5 py-16 md:py-28">
+    <section id="anmeldelser" className="scroll-mt-16">
+      <div className="mx-auto max-w-6xl px-5 py-20 md:py-32">
         <Reveal>
-          <p className="text-[10px] font-semibold tracking-[0.3em] text-accent-soft uppercase">
+          <p className="m-eyebrow">
             <T k="reviews.eyebrow" />
           </p>
-          <div className="mt-4 flex flex-wrap items-end justify-between gap-5">
-            <h2 className="font-display text-3xl font-bold sm:text-4xl">
+          <div className="mt-2 flex flex-wrap items-end justify-between gap-5">
+            <h2 className="m-title text-4xl sm:text-5xl md:text-6xl">
               <T k="reviews.title" />
             </h2>
             <div className="flex flex-wrap gap-2.5">
@@ -185,7 +185,7 @@ export function GoogleReviews({ summary }: { summary: ReviewsSummary }) {
                   href={s.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-accent-soft transition-colors hover:text-fg"
+                  className="m-link text-[15px]"
                 >
                   <SourceIcon k={s.key} />
                   {s.key === "google" ? (

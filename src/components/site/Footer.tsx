@@ -49,7 +49,7 @@ export async function Footer() {
       <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 md:grid-cols-2 md:gap-14">
         {/* Kontakt + sosiale medier */}
         <div className="flex flex-col">
-          <LogoMark className="h-11 text-fg" />
+          <LogoMark className="h-11 w-auto self-start text-fg" />
           <a
             href={mapLink}
             target="_blank"
@@ -73,7 +73,7 @@ export async function Footer() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={`${s.name} på ${name}`}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-line text-muted transition-all hover:-translate-y-0.5 hover:border-accent-soft hover:text-accent-soft"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-line text-muted transition-colors hover:border-fg hover:text-fg"
               >
                 <Icon className="h-[18px] w-[18px]" />
               </a>
@@ -95,7 +95,7 @@ export async function Footer() {
         </div>
 
         {/* Kart: innebygd Google Maps (eiers ønske) + lenke for å åpne i appen. */}
-        <div className="overflow-hidden rounded-lg border border-line bg-surface">
+        <div className="overflow-hidden rounded-[22px] bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_40px_-24px_rgba(0,0,0,0.18)]">
           <iframe
             title={`Kart: ${s.address}`}
             src={`https://www.google.com/maps?q=${encodeURIComponent(
@@ -110,7 +110,7 @@ export async function Footer() {
             href={mapLink}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1.5 border-t border-line px-4 py-2.5 text-xs font-semibold text-fg transition-colors hover:text-accent-soft"
+            className="flex items-center justify-center gap-1.5 border-t border-line px-4 py-2.5 text-xs font-semibold text-fg transition-colors hover:text-accent-ink"
             aria-label={`Åpne ${s.address} i Google Maps`}
           >
             <T k="footer.openMap" />
