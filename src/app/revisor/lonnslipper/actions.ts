@@ -61,7 +61,7 @@ export async function generatePayslips(
 
   const rows = await getPayrollForMonth(year, month);
   if (rows.length === 0) {
-    return { error: "Ingen aktive ansatte funnet for perioden." };
+    return { error: "Ingen ansatte med lønn i perioden." };
   }
 
   const sb = await createClient();
@@ -70,8 +70,8 @@ export async function generatePayslips(
   const monthName = MONTHS[month - 1] ?? String(month);
   const monthLabel = `${MONTHS_CAP[month - 1] ?? String(month)} ${year}`;
 
-  // Kontaktinfo (e-post + postnummer) for aktive ansatte – slås opp per ansatt
-  // i løkka. `staff_public_read` gjør aktive ansattes rader lesbare server-side.
+  // Kontaktinfo (e-post + postnummer) – også for ansatte som har sluttet
+  // (policy staff_payroll_read i KJØR-I-SUPABASE-LONN-INAKTIVE.sql).
   const contactByStaff = new Map<
     string,
     { email: string | null; postnummer: string | null }
@@ -79,8 +79,7 @@ export async function generatePayslips(
   {
     const { data: staffRows } = await sb
       .from("staff")
-      .select("id, email, postnummer, active")
-      .eq("active", true);
+      .select("id, email, postnummer, active");
     for (const s of (staffRows as
       | { id: string; email: string | null; postnummer: string | null }[]
       | null) ?? []) {

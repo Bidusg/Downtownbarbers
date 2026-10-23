@@ -1,10 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import {
   getStaffOptions,
+  payrollIncludes,
   PAYROLL,
   type PayrollRow,
 } from "@/lib/ops-queries";
-import { getAbsenceDays, baseSalaryForMonth, employmentInMonth } from "@/lib/absence-pay";
+import { getAbsenceDays, baseSalaryForMonth } from "@/lib/absence-pay";
 
 /* =====================================================================
  * Lønnsberegning for revisor.
@@ -16,7 +17,7 @@ import { getAbsenceDays, baseSalaryForMonth, employmentInMonth } from "@/lib/abs
  * ===================================================================== */
 
 /**
- * Lønn per aktiv ansatt for gitt måned, beregnet nøyaktig som `getPayroll`
+ * Lønn per ansatt (også de som sluttet i måneden) for gitt måned, beregnet nøyaktig som `getPayroll`
  * men med bruttosum hentet via RPC (revisor-vennlig). Degraderer til tom
  * liste ved feil, i tråd med resten av query-laget.
  *
@@ -32,7 +33,7 @@ export async function getPayrollForMonth(
 ): Promise<PayrollRow[]> {
   try {
     const sb = await createClient();
-    const staff = await getStaffOptions();
+    const staff = await getStaffOptions({ includeInactive: true });
 
     const { data: grossRows } = await sb.rpc("monthly_gross_by_staff", {
       p_year: year,
@@ -49,7 +50,7 @@ export async function getPayrollForMonth(
 
     const absence = await getAbsenceDays(year, month);
     return staff
-      .filter((st) => employmentInMonth(year, month, st.start_date, st.end_date).employedDays > 0)
+      .filter((st) => payrollIncludes(st, year, month, grossByStaff))
       .map((st) => {
       const gross = grossByStaff.get(st.id) ?? 0;
       const net = gross / (1 + PAYROLL.MVA);

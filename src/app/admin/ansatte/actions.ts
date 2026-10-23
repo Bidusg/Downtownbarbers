@@ -431,7 +431,20 @@ export async function toggleStaff(id: string, active: boolean): Promise<{ ok?: t
   const sb = await createClient();
   const { error } = await sb.from("staff").update({ active }).eq("id", id);
   if (error) return { error: `Kunne ikke lagre: ${error.message}` };
+  // Sluttdato styrer lønna: settes til i dag når en ansatt gjøres inaktiv
+  // (hvis den ikke er satt fra før), og fjernes hvis en ansatt som har sluttet
+  // gjøres aktiv igjen. Feiler stille hvis kolonnen mangler (SQL ikke kjørt).
+  try {
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" });
+    const { data: cur } = await sb.from("staff").select("end_date").eq("id", id).maybeSingle();
+    const end = (cur as { end_date?: string | null } | null)?.end_date ?? null;
+    if (!active && !end) await sb.from("staff").update({ end_date: today }).eq("id", id);
+    if (active && end && end < today) await sb.from("staff").update({ end_date: null }).eq("id", id);
+  } catch {
+    /* ignorer */
+  }
   revalidatePath("/admin/ansatte");
+  revalidatePath("/admin/lonn");
   revalidatePath("/");
   revalidatePath("/booking");
   return { ok: true };

@@ -16,24 +16,48 @@ export type StaffOption = {
   base_salary_nok: number | null; // null = standard (PAYROLL.BASE_NOK)
   start_date?: string | null; // ansatt fra (YYYY-MM-DD)
   end_date?: string | null; // siste arbeidsdag (oppsigelse)
+  active?: boolean;
 };
 
-export async function getStaffOptions(): Promise<StaffOption[]> {
+/**
+ * Ansatte til nedtrekkslister og lønn. Standard: kun aktive.
+ * `includeInactive` tar med ansatte som er satt inaktive – brukes av lønn,
+ * så den som sluttet midt i måneden fortsatt får lønn for dagene de jobbet.
+ */
+/**
+ * Skal den ansatte med på lønn for måneden?
+ *   • Aktiv: når hen var ansatt minst én dag i måneden (start/slutt-dato).
+ *   • Inaktiv MED sluttdato: samme regel – lønn fram til siste arbeidsdag.
+ *   • Inaktiv UTEN sluttdato: bare måneder med omsetning (ellers ville
+ *     tidligere ansatte dukket opp på lønn for alltid).
+ */
+export function payrollIncludes(
+  st: StaffOption,
+  year: number,
+  month: number,
+  grossByStaff: Map<string, number>,
+): boolean {
+  if (employmentInMonth(year, month, st.start_date, st.end_date).employedDays <= 0) return false;
+  if (st.active !== false || st.end_date) return true;
+  return (grossByStaff.get(st.id) ?? 0) > 0;
+}
+
+export async function getStaffOptions(
+  opts: { includeInactive?: boolean } = {},
+): Promise<StaffOption[]> {
   try {
     const sb = await createClient();
-    const first = await sb
+    let q1 = sb
       .from("staff")
-      .select("id, full_name, title, active, base_salary_nok, start_date, end_date")
-      .eq("active", true)
-      .order("employee_number");
+      .select("id, full_name, title, active, base_salary_nok, start_date, end_date");
+    if (!opts.includeInactive) q1 = q1.eq("active", true);
+    const first = await q1.order("employee_number");
     let data = first.data as Record<string, unknown>[] | null;
     if (first.error) {
       // start/slutt-kolonnene mangler (SQL ikke kjørt)
-      const fb = await sb
-        .from("staff")
-        .select("id, full_name, title, active, base_salary_nok")
-        .eq("active", true)
-        .order("employee_number");
+      let q2 = sb.from("staff").select("id, full_name, title, active, base_salary_nok");
+      if (!opts.includeInactive) q2 = q2.eq("active", true);
+      const fb = await q2.order("employee_number");
       data = fb.data as Record<string, unknown>[] | null;
     }
     return (data ?? []).map((r) => ({
@@ -46,6 +70,7 @@ export async function getStaffOptions(): Promise<StaffOption[]> {
           : Number(r.base_salary_nok),
       start_date: (r.start_date as string | null | undefined) ?? null,
       end_date: (r.end_date as string | null | undefined) ?? null,
+      active: r.active !== false,
     }));
   } catch {
     return [];
@@ -92,7 +117,7 @@ export async function getPayroll(
 ): Promise<PayrollRow[]> {
   try {
     const sb = await createClient();
-    const staff = await getStaffOptions();
+    const staff = await getStaffOptions({ includeInactive: true });
     const { start, end } = monthRange(year, month);
     const { data: sales } = await sb
       .from("sales")
@@ -118,7 +143,8 @@ export async function getPayroll(
     const absence = await getAbsenceDays(year, month);
     return staff
       // Ikke ansatt noen dag i måneden (ikke startet / sluttet) → ikke med.
-      .filter((st) => employmentInMonth(year, month, st.start_date, st.end_date).employedDays > 0)
+      // Inaktive ansatte er med for måneder de jobbet (se payrollIncludes).
+      .filter((st) => payrollIncludes(st, year, month, grossByStaff))
       .map((st) => {
       const gross = grossByStaff.get(st.id) ?? 0;
       const net = gross / (1 + PAYROLL.MVA);
