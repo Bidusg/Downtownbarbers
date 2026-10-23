@@ -1132,3 +1132,43 @@ textarea:focus-visible {
 .bo-app :is(div, section, form, aside, details).border.border-line:is(.bg-surface, .bg-surface-2):not(.rounded-full) {
   border-radius: var(--dtb-radius-card);
 }
+
+/* =====================================================================
+ * ROLIG MENY (back-office) – ingen hopping/risting ved hover.
+ *   Knapper og rader som flyttet seg 1–3 px på hover fikk musen til å
+ *   «falle av» kanten → hover av/på i loop = risting. Nå endres bare farge.
+ *   Understreken og dropdownen glir rolig uten fjær-overshoot.
+ * ===================================================================== */
+.bo-navbtn,
+.bo-navbtn svg,
+.bo-mega-item {
+  transition: color 0.18s ease, background-color 0.18s ease;
+}
+.bo-navbtn:hover,
+.bo-navbtn:hover svg,
+.bo-mega-item:hover {
+  transform: none;
+}
+.bo-underline {
+  transition:
+    transform 0.22s ease,
+    width 0.22s ease,
+    opacity 0.18s ease;
+}
+.bo-mega {
+  animation: bo-mega-calm 0.16s ease-out both;
+}
+@keyframes bo-mega-calm {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.bo-mega-item {
+  opacity: 1;
+  animation: none;
+}

@@ -141,7 +141,7 @@ export function DayCalendar({
   // slide: utgående/innkommende animasjon rundt dagsbyttet.
   const [dragX, setDragX] = useState(0);
   const [slide, setSlide] = useState<{ dir: 1 | -1; phase: "out" | "in" } | null>(null);
-  const touch = useRef<{ x: number; y: number; axis: "x" | "y" | null; fired: boolean } | null>(null);
+  const touch = useRef<{ x: number; y: number; t: number; axis: "x" | "y" | null; fired: boolean } | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   // Berøringsskjerm (mobil/iPad): native HTML-dra er av, flytting skjer via
   // hold-og-dra (pointer events). Desktop beholder umiddelbar dra.
@@ -201,25 +201,35 @@ export function DayCalendar({
   }
   function onTouchStart(e: React.TouchEvent) {
     if (e.touches.length !== 1 || slide || gestureLock.current) return;
+    // Starter berøringen på en time/blokkering, er det flytting/trykk – aldri
+    // dagbytte. (Ellers byttet iPaden dag når en time ble dratt sidelengs.)
+    if ((e.target as HTMLElement | null)?.closest?.("[data-cal-block]")) return;
     // Når kolonnene er bredere enn skjermen (mobil), eier nettleseren den
     // horisontale bevegelsen (scroll) – da byttes dag med pilene/topplinja.
     const el = gridRef.current;
     if (el && el.scrollWidth > el.clientWidth + 2) return;
-    touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, axis: null, fired: false };
+    touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), axis: null, fired: false };
   }
   /** Sveip på topplinja (dato/pilene) bytter alltid dag – også på mobil. */
   function onBarTouchStart(e: React.TouchEvent) {
     if (e.touches.length !== 1 || slide) return;
-    touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, axis: null, fired: false };
+    touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), axis: null, fired: false };
   }
   function onTouchMove(e: React.TouchEvent) {
     const t = touch.current;
     if (!t || t.fired || e.touches.length !== 1) return;
+    // En time flyttes/dras → ingen dagbytte i samme bevegelse.
+    if (gestureLock.current || move || dragId) {
+      touch.current = null;
+      setDragX(0);
+      return;
+    }
     const dx = e.touches[0].clientX - t.x;
     const dy = e.touches[0].clientY - t.y;
     if (!t.axis) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-      t.axis = Math.abs(dx) > Math.abs(dy) * 1.3 ? "x" : "y";
+      if (Math.abs(dx) < 14 && Math.abs(dy) < 14) return;
+      // Tydelig sidelengs (mer enn dobbelt så mye som opp/ned) før det regnes som sveip.
+      t.axis = Math.abs(dx) > Math.abs(dy) * 2 ? "x" : "y";
     }
     if (t.axis !== "x") return;
     // Gummistrikk: følger fingeren, men dempet.
@@ -228,12 +238,15 @@ export function DayCalendar({
   function onTouchEnd(e: React.TouchEvent) {
     const t = touch.current;
     touch.current = null;
-    if (!t || t.axis !== "x") {
+    if (!t || t.axis !== "x" || gestureLock.current || move || dragId) {
       setDragX(0);
       return;
     }
     const dx = e.changedTouches[0].clientX - t.x;
-    if (Math.abs(dx) > 70) {
+    const dy = e.changedTouches[0].clientY - t.y;
+    // Dagbytte krever et bevisst sveip: langt (≥ 140 px), tydelig sidelengs og
+    // raskt (under ett sekund) – ikke en rolig dra-bevegelse.
+    if (Math.abs(dx) > 140 && Math.abs(dx) > Math.abs(dy) * 2 && Date.now() - t.t < 1000) {
       t.fired = true;
       goDay(dx > 0 ? -1 : 1); // sveip mot høyre = forrige dag
     } else {
@@ -399,7 +412,8 @@ export function DayCalendar({
     const dx = e.clientX - down.current.x;
     const dy = e.clientY - down.current.y;
     down.current = null;
-    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+    if (move || gestureLock.current) return;
+    if (Math.abs(dx) > 140 && Math.abs(dx) > Math.abs(dy) * 2) {
       goDay(dx > 0 ? -1 : 1);
     }
   }
@@ -1054,6 +1068,7 @@ export function DayCalendar({
                               setBlockSel(b);
                             }
                           }}
+                          data-cal-block=""
                           className="group absolute right-1 left-1 z-[3] cursor-pointer overflow-hidden rounded-lg border border-dashed border-line-2 px-2 py-1 text-left hover:border-danger/60"
                           style={{
                             top,
@@ -1150,6 +1165,7 @@ export function DayCalendar({
                                   .join(" · ")
                               : undefined
                           }
+                          data-cal-block=""
                           className={`absolute right-1 left-1 overflow-hidden rounded-lg border-l-[3px] px-2 py-1 text-left hover:z-10 ${
                             movable && (canMove || canTransfer)
                               ? "cursor-grab active:cursor-grabbing"

@@ -62,7 +62,11 @@ begin
       sum(
         greatest(0, extract(epoch from (
           least(
-            coalesce(ev.next_at, now()),
+            -- Mangler utstempling: telles til nå bare i dag (pågår). En
+            -- tidligere dag uten utstempling telles ikke (ellers ble det
+            -- urealistisk mange timer) – den vises som «ikke stemplet ut».
+            coalesce(ev.next_at,
+              case when ev.d = (now() at time zone 'Europe/Oslo')::date then now() else ev.created_at end),
             ((ev.d + 1)::timestamp at time zone 'Europe/Oslo')
           ) - ev.created_at
         )) / 60)

@@ -42,6 +42,7 @@ export async function ShiftHoursReport({ month, basePath }: { month?: string; ba
   const label = `${MONTHS[m - 1]} ${y}`;
 
   const { rows, missingSql } = await getStaffShiftDays(from, to);
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" });
 
   const byStaff = new Map<string, { name: string; days: typeof rows; total: number; open: number }>();
   for (const r of rows) {
@@ -58,7 +59,7 @@ export async function ShiftHoursReport({ month, basePath }: { month?: string; ba
     <div className="mx-auto max-w-4xl space-y-6">
       <PageHeader
         title="Arbeidstid (stemplet)"
-        description="Timene de ansatte stempler inn og ut på stempelklokka i kassa, per ansatt og dag. Pauser er trukket fra."
+        description="Timene de ansatte stempler inn og ut på stempelklokka i kassa, per ansatt og dag. Pauser er trukket fra. Glemt utstempling en tidligere dag telles ikke før den er rettet."
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -81,17 +82,20 @@ export async function ShiftHoursReport({ month, basePath }: { month?: string; ba
       ) : staff.length === 0 ? (
         <EmptyState description={`Ingen stemplinger i ${label}.`} />
       ) : (
-        <Card padded={false}>
+        <Card padded={false} className="overflow-hidden">
           <ul className="divide-y divide-line">
             {staff.map((s) => (
               <li key={s.name}>
                 <details className="group">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 hover:bg-surface-2">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 outline-none transition-colors hover:bg-surface-2 focus-visible:bg-surface-2 [&::-webkit-details-marker]:hidden">
                     <span>
                       <span className="block font-semibold text-fg">{s.name}</span>
                       <span className="block text-xs text-muted">
                         {s.days.length} dag{s.days.length === 1 ? "" : "er"}
-                        {s.open > 0 ? ` · ${s.open} uten utstempling` : ""}
+                        {s.days.some((d) => d.open && d.day === today) ? " · på jobb nå" : ""}
+                        {s.days.some((d) => d.open && d.day !== today)
+                          ? ` · ${s.days.filter((d) => d.open && d.day !== today).length} uten utstempling`
+                          : ""}
                       </span>
                     </span>
                     <span className="flex items-center gap-3">
@@ -108,7 +112,12 @@ export async function ShiftHoursReport({ month, basePath }: { month?: string; ba
                           <td className="px-5 py-2 text-muted">{dayLabel(d.day)}</td>
                           <td className="px-5 py-2 text-right tabular-nums">
                             {hm(d.minutes)}
-                            {d.open && <span className="ml-2 text-xs text-danger">ikke stemplet ut</span>}
+                            {d.open &&
+                              (d.day === today ? (
+                                <span className="ml-2 text-xs text-accent-soft">pågår</span>
+                              ) : (
+                                <span className="ml-2 text-xs text-danger">ikke stemplet ut – telles ikke</span>
+                              ))}
                           </td>
                         </tr>
                       ))}
