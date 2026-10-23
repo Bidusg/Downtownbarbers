@@ -73,6 +73,12 @@ export function Header({
     const rest = q.toString();
     window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : "") + window.location.hash);
   }, []);
+  // Innlogget kunde (flagg-cookie satt ved innlogging) → «Min side» i stedet for «Logg inn».
+  const [isCustomer, setIsCustomer] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- leser cookie etter hydrering
+    setIsCustomer(/(?:^|;\s*)dtb_kunde_in=1(?:;|$)/.test(document.cookie));
+  }, []);
   const [scrolled, setScrolled] = useState(false);
 
   // Mobilmeny: Esc lukker, og siden bak låses mens menyen er åpen.
@@ -222,8 +228,9 @@ export function Header({
           </div>
 
           <a
-            href="/?login=1"
+            href={isCustomer ? "/min-side" : "/?login=1"}
             onClick={(e) => {
+              if (isCustomer) return;
               e.preventDefault();
               setLoginOpen(true);
             }}
@@ -233,9 +240,13 @@ export function Header({
             }
           >
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" />
+              {isCustomer ? (
+                <path d="M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10z" />
+              ) : (
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" />
+              )}
             </svg>
-            {t("header.login")}
+            {isCustomer ? t("header.mypage") : t("header.login")}
           </a>
           <Link
             href="/booking"
@@ -309,15 +320,16 @@ export function Header({
             {t("header.book")}
           </Link>
           <a
-            href="/?login=1"
+            href={isCustomer ? "/min-side" : "/?login=1"}
             onClick={(e) => {
-              e.preventDefault();
               setOpen(false);
+              if (isCustomer) return;
+              e.preventDefault();
               setLoginOpen(true);
             }}
             className="pill pill-soft mt-3"
           >
-            {t("header.login")}
+            {isCustomer ? t("header.mypage") : t("header.login")}
           </a>
           <a
             href={telHref}

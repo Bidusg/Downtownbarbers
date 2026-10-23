@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { CUSTOMER_COOKIE, CUSTOMER_FLAG, sessionCookieOptions } from "@/lib/customer-session-shared";
 
 /** Beskyttede områder krever innlogging. Rolle sjekkes i hvert områdes layout. */
 const PROTECTED = ["/admin", "/kasse", "/ansatt"];
@@ -42,6 +43,15 @@ export async function updateSession(request: NextRequest) {
     url.searchParams.set("login", "1");
     url.searchParams.set("ansatt", "1"); // admin/kasse/revisor → åpne ansatt-fanen
     return NextResponse.redirect(url);
+  }
+
+  // Kunde som åpner Min side-lenken (fra e-post/SMS) forblir innlogget på
+  // enheten, så neste gang holder det å trykke «Min side».
+  const m = /^\/min-side\/([0-9a-f-]{36})$/i.exec(path);
+  if (m && request.cookies.get(CUSTOMER_COOKIE)?.value !== m[1]) {
+    const o = sessionCookieOptions();
+    response.cookies.set(CUSTOMER_COOKIE, m[1], o.token);
+    response.cookies.set(CUSTOMER_FLAG, "1", o.flag);
   }
 
   return response;

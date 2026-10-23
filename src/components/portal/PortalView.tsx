@@ -69,9 +69,17 @@ export function PortalView({
             <T k="portal.memberSince" /> <PortalDate iso={p.member_since} />
           </p>
         </div>
-        <a href="/booking" className="pill pill-primary self-start sm:self-auto">
-          <T k="common.bookNew" />
-        </a>
+        <div className="flex flex-wrap items-center gap-3 self-start sm:self-auto">
+          <a href="/booking" className="pill pill-primary">
+            <T k="common.bookNew" />
+          </a>
+          {/* Logg ut på denne enheten (fjerner varig innlogging). */}
+          <form action="/min-side/logg-ut" method="post">
+            <button type="submit" className="pill pill-soft">
+              <T k="portal.logout" />
+            </button>
+          </form>
+        </div>
       </div>
 
       {/* Kommende timer – med selvbetjening (avbestill / endre tid) */}

@@ -1,70 +1,184 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import Link from "next/link";
+import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import {
   signIn,
-  requestPortalLink,
+  requestLoginCode,
+  registerCustomer,
+  verifyLoginCode,
   type LoginState,
-  type PortalLinkState,
+  type CodeRequestState,
+  type VerifyState,
 } from "./actions";
 
 const loginInitial: LoginState = {};
-const portalInitial: PortalLinkState = {};
+const codeInitial: CodeRequestState = {};
+const verifyInitial: VerifyState = {};
 
-/** Kunde-innlogging: passordløs magisk lenke til «Min side». */
+const fieldCls =
+  "w-full rounded-xl border border-line-2 bg-canvas px-3.5 py-3 text-[15px] text-fg outline-none transition-colors focus:border-accent-soft";
+const labelCls = "mb-1.5 block text-[13px] font-semibold text-muted";
+const primaryBtn =
+  "w-full rounded-full bg-accent px-4 py-3 text-[15px] font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-60 min-h-11";
+
+/**
+ * Kunde-innlogging med engangskode på e-post. «Ny kunde» oppretter konto.
+ * Etter riktig kode er kunden innlogget på enheten (Min side uten lenke).
+ */
 function CustomerForm() {
-  const [state, formAction, pending] = useActionState(
-    requestPortalLink,
-    portalInitial,
-  );
+  const router = useRouter();
+  const { t } = useLanguage();
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [reqState, reqAction, reqPending] = useActionState(requestLoginCode, codeInitial);
+  const [regState, regAction, regPending] = useActionState(registerCustomer, codeInitial);
+  const [verState, verAction, verPending] = useActionState(verifyLoginCode, verifyInitial);
+  // «Bruk en annen e-post»: skjul kode-steget for akkurat dette svaret.
+  const [dismissed, setDismissed] = useState<CodeRequestState | null>(null);
 
-  if (state.sent) {
+  const active = mode === "login" ? reqState : regState;
+  const codeEmail = active.step === "code" && active !== dismissed ? active.email ?? "" : null;
+
+  useEffect(() => {
+    if (verState.redirect) router.push(verState.redirect);
+  }, [verState.redirect, router]);
+
+  const err = (k?: string) => (k ? t(`login.err.${k}`) : null);
+
+  if (codeEmail !== null) {
     return (
-      <div className="border border-line bg-surface p-6 text-center">
-        <p className="font-display text-lg font-bold text-fg">Sjekk e-posten din 📩</p>
-        <p className="mt-3 text-sm text-muted">
-          Finnes det en konto på denne e-posten, har vi sendt deg en lenke til
-          Min side. Lenken er personlig – ikke del den.
-        </p>
-        <p className="mt-4 text-xs text-muted">
-          Får du ingen e-post?{" "}
-          <Link href="/booking" className="text-accent-soft hover:underline">
-            Bestill en time
-          </Link>{" "}
-          – så oppretter vi profilen din automatisk.
-        </p>
+      <div className="space-y-4 rounded-2xl border border-line bg-surface p-6">
+        <div>
+          <p className="text-lg font-semibold tracking-tight text-fg">{t("login.cust.codeTitle")}</p>
+          <p className="mt-2 text-sm text-muted">
+            {t("login.cust.codeText").replace("{email}", codeEmail || "e-posten")}
+          </p>
+        </div>
+        <form action={verAction} className="space-y-3">
+          <input type="hidden" name="email" value={codeEmail} />
+          <div>
+            <label htmlFor="f-code" className={labelCls}>
+              {t("login.cust.code")}
+            </label>
+            <input
+              id="f-code"
+              name="code"
+              required
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="[0-9 ]{6,7}"
+              maxLength={7}
+              autoFocus
+              placeholder="123456"
+              className={fieldCls + " text-center text-2xl tracking-[0.4em] tabular-nums"}
+            />
+          </div>
+          {verState.error && (
+            <p role="alert" className="text-sm text-danger">
+              {err(verState.error)}
+            </p>
+          )}
+          <button type="submit" disabled={verPending} className={primaryBtn}>
+            {verPending ? t("login.cust.verifying") : t("login.cust.verify")}
+          </button>
+          <p className="text-center text-xs text-muted">{t("login.cust.remember")}</p>
+        </form>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-sm">
+          <form action={reqAction}>
+            <input type="hidden" name="email" value={codeEmail} />
+            <button type="submit" disabled={reqPending || regPending} className="m-link min-h-11">
+              {t("login.cust.resend")}
+            </button>
+          </form>
+          <button
+            type="button"
+            onClick={() => setDismissed(active)}
+            className="min-h-11 text-muted hover:text-fg"
+          >
+            {t("login.cust.otherEmail")}
+          </button>
+        </div>
       </div>
     );
   }
 
+  if (mode === "register") {
+    return (
+      <form action={regAction} className="space-y-4 rounded-2xl border border-line bg-surface p-6">
+        <p className="text-sm text-muted">{t("login.cust.registerIntro")}</p>
+        {/* Honeypot – skjult for mennesker */}
+        <input type="text" name="website" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden />
+        <div>
+          <label htmlFor="r-name" className={labelCls}>
+            {t("login.cust.name")}
+          </label>
+          <input id="r-name" name="name" required autoComplete="name" className={fieldCls} />
+        </div>
+        <div>
+          <label htmlFor="r-email" className={labelCls}>
+            {t("login.cust.email")}
+          </label>
+          <input
+            id="r-email"
+            type="email"
+            name="email"
+            required
+            spellCheck={false}
+            autoComplete="email"
+            inputMode="email"
+            className={fieldCls}
+          />
+        </div>
+        <div>
+          <label htmlFor="r-phone" className={labelCls}>
+            {t("login.cust.phone")}
+          </label>
+          <input id="r-phone" type="tel" name="phone" autoComplete="tel" inputMode="tel" className={fieldCls} />
+        </div>
+        {regState.error && (
+          <p role="alert" className="text-sm text-danger">
+            {err(regState.error)}
+          </p>
+        )}
+        <button type="submit" disabled={regPending} className={primaryBtn}>
+          {regPending ? t("login.cust.sending") : t("login.cust.create")}
+        </button>
+        <button type="button" onClick={() => setMode("login")} className="m-link mx-auto block min-h-11 text-sm">
+          {t("login.cust.have")}
+        </button>
+      </form>
+    );
+  }
+
   return (
-    <form action={formAction} className="space-y-4 border border-line bg-surface p-6">
-      <p className="text-sm text-muted">
-        Skriv inn e-posten du booket med, så sender vi deg en lenke rett til Min
-        side – ingen passord nødvendig.
-      </p>
+    <form action={reqAction} className="space-y-4 rounded-2xl border border-line bg-surface p-6">
+      <p className="text-sm text-muted">{t("login.cust.intro")}</p>
       <div>
-        <label htmlFor="f-email" className="mb-1.5 block text-xs font-semibold tracking-wide text-muted uppercase">
-          E-post
+        <label htmlFor="f-email" className={labelCls}>
+          {t("login.cust.email")}
         </label>
         <input
-            id="f-email"
+          id="f-email"
           type="email"
-            spellCheck={false}
+          spellCheck={false}
           name="email"
           required
           autoComplete="email"
           inputMode="email"
-          className="w-full border border-line-2 bg-canvas px-3 py-2.5 text-sm text-fg outline-none focus:border-accent-soft"
+          className={fieldCls}
         />
       </div>
-      <button
-        type="submit"
-        disabled={pending}
-        className="w-full bg-accent px-4 py-3 text-sm font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-60"
-      >
-        {pending ? "Sender …" : "Send meg lenken"}
+      {reqState.error && (
+        <p role="alert" className="text-sm text-danger">
+          {err(reqState.error)}
+        </p>
+      )}
+      <button type="submit" disabled={reqPending} className={primaryBtn}>
+        {reqPending ? t("login.cust.sending") : t("login.cust.sendCode")}
+      </button>
+      <button type="button" onClick={() => setMode("register")} className="m-link mx-auto block min-h-11 text-sm">
+        {t("login.cust.new")}
       </button>
     </form>
   );

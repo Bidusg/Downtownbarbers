@@ -671,6 +671,56 @@ export async function sendPortalLinkEmail(opts: {
 }
 
 /**
+ * Engangskode for kunde-innlogging (6 siffer, gyldig 10 min). Inneholder også
+ * en direkte knapp til Min side for dem som heller vil trykke.
+ */
+export async function sendLoginCodeEmail(opts: {
+  to: string;
+  code: string;
+  portalUrl?: string;
+  lang?: Lang;
+  /** Ny konto (registrering) – litt annen velkomsttekst. */
+  welcome?: boolean;
+}): Promise<boolean> {
+  const en = opts.lang === "en";
+  const codeHtml = `
+    <div style="margin:24px 0 8px;text-align:center">
+      <div style="display:inline-block;background:${C.bg};border:1px solid ${C.line};padding:16px 26px;font-family:Arial,Helvetica,sans-serif;font-size:32px;font-weight:bold;letter-spacing:.32em;color:${C.cream}">${escapeHtml(opts.code)}</div>
+      <p style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:${C.muted};margin:12px 0 0">
+        ${en ? "The code is valid for 10 minutes." : "Koden gjelder i 10 minutter."}
+      </p>
+    </div>
+    ${opts.portalUrl ? ctaButton(opts.portalUrl, en ? "Or open My page directly" : "Eller åpne Min side direkte") : ""}
+    <p style="color:${C.muted};font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;margin:16px 0 0">
+      ${
+        en
+          ? "Didn't ask for this? You can safely ignore this email – nobody can log in without the code."
+          : "Ba du ikke om dette? Da kan du trygt se bort fra e-posten – ingen kommer inn uten koden."
+      }
+    </p>`;
+  const html = shell(
+    opts.welcome
+      ? en ? "Welcome to Downtown Barbers" : "Velkommen til Downtown Barbers"
+      : en ? "Your login code" : "Din innloggingskode",
+    opts.welcome
+      ? en
+        ? "Your account is ready. Enter this code to log in – after that you stay logged in on this device."
+        : "Kontoen din er klar. Skriv inn koden for å logge inn – etterpå forblir du innlogget på denne enheten."
+      : en
+        ? "Enter this code to log in to My page:"
+        : "Skriv inn denne koden for å logge inn på Min side:",
+    [],
+    codeHtml,
+    { lang: opts.lang },
+  );
+  return sendEmail(
+    opts.to,
+    en ? `${opts.code} is your login code – Downtown Barbers` : `${opts.code} er innloggingskoden din – Downtown Barbers`,
+    html,
+  );
+}
+
+/**
  * Lønnslipp til ansatt. Sender en pen varsel-e-post og – når `attachment`
  * finnes – legger lønnslippen ved som en passordbeskyttet ZIP der
  * **passordet er postnummeret** til den ansatte.
