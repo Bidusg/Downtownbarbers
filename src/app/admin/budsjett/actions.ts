@@ -1,9 +1,11 @@
 "use server";
 
+import { requireRole } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 export async function setBudget(formData: FormData): Promise<{ ok?: true; error?: string }> {
+  await requireRole(["admin"]);
   const staff_id = String(formData.get("staff_id") ?? "");
   const year = Number(formData.get("year"));
   const month = Number(formData.get("month"));
@@ -28,6 +30,7 @@ export async function setBudget(formData: FormData): Promise<{ ok?: true; error?
 }
 
 export async function deleteBudget(id: string): Promise<{ ok: boolean; error?: string }> {
+  await requireRole(["admin"]);
   const sb = await createClient();
   const { error } = await sb.from("budgets").delete().eq("id", id);
   if (error) return { ok: false, error: "Kunne ikke nullstille: " + error.message };

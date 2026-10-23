@@ -103,60 +103,78 @@ export async function GET(req: NextRequest) {
     // Kundens språk (customers.lang) – engelsk e-post/SMS til dem som booket på engelsk.
     const langs = await bookingLangs(sb, rows.map((r) => r.id));
 
+    const failed: string[] = [];
     for (const b of rows) {
-      const lang = langs.get(b.id) ?? "no";
-      const en = lang === "en";
-      const date = en ? fmtDayLang(b.start_at, "en") : fmtDate(b.start_at);
-      const time = fmtTime(b.start_at);
-      const service = b.service_name
-        ? await translateServiceText(b.service_name, lang)
-        : en ? "appointment" : "time";
-      const barber = b.barber_name ?? (en ? "us" : "oss");
-      const info = b.barber_name ? barberInfo.get(b.barber_name) : undefined;
+      // Én booking som feiler (ugyldig nummer, nettverk …) skal ikke stoppe
+      // resten av påminnelsene eller oppfølgingsjobben.
+      try {
+        const lang = langs.get(b.id) ?? "no";
+        const en = lang === "en";
+        const date = en ? fmtDayLang(b.start_at, "en") : fmtDate(b.start_at);
+        const time = fmtTime(b.start_at);
+        const service = b.service_name
+          ? await translateServiceText(b.service_name, lang)
+          : en ? "appointment" : "time";
+        const barber = b.barber_name ?? (en ? "us" : "oss");
+        const info = b.barber_name ? barberInfo.get(b.barber_name) : undefined;
 
-      if (b.email) {
-        const ok = await sendBookingReminderEmail({
-          to: b.email,
-          name: b.customer_name,
-          service,
-          barber,
-          date,
-          time,
-          barberPhotoUrl: info?.photoUrl,
-          barberTitle: info?.title,
-          lang,
-        });
-        if (ok) emailed++;
+        if (b.email) {
+          const ok = await sendBookingReminderEmail({
+            to: b.email,
+            name: b.customer_name,
+            service,
+            barber,
+            date,
+            time,
+            barberPhotoUrl: info?.photoUrl,
+            barberTitle: info?.title,
+            lang,
+          });
+          if (ok) emailed++;
+        }
+
+        if (b.phone) {
+          const ok = await sendSms(
+            b.phone,
+            renderSms(en ? smsTpl.reminderEn : smsTpl.reminder, {
+              fornavn: (b.customer_name ?? "").trim().split(/\s+/)[0] ?? "",
+              navn: b.customer_name ?? "",
+              tjeneste: service,
+              barber: await staffDisplayName(barber),
+              dato: date,
+              tid: time,
+              varighet: "",
+              ...salon,
+            }),
+            { kind: "påminnelse", bookingId: b.id },
+          );
+          if (ok) texted++;
+        }
+      } catch (e) {
+        failed.push(b.id);
+        console.error("Påminnelse feilet for booking", b.id, e);
       }
 
-      if (b.phone) {
-        const ok = await sendSms(
-          b.phone,
-          renderSms(en ? smsTpl.reminderEn : smsTpl.reminder, {
-            fornavn: (b.customer_name ?? "").trim().split(/\s+/)[0] ?? "",
-            navn: b.customer_name ?? "",
-            tjeneste: service,
-            barber: await staffDisplayName(barber),
-            dato: date,
-            tid: time,
-            varighet: "",
-            ...salon,
-          }),
-          { kind: "påminnelse", bookingId: b.id },
-        );
-        if (ok) texted++;
+      // Marker som påminnet uansett kanal (og ved feil), så vi ikke spammer.
+      try {
+        await sb.rpc("mark_reminder_sent", { p_booking: b.id });
+      } catch {
+        /* prøves igjen neste kjøring */
       }
-
-      // Marker som påminnet uansett kanal, så vi ikke spammer.
-      await sb.rpc("mark_reminder_sent", { p_booking: b.id });
     }
 
     // Kjør AI-oppfølging i samme daglige jobb (unngår ekstra cron på Hobby).
-    const followups = await runFollowups({ weeks: 6 }, sb);
+    let followups: Awaited<ReturnType<typeof runFollowups>> | { error: string };
+    try {
+      followups = await runFollowups({ weeks: 6 }, sb);
+    } catch (e) {
+      followups = { error: e instanceof Error ? e.message : "unknown" };
+    }
 
     return NextResponse.json({
       ok: true,
       due: rows.length,
+      failed: failed.length,
       emailed,
       texted,
       followups,

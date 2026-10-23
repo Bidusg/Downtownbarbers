@@ -31,11 +31,11 @@ Rekkefølge:
 
 ## B. Kode-fikser fra sikkerhetsrevisjonen (Claude tar)
 
-- [ ] **Vipps-webhook: HMAC/signaturkontroll** — *må* på plass før Vipps går live (ellers kan hvem som helst markere bookinger som betalt). Krever Vipps webhook-hemmelighet.
-- [ ] **requireRole-herding** på kasse-/admin-actions (forsvar i dybden, i tillegg til RLS).
+- [x] **Vipps-webhook: HMAC/signaturkontroll** — bygget. Webhooken avviser alt uten gyldig Vipps-signatur. Gjenstår ved lansering: registrer webhooken hos Vipps og legg hemmeligheten i `VIPPS_WEBHOOK_SECRET` (Vercel).
+- [x] **requireRole-herding** på kasse-/admin-actions — alle kasse-actions krever kasse/admin, admin-actions krever admin (lager-skanning: kasse/admin).
 - [ ] **Gavekort som betalingsmåte i kassa** — i dag trekkes bare saldo uten salgslinje → mangler i pengespor/regnskap.
-- [ ] **Tripletex-bilag: guard for reservekonto 1990** — så ett salg på ukjent betalingsmåte ikke feiler hele dagsbilaget.
-- [ ] **Cron-reminders: isoler per booking** — én feil skal ikke stoppe resten + oppfølgingsjobben.
+- [x] **Tripletex-bilag: guard for reservekonto 1990** — flere skrivemåter kjennes igjen, kontoen kan overstyres med `TRIPLETEX_ACCOUNT_OTHER`, og feilen forklarer hva som må gjøres.
+- [x] **Cron-reminders: isoler per booking** — én feil stopper ikke resten eller oppfølgingsjobben.
 - [ ] **Lønnsslipp-ZIP: bedre passord** enn postnummer.
 - [ ] **Lønn: feriepenger + AGA** — beslutning med Kumar (slippene er merket «foreløpig» i dag).
 

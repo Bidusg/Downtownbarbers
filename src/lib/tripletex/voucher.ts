@@ -10,7 +10,7 @@
 // Konto refereres i Tripletex med intern id, ikke kontonummer. Vi slår derfor
 // opp id-en per kontonummer ved kjøring (ulik i test/prod) og cacher den.
 
-import { deriveIncomeLedger, type VatMode } from "@/lib/accounting";
+import { deriveIncomeLedger, OTHER_ACCOUNT, type VatMode } from "@/lib/accounting";
 import { createServiceClient } from "@/lib/supabase/service";
 import { TRIPLETEX } from "./config";
 import { tripletexFetch } from "./client";
@@ -174,7 +174,22 @@ export async function postDailyVoucher(isoDate: string): Promise<PostResult> {
   // Løs opp konto-id-er og bygg Tripletex-bilagskropp.
   const postings = [];
   for (const p of plan.postings) {
-    const accountId = await resolveAccountId(p.accountNumber);
+    let accountId: number;
+    try {
+      accountId = await resolveAccountId(p.accountNumber);
+    } catch (e) {
+      // Vern: ukjent betalingsmåte → reservekontoen. Finnes den ikke i
+      // Tripletex, forklar hva som må gjøres i stedet for en kryptisk feil.
+      if (p.accountNumber === OTHER_ACCOUNT.account) {
+        throw new Error(
+          `Dagen har salg med ukjent betalingsmåte, som føres på konto ${OTHER_ACCOUNT.account} ` +
+            `(${OTHER_ACCOUNT.name}) – men den kontoen finnes ikke i Tripletex. ` +
+            `Opprett konto ${OTHER_ACCOUNT.account} i Tripletex, eller sett TRIPLETEX_ACCOUNT_OTHER ` +
+            `til en konto regnskapsfører har valgt.`,
+        );
+      }
+      throw e;
+    }
     postings.push({
       row: p.row,
       date: p.date,

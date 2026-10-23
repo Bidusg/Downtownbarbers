@@ -50,12 +50,22 @@ const METHOD_ACCOUNT: Record<string, { account: string; name: string }> = {
   kort: { account: "1520", name: "Bankkort" },
   card: { account: "1520", name: "Bankkort" },
   vipps: { account: "1521", name: "Vipps" },
+  // Vanlige skrivemåter fra kassa/importer, så de ikke havner på 1990.
+  bankkort: { account: "1520", name: "Bankkort" },
+  terminal: { account: "1520", name: "Bankkort" },
+  bankterminal: { account: "1520", name: "Bankkort" },
+  kontanter: { account: "1900", name: "Kontanter" },
   // Gavekort som betaling (innløsning) DEBITERER gjeldskontoen (2900), ikke en
   // eiendel. Selve tjeneste-/varesalget bokføres med mva som normalt (3001/3020).
   gavekort: { account: GIFT_CARD_LIABILITY_ACCOUNT.account, name: GIFT_CARD_LIABILITY_ACCOUNT.name },
   giftcard: { account: GIFT_CARD_LIABILITY_ACCOUNT.account, name: GIFT_CARD_LIABILITY_ACCOUNT.name },
 };
-const OTHER_ACCOUNT = { account: "1990", name: "Uspesifisert oppgjør" };
+/** Ukjent betalingsmåte havner her (revisor fordeler i Tripletex-utkastet).
+ *  Kan overstyres med TRIPLETEX_ACCOUNT_OTHER hvis 1990 ikke finnes. */
+export const OTHER_ACCOUNT = {
+  account: process.env.TRIPLETEX_ACCOUNT_OTHER || "1990",
+  name: "Uspesifisert oppgjør",
+};
 
 // Salgsinntekt splittes på tjenester (behandlinger) vs. varesalg. Kontonumrene
 // følger Fixit-kontoplanen (3001 behandlinger, 3020 varesalg) og kan overstyres

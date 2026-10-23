@@ -1,5 +1,6 @@
 "use server";
 
+import { requireRole } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
@@ -8,6 +9,7 @@ const BUCKET = "staff-files";
 export async function createProduct(
   formData: FormData,
 ): Promise<{ ok?: true; error?: string }> {
+  await requireRole(["admin"]);
   const name = String(formData.get("name") ?? "").trim();
   const price = Number(formData.get("price_nok") ?? 0);
   const stock = Number(formData.get("stock") ?? 0);
@@ -56,6 +58,7 @@ export async function createProduct(
 export async function updateProduct(
   formData: FormData,
 ): Promise<{ ok?: true; error?: string }> {
+  await requireRole(["admin"]);
   const id = String(formData.get("id") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
   const price = Number(formData.get("price_nok") ?? 0);
@@ -107,6 +110,7 @@ export async function setProductBarcode(
   id: string,
   barcode: string,
 ): Promise<{ ok?: true; error?: string }> {
+  await requireRole(["admin"]);
   const value = barcode.trim() || null;
   const sb = await createClient();
   const { error } = await sb
@@ -129,6 +133,7 @@ export async function toggleProduct(
   id: string,
   active: boolean,
 ): Promise<{ ok?: true; error?: string }> {
+  await requireRole(["admin"]);
   const sb = await createClient();
   const { error } = await sb.from("products").update({ active }).eq("id", id);
   if (error) return { error: `Kunne ikke endre status: ${error.message}` };
@@ -138,6 +143,7 @@ export async function toggleProduct(
 }
 
 export async function deleteProduct(id: string): Promise<{ ok: boolean; error?: string }> {
+  await requireRole(["admin"]);
   const sb = await createClient();
   const { error } = await sb.from("products").delete().eq("id", id);
   if (error) {

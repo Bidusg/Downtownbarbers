@@ -1,5 +1,6 @@
 "use server";
 
+import { requireRole } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -8,6 +9,7 @@ const clean = (v: FormDataEntryValue | null) => String(v ?? "").trim() || null;
 
 /** Oppdaterer hele kundekortet. Fanger e-post-konflikt (unik e-post) pent. */
 export async function updateCustomer(id: string, formData: FormData) {
+  await requireRole(["admin"]);
   const sb = await createClient();
   const full_name = String(formData.get("full_name") ?? "").trim();
   const { error } = await sb
@@ -36,6 +38,7 @@ export async function updateCustomer(id: string, formData: FormData) {
  * bokføringsplikten (salgshistorikk må oppbevares). Irreversibelt.
  */
 export async function anonymizeCustomer(id: string) {
+  await requireRole(["admin"]);
   const sb = await createClient();
   await sb
     .from("customers")
@@ -55,6 +58,7 @@ export async function anonymizeCustomer(id: string) {
 
 /** Setter markedsførings-samtykke for en kunde (markedsføringsloven §15). */
 export async function setMarketingConsent(id: string, consent: boolean) {
+  await requireRole(["admin"]);
   const sb = await createClient();
   await sb
     .from("customers")
@@ -66,6 +70,7 @@ export async function setMarketingConsent(id: string, consent: boolean) {
 
 /** Oppretter en ny kunde manuelt fra kartoteket. */
 export async function createCustomer(formData: FormData) {
+  await requireRole(["admin"]);
   const sb = await createClient();
   const full_name = String(formData.get("full_name") ?? "").trim();
   if (!full_name) return;

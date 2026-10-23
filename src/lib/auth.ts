@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -10,8 +11,10 @@ export function isAdminRole(role: Role | string | null | undefined): boolean {
   return role === "admin" || role === "eier";
 }
 
-/** Henter innlogget bruker + rolle (fra profiles). Null hvis ikke innlogget. */
-export async function getUserRole(): Promise<{
+/** Henter innlogget bruker + rolle (fra profiles). Null hvis ikke innlogget.
+ *  Mellomlagres per forespørsel (React cache), så flere tilgangssjekker i
+ *  samme forespørsel bare slår opp én gang. */
+export const getUserRole = cache(async function getUserRole(): Promise<{
   userId: string;
   email: string | null;
   role: Role;
@@ -37,7 +40,7 @@ export async function getUserRole(): Promise<{
   } catch {
     return null;
   }
-}
+});
 
 /** Krever at brukeren har en av rollene, ellers redirect. Returnerer rollen. */
 export async function requireRole(allowed: Role[]): Promise<Role> {

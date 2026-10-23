@@ -1,5 +1,6 @@
 "use server";
 
+import { requireRole } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
@@ -21,6 +22,7 @@ function refresh() {
 
 /** Juster lager (delta kan være negativt). reason: varemottak | svinn | telling | justering. */
 export async function adjustStockAction(formData: FormData): Promise<StockResult> {
+  await requireRole(["admin"]);
   const productId = String(formData.get("productId") ?? "");
   const rawDelta = Number(formData.get("delta") ?? 0);
   const rawReason = String(formData.get("reason") ?? "justering");
@@ -50,6 +52,7 @@ export async function scanAdjustStock(
   delta: number,
   reason: string,
 ): Promise<{ ok?: true; newStock?: number; error?: string }> {
+  await requireRole(["shop", "admin"]);
   if (!productId || !Number.isInteger(delta) || delta === 0)
     return { error: "Ugyldig antall." };
   const sb = await createClient();
@@ -73,6 +76,7 @@ export async function scanAdjustStock(
 
 /** Sett lager til et absolutt tall (regner ut differansen og logger den). */
 export async function setStockAction(formData: FormData): Promise<StockResult> {
+  await requireRole(["admin"]);
   const productId = String(formData.get("productId") ?? "");
   const rawTarget = String(formData.get("target") ?? "").trim();
   const target = Number(rawTarget);
@@ -102,6 +106,7 @@ export async function setStockAction(formData: FormData): Promise<StockResult> {
 
 /** Oppdater lav-lager-terskel for et produkt. */
 export async function setThresholdAction(formData: FormData): Promise<StockResult> {
+  await requireRole(["admin"]);
   const productId = String(formData.get("productId") ?? "");
   const threshold = Number(formData.get("threshold") ?? 0);
   if (!productId) return { error: "Mangler produkt." };

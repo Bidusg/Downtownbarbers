@@ -12,7 +12,7 @@ import {
 } from "@/lib/i18n/server-lang";
 import { createServiceClient } from "@/lib/supabase/service";
 import { osloToUtcISO } from "@/lib/oslo-time";
-import { getUserRole, isAdminRole } from "@/lib/auth";
+import { getUserRole, isAdminRole, requireRole } from "@/lib/auth";
 import { getLoyaltyStatus } from "@/lib/loyalty-queries";
 import { getShopContext } from "@/lib/shop-settings";
 
@@ -39,6 +39,7 @@ export type KasseAllowances = {
 };
 
 export async function getKasseAllowances(): Promise<KasseAllowances> {
+  await requireRole(["shop", "admin"]);
   const { flags, canBypass } = await getShopContext();
   return {
     discountAllowed: canBypass || flags.discount_enabled,
@@ -86,6 +87,7 @@ function mapOffers(data: unknown): MemberCampaignOffer[] {
 export async function getMemberCampaignOffers(
   customerId: string,
 ): Promise<MemberCampaignOffer[]> {
+  await requireRole(["shop", "admin"]);
   if (!customerId) return [];
   try {
     const sb = await createClient();
@@ -100,6 +102,7 @@ export async function getMemberCampaignOffers(
 export async function getMemberCampaignOffersForBooking(
   bookingId: string,
 ): Promise<MemberCampaignOffer[]> {
+  await requireRole(["shop", "admin"]);
   if (!bookingId) return [];
   try {
     const sb = await createClient();
@@ -248,6 +251,7 @@ export async function completeBooking(
   bookingId: string,
   opts?: CompleteOptions | string,
 ): Promise<CompleteResult> {
+  await requireRole(["shop", "admin"]);
   // Bakoverkompatibelt: tidligere signatur var (id, paymentMethod: string).
   const o: CompleteOptions =
     typeof opts === "string" ? { paymentMethod: opts } : (opts ?? {});
@@ -433,6 +437,7 @@ export async function completeBooking(
 export async function reopenBooking(
   bookingId: string,
 ): Promise<{ ok?: true; error?: string }> {
+  await requireRole(["shop", "admin"]);
   try {
     const sb = await createClient();
 
@@ -478,6 +483,7 @@ export type BarcodeProduct = {
 export async function findProductByBarcode(
   code: string,
 ): Promise<BarcodeProduct | null> {
+  await requireRole(["shop", "admin"]);
   const c = code.trim();
   if (!c) return null;
   try {
@@ -509,6 +515,7 @@ export type SellableProduct = { id: string; name: string; price_nok: number };
 
 /** Produkter som kan selges over disk i kassen (aktive, ikke gavekort). */
 export async function listSellableProducts(): Promise<SellableProduct[]> {
+  await requireRole(["shop", "admin"]);
   try {
     const sb = await createClient();
     const { data } = await sb
@@ -531,6 +538,7 @@ export type SellableService = { name: string; price_nok: number; category?: stri
 
 /** Aktive behandlinger som kan selges i kassen (med pris). */
 export async function listSellableServices(): Promise<SellableService[]> {
+  await requireRole(["shop", "admin"]);
   try {
     const sb = await createClient();
     const { data } = await sb
@@ -609,6 +617,7 @@ export type WalkinInput = {
 export async function recordWalkinSale(
   input: WalkinInput,
 ): Promise<{ ok?: true; error?: string }> {
+  await requireRole(["shop", "admin"]);
   try {
     const sb = await createClient();
     const products = (input.products ?? [])
@@ -786,6 +795,7 @@ export type BookingLoyalty = {
 export async function getBookingLoyalty(
   bookingId: string,
 ): Promise<BookingLoyalty | null> {
+  await requireRole(["shop", "admin"]);
   try {
     const sb = await createClient();
     const { data: b } = await sb
@@ -804,6 +814,7 @@ export async function getBookingLoyalty(
 
 /** Tjenesteprisen for en booking (til totalvisning i kassen). */
 export async function getBookingPrice(bookingId: string): Promise<number> {
+  await requireRole(["shop", "admin"]);
   try {
     const sb = await createClient();
     const { data } = await sb
@@ -827,6 +838,7 @@ export type BookingServiceState = {
 export async function getBookingServiceState(
   bookingId: string,
 ): Promise<BookingServiceState> {
+  await requireRole(["shop", "admin"]);
   try {
     const sb = await createClient();
     const [{ data: b }, { data: ad }] = await Promise.all([
@@ -859,6 +871,7 @@ export async function changeBookingService(
   service: string,
   addons: string[] = [],
 ): Promise<{ ok?: true; error?: string }> {
+  await requireRole(["shop", "admin"]);
   if (!bookingId || !service?.trim()) return { error: "Mangler behandling." };
   try {
     const sb = await createClient();
@@ -884,6 +897,7 @@ export async function markNoShow(
   bookingId: string,
   opts?: { notify?: boolean },
 ): Promise<{ ok?: true; emailed?: boolean; error?: string }> {
+  await requireRole(["shop", "admin"]);
   const sb = await createClient();
 
   const { error: updErr } = await sb
@@ -931,6 +945,7 @@ export async function markNoShow(
 export async function cancelBooking(
   bookingId: string,
 ): Promise<{ ok?: true; error?: string }> {
+  await requireRole(["shop", "admin"]);
   const sb = await createClient();
   const { data: b } = await sb
     .from("bookings")
@@ -968,6 +983,7 @@ export async function blockTime(
   endIso: string,
   reason: string,
 ): Promise<{ ok?: true; error?: string }> {
+  await requireRole(["shop", "admin"]);
   if (!barber || !startIso || !endIso) return { error: "Mangler felt." };
   if (new Date(endIso) <= new Date(startIso))
     return { error: "Sluttid må være etter starttid." };
@@ -1002,6 +1018,7 @@ export async function rescheduleBooking(
   startIso: string,
   barber?: string,
 ): Promise<{ ok?: true; error?: string }> {
+  await requireRole(["shop", "admin"]);
   try {
     const sb = await createClient();
     const { error } = await sb.rpc("reschedule_booking", {
@@ -1026,6 +1043,7 @@ export async function setBookingLength(
   bookingId: string,
   endIso: string,
 ): Promise<{ ok?: true; error?: string }> {
+  await requireRole(["shop", "admin"]);
   if (!bookingId || !endIso) return { error: "Mangler felt." };
   try {
     const sb = await createClient();
@@ -1051,6 +1069,7 @@ export async function reassignBookingBarber(
   newBarber: string,
   pin: string,
 ): Promise<{ ok?: true; error?: string }> {
+  await requireRole(["shop", "admin"]);
   try {
     const sb = await createClient();
 
@@ -1110,6 +1129,7 @@ export type DeskBookingInput = {
 export async function createDeskBooking(
   input: DeskBookingInput,
 ): Promise<{ ok?: true; error?: string }> {
+  await requireRole(["shop", "admin"]);
   if (!input.service || !input.barber || !input.start) {
     return { error: "Velg tjeneste, barber og tid." };
   }
@@ -1229,6 +1249,7 @@ export async function createDropinBooking(input: {
   barber: string;
   start: string;
 }): Promise<{ ok?: true; error?: string }> {
+  await requireRole(["shop", "admin"]);
   if (!input.service || !input.barber || !input.start)
     return { error: "Velg tjeneste, barber og tid." };
   try {
@@ -1290,6 +1311,7 @@ export async function createDropinBooking(input: {
 export async function sendReceiptForBooking(
   bookingId: string,
 ): Promise<{ ok?: true; error?: string }> {
+  await requireRole(["shop", "admin"]);
   try {
     const sb = await createClient();
     const { data: b } = await sb
@@ -1334,6 +1356,7 @@ export type CustomerHit = {
 
 /** Søk opp kunde i skranken. */
 export async function searchCustomers(q: string): Promise<CustomerHit[]> {
+  await requireRole(["shop", "admin"]);
   if (!q || q.trim().length < 2) return [];
   try {
     const sb = await createClient();
@@ -1348,6 +1371,7 @@ export async function searchCustomers(q: string): Promise<CustomerHit[]> {
 /** Er den innloggede brukeren admin/eier? Brukes til å skjule admin-kun
  *  funksjoner i kassa (f.eks. «Drop-in» i ny booking) for shop-brukere. */
 export async function getIsAdminUser(): Promise<boolean> {
+  await requireRole(["shop", "admin"]);
   try {
     const me = await getUserRole();
     return !!me && isAdminRole(me.role);
@@ -1362,6 +1386,7 @@ export async function getSlots(
   service: string,
   date: string,
 ): Promise<string[]> {
+  await requireRole(["shop", "admin"]);
   if (!barber || !service || !date) return [];
   try {
     const sb = await createClient();
@@ -1404,6 +1429,7 @@ function osloParts(iso: string): { date: string; time: string } {
 
 /** Forslag til ny time N uker etter timen som nettopp ble betalt. */
 export async function rebookOptions(bookingId: string, weeks: number): Promise<RebookOptions> {
+  await requireRole(["shop", "admin"]);
   const empty: RebookOptions = {
     date: "", wantedTime: "", sameTimeFree: false, alternatives: [], service: "", barber: "", customerName: "",
   };
@@ -1445,6 +1471,7 @@ export async function rebookCreate(
   date: string,
   time: string,
 ): Promise<{ ok?: true; error?: string }> {
+  await requireRole(["shop", "admin"]);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time))
     return { error: "Ugyldig dato/tid." };
   try {

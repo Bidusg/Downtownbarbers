@@ -1,5 +1,6 @@
 "use server";
 
+import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export type ClockStaff = {
@@ -15,6 +16,7 @@ export type ShiftStatus = "off" | "on" | "paused";
 export async function getClockBoard(): Promise<
   (ClockStaff & { status: ShiftStatus; workedMinutes: number })[]
 > {
+  await requireRole(["shop", "admin"]);
   try {
     const sb = await createClient();
     const [{ data: staff }, { data: summary }] = await Promise.all([
@@ -44,6 +46,7 @@ export async function verifyPin(
   staffId: string,
   pin: string,
 ): Promise<{ ok: true; status: ShiftStatus } | { ok: false; error: string }> {
+  await requireRole(["shop", "admin"]);
   try {
     const sb = await createClient();
     const { data, error } = await sb.rpc("verify_pin_status", {
@@ -67,6 +70,7 @@ export async function punch(
   pin: string,
   type: "start" | "pause" | "resume" | "end",
 ): Promise<{ ok: true; status: ShiftStatus } | { ok: false; error: string }> {
+  await requireRole(["shop", "admin"]);
   try {
     const sb = await createClient();
     const { data, error } = await sb.rpc("record_shift_event", {
