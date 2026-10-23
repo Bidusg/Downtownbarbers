@@ -12,6 +12,8 @@ Rekkefølge:
 1. **Supabase SQL** (SQL Editor → lim inn → Run, én om gangen):
    - [ ] `supabase/migrations/0072_sikkerhet_revoke_anon.sql` — fjerner anonym tilgang til kasse-/kundefunksjoner. *Kritisk.*
    - [ ] `KJØR-I-SUPABASE-FIXIT.sql` (repo-rota) — Fixit-tabell + historikk-import.
+   - [ ] `KJØR-I-SUPABASE-KUNDEKONTO.sql` — kundeinnlogging med kode + stenger portal-lenke-oppslag på e-post. *Kritisk.*
+   - [ ] `KJØR-I-SUPABASE-SIKKERHET-2.sql` — skjuler ansattes private felt for anonyme, PIN kun admin, ingen åpne innsettinger, kasse-funksjoner kun kasse/admin. *Kritisk.*
 2. **Supabase → Authentication → Email**: [ ] slå av «Allow new users to sign up». (Ingen kundepåvirkning — kunder bruker ikke Supabase-konto.)
 3. **Vercel → Settings → Environment Variables (Production)**:
    - [ ] `CRON_SECRET` — lang tilfeldig streng (Claude kan lage den). Låser cron-endepunktene.
