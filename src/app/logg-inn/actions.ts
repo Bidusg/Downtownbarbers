@@ -252,5 +252,11 @@ export async function signIn(
   }
 
   const me = await getUserRole();
+  // Tilbake dit den ansatte var på vei (f.eks. lenken til lønnsslippen).
+  // Kun interne back-office-stier – aldri eksterne adresser.
+  const next = String(formData.get("neste") ?? "");
+  if (/^\/(admin|kasse|ansatt|revisor)(\/[A-Za-z0-9\-_/]*)?(\?[^#\s]*)?(#[\w-]*)?$/.test(next) && !next.startsWith("//")) {
+    redirect(next);
+  }
   redirect(homeForRole(me?.role ?? "customer"));
 }

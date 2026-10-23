@@ -117,8 +117,8 @@ export default async function AnsattDokumenter() {
             )}
           </section>
 
-          {/* Lønnslipper */}
-          <section>
+          {/* Lønnslipper (lenken i lønns-e-posten peker hit: #lonn) */}
+          <section id="lonn" className="scroll-mt-24">
             <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted uppercase">
               Lønnsoversikt (foreløpig)
             </h2>

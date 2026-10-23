@@ -748,7 +748,7 @@ export async function sendPayslipEmail(opts: {
         opts.name.split(" ")[0] || "der",
       )}, lønnsoversikten din for ${escapeHtml(
         opts.monthLabel,
-      )} er klar. Du finner den i ansattportalen.`;
+      )} er klar. Den ligger under Dokumenter på Min side – logg inn med ansattkontoen din for å se og laste den ned.`;
 
   const passwordNote = hasAttachment
     ? `<p style="color:${C.soft};font-family:Arial,Helvetica,sans-serif;line-height:1.7;font-size:15px;margin:18px 0 0">
@@ -758,7 +758,7 @@ export async function sendPayslipEmail(opts: {
 
   const cta = `
     ${passwordNote}
-    ${ctaButton(opts.portalUrl, "Se lønnsoversikten i portalen")}
+    ${ctaButton(opts.portalUrl, hasAttachment ? "Se lønnsoversikten i portalen" : "Åpne lønnsoversikten")}
     <p style="color:${C.muted};font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;margin:16px 0 0">
       Har du spørsmål om lønnen, ta kontakt med salongen.
     </p>`;

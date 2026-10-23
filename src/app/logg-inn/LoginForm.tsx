@@ -188,9 +188,11 @@ function CustomerForm() {
 function StaffForm({
   accessDenied,
   passwordReset,
+  next,
 }: {
   accessDenied: boolean;
   passwordReset: boolean;
+  next: string;
 }) {
   const [state, formAction, pending] = useActionState(signIn, loginInitial);
 
@@ -209,6 +211,7 @@ function StaffForm({
       )}
 
       <form action={formAction} className="space-y-4 border border-line bg-surface p-6">
+        {next && <input type="hidden" name="neste" value={next} />}
         <div>
           <label htmlFor="f-email-staff" className="mb-1.5 block text-xs font-semibold tracking-wide text-muted uppercase">
             E-post
@@ -265,6 +268,7 @@ export function LoginForm({
   passwordReset = false,
   staffTab = false,
   compact = false,
+  next = "",
 }: {
   accessDenied?: boolean;
   passwordReset?: boolean;
@@ -272,6 +276,8 @@ export function LoginForm({
   staffTab?: boolean;
   /** compact = inne i en popup (ingen helsides ramme). */
   compact?: boolean;
+  /** Back-office-side å gå til etter innlogging. */
+  next?: string;
 }) {
   // Ansatte som blir sendt hit av en tilgangsvakt (feil=tilgang) eller etter
   // passordbytte havner rett på ansatt-fanen; ellers er kunde-fanen standard.
@@ -317,7 +323,7 @@ export function LoginForm({
         {tab === "kunde" ? (
           <CustomerForm />
         ) : (
-          <StaffForm accessDenied={accessDenied} passwordReset={passwordReset} />
+          <StaffForm accessDenied={accessDenied} passwordReset={passwordReset} next={next} />
         )}
 
         <p className="mt-5 text-center text-xs text-muted">

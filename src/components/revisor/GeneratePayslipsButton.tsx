@@ -33,8 +33,7 @@ export function GeneratePayslipsButton({
     ok: boolean;
     text: string;
     emailed?: number;
-    missing?: string[];
-  } | null>(null);
+    } | null>(null);
 
   const run = () => {
     setConfirming(false);
@@ -56,7 +55,6 @@ export function GeneratePayslipsButton({
         ok: true,
         text: `${r.generated} lønnsoversikt${r.generated === 1 ? "" : "er"} generert for ${monthLabel} ${year}${extra}.`,
         emailed: r.emailed,
-        missing: r.missingPostnummer,
       });
     });
   };
@@ -87,9 +85,9 @@ export function GeneratePayslipsButton({
             Send lønnsoversikter for {monthLabel} {year}?
           </p>
           <p className="mt-1 text-sm text-muted">
-            {staffCount} aktive ansatte får en PDF i sin private dokumentmappe og
-            e-post om at den ligger klar. Eksisterende lønnsoversikt for måneden
-            erstattes.
+            {staffCount} ansatte får lønnsoversikten på sin Min side (Dokumenter) og
+            en e-post med lenke dit – ingen vedlegg. Eksisterende lønnsoversikt for
+            måneden erstattes.
           </p>
           {recipients.length > 0 && (
             <ul className="mt-3 divide-y divide-line border-y border-line text-sm">
@@ -128,18 +126,9 @@ export function GeneratePayslipsButton({
           </p>
           {msg.ok && typeof msg.emailed === "number" && (
             <p className="text-sm text-muted">
-              {msg.emailed} fikk lønnsoversikten på e-post
-              {msg.missing?.length
-                ? ` – ${msg.missing.length} mangler postnummer og fikk kun varsel.`
-                : "."}
+              {msg.emailed} fikk e-post med lenke til lønnsoversikten på Min side.
             </p>
           )}
-          {msg.ok && msg.missing?.length ? (
-            <p className="text-xs text-muted">
-              Mangler postnummer: {msg.missing.join(", ")}. Legg det inn under
-              Ansatte for å sende vedlagt lønnsoversikt neste gang.
-            </p>
-          ) : null}
         </div>
       )}
     </div>

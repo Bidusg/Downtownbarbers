@@ -57,7 +57,7 @@ export function Header({
   const visibleNav = nav.filter((n) => !hiddenNavHrefs.has(n.href));
   const [open, setOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
-  const [loginFlags, setLoginFlags] = useState({ accessDenied: false, passwordReset: false, staffTab: false });
+  const [loginFlags, setLoginFlags] = useState({ accessDenied: false, passwordReset: false, staffTab: false, next: "" });
   // ?login=1 (fra gamle /logg-inn-lenker, tilgangsvakter og utlogging):
   // åpne innloggings-popupen med en gang, og rydd adresselinja.
   useEffect(() => {
@@ -67,6 +67,7 @@ export function Header({
       accessDenied: q.get("feil") === "tilgang",
       passwordReset: q.get("tilbakestilt") === "1",
       staffTab: q.get("ansatt") === "1",
+      next: q.get("neste") ?? "",
     });
     setLoginOpen(true);
     ["login", "feil", "tilbakestilt", "neste", "ansatt"].forEach((k) => q.delete(k));

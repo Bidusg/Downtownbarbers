@@ -14,12 +14,15 @@ export function LoginModal({
   accessDenied = false,
   passwordReset = false,
   staffTab = false,
+  next = "",
 }: {
   open: boolean;
   onClose: () => void;
   accessDenied?: boolean;
   passwordReset?: boolean;
   staffTab?: boolean;
+  /** Siden ansatte sendes til etter innlogging (fra tilgangsvakten). */
+  next?: string;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -51,7 +54,7 @@ export function LoginModal({
         >
           ×
         </button>
-        <LoginForm compact accessDenied={accessDenied} passwordReset={passwordReset} staffTab={staffTab} />
+        <LoginForm compact accessDenied={accessDenied} passwordReset={passwordReset} staffTab={staffTab} next={next} />
       </div>
     </div>
   );

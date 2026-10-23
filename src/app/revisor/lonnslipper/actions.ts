@@ -6,7 +6,6 @@ import { requireRole, getUserRole } from "@/lib/auth";
 import { STAFF_DOCS_BUCKET } from "@/lib/staff-documents";
 import { getPayrollForMonth } from "@/lib/payroll-slips";
 import { renderPayslipPdf } from "@/components/revisor/PayslipDocument";
-import { zipWithPassword } from "@/lib/zip";
 import { sendPayslipEmail } from "@/lib/email";
 import { siteUrl } from "@/lib/site-url";
 
@@ -20,15 +19,15 @@ const MONTHS_CAP = [
   "Juli", "August", "September", "Oktober", "November", "Desember",
 ];
 
+/** Rett til lønnsslippene på den ansattes Min side (innlogging først ved behov). */
 function portalUrl(): string {
-  return `${siteUrl()}/?login=1`;
+  return `${siteUrl()}/ansatt/dokumenter#lonn`;
 }
 
 export type GeneratePayslipsResult = {
   ok?: true;
   generated?: number;
   emailed?: number;
-  missingPostnummer?: string[];
   error?: string;
   errors?: string[];
 };
@@ -70,29 +69,27 @@ export async function generatePayslips(
   const monthName = MONTHS[month - 1] ?? String(month);
   const monthLabel = `${MONTHS_CAP[month - 1] ?? String(month)} ${year}`;
 
-  // Kontaktinfo (e-post + postnummer) – også for ansatte som har sluttet
+  // Kontaktinfo (e-post) – også for ansatte som har sluttet
   // (policy staff_payroll_read i KJØR-I-SUPABASE-LONN-INAKTIVE.sql).
   const contactByStaff = new Map<
     string,
-    { email: string | null; postnummer: string | null }
+    { email: string | null }
   >();
   {
     const { data: staffRows } = await sb
       .from("staff")
-      .select("id, email, postnummer, active");
+      .select("id, email, active");
     for (const s of (staffRows as
-      | { id: string; email: string | null; postnummer: string | null }[]
+      | { id: string; email: string | null }[]
       | null) ?? []) {
       contactByStaff.set(s.id, {
         email: (s.email ?? "").trim() || null,
-        postnummer: (s.postnummer ?? "").trim() || null,
       });
     }
   }
 
   let generated = 0;
   let emailed = 0;
-  const missingPostnummer: string[] = [];
   const errors: string[] = [];
 
   for (const row of rows) {
@@ -143,39 +140,18 @@ export async function generatePayslips(
       try {
         const contact = contactByStaff.get(row.staffId);
         const email = contact?.email ?? null;
-        const postnummer = contact?.postnummer ?? null;
-
-        if (!postnummer) missingPostnummer.push(row.name);
 
         if (email) {
-          if (postnummer) {
-            // Passordbeskyttet ZIP – passord = postnummer.
-            const zip = await zipWithPassword(
-              buf,
-              `Lonnslipp-${year}-${mm}.pdf`,
-              postnummer,
-            );
-            const sent = await sendPayslipEmail({
-              to: email,
-              name: row.name,
-              monthLabel,
-              attachment: {
-                filename: `Lonnslipp-${year}-${mm}.zip`,
-                base64: zip.toString("base64"),
-              },
-              portalUrl: portalUrl(),
-            });
-            if (sent) emailed += 1;
-          } else {
-            // Mangler postnummer: send kun varsel + portal-lenke (uten vedlegg).
-            const sent = await sendPayslipEmail({
-              to: email,
-              name: row.name,
-              monthLabel,
-              portalUrl: portalUrl(),
-            });
-            if (sent) emailed += 1;
-          }
+          // Ingen vedlegg: slippen ligger på den ansattes Min side
+          // (/ansatt/dokumenter), bak innlogging. Tryggere enn ZIP med
+          // postnummer som passord.
+          const sent = await sendPayslipEmail({
+            to: email,
+            name: row.name,
+            monthLabel,
+            portalUrl: portalUrl(),
+          });
+          if (sent) emailed += 1;
         }
       } catch (e) {
         console.error(`payslip email ${row.staffId}:`, e);
@@ -195,7 +171,6 @@ export async function generatePayslips(
     ok: true,
     generated,
     emailed,
-    missingPostnummer: missingPostnummer.length ? missingPostnummer : undefined,
     errors: errors.length ? errors : undefined,
   };
 }

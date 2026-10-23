@@ -8,6 +8,15 @@ import { getMyAgenda } from "@/lib/ansatt-queries";
 import { getGoalProgress } from "@/lib/analytics-queries";
 import { NoticeBanner } from "@/components/admin/NoticeBanner";
 import { getActiveNotices } from "@/lib/notices-queries";
+import { getMyDocuments } from "@/lib/staff-documents";
+import Link from "next/link";
+
+const MONTHS_NB = ["januar", "februar", "mars", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "desember"];
+/** «2026-10» → «oktober 2026». */
+function periodLabel(p: string | null): string {
+  const m = /^(\d{4})-(\d{2})$/.exec(p ?? "");
+  return m ? `${MONTHS_NB[Number(m[2]) - 1] ?? m[2]} ${m[1]}` : "";
+}
 
 export const dynamic = "force-dynamic";
 
@@ -35,11 +44,18 @@ function fmtTime(iso: string) {
 
 export default async function AnsattDashboard() {
   await requireRole(["staff", "admin"]);
-  const [me, agenda, notices] = await Promise.all([
+  const [me, agenda, notices, docs] = await Promise.all([
     getUserRole(),
     getMyAgenda(),
     getActiveNotices("ansatt"),
+    getMyDocuments().catch(() => []),
   ]);
+  // Siste lønnsoversikt – vises øverst de første 45 dagene etter at den kom.
+  const latestSlip = docs
+    .filter((d) => d.category === "lonnslipp")
+    .sort((a, b) => (b.period ?? b.created_at).localeCompare(a.period ?? a.created_at))[0];
+  const showSlip =
+    !!latestSlip && new Date().getTime() - new Date(latestSlip.created_at).getTime() < 45 * 24 * 60 * 60 * 1000;
 
   // Ekte månedsmål for innlogget barber (kun når kontoen er koblet til en profil).
   const now = new Date();
@@ -62,6 +78,21 @@ export default async function AnsattDashboard() {
     <main className="mx-auto max-w-3xl space-y-8 p-6">
         <PageHeader title="Min side" />
         <NoticeBanner notices={notices} />
+        {showSlip && latestSlip && (
+          <Card>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold tracking-wide text-muted uppercase">Lønn</p>
+                <p className="mt-1 font-semibold text-fg">
+                  Lønnsoversikten for {periodLabel(latestSlip.period) || "forrige måned"} er klar
+                </p>
+              </div>
+              <Link href="/ansatt/dokumenter#lonn" className="act act-accent">
+                Se lønnsoversikten
+              </Link>
+            </div>
+          </Card>
+        )}
         {/* MIN TIMEPLAN */}
         <Card padded={false}>
           <div className="p-6">

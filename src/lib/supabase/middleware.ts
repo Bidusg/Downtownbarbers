@@ -42,6 +42,8 @@ export async function updateSession(request: NextRequest) {
     url.search = "";
     url.searchParams.set("login", "1");
     url.searchParams.set("ansatt", "1"); // admin/kasse/revisor → åpne ansatt-fanen
+    // Tilbake hit etter innlogging (f.eks. lenken til lønnsslippen i e-posten).
+    url.searchParams.set("neste", path + request.nextUrl.search);
     return NextResponse.redirect(url);
   }
 
