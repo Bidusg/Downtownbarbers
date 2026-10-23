@@ -16,6 +16,7 @@ import {
   type MemberCampaignOffer,
 } from "@/app/kasse/actions";
 import { redeemLoyalty } from "@/app/kasse/kunder/[id]/loyalty-actions";
+import { findGiftCard, type GiftCardHit } from "@/app/admin/gavekort/actions";
 import { startVippsCharge, pollVippsCharge } from "@/app/kasse/vipps-actions";
 import { CouponPicker, couponDiscount } from "@/components/kasse/CouponPicker";
 import { ServiceEditor } from "@/components/kasse/ServiceEditor";
@@ -122,6 +123,13 @@ export function PaymentControls({
   const [relationType, setRelationType] = useState<RelationType | null>(null);
   const [split, setSplit] = useState(false);
   const [splitAmts, setSplitAmts] = useState<Record<string, string>>({});
+  // Gavekort som (del)betaling – samme flyt som i hurtigsalget.
+  const [giftOpen, setGiftOpen] = useState(false);
+  const [giftCode, setGiftCode] = useState("");
+  const [giftHit, setGiftHit] = useState<GiftCardHit | null>(null);
+  const [giftMsg, setGiftMsg] = useState<string | null>(null);
+  const [giftAmt, setGiftAmt] = useState("");
+  const [giftLooking, startGift] = useTransition();
 
   // Medlems-kuponger for bookingens kunde
   const [offers, setOffers] = useState<MemberCampaignOffer[]>([]);
@@ -214,7 +222,47 @@ export function PaymentControls({
     amount: Math.max(0, Math.round(Number(splitAmts[m]) || 0)),
   })).filter((e) => e.amount > 0);
   const splitSum = splitEntries.reduce((a, e) => a + e.amount, 0);
-  const splitOk = splitSum === total && total > 0;
+
+  // Gavekort: hvor mye som trekkes og hva som gjenstår å betale.
+  const giftUsable = giftHit && !giftHit.expired ? Math.max(0, Math.round(giftHit.balanceNok)) : 0;
+  const giftWanted =
+    giftAmt.trim() === "" ? Math.min(giftUsable, total) : Math.max(0, Math.round(Number(giftAmt) || 0));
+  const giftTake = giftHit ? Math.min(giftWanted, giftUsable, total) : 0;
+  const restAfterGift = Math.max(0, total - giftTake);
+  const payTarget = giftTake > 0 ? restAfterGift : total;
+  const splitOk = splitSum === payTarget && payTarget > 0;
+  const giftOpt = giftHit && giftTake > 0 ? { code: giftCode, amount: giftTake } : undefined;
+
+  function lookupGift(code: string) {
+    const c = code.trim();
+    if (!c) return;
+    setGiftMsg(null);
+    setGiftHit(null);
+    startGift(async () => {
+      const hit = await findGiftCard(c);
+      if (!hit) {
+        setGiftMsg("Fant ikke gavekortet.");
+        return;
+      }
+      if (hit.expired) {
+        setGiftMsg("Gavekortet er utløpt.");
+        return;
+      }
+      if (hit.balanceNok <= 0) {
+        setGiftMsg("Gavekortet er tomt.");
+        return;
+      }
+      setGiftCode(hit.code);
+      setGiftHit(hit);
+      setGiftAmt("");
+    });
+  }
+  function clearGift() {
+    setGiftHit(null);
+    setGiftCode("");
+    setGiftAmt("");
+    setGiftMsg(null);
+  }
 
   function setQty(id: string, qty: number) {
     setCart((c) => {
@@ -237,6 +285,7 @@ export function PaymentControls({
         discountNok: discountNum,
         campaignId: couponId ?? undefined,
         relationType: relationType ?? undefined,
+        gift: giftOpt,
       });
       if (res?.error) {
         setError(res.error);
@@ -250,7 +299,7 @@ export function PaymentControls({
     setError(null);
     if (!splitOk) {
       setError(
-        `Betalingen (${formatKr(splitSum)}) må stemme med totalen (${formatKr(total)}).`,
+        `Betalingen (${formatKr(splitSum)}) må stemme med ${giftTake > 0 ? "resten" : "totalen"} (${formatKr(payTarget)}).`,
       );
       return;
     }
@@ -264,6 +313,7 @@ export function PaymentControls({
         campaignId: couponId ?? undefined,
         relationType: relationType ?? undefined,
         payments: splitEntries,
+        gift: giftOpt,
       });
       if (res?.error) {
         setError(res.error);
@@ -680,10 +730,104 @@ export function PaymentControls({
         </p>
       )}
 
+      {/* Gavekort (hel eller delvis betaling) */}
+      <div className="mb-3 rounded-xl border border-line p-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold tracking-wide text-muted uppercase">Gavekort</span>
+          {giftHit ? (
+            <button type="button" onClick={clearGift} disabled={pending} className="act act-danger">
+              Fjern
+            </button>
+          ) : (
+            <button type="button" onClick={() => setGiftOpen((v) => !v)} className="act act-accent">
+              {giftOpen ? "Skjul" : "Betal med gavekort"}
+            </button>
+          )}
+        </div>
+        {giftOpen && !giftHit && (
+          <div className="mt-2">
+            <div className="flex gap-2">
+              <input
+                value={giftCode}
+                onChange={(e) => setGiftCode(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    lookupGift(giftCode);
+                  }
+                }}
+                placeholder="Skann eller skriv kode …"
+                aria-label="Gavekortkode"
+                autoComplete="off"
+                autoFocus
+                className={inputCls}
+              />
+              <button
+                type="button"
+                onClick={() => lookupGift(giftCode)}
+                disabled={giftLooking || !giftCode.trim()}
+                className="shrink-0 rounded-lg border border-line px-3 py-2 text-sm text-fg hover:border-accent-soft disabled:opacity-40 [@media(pointer:coarse)]:min-h-11"
+              >
+                {giftLooking ? "…" : "Slå opp"}
+              </button>
+            </div>
+            {giftMsg && (
+              <p role="alert" className="mt-1.5 text-xs text-danger">
+                {giftMsg}
+              </p>
+            )}
+          </div>
+        )}
+        {giftHit && (
+          <div className="mt-2 text-sm">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-muted tabular-nums">
+                {giftHit.code} · saldo {formatKr(giftHit.balanceNok)}
+              </span>
+              <label className="flex items-center gap-2 text-xs text-muted">
+                Trekk
+                <input
+                  value={giftAmt}
+                  onChange={(e) => setGiftAmt(e.target.value.replace(/[^0-9]/g, ""))}
+                  placeholder={String(Math.min(giftUsable, total))}
+                  inputMode="numeric"
+                  aria-label="Beløp fra gavekort"
+                  className="w-20 rounded-lg border border-line bg-surface px-2 py-1 text-right text-sm text-fg tabular-nums outline-none focus:border-accent-soft [@media(pointer:coarse)]:min-h-11"
+                />
+                kr
+              </label>
+            </div>
+            <div className="mt-2 flex items-center justify-between border-t border-line pt-2 tabular-nums">
+              <span className="text-xs text-muted">
+                Gavekort dekker {formatKr(giftTake)} · ny saldo {formatKr(giftHit.balanceNok - giftTake)}
+              </span>
+              <span className="text-xs font-semibold text-fg">Rest: {formatKr(restAfterGift)}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {giftTake > 0 && restAfterGift === 0 ? (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => pay("Gavekort")}
+          className="w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50 [@media(pointer:coarse)]:min-h-11"
+        >
+          {pending && payingMethod === "Gavekort" ? "Registrerer …" : `Fullfør – ${formatKr(giftTake)} fra gavekortet`}
+        </button>
+      ) : (
+      <>
       {/* Betaling: enkel eller delt */}
       <div className="mb-2 flex items-center justify-between">
         <span className="text-xs text-muted">
-          {split ? "Del betalingen på flere måter:" : "Betalt med:"}
+          {split
+            ? giftTake > 0
+              ? "Del resten på flere måter:"
+              : "Del betalingen på flere måter:"
+            : giftTake > 0
+              ? "Resten betalt med:"
+              : "Betalt med:"}
         </span>
         <button
           type="button"
@@ -719,9 +863,9 @@ export function PaymentControls({
           ))}
           <div className="flex items-center justify-between border-t border-line pt-2 text-xs">
             <span className={splitOk ? "text-accent-soft" : "text-muted"}>
-              Fordelt: {formatKr(splitSum)} / {formatKr(total)}
-              {splitSum !== total &&
-                ` · ${splitSum > total ? "−" : "mangler "}${formatKr(Math.abs(total - splitSum))}`}
+              Fordelt: {formatKr(splitSum)} / {formatKr(payTarget)}
+              {splitSum !== payTarget &&
+                ` · ${splitSum > payTarget ? "−" : "mangler "}${formatKr(Math.abs(payTarget - splitSum))}`}
             </span>
             <button
               type="button"
@@ -739,7 +883,7 @@ export function PaymentControls({
             p === "Vipps" ? (
               <button
                 key={p}
-                disabled={pending}
+                disabled={pending || giftTake > 0}
                 onClick={openVipps}
                 className="rounded-lg bg-[#ff5b24] px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 [@media(pointer:coarse)]:min-h-11"
               >
@@ -757,6 +901,13 @@ export function PaymentControls({
             ),
           )}
         </div>
+      )}
+      {giftTake > 0 && !split && (
+        <p className="mt-2 text-xs text-muted">
+          Vipps-trekk i appen kan ikke kombineres med gavekort – ta resten med kort eller kontant.
+        </p>
+      )}
+      </>
       )}
 
       {/* ---- Vipps-betalingspanel (push til telefon / QR) ---- */}

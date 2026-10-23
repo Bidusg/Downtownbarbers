@@ -174,6 +174,8 @@ export type CompleteOptions = {
   campaignId?: string;
   /** Splittbetaling: beløp per betalingsmåte. Utelates ved enkeltbetaling. */
   payments?: SplitPayment[];
+  /** Betal (helt/delvis) med gavekort. Resten tas med paymentMethod/payments. */
+  gift?: GiftCardPayment;
 };
 
 export type CompleteResult = { ok?: true; error?: string };
@@ -340,6 +342,11 @@ export async function completeBooking(
   const payments = (o.payments ?? [])
     .filter((p) => p && p.method && (p.amount ?? 0) > 0)
     .map((p) => ({ method: p.method, amount: Math.round(p.amount) }));
+  // Gavekort sendes bare med når det brukes – da virker vanlig betaling også
+  // før KJØR-I-SUPABASE-GAVEKORT-BETALING.sql er kjørt.
+  const giftCode = o.gift?.code?.trim() || null;
+  const giftAmount =
+    o.gift && typeof o.gift.amount === "number" && o.gift.amount > 0 ? Math.round(o.gift.amount) : null;
   const { data: saleId, error: saleErr } = await sb.rpc("record_sale", {
     p_booking: bookingId,
     p_payment_method: o.paymentMethod ?? null,
@@ -347,7 +354,14 @@ export async function completeBooking(
     p_discount: discountNok,
     p_payments: payments.length > 0 ? payments : null,
     p_campaign: o.campaignId || null,
+    ...(giftCode ? { p_gift_code: giftCode, p_gift_amount: giftAmount } : {}),
   });
+  if (saleErr && giftCode && (saleErr.code === "PGRST202" || /p_gift_code/.test(saleErr.message))) {
+    return {
+      error:
+        "Gavekort ved betaling av time er ikke slått på ennå (KJØR-I-SUPABASE-GAVEKORT-BETALING.sql). Ingenting er lagret.",
+    };
+  }
   if (saleErr) {
     return {
       error:

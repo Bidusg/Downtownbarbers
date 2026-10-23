@@ -33,7 +33,7 @@ Rekkefølge:
 
 - [x] **Vipps-webhook: HMAC/signaturkontroll** — bygget. Webhooken avviser alt uten gyldig Vipps-signatur. Gjenstår ved lansering: registrer webhooken hos Vipps og legg hemmeligheten i `VIPPS_WEBHOOK_SECRET` (Vercel).
 - [x] **requireRole-herding** på kasse-/admin-actions — alle kasse-actions krever kasse/admin, admin-actions krever admin (lager-skanning: kasse/admin).
-- [ ] **Gavekort som betalingsmåte i kassa** — i dag trekkes bare saldo uten salgslinje → mangler i pengespor/regnskap.
+- [x] **Gavekort som betalingsmåte i kassa** — både hurtigsalg og betaling av timer trekker gavekortet i samme transaksjon som salget, med betalingslinje «Gavekort» (2900). Krever `KJØR-I-SUPABASE-GAVEKORT-BETALING.sql`.
 - [x] **Tripletex-bilag: guard for reservekonto 1990** — flere skrivemåter kjennes igjen, kontoen kan overstyres med `TRIPLETEX_ACCOUNT_OTHER`, og feilen forklarer hva som må gjøres.
 - [x] **Cron-reminders: isoler per booking** — én feil stopper ikke resten eller oppfølgingsjobben.
 - [ ] **Lønnsslipp-ZIP: bedre passord** enn postnummer.
