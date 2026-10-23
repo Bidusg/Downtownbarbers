@@ -11,11 +11,11 @@ export default async function KasseGavekort() {
       <div>
         <h1 className="font-display text-2xl font-bold">Gavekort</h1>
         <p className="mt-1 text-sm text-muted">
-          Skann eller skriv gavekortets strekkode/kode for å se saldoen, og
-          innløs beløpet kunden betaler med.
+          Skann eller skriv gavekortets strekkode/kode for å se saldoen. Selve
+          betalingen gjøres i betalingssteget («Betal med gavekort»).
         </p>
       </div>
-      <GiftCardScan />
+      <GiftCardScan allowRedeem={false} />
     </main>
   );
 }

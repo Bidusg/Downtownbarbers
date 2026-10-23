@@ -13,7 +13,7 @@ function osloToday() {
 
 /** Kasseoppgjør dag-for-dag som pen PDF for en periode (from..to, inkl.). */
 export async function GET(req: Request) {
-  await requireRole(["admin"]);
+  await requireRole(["admin", "revisor"]);
   const url = new URL(req.url);
   const to = DATE_RE.test(url.searchParams.get("to") ?? "")
     ? (url.searchParams.get("to") as string)

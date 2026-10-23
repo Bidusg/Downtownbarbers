@@ -6,7 +6,7 @@ import { getUserRole, isAdminRole } from "@/lib/auth";
 import type { NoticeAudience, NoticeLevel } from "@/lib/notices-queries";
 
 const LEVELS: NoticeLevel[] = ["info", "warning", "critical"];
-const AUDIENCES: NoticeAudience[] = ["all", "admin", "shop", "ansatt"];
+const AUDIENCES: NoticeAudience[] = ["all", "admin", "shop", "ansatt", "revisor"];
 
 import { osloLocalToIso } from "@/lib/oslo-time";
 
@@ -15,12 +15,13 @@ function toIsoOrNull(v: string): string | null {
   return osloLocalToIso(v);
 }
 
-/** Meldinger vises i admin-, kasse- og ansatt-layoutene. */
+/** Meldinger vises i admin-, kasse-, ansatt- og revisor-layoutene. */
 function revalidateNotices() {
   revalidatePath("/admin/meldinger");
   revalidatePath("/admin", "layout");
   revalidatePath("/kasse", "layout");
   revalidatePath("/ansatt", "layout");
+  revalidatePath("/revisor", "layout");
 }
 
 /** Oppretter en ny driftsmelding. Kun admin. */

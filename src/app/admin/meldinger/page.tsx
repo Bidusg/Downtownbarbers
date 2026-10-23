@@ -23,6 +23,7 @@ const AUDIENCE_LABEL: Record<string, string> = {
   admin: "Admin",
   shop: "Kasse/butikk",
   ansatt: "Ansatt",
+  revisor: "Revisor",
 };
 
 const LEVEL_TONE: Record<NoticeLevel, BadgeTone> = {
@@ -48,10 +49,11 @@ function liveStatus(n: { active: boolean; starts_at: string | null; ends_at: str
 }
 
 const WHERE_LABEL: Record<string, string> = {
-  all: "Admin, kasse og ansattportalen",
+  all: "Admin, kasse, ansattportalen og revisor",
   admin: "Admin",
   shop: "Kassa",
   ansatt: "Ansattportalen",
+  revisor: "Revisor",
 };
 
 function fmt(iso: string | null) {
@@ -103,7 +105,7 @@ export default async function AdminMeldinger({
     <div className="mx-auto max-w-4xl space-y-8">
       <PageHeader
         title="Driftsmeldinger"
-        description="Interne beskjeder som vises som banner i admin-, kasse- og ansatt-panelene. Velg nivå, målgruppe og eventuelt en periode meldingen skal være synlig i."
+        description="Interne beskjeder som vises som banner i admin-, kasse-, ansatt- og revisor-panelene. Velg nivå, målgruppe og eventuelt en periode meldingen skal være synlig i."
       />
 
       {/* Ny melding */}
@@ -149,6 +151,7 @@ export default async function AdminMeldinger({
                 <option value="admin">Admin</option>
                 <option value="shop">Kasse/butikk</option>
                 <option value="ansatt">Ansatt</option>
+                <option value="revisor">Revisor</option>
               </Select>
             </Field>
           </div>
@@ -270,6 +273,7 @@ export default async function AdminMeldinger({
                           <option value="admin">Admin</option>
                           <option value="shop">Kasse/butikk</option>
                           <option value="ansatt">Ansatt</option>
+                          <option value="revisor">Revisor</option>
                         </Select>
                       </Field>
                     </div>

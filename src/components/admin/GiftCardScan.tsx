@@ -14,7 +14,7 @@ import {
  * Skann/skriv gavekort-strekkode → saldo kommer opp → innløs et beløp.
  * Funker fra admin og shop-iPad (kamera eller strekkodeleser).
  */
-export function GiftCardScan() {
+export function GiftCardScan({ allowRedeem = true }: { allowRedeem?: boolean } = {}) {
   const [card, setCard] = useState<GiftCardHit | null>(null);
   const [unknown, setUnknown] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
@@ -88,7 +88,19 @@ export function GiftCardScan() {
           {card.expired && (
             <p className="text-xs text-danger">Gavekortet er utløpt.</p>
           )}
-          {!card.expired && card.balanceNok > 0 && (
+          {!card.expired && card.balanceNok > 0 && !allowRedeem && (
+            <p className="text-sm text-muted">
+              Kunden betaler med gavekortet i betalingssteget (fullfør timen eller
+              hurtigsalg → «Betal med gavekort»). Da trekkes saldoen og salget
+              registreres i samme operasjon.
+            </p>
+          )}
+          {!card.expired && card.balanceNok > 0 && allowRedeem && (
+            <div className="space-y-2">
+            <p className="text-xs text-muted">
+              Kun for korrigering: et trekk her registrerer <strong>ikke</strong> noe
+              salg. Ved vanlig betaling, bruk «Betal med gavekort» i kassa.
+            </p>
             <div className="flex flex-wrap items-end gap-3">
               <label className="flex flex-col gap-1 text-xs text-muted">
                 Innløs beløp (kr)
@@ -115,8 +127,9 @@ export function GiftCardScan() {
                 disabled={saving}
                 className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:opacity-90 disabled:opacity-40"
               >
-                {saving ? "Innløser …" : "Innløs"}
+                {saving ? "Innløser …" : "Trekk (korrigering)"}
               </button>
+            </div>
             </div>
           )}
         </div>

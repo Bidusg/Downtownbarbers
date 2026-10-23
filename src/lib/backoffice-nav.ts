@@ -20,6 +20,8 @@ export const revisorNav: BoNav = {
     { href: "/revisor/saldobalanse", label: "Saldobalanse" },
     { href: "/revisor/lonnslipper", label: "Lønnsoversikt" },
     { href: "/revisor/ansatte", label: "Lønn per ansatt" },
+    { href: "/revisor/arbeidstid", label: "Arbeidstid" },
+    { href: "/revisor/kasseoppgjor", label: "Kasseoppgjør" },
     { href: "/revisor/bilag", label: "Bilag" },
     { href: "/revisor/eksport", label: "Eksport (CSV)" },
   ],
@@ -43,6 +45,8 @@ export const kasseNav: BoNav = {
     { href: "/kasse/kalender", label: "Kalender" },
     { href: "/kasse/kunder", label: "Kunder" },
     { href: "/kasse/kasseoppgjor", label: "Kasseoppgjør" },
+    { href: "/kasse/gavekort", label: "Gavekort" },
+    { href: "/kasse/lager", label: "Lager" },
     { href: "/kasse/stempling", label: "Stempling" },
   ],
 };

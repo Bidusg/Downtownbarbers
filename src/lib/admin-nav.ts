@@ -43,6 +43,11 @@ export const adminGroups: AdminNavGroup[] = [
         description: "Kontrakter og vedlegg per ansatt",
       },
       { label: "Timelister", href: "/admin/timelister" },
+      {
+        label: "Arbeidstid (stemplet)",
+        href: "/admin/arbeidstid",
+        description: "Faktiske timer fra stempelklokka",
+      },
       { label: "Fravær", href: "/admin/fravaer" },
       { label: "Lønn", href: "/admin/lonn" },
       { label: "Brukere", href: "/admin/brukere" },

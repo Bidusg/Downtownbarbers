@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
  * ===================================================================== */
 
 export type NoticeLevel = "info" | "warning" | "critical";
-export type NoticeAudience = "all" | "admin" | "shop" | "ansatt";
+export type NoticeAudience = "all" | "admin" | "shop" | "ansatt" | "revisor";
 
 export type Notice = {
   id: string;
@@ -58,7 +58,7 @@ export async function getNotices(): Promise<Notice[]> {
  * (null = åpen ende). Defensivt tomt ved feil.
  */
 export async function getActiveNotices(
-  audience: "admin" | "shop" | "ansatt",
+  audience: "admin" | "shop" | "ansatt" | "revisor",
 ): Promise<Notice[]> {
   try {
     const sb = await createClient();

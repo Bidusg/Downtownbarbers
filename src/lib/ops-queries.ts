@@ -872,3 +872,17 @@ export async function getLeaveRequests(): Promise<LeaveRequestAdmin[]> {
     return [];
   }
 }
+
+/** Antall fraværssøknader som venter på behandling (admin-varsel). */
+export async function countPendingLeaveRequests(): Promise<number> {
+  try {
+    const sb = await createClient();
+    const { count } = await sb
+      .from("leave_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending");
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}

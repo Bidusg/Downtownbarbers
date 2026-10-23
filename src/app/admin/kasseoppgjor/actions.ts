@@ -197,7 +197,8 @@ export async function moreReconciliation(
   days: number,
 ): Promise<DailyReconRow[]> {
   const me = await getUserRole();
-  if (!me || !isAdminRole(me.role)) return [];
+  // Revisor ser også avstemmingen (lese-kun, /revisor/kasseoppgjor).
+  if (!me || !(isAdminRole(me.role) || me.role === "revisor")) return [];
   if (!/^\d{4}-\d{2}-\d{2}$/.test(endDate)) return [];
   return getDailyReconciliation(endDate, Math.min(Math.max(days, 1), 92));
 }

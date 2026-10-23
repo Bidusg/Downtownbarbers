@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { Topbar } from "@/components/backoffice/Topbar";
 import { PageTransition } from "@/components/backoffice/PageTransition";
 import { CommandPalette } from "@/components/admin/CommandPalette";
@@ -7,6 +8,7 @@ import { adminNav } from "@/lib/backoffice-nav";
 import { getUserRole, isAdminRole } from "@/lib/auth";
 import { getActiveNotices } from "@/lib/notices-queries";
 import { getMissingSettlementDays } from "@/lib/settlement-status";
+import { countPendingLeaveRequests } from "@/lib/ops-queries";
 import { SettlementReminderBanner } from "@/components/admin/SettlementReminderBanner";
 
 export default async function AdminLayout({
@@ -20,9 +22,10 @@ export default async function AdminLayout({
   if (!isAdminRole(me.role)) redirect("/ingen-tilgang");
 
   const initial = (me.email ?? "K").charAt(0).toUpperCase();
-  const [notices, missing] = await Promise.all([
+  const [notices, missing, pendingLeave] = await Promise.all([
     getActiveNotices("admin"),
     getMissingSettlementDays(),
+    countPendingLeaveRequests(),
   ]);
 
   return (
@@ -40,6 +43,19 @@ export default async function AdminLayout({
         {missing.length > 0 && (
           <div className="mx-auto mb-6 max-w-6xl">
             <SettlementReminderBanner missing={missing} />
+          </div>
+        )}
+        {pendingLeave > 0 && (
+          <div className="mx-auto mb-6 max-w-6xl">
+            <Link
+              href="/admin/fravaer"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-line bg-surface px-4 py-3 text-sm hover:border-accent-soft"
+            >
+              <span className="text-fg">
+                <strong>{pendingLeave}</strong> fraværssøknad{pendingLeave === 1 ? "" : "er"} fra ansatte venter på svar.
+              </span>
+              <span className="font-semibold text-accent-soft">Behandle →</span>
+            </Link>
           </div>
         )}
         {notices.length > 0 && (
