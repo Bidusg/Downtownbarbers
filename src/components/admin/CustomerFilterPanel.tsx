@@ -15,6 +15,9 @@ import { Button } from "@/components/ui/Button";
 
 const field =
   "w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg focus:border-accent-soft focus:outline-none";
+/** Kompakt felt i filter-radene (tall og søk) – ikke full bredde. */
+const numField =
+  "h-10 rounded-[10px] border border-line-2 bg-canvas px-3 text-sm text-fg focus:border-accent-soft focus:outline-none";
 const kr = (n: number) => n.toLocaleString("nb-NO") + " kr";
 function no(iso: string | null) {
   if (!iso) return "–";
@@ -65,6 +68,7 @@ export function CustomerFilterPanel({ barbers }: { barbers: BarberOption[] }) {
   const [consent, setConsent] = useState<"yes" | "no">("yes");
   const [notVisitedDays, setNotVisitedDays] = useState("90");
   const [minSpent, setMinSpent] = useState("1000");
+  const [q, setQ] = useState("");
 
   const [rows, setRows] = useState<CustomerFilterRow[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -76,6 +80,7 @@ export function CustomerFilterPanel({ barbers }: { barbers: BarberOption[] }) {
       consent: useConsent ? consent : null,
       notVisitedDays: useVisit ? Math.max(1, Number(notVisitedDays) || 0) : null,
       minSpent: useSpend ? Math.max(0, Number(minSpent) || 0) : null,
+      q: q.trim() || null,
     };
   }
 
@@ -94,7 +99,9 @@ export function CustomerFilterPanel({ barbers }: { barbers: BarberOption[] }) {
 
   const emailable = (rows ?? []).filter((r) => r.consent && r.email);
 
-  const Row = ({
+  // Vanlig funksjon (ikke komponent): en komponent laget inne i render ble
+  // laget på nytt ved hvert tastetrykk, så feltene mistet fokus.
+  const renderRow = ({
     on,
     setOn,
     label,
@@ -115,7 +122,7 @@ export function CustomerFilterPanel({ barbers }: { barbers: BarberOption[] }) {
         />
         {label}
       </label>
-      <div className={"flex-1 " + (on ? "" : "pointer-events-none opacity-40")}>
+      <div className={on ? "" : "pointer-events-none opacity-40"}>
         {children}
       </div>
     </div>
@@ -127,17 +134,39 @@ export function CustomerFilterPanel({ barbers }: { barbers: BarberOption[] }) {
   return (
     <div className="space-y-6">
       <Card title="Velg filtre">
+        <form
+          role="search"
+          className="mb-4 flex flex-wrap gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            run();
+          }}
+        >
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Søk etter navn, telefon eller e-post …"
+            aria-label="Søk etter kunde"
+            className={numField + " w-full max-w-md flex-1"}
+          />
+          <Button type="submit" variant="primary" disabled={pending} className="px-4 py-2 text-sm">
+            Søk
+          </Button>
+        </form>
         <p className="mb-3 text-sm text-muted">
+          Søket kan kombineres med filtrene under.
           Huk av kriteriene du vil bruke og legg til flere lag. Alle som er på
           må stemme (OG). «Klippet av barber» tar med både bookinger/salg i nye
           systemet og historikk importert fra Fixit.
         </p>
 
-        <Row on={useBarber} setOn={setUseBarber} label="Klippet av barber">
+        {renderRow({ on: useBarber, setOn: setUseBarber, label: "Klippet av barber", children: (
+          <>
           <select
             value={barberId}
             onChange={(e) => setBarberId(e.target.value)}
-            className={field + " max-w-xs"}
+            className={field + " w-64 max-w-full"}
           >
             {barbers.map((b) => (
               <option key={b.id} value={b.id}>
@@ -146,33 +175,39 @@ export function CustomerFilterPanel({ barbers }: { barbers: BarberOption[] }) {
               </option>
             ))}
           </select>
-        </Row>
+        </>
+        ) })}
 
-        <Row on={useConsent} setOn={setUseConsent} label="Markedsføringssamtykke">
+        {renderRow({ on: useConsent, setOn: setUseConsent, label: "Markedsføringssamtykke", children: (
+          <>
           <select
             value={consent}
             onChange={(e) => setConsent(e.target.value as "yes" | "no")}
-            className={field + " max-w-xs"}
+            className={field + " w-64 max-w-full"}
           >
             <option value="yes">Har sagt ja</option>
             <option value="no">Har ikke sagt ja</option>
           </select>
-        </Row>
+        </>
+        ) })}
 
-        <Row on={useVisit} setOn={setUseVisit} label="Ikke besøkt på">
+        {renderRow({ on: useVisit, setOn: setUseVisit, label: "Ikke besøkt på", children: (
+          <>
           <div className="flex items-center gap-2">
             <input
               type="number"
               min={1}
               value={notVisitedDays}
               onChange={(e) => setNotVisitedDays(e.target.value)}
-              className={field + " w-28"}
+              className={numField + " w-28"}
             />
             <span className="text-sm text-muted">dager eller mer</span>
           </div>
-        </Row>
+        </>
+        ) })}
 
-        <Row on={useSpend} setOn={setUseSpend} label="Forbruk minst">
+        {renderRow({ on: useSpend, setOn: setUseSpend, label: "Forbruk minst", children: (
+          <>
           <div className="flex items-center gap-2">
             <input
               type="number"
@@ -180,11 +215,12 @@ export function CustomerFilterPanel({ barbers }: { barbers: BarberOption[] }) {
               step={100}
               value={minSpent}
               onChange={(e) => setMinSpent(e.target.value)}
-              className={field + " w-32"}
+              className={numField + " w-32"}
             />
             <span className="text-sm text-muted">kr totalt</span>
           </div>
-        </Row>
+        </>
+        ) })}
 
         <div className="mt-4 flex items-center gap-3">
           <Button

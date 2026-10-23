@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Table, THead, TBody, Tr, Th, Td } from "@/components/ui/Table";
 import { Badge } from "@/components/ui/Badge";
-import { Input, Select } from "@/components/ui/Input";
+import { Input } from "@/components/ui/Input";
 import {
   getConsentStats,
   getMarketingSends,
@@ -13,6 +13,8 @@ import {
 import { sendMarketing } from "./actions";
 import { getStaffOptions } from "@/lib/ops-queries";
 import { EmailBarberPicker } from "@/components/admin/EmailBarberPicker";
+import { SegmentPicker } from "@/components/admin/SegmentPicker";
+import { getFilterBarbers } from "@/lib/customer-filter";
 import { after } from "next/server";
 import { kickMarketingWorker } from "@/lib/marketing-worker";
 import { siteUrl } from "@/lib/site-url";
@@ -46,12 +48,13 @@ export default async function AdminMarkedsforing({
   searchParams: Promise<{ sendt?: string; startet?: string; feil?: string; kanal?: string; utelatt?: string; detalj?: string }>;
 }) {
   const sp = await searchParams;
-  const [stats, sends, archived, inbound, staff] = await Promise.all([
+  const [stats, sends, archived, inbound, staff, filterBarbers] = await Promise.all([
     getConsentStats(),
     getMarketingSends(50),
     getMarketingSends(100, { archived: true }),
     getRecentInbound(15),
     getStaffOptions(),
+    getFilterBarbers(),
   ]);
   // Pågående utsending? Da oppdaterer siden seg selv, og står den stille
   // (ingen fremdrift på 30 s) dyttes bakgrunnsjobben i gang igjen.
@@ -172,14 +175,7 @@ export default async function AdminMarkedsforing({
             </label>
           </div>
         </div>
-        <div>
-          <label className="mb-1 block text-xs text-muted">Segment</label>
-          <Select name="segment" className="sm:w-auto">
-            {SEGMENTS.map((s) => (
-              <option key={s.key} value={s.key}>{s.label} — {s.hint}</option>
-            ))}
-          </Select>
-        </div>
+        <SegmentPicker segments={SEGMENTS} barbers={filterBarbers} />
         <EmailBarberPicker
           staff={staff.map((st) => ({ id: st.id, name: st.full_name, title: st.title }))}
         />

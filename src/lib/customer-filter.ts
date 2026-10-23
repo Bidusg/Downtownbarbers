@@ -38,6 +38,8 @@ export type CustomerFilter = {
   notVisitedDays?: number | null;
   /** Kun kunder som har brukt minst så mye (kr, totalt). */
   minSpent?: number | null;
+  /** Fritekst-søk i navn, telefon og e-post. */
+  q?: string | null;
 };
 
 export type CustomerFilterRow = {
@@ -182,9 +184,20 @@ export async function filterCustomers(
         ? Date.now() - f.notVisitedDays * 86400000
         : null;
 
+    // Søk: alle ordene må finnes i navn/e-post, eller sifrene i telefonen.
+    const terms = (f.q ?? "").toLowerCase().trim().split(/\s+/).filter(Boolean);
+    const qDigits = (f.q ?? "").replace(/\D/g, "");
+    const matchesQ = (c: Cust) => {
+      if (!terms.length) return true;
+      const hay = `${c.full_name ?? ""} ${c.email ?? ""}`.toLowerCase();
+      if (terms.every((t) => hay.includes(t))) return true;
+      return qDigits.length >= 3 && (c.phone ?? "").replace(/\D/g, "").includes(qDigits);
+    };
+
     const out: CustomerFilterRow[] = [];
     for (const c of customers) {
       if (servedSet && !servedSet.has(c.id)) continue;
+      if (!matchesQ(c)) continue;
       const consent = c.marketing_consent === true;
       if (f.consent === "yes" && !consent) continue;
       if (f.consent === "no" && consent) continue;
@@ -210,5 +223,62 @@ export async function filterCustomers(
     return out;
   } catch {
     return [];
+  }
+}
+
+
+/**
+ * Mottakere til en utsending fra et egendefinert filter (Markedsføring):
+ * kun kunder med samtykke + e-post (eller mobil for SMS) + avmeldings-token.
+ */
+export async function getFilterRecipients(
+  f: CustomerFilter,
+  channel: "email" | "sms",
+): Promise<{ id: string; name: string; email: string; phone: string | null; token: string | null }[]> {
+  const rows = await filterCustomers({ ...f, consent: "yes" });
+  const ids = rows
+    .filter((r) => r.consent && (channel === "sms" ? r.phone?.trim() : r.email?.trim()))
+    .map((r) => r.id);
+  if (!ids.length) return [];
+  const sb = await createClient();
+  const out: { id: string; name: string; email: string; phone: string | null; token: string | null }[] = [];
+  for (let i = 0; i < ids.length; i += 500) {
+    const { data } = await sb
+      .from("customers")
+      .select("id, full_name, email, phone, portal_token")
+      .in("id", ids.slice(i, i + 500));
+    for (const c of (data ?? []) as {
+      id: string;
+      full_name: string | null;
+      email: string | null;
+      phone: string | null;
+      portal_token: string | null;
+    }[]) {
+      out.push({
+        id: c.id,
+        name: c.full_name ?? "",
+        email: (c.email ?? "").trim(),
+        phone: c.phone,
+        token: c.portal_token,
+      });
+    }
+  }
+  return out;
+}
+
+/** Les et filter fra skjema-JSON (Markedsføring). Ukjente felt ignoreres. */
+export function parseFilterJson(raw: string): CustomerFilter | null {
+  try {
+    const v = JSON.parse(raw) as Record<string, unknown>;
+    const num = (x: unknown) => (typeof x === "number" && Number.isFinite(x) ? x : null);
+    return {
+      barberId: typeof v.barberId === "string" && v.barberId ? v.barberId : null,
+      notVisitedDays: num(v.notVisitedDays),
+      minSpent: num(v.minSpent),
+      q: typeof v.q === "string" ? v.q.slice(0, 100) : null,
+      consent: "yes",
+    };
+  } catch {
+    return null;
   }
 }

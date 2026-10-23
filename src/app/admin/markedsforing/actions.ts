@@ -6,6 +6,7 @@ import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUserRole, isAdminRole } from "@/lib/auth";
 import { getMarketingRecipients, type Segment, type Channel } from "@/lib/dm-queries";
+import { getFilterRecipients, parseFilterJson } from "@/lib/customer-filter";
 import { siteUrl } from "@/lib/site-url";
 import { kickMarketingWorker, runMarketingWorker } from "@/lib/marketing-worker";
 
@@ -63,7 +64,15 @@ export async function sendMarketing(formData: FormData): Promise<void> {
     .limit(1);
   if (dup && dup.length > 0) redirect("/admin/markedsforing?feil=dobbel");
 
-  const recipients = (await getMarketingRecipients(segment, channel)).filter((r) => r.token);
+  // «Egendefinert filter»: mottakere fra kunde-filteret (barber, besøk, forbruk, søk).
+  let recipients: { id: string; email: string; phone: string | null; token: string | null }[];
+  if ((segment as string) === "filter") {
+    const f = parseFilterJson(String(formData.get("filter_json") ?? ""));
+    if (!f) redirect("/admin/markedsforing?feil=ingen");
+    recipients = (await getFilterRecipients(f, channel)).filter((r) => r.token);
+  } else {
+    recipients = (await getMarketingRecipients(segment, channel)).filter((r) => r.token);
+  }
   if (recipients.length === 0) redirect("/admin/markedsforing?feil=ingen");
 
   const { data: send, error } = await sb
