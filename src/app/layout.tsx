@@ -7,7 +7,9 @@ import { getSectionFlags } from "@/lib/site-section-flags";
 import { getSiteTexts } from "@/lib/site-texts";
 import { getDbContentEn } from "@/lib/content-en";
 import { PageTranslator } from "@/components/i18n/PageTranslator";
-import { siteUrl } from "@/lib/site-url";
+import { seoUrl } from "@/lib/site-url";
+import { getTrackingConfig } from "@/lib/tracking";
+import { TrackingConsent } from "@/components/site/TrackingConsent";
 
 // Fontene ligger i repoet (src/fonts, OFL-lisens) og serveres fra vårt eget
 // domene: null kall til Google fra besøkendes nettleser → ingen IP-deling,
@@ -50,7 +52,7 @@ export const metadata: Metadata = {
   // Facebook/Instagram/LinkedIn/iMessage for forhåndsvisning av lenker).
   // www strippes så canonical/OG alltid peker på det kanoniske domenet uten
   // www (downtownbarbers.no), uansett hva produksjonsdomenet heter.
-  metadataBase: new URL(siteUrl().replace(/:\/\/www\./, "://")),
+  metadataBase: new URL(seoUrl()),
   title: "Downtown Barbers | Oslo",
   description: DESCRIPTION,
   keywords: ["barbershop", "oslo", "hårklipp", "fade", "skjegg", "grooming", "barber oslo"],
@@ -73,10 +75,11 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const [sectionFlags, textOverrides, dbContent] = await Promise.all([
+  const [sectionFlags, textOverrides, dbContent, tracking] = await Promise.all([
     getSectionFlags(),
     getSiteTexts(),
     getDbContentEn(),
+    getTrackingConfig(),
   ]);
   return (
     <html lang="nb" className={`${inter.variable} ${playfair.variable}`}>
@@ -85,6 +88,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           <SectionFlagsProvider flags={sectionFlags}>
             <PageTranslator />
             {children}
+            <TrackingConsent config={tracking} />
           </SectionFlagsProvider>
         </LanguageProvider>
       </body>

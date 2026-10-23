@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getUserRole, isAdminRole } from "@/lib/auth";
+import { cleanTracking, trackingInvalid } from "@/lib/tracking";
 import { sendSms, getSmsConfig } from "@/lib/sms";
 import { DEFAULT_SMS_TEMPLATES, SMS_VARIABLES, renderSms } from "@/lib/sms-templates";
 
@@ -213,4 +214,39 @@ export async function translateAllNow(_prev: DeeplState): Promise<DeeplState> {
   const r = await translateMissing();
   revalidatePath("/admin/integrasjoner");
   return { ok: r.ok, message: r.message };
+}
+
+/* ------------------------- SPORING (GA4 / Ads / Meta) ------------------------- */
+
+export type TrackingState = { ok: boolean; message: string } | null;
+
+/** Lagre sporings-ID-er. Tomt felt = av. Kun admin. */
+export async function saveTrackingConfig(
+  _prev: TrackingState,
+  formData: FormData,
+): Promise<TrackingState> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { ok: false, message: "Ingen tilgang." };
+  const raw = {
+    ga4: String(formData.get("ga4") ?? ""),
+    adsId: String(formData.get("adsId") ?? ""),
+    adsLabel: String(formData.get("adsLabel") ?? ""),
+    metaPixel: String(formData.get("metaPixel") ?? ""),
+  };
+  const bad = trackingInvalid(raw);
+  if (bad.length) {
+    const names: Record<string, string> = {
+      ga4: "Google Analytics-ID (G-…)",
+      adsId: "Google Ads-ID (AW-…)",
+      adsLabel: "konverteringsetikett",
+      metaPixel: "Meta piksel-ID (bare tall)",
+    };
+    return { ok: false, message: `Sjekk ${bad.map((b) => names[b]).join(", ")}.` };
+  }
+  const value = cleanTracking(raw);
+  const sb = await createClient();
+  const { error } = await sb.from("settings").upsert({ key: "tracking", value }, { onConflict: "key" });
+  if (error) return { ok: false, message: `Kunne ikke lagre: ${error.message}` };
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Lagret ✓ – cookie-banneret vises nå på nettsiden." };
 }

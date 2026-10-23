@@ -11,6 +11,8 @@ import { SubmitButton } from "@/components/ui/SubmitButton";
 import { TripletexCard } from "@/components/admin/TripletexCard";
 import { VippsCard } from "@/components/admin/VippsCard";
 import { DeeplCard } from "@/components/admin/DeeplCard";
+import { TrackingCard } from "@/components/admin/TrackingCard";
+import { getTrackingConfig } from "@/lib/tracking";
 import { getDeeplConfig, deeplUsage } from "@/lib/deepl";
 import { TRIPLETEX, tripletexConfigured } from "@/lib/tripletex/config";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -186,6 +188,9 @@ export default async function AdminIntegrasjoner({
         postingEnabled={TRIPLETEX.postingEnabled}
         env={TRIPLETEX.env}
       />
+
+      {/* Sporing (Google Analytics / Google Ads / Meta) */}
+      <TrackingCard initial={await getTrackingConfig()} />
 
       {/* Oversettelse (DeepL) */}
       <DeeplCard

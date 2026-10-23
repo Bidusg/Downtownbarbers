@@ -4,6 +4,7 @@ import { salon } from "@/lib/data/salon";
 import { getSiteSettings } from "@/lib/site-settings";
 import { LogoMark } from "@/components/site/LogoMark";
 import { T, TDyn } from "@/lib/i18n/T";
+import { ConsentLink } from "@/components/site/TrackingConsent";
 
 /* Merkevare-ikoner (fylte glyffer, arver farge via currentColor). */
 function InstagramIcon(props: SVGProps<SVGSVGElement>) {
@@ -126,6 +127,7 @@ export async function Footer() {
         <Link href="/personvern" className="underline-offset-2 hover:text-fg hover:underline">
           <T k="footer.privacy" />
         </Link>
+        <ConsentLink className="underline-offset-2 hover:text-fg hover:underline" />
       </div>
     </footer>
   );

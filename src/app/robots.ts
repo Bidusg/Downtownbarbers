@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { siteUrl } from "@/lib/site-url";
+import { seoUrl } from "@/lib/site-url";
 
 // Offentlige sider indekseres; back-office, tokeniserte kundesider og API
 // holdes utenfor søkemotorene.
@@ -26,6 +26,6 @@ export default function robots(): MetadataRoute.Robots {
         ],
       },
     ],
-    sitemap: `${siteUrl()}/sitemap.xml`,
+    sitemap: `${seoUrl()}/sitemap.xml`,
   };
 }

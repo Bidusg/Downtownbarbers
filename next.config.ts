@@ -15,18 +15,25 @@ const SUPABASE_HOST = (() => {
 })();
 const supabaseSrc = SUPABASE_HOST ? `https://${SUPABASE_HOST} wss://${SUPABASE_HOST}` : "https://*.supabase.co wss://*.supabase.co";
 
+// Sporing (Google Analytics / Google Ads / Meta piksel) lastes KUN etter at
+// besøkende har samtykket (se TrackingConsent), men domenene må være tillatt.
+const trackingScript =
+  "https://www.googletagmanager.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://connect.facebook.net";
+const trackingConnect =
+  "https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://www.google.com https://*.doubleclick.net https://www.facebook.com https://connect.facebook.net";
+
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline' ${trackingScript}`,
   "style-src 'self' 'unsafe-inline'",
   // Bilder: egne + Supabase storage + Google-profilbilder (anmeldelser) + data/blob (strekkode/PDF).
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  `connect-src 'self' ${supabaseSrc}`,
+  `connect-src 'self' ${supabaseSrc} ${trackingConnect}`,
   "media-src 'self' blob:",
   "worker-src 'self' blob:",
   // PDF-forhåndsvisning (blob) + innebygd Google Maps i bunnteksten.
-  "frame-src 'self' blob: https://www.google.com https://maps.google.com",
+  "frame-src 'self' blob: https://www.google.com https://maps.google.com https://td.doubleclick.net https://www.googletagmanager.com",
   // 'self': admin-forhåndsvisningen av forsiden (SitePreview) er en iframe på egen origin.
   "frame-ancestors 'self'",
   "object-src 'none'",

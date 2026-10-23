@@ -54,5 +54,12 @@ export async function updateSession(request: NextRequest) {
     response.cookies.set(CUSTOMER_FLAG, "1", o.flag);
   }
 
+  // Test-adressen på Vercel (*.vercel.app) skal aldri i søkemotorene –
+  // bare downtownbarbers.no. (Gjelder ikke det egne domenet.)
+  const host = request.headers.get("host") ?? "";
+  if (/\.vercel\.app$/i.test(host.split(":")[0])) {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  }
+
   return response;
 }

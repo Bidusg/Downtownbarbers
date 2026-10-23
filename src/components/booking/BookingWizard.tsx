@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { trackBookingComplete, trackBookingStart } from "@/lib/track";
 import { getCartSlots, createBookingGroup, findNextCartSlot } from "@/app/booking/cart-actions";
 import { isValidEmail, isValidNorwegianPhone } from "@/lib/validate";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -291,6 +292,7 @@ export function BookingWizard({
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
+  const startTracked = useRef(false);
   function goStep(n: number) {
     const back = step - n;
     if (back > 0 && depth.current >= back) {
@@ -298,6 +300,10 @@ export function BookingWizard({
       depth.current -= back - 1;
       window.history.go(-back);
       return;
+    }
+    if (n === 1 && step === 0 && !startTracked.current) {
+      startTracked.current = true;
+      trackBookingStart();
     }
     setStep(n);
     try {
@@ -578,6 +584,7 @@ export function BookingWizard({
       writeJson("session", STORE_KEY, null);
       setResult({ portalUrl: res?.portalUrl, cancelUrl: res?.cancelUrl, barber: res?.barber });
       setDone(true);
+      trackBookingComplete({ value: cartTotal, services: cart.map((it) => it.service.name) });
       try {
         window.history.replaceState(null, "", "/booking?bekreftet=1");
       } catch {

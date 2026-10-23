@@ -19,7 +19,7 @@ import { getUserRole, isAdminRole } from "@/lib/auth";
 import { getPublicReviewsSummary } from "@/lib/reviews";
 import { getSectionFlags } from "@/lib/site-section-flags";
 import { sectionOn } from "@/lib/site-sections-config";
-import { siteUrl } from "@/lib/site-url";
+import { seoUrl } from "@/lib/site-url";
 import { salon } from "@/lib/data/salon";
 import { PUBLIC_VIEWPORT } from "@/lib/public-viewport";
 
@@ -166,11 +166,11 @@ export default async function Home({
     "@context": "https://schema.org",
     "@type": "HairSalon",
     name: s.name || "Downtown Barbers",
-    url: siteUrl(),
+    url: seoUrl(),
     telephone: s.phone,
     email: s.email ?? undefined,
     foundingDate: s.established || undefined,
-    image: `${siteUrl()}/opengraph-image.jpg`,
+    image: `${seoUrl()}/opengraph-image.jpg`,
     priceRange: "kr",
     address: {
       "@type": "PostalAddress",
@@ -183,7 +183,7 @@ export default async function Home({
     sameAs: [salon.social.instagram, salon.social.tiktok, salon.social.facebook].filter(Boolean),
     potentialAction: {
       "@type": "ReserveAction",
-      target: `${siteUrl()}/booking`,
+      target: `${seoUrl()}/booking`,
     },
     ...(omdomme.blendedCount > 0
       ? {

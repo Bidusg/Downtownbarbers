@@ -51,7 +51,7 @@ export function PrivacyContent({
             <><strong>Purchases in the salon:</strong> what was bought, amount, payment method and which barber served you – linked to your customer record if you gave your phone or email.</>,
             <><strong>My page / cancellation links:</strong> a personal link (token) in your confirmation email that shows your appointments, loyalty card and purchase history. Anyone with the link can see it – do not forward it.</>,
             <><strong>Reviews:</strong> star rating and optional comment after a visit.</>,
-            <><strong>Technical:</strong> a login cookie for staff, and your language choice stored in your own browser (localStorage). We do not use analytics or advertising cookies.</>,
+            <><strong>Technical:</strong> login cookies (staff, and customers who log in to My page), your language choice, and your cookie choice. Analytics and advertising cookies are only used if you accept them (see Cookies).</>,
           ]}
         />
 
@@ -90,12 +90,15 @@ export function PrivacyContent({
 
         <H>Cookies</H>
         <P>
-          Only strictly necessary cookies: a login cookie for staff who sign in. Your NO/EN choice is
-          stored in your browser. Fonts and the map link are served without contacting third parties
-          until you click the map.
+          Necessary cookies are always on: login (staff, and customers who stay logged in to My page),
+          your NO/EN choice and your cookie choice. If you accept in the cookie banner, we also use
+          statistics (Google Analytics) and marketing cookies (Google Ads and Meta) to see how the site is
+          used and which ads lead to bookings. Nothing of this is loaded before you accept, and you can
+          change your choice at any time via «Cookies» at the bottom of the page. Fonts and the map link
+          are served without contacting third parties until you click the map.
         </P>
 
-        <p className="mt-10 text-xs text-muted">Last updated 5 October 2026 · {address}</p>
+        <p className="mt-10 text-xs text-muted">Last updated 23 October 2026 · {address}</p>
       </article>
     );
   }
@@ -117,7 +120,7 @@ export function PrivacyContent({
           <><strong>Kjøp i salongen:</strong> hva som ble kjøpt, beløp, betalingsmåte og hvilken barber som betjente deg – koblet til kundekortet ditt hvis du oppga telefon eller e-post.</>,
           <><strong>Min side / avbestillingslenke:</strong> en personlig lenke (token) i bekreftelses-e-posten som viser timene dine, klippekortet og kjøpshistorikk. Alle som har lenken kan se den – ikke videresend den.</>,
           <><strong>Vurderinger:</strong> stjerner og eventuell kommentar etter et besøk.</>,
-          <><strong>Teknisk:</strong> en innloggingscookie for ansatte, og språkvalget ditt lagret i din egen nettleser (localStorage). Vi bruker ikke analyse- eller annonsecookies.</>,
+          <><strong>Teknisk:</strong> innloggingscookies (ansatte, og kunder som logger inn på Min side), språkvalget ditt og cookie-valget ditt. Analyse- og annonsecookies brukes bare hvis du godtar dem (se Cookies).</>,
         ]}
       />
 
@@ -156,12 +159,15 @@ export function PrivacyContent({
 
       <H>Cookies</H>
       <P>
-        Kun strengt nødvendige cookies: én innloggingscookie for ansatte som logger inn. Språkvalget
-        NO/EN lagres i nettleseren din. Fonter og kartlenken leveres uten kontakt med tredjeparter før
-        du selv klikker på kartet.
+        Nødvendige cookies er alltid på: innlogging (ansatte, og kunder som forblir innlogget på Min
+        side), språkvalget NO/EN og cookie-valget ditt. Godtar du i cookie-banneret, bruker vi også
+        statistikk (Google Analytics) og markedsføring (Google Ads og Meta) for å se hvordan siden
+        brukes og hvilke annonser som gir bookinger. Ingenting av dette lastes før du har sagt ja, og du
+        kan endre valget når som helst via «Informasjonskapsler» nederst på siden. Fonter og kartlenken
+        leveres uten kontakt med tredjeparter før du selv klikker på kartet.
       </P>
 
-      <p className="mt-10 text-xs text-muted">Sist oppdatert 5. oktober 2026 · {address}</p>
+      <p className="mt-10 text-xs text-muted">Sist oppdatert 23. oktober 2026 · {address}</p>
     </article>
   );
 }
