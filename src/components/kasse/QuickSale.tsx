@@ -28,7 +28,7 @@ import { formatKr } from "@/lib/format";
 const PAYMENTS = ["Kontant", "Kort", "Vipps"];
 
 const inputCls =
-  "w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted outline-none focus:border-accent-soft";
+  "w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-fg placeholder:text-muted outline-none focus:border-accent-soft";
 
 const STEPS = ["Ansatt", "Tjeneste", "Produkter", "Kunde", "Rabatt", "Betaling"];
 
@@ -403,7 +403,7 @@ export function QuickSale({
         onClick={openModal}
         className={
           triggerClassName ??
-          "rounded-md border border-line px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
+          "rounded-lg border border-line px-4 py-2 text-sm font-semibold text-fg transition-colors hover:border-accent-soft"
         }
       >
         Hurtigsalg
@@ -415,7 +415,7 @@ export function QuickSale({
           onClick={close}
         >
           <div
-            className="flex max-h-[92vh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-line bg-surface shadow-2xl sm:rounded-2xl"
+            className="flex max-h-[92vh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-line bg-surface shadow-[0_24px_64px_-24px_rgba(0,0,0,0.35)] sm:rounded-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header + stegindikator */}
@@ -484,7 +484,7 @@ export function QuickSale({
                         value={soldDate}
                         max={todayIso()}
                         onChange={(e) => e.target.value && setSoldDate(e.target.value)}
-                        className="rounded-md border border-line-2 bg-surface px-2 py-1.5 text-xs text-fg"
+                        className="rounded-lg border border-line-2 bg-surface px-2 py-1.5 text-xs text-fg"
                         aria-label="Velg salgsdato"
                       />
                     </div>
@@ -521,7 +521,7 @@ export function QuickSale({
                     ))}
                     <button
                       onClick={() => pickBarber("")}
-                      className="rounded-lg border border-line px-3 py-3 text-sm text-muted hover:border-accent-soft"
+                      className="rounded-lg border border-line px-3 py-3 text-sm text-muted hover:border-accent-soft [@media(pointer:coarse)]:min-h-11"
                     >
                       Ingen / hopp over
                     </button>
@@ -549,7 +549,7 @@ export function QuickSale({
                     </button>
                     {groupServices(mainServices).map((g) => (
                       <div key={g.cat} className="pt-2">
-                        <p className="mb-1.5 text-[10px] font-semibold tracking-wide text-accent-soft uppercase">
+                        <p className="mb-1.5 text-[11px] font-semibold tracking-wide text-accent-soft uppercase">
                           {g.cat}
                         </p>
                         <div className="space-y-1.5">
@@ -579,7 +579,7 @@ export function QuickSale({
                     {/* Tillegg: flere kan velges, legges som egne linjer på salget */}
                     {addonServices.length > 0 && (
                       <div className="pt-3">
-                        <p className="mb-1.5 text-[10px] font-semibold tracking-wide text-accent-soft uppercase">
+                        <p className="mb-1.5 text-[11px] font-semibold tracking-wide text-accent-soft uppercase">
                           Tillegg
                           <span className="ml-1 normal-case tracking-normal text-muted">
                             · velg flere, trykk Neste
@@ -635,7 +635,7 @@ export function QuickSale({
                         setShowScan((v) => !v);
                         setScanMsg(null);
                       }}
-                      className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-fg hover:border-accent-soft"
+                      className="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold text-fg hover:border-accent-soft [@media(pointer:coarse)]:min-h-11"
                     >
                       {showScan ? "Lukk skann" : "Skann strekkode"}
                     </button>
@@ -735,7 +735,7 @@ export function QuickSale({
                         inputMode="tel"
                       />
                       {custQuery.trim().length >= 2 && (
-                        <div className="mt-1 max-h-44 overflow-y-auto rounded-md border border-line">
+                        <div className="mt-1 max-h-44 overflow-y-auto rounded-lg border border-line">
                           {searching && (
                             <p className="px-3 py-2 text-xs text-muted">Søker …</p>
                           )}
@@ -748,7 +748,7 @@ export function QuickSale({
                             <button
                               key={h.id}
                               onClick={() => selectCustomer(h)}
-                              className="flex w-full items-center justify-between gap-2 border-b border-line px-3 py-2 text-left text-sm last:border-0 hover:bg-surface-2"
+                              className="flex w-full items-center justify-between gap-2 border-b border-line px-3 py-2 text-left text-sm last:border-0 hover:bg-surface-2 [@media(pointer:coarse)]:min-h-11"
                             >
                               <span className="text-fg">{h.full_name}</span>
                               <span className="text-xs text-muted">
@@ -843,7 +843,7 @@ export function QuickSale({
                               setRelationType((cur) => (cur === t ? null : t))
                             }
                             className={
-                              "rounded-md border px-3 py-2 text-sm font-semibold capitalize transition-colors " +
+                              "rounded-lg border px-3 py-2 text-sm font-semibold capitalize transition-colors " +
                               (relationType === t
                                 ? "border-accent-soft bg-accent-soft/10 text-fg"
                                 : "border-line text-fg hover:border-accent-soft")
@@ -868,7 +868,7 @@ export function QuickSale({
                         placeholder="0"
                         inputMode="numeric"
                         aria-label="Rabatt i kroner"
-                        className="w-24 rounded-md border border-line bg-canvas px-3 py-1.5 text-right text-sm text-fg placeholder:text-muted outline-none focus:border-accent-soft"
+                        className="w-24 rounded-lg border border-line bg-canvas px-3 py-1.5 text-right text-sm text-fg placeholder:text-muted outline-none focus:border-accent-soft"
                       />
                     </div>
                   )}
@@ -935,7 +935,7 @@ export function QuickSale({
                   </div>
 
                   {!hasSomething && (
-                    <p className="mb-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+                    <p className="mb-3 rounded-xl bg-danger/10 px-4 py-3 text-[13px] text-danger">
                       Velg en behandling eller minst én vare (gå tilbake).
                     </p>
                   )}
@@ -991,7 +991,7 @@ export function QuickSale({
                             type="button"
                             onClick={() => lookupGift(giftCode)}
                             disabled={giftLooking || !giftCode.trim()}
-                            className="shrink-0 rounded-md border border-line px-3 py-2 text-sm text-fg hover:border-accent-soft disabled:opacity-40"
+                            className="shrink-0 rounded-lg border border-line px-3 py-2 text-sm text-fg hover:border-accent-soft disabled:opacity-40 [@media(pointer:coarse)]:min-h-11"
                           >
                             {giftLooking ? "…" : "Slå opp"}
                           </button>
@@ -1013,7 +1013,7 @@ export function QuickSale({
                               placeholder={String(Math.min(giftUsable, total))}
                               inputMode="numeric"
                               aria-label="Beløp fra gavekort"
-                              className="w-20 rounded-md border border-line bg-canvas px-2 py-1 text-right text-sm text-fg outline-none focus:border-accent-soft"
+                              className="w-20 rounded-lg border border-line bg-canvas px-2 py-1 text-right text-sm text-fg outline-none focus:border-accent-soft"
                             />
                             kr
                           </label>
@@ -1071,7 +1071,7 @@ export function QuickSale({
                             placeholder="0"
                             inputMode="numeric"
                             aria-label={`Beløp ${m}`}
-                            className="w-28 rounded-md border border-line bg-canvas px-3 py-1.5 text-right text-sm text-fg outline-none focus:border-accent-soft"
+                            className="w-28 rounded-lg border border-line bg-canvas px-3 py-1.5 text-right text-sm text-fg outline-none focus:border-accent-soft"
                           />
                         </div>
                       ))}
@@ -1083,7 +1083,7 @@ export function QuickSale({
                           type="button"
                           disabled={pending || !hasSomething || !splitOk}
                           onClick={() => submit("", true)}
-                          className="rounded-md bg-accent px-4 py-1.5 text-xs font-semibold text-accent-fg hover:opacity-90 disabled:opacity-40"
+                          className="rounded-lg bg-accent px-4 py-1.5 text-xs font-semibold text-accent-fg hover:opacity-90 disabled:opacity-40 [@media(pointer:coarse)]:min-h-11"
                         >
                           {pending && payingMethod === "split" ? "Registrerer …" : "Registrer betaling"}
                         </button>
@@ -1094,7 +1094,7 @@ export function QuickSale({
                       type="button"
                       disabled={pending || !hasSomething}
                       onClick={() => submit("", false)}
-                      className="w-full rounded-md bg-accent px-3 py-2.5 text-sm font-semibold text-accent-fg hover:opacity-90 disabled:opacity-50"
+                      className="w-full rounded-lg bg-accent px-3 py-2.5 text-sm font-semibold text-accent-fg hover:opacity-90 disabled:opacity-50 [@media(pointer:coarse)]:min-h-11"
                     >
                       {pending && payingMethod === "gift"
                         ? "Registrerer …"
@@ -1108,7 +1108,7 @@ export function QuickSale({
                           type="button"
                           disabled={pending || !hasSomething}
                           onClick={() => submit(p, false)}
-                          className="flex-1 rounded-md bg-accent px-3 py-2.5 text-sm font-semibold text-accent-fg hover:opacity-90 disabled:opacity-50"
+                          className="flex-1 rounded-lg bg-accent px-3 py-2.5 text-sm font-semibold text-accent-fg hover:opacity-90 disabled:opacity-50 [@media(pointer:coarse)]:min-h-11"
                         >
                           {pending && payingMethod === p
                             ? "Registrerer …"
@@ -1123,7 +1123,7 @@ export function QuickSale({
               )}
 
               {error && (
-                <p className="mt-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+                <p className="mt-3 rounded-xl bg-danger/10 px-4 py-3 text-[13px] text-danger">
                   {error}
                 </p>
               )}
@@ -1134,7 +1134,7 @@ export function QuickSale({
               <button
                 onClick={() => go(step - 1)}
                 disabled={step === 0}
-                className="rounded-md border border-line px-4 py-2 text-sm text-fg hover:border-accent-soft disabled:opacity-30"
+                className="rounded-lg border border-line px-4 py-2 text-sm text-fg hover:border-accent-soft disabled:opacity-30 [@media(pointer:coarse)]:min-h-11"
               >
                 ← Forrige
               </button>
@@ -1144,7 +1144,7 @@ export function QuickSale({
               {canNext ? (
                 <button
                   onClick={() => go(step + 1)}
-                  className="rounded-md bg-accent px-5 py-2 text-sm font-semibold text-accent-fg hover:opacity-90"
+                  className="rounded-lg bg-accent px-5 py-2 text-sm font-semibold text-accent-fg hover:opacity-90 [@media(pointer:coarse)]:min-h-11"
                 >
                   Neste →
                 </button>

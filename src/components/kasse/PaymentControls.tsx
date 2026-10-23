@@ -24,7 +24,7 @@ import { formatKr } from "@/lib/format";
 const PAYMENTS = ["Kontant", "Kort", "Vipps"];
 
 const inputCls =
-  "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-fg placeholder:text-muted transition-colors focus:border-accent-soft focus:outline-none";
+  "w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg placeholder:text-muted transition-colors focus:border-accent-soft focus:outline-none [@media(pointer:coarse)]:min-h-11";
 
 /** Sammenleggbar seksjon (valgfrie utvidelser i steg 1). */
 function Section({
@@ -571,7 +571,7 @@ export function PaymentControls({
                         setDiscount("");
                       }}
                       className={
-                        "rounded-md border px-3 py-1.5 text-xs font-semibold capitalize transition-colors " +
+                        "rounded-lg border px-3 py-1.5 text-xs font-semibold capitalize transition-colors " +
                         (relationType === t
                           ? "border-accent-soft bg-accent-soft/10 text-fg"
                           : "border-line text-fg hover:border-accent-soft")
@@ -594,7 +594,7 @@ export function PaymentControls({
                   placeholder="0"
                   inputMode="numeric"
                   aria-label="Rabatt i kroner"
-                  className="w-24 rounded-md border border-line bg-surface px-3 py-1.5 text-right text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
+                  className="w-24 rounded-lg border border-line bg-surface px-3 py-1.5 text-right text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none [@media(pointer:coarse)]:min-h-11"
                 />
               </div>
             )}
@@ -623,7 +623,7 @@ export function PaymentControls({
                   type="button"
                   onClick={redeem}
                   disabled={redeeming}
-                  className="rounded-md bg-accent-soft px-3 py-1.5 font-semibold text-[#211E1A] transition-opacity hover:opacity-90 disabled:opacity-60"
+                  className="rounded-lg bg-accent-soft px-3 py-1.5 font-semibold text-[#211E1A] transition-opacity hover:opacity-90 disabled:opacity-60 [@media(pointer:coarse)]:min-h-11"
                 >
                   {redeeming ? "Løser inn …" : "Løs inn gratis klipp"}
                 </button>
@@ -639,7 +639,7 @@ export function PaymentControls({
         {totalBox}
 
         {error && (
-          <p className="mb-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+          <p className="mb-3 rounded-xl bg-danger/10 px-4 py-3 text-[13px] text-danger">
             {error}
           </p>
         )}
@@ -650,7 +650,7 @@ export function PaymentControls({
             setStep(2);
           }}
           disabled={servicePrice === null || editingService}
-          className="w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50 [@media(pointer:coarse)]:min-h-11"
         >
           Til betaling →
         </button>
@@ -675,7 +675,7 @@ export function PaymentControls({
       </label>
 
       {error && (
-        <p className="mb-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+        <p className="mb-3 rounded-xl bg-danger/10 px-4 py-3 text-[13px] text-danger">
           {error}
         </p>
       )}
@@ -713,7 +713,7 @@ export function PaymentControls({
                 placeholder="0"
                 inputMode="numeric"
                 aria-label={`Beløp ${m}`}
-                className="w-28 rounded-md border border-line bg-surface px-3 py-1.5 text-right text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none"
+                className="w-28 rounded-lg border border-line bg-surface px-3 py-1.5 text-right text-sm text-fg placeholder:text-muted focus:border-accent-soft focus:outline-none [@media(pointer:coarse)]:min-h-11"
               />
             </div>
           ))}
@@ -727,7 +727,7 @@ export function PaymentControls({
               type="button"
               disabled={pending || !splitOk}
               onClick={paySplit}
-              className="rounded-md bg-accent px-4 py-1.5 text-xs font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="rounded-lg bg-accent px-4 py-1.5 text-xs font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40 [@media(pointer:coarse)]:min-h-11"
             >
               {pending && payingMethod === "split" ? "Registrerer …" : "Registrer betaling"}
             </button>
@@ -741,7 +741,7 @@ export function PaymentControls({
                 key={p}
                 disabled={pending}
                 onClick={openVipps}
-                className="rounded-md bg-[#ff5b24] px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="rounded-lg bg-[#ff5b24] px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 [@media(pointer:coarse)]:min-h-11"
               >
                 Vipps
               </button>
@@ -750,7 +750,7 @@ export function PaymentControls({
                 key={p}
                 disabled={pending}
                 onClick={() => pay(p)}
-                className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50 [@media(pointer:coarse)]:min-h-11"
               >
                 {pending && payingMethod === p ? "Registrerer …" : p}
               </button>
@@ -782,7 +782,7 @@ export function PaymentControls({
                   <img
                     src={vippsQr}
                     alt="Vipps QR"
-                    className="mx-auto h-48 w-48 rounded-md border border-line bg-white p-2"
+                    className="mx-auto h-48 w-48 rounded-lg border border-line bg-white p-2"
                   />
                 </>
               ) : (
@@ -803,7 +803,7 @@ export function PaymentControls({
               <button
                 onClick={cancelVipps}
                 type="button"
-                className="mt-3 rounded-md border border-line px-4 py-1.5 text-xs font-semibold text-muted hover:border-accent-soft hover:text-fg"
+                className="mt-3 rounded-lg border border-line px-4 py-1.5 text-xs font-semibold text-muted hover:border-accent-soft hover:text-fg [@media(pointer:coarse)]:min-h-11"
               >
                 Avbryt
               </button>
@@ -815,7 +815,7 @@ export function PaymentControls({
                   type="button"
                   onClick={() => setVippsMethod("qr")}
                   className={
-                    "flex-1 rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors " +
+                    "flex-1 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors " +
                     (vippsMethod === "qr"
                       ? "border-[#ff5b24] bg-[#ff5b24]/10 text-fg"
                       : "border-line text-muted hover:border-accent-soft")
@@ -827,7 +827,7 @@ export function PaymentControls({
                   type="button"
                   onClick={() => setVippsMethod("push")}
                   className={
-                    "flex-1 rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors " +
+                    "flex-1 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors " +
                     (vippsMethod === "push"
                       ? "border-[#ff5b24] bg-[#ff5b24]/10 text-fg"
                       : "border-line text-muted hover:border-accent-soft")
@@ -850,7 +850,7 @@ export function PaymentControls({
               )}
 
               {vippsMsg && vippsState === "failed" && (
-                <p className="mb-2 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+                <p className="mb-2 rounded-xl bg-danger/10 px-4 py-3 text-[13px] text-danger">
                   {vippsMsg}
                 </p>
               )}
@@ -859,7 +859,7 @@ export function PaymentControls({
                 type="button"
                 onClick={startVipps}
                 disabled={vippsState === "starting"}
-                className="w-full rounded-md bg-[#ff5b24] px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="w-full rounded-lg bg-[#ff5b24] px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 [@media(pointer:coarse)]:min-h-11"
               >
                 {vippsState === "starting"
                   ? "Starter …"

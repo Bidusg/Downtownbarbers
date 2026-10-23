@@ -662,7 +662,7 @@ export function DayCalendar({
             type="button"
             onClick={() => goDay(-1)}
             aria-label="Forrige dag"
-            className="rounded-md border border-line px-3 py-2 text-sm text-muted hover:border-accent-soft hover:text-fg"
+            className="rounded-lg border border-line px-3 py-2 text-sm text-muted hover:border-accent-soft hover:text-fg [@media(pointer:coarse)]:min-h-11"
           >
             ‹
           </button>
@@ -673,7 +673,7 @@ export function DayCalendar({
             type="button"
             onClick={() => goDay(1)}
             aria-label="Neste dag"
-            className="rounded-md border border-line px-3 py-2 text-sm text-muted hover:border-accent-soft hover:text-fg"
+            className="rounded-lg border border-line px-3 py-2 text-sm text-muted hover:border-accent-soft hover:text-fg [@media(pointer:coarse)]:min-h-11"
           >
             ›
           </button>
@@ -681,14 +681,14 @@ export function DayCalendar({
             type="date"
             value={date}
             onChange={(e) => router.push(`${basePath}?date=${e.target.value}`)}
-            className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-muted focus:border-accent-soft focus:outline-none"
+            className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-muted focus:border-accent-soft focus:outline-none [@media(pointer:coarse)]:min-h-11"
           />
           {!isToday && (
             <button
               type="button"
               onClick={() => router.push(`${basePath}?date=${today}`)}
               title="Hopp tilbake til dagens dato"
-              className="rounded-md border border-accent-soft bg-accent-soft/10 px-3 py-2 text-sm font-semibold text-fg transition-colors hover:bg-accent-soft/20"
+              className="rounded-lg border border-accent-soft bg-accent-soft/10 px-3 py-2 text-sm font-semibold text-fg transition-colors hover:bg-accent-soft/20 [@media(pointer:coarse)]:min-h-11"
             >
               I dag
             </button>
@@ -710,7 +710,7 @@ export function DayCalendar({
           {canBlock && (
             <button
               onClick={() => setBlockOpen(true)}
-              className="rounded-md border border-line-2 px-3 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
+              className="rounded-lg border border-line-2 px-3 py-2 text-sm font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg [@media(pointer:coarse)]:min-h-11"
             >
               Blokker / pause
             </button>
@@ -720,7 +720,7 @@ export function DayCalendar({
               onClick={() => setShowAll((v) => !v)}
               title="Ta bort turnus-filteret så du kan legge inn en time på noen uten vakt"
               className={
-                "rounded-md border px-3 py-2 text-sm font-semibold transition-colors " +
+                "rounded-lg border px-3 py-2 text-sm font-semibold transition-colors " +
                 (showAll
                   ? "border-accent-soft bg-accent-soft/10 text-fg"
                   : "border-line-2 text-muted hover:border-accent-soft hover:text-fg")
@@ -735,7 +735,7 @@ export function DayCalendar({
       </div>
 
       {columns.length === 0 && (
-        <p className="mb-3 rounded-md border border-line bg-surface px-3 py-2 text-xs text-muted">
+        <p className="mb-3 rounded-xl bg-surface-2 px-4 py-3 text-[13px] text-muted">
           Ingen er satt opp på vakt denne dagen (turnus/ekstravakt), og det er ingen bookinger.
         </p>
       )}
@@ -765,7 +765,7 @@ export function DayCalendar({
         const off = barbers.filter((b) => !shown.has(b.full_name));
         if (off.length === 0) return null;
         return (
-          <div className="mb-3 rounded-md border border-line bg-surface px-3 py-2 text-xs text-muted">
+          <div className="mb-3 rounded-xl bg-surface-2 px-4 py-3 text-[13px] text-muted">
             <span className="font-semibold text-fg">Ikke på vakt denne dagen: </span>
             {off.map((b, i) => (
               <span key={b.id}>
@@ -789,13 +789,13 @@ export function DayCalendar({
       )}
 
       {resizeMsg && (
-        <p className="mb-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+        <p className="mb-3 rounded-xl bg-danger/10 px-4 py-3 text-[13px] text-danger">
           {resizeMsg}
         </p>
       )}
 
       {moveMsg && (
-        <p className="mb-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+        <p className="mb-3 rounded-xl bg-danger/10 px-4 py-3 text-[13px] text-danger">
           {moveMsg}
         </p>
       )}
@@ -823,7 +823,7 @@ export function DayCalendar({
               {hours.filter((h) => h * 60 < CLOSE).map((h) => (
                 <div
                   key={h}
-                  className="absolute -translate-y-1/2 pr-2 text-right text-[10px] text-muted"
+                  className="absolute -translate-y-1/2 pr-2 text-right text-[11px] text-muted"
                   style={{ top: (h * 60 - OPEN) * PX, right: 0 }}
                 >
                   {String(h).padStart(2, "0")}
@@ -935,7 +935,7 @@ export function DayCalendar({
                               className="pointer-events-none absolute inset-x-0 z-0 flex items-start justify-center border-y border-dashed border-line-2"
                               style={{ top: (s0 - OPEN) * PX, height: (e0 - s0) * PX }}
                             >
-                              <span className="mt-0.5 rounded bg-surface px-1.5 text-[10px] font-semibold text-muted">
+                              <span className="mt-0.5 rounded bg-surface px-1.5 text-[11px] font-semibold text-muted">
                                 ☕ Pause {minToHHMM(p.start)}–{minToHHMM(p.end)}
                               </span>
                             </div>
@@ -962,7 +962,7 @@ export function DayCalendar({
                               }}
                             >
                               <span
-                                className="absolute top-0.5 right-1.5 text-[10px] font-semibold"
+                                className="absolute top-0.5 right-1.5 text-[11px] font-semibold"
                                 style={{ color }}
                               >
                                 {b.kind === "vakt" ? "Vakt " : ""}
@@ -1054,7 +1054,7 @@ export function DayCalendar({
                               setBlockSel(b);
                             }
                           }}
-                          className="group absolute right-1 left-1 z-[3] cursor-pointer overflow-hidden rounded-md border border-dashed border-line-2 px-2 py-1 text-left hover:border-danger/60"
+                          className="group absolute right-1 left-1 z-[3] cursor-pointer overflow-hidden rounded-lg border border-dashed border-line-2 px-2 py-1 text-left hover:border-danger/60"
                           style={{
                             top,
                             height,
@@ -1150,7 +1150,7 @@ export function DayCalendar({
                                   .join(" · ")
                               : undefined
                           }
-                          className={`absolute right-1 left-1 overflow-hidden rounded-md border-l-[3px] px-2 py-1 text-left motion-safe:transition-transform hover:z-10 motion-safe:hover:scale-[1.02] ${
+                          className={`absolute right-1 left-1 overflow-hidden rounded-lg border-l-[3px] px-2 py-1 text-left hover:z-10 ${
                             movable && (canMove || canTransfer)
                               ? "cursor-grab active:cursor-grabbing"
                               : ""
@@ -1181,7 +1181,7 @@ export function DayCalendar({
                             </span>
                             {(b.group_size ?? 1) > 1 && (
                               <span
-                                className="shrink-0 text-[10px] text-accent-soft"
+                                className="shrink-0 text-[11px] text-accent-soft"
                                 title={b.person_label ?? "Gruppebooking"}
                                 aria-label="Gruppebooking"
                               >
@@ -1190,7 +1190,7 @@ export function DayCalendar({
                             )}
                             {b.notes && (
                               <span
-                                className="shrink-0 text-[10px]"
+                                className="shrink-0 text-[11px]"
                                 title={b.notes}
                                 aria-label="Notat fra kunden"
                               >
@@ -1199,7 +1199,7 @@ export function DayCalendar({
                             )}
                           </div>
                           {height > 38 && (
-                            <p className="truncate text-[10px] text-muted">
+                            <p className="truncate text-[11px] text-muted">
                               {completed ? "✓ " : noshow ? "✗ " : ""}
                               {b.service ?? ""}
                               {b.addons && b.addons.length > 0
@@ -1237,7 +1237,7 @@ export function DayCalendar({
                         {/* Live sluttid mens man drar */}
                         {isResizing && resizeEnd != null && (
                           <div
-                            className="pointer-events-none absolute right-1 z-30 rounded bg-fg px-1.5 py-0.5 text-[10px] font-bold text-surface tabular-nums"
+                            className="pointer-events-none absolute right-1 z-30 rounded bg-fg px-1.5 py-0.5 text-[11px] font-bold text-surface tabular-nums"
                             style={{ top: top + height + 2 }}
                           >
                             {String(Math.floor(resizeEnd / 60)).padStart(2, "0")}:
@@ -1248,7 +1248,7 @@ export function DayCalendar({
                         {/* Live ny starttid mens man flytter */}
                         {isMoving && moveStart != null && (
                           <div
-                            className="pointer-events-none absolute left-1 z-40 rounded bg-fg px-1.5 py-0.5 text-[10px] font-bold text-surface tabular-nums"
+                            className="pointer-events-none absolute left-1 z-40 rounded bg-fg px-1.5 py-0.5 text-[11px] font-bold text-surface tabular-nums"
                             style={{ top: Math.max(top - 16, 0) }}
                           >
                             {minToHHMM(moveStart)}–{minToHHMM(moveStart + dur)}
@@ -1280,7 +1280,7 @@ export function DayCalendar({
           onClick={() => !removingBlock && setBlockSel(null)}
         >
           <div
-            className="w-full max-w-sm rounded-2xl border border-line bg-surface p-6 shadow-2xl"
+            className="w-full max-w-sm rounded-[24px] bg-surface p-6 shadow-[0_24px_64px_-24px_rgba(0,0,0,0.35)]"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
@@ -1317,14 +1317,14 @@ export function DayCalendar({
             <div className="mt-5 flex justify-end gap-2">
               <button
                 onClick={() => setBlockSel(null)}
-                className="rounded-md border border-line-2 px-4 py-2 text-sm text-fg"
+                className="rounded-lg border border-line-2 px-4 py-2 text-sm text-fg [@media(pointer:coarse)]:min-h-11"
               >
                 Behold
               </button>
               <button
                 onClick={() => removeBlock(blockSel.id)}
                 disabled={removingBlock}
-                className="rounded-md bg-danger px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                className="rounded-lg bg-danger px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 [@media(pointer:coarse)]:min-h-11"
               >
                 {removingBlock ? "Fjerner …" : "Fjern blokkering"}
               </button>
@@ -1403,7 +1403,7 @@ function BlockDialog({
   }
 
   const field =
-    "w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg focus:border-accent-soft focus:outline-none";
+    "w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-fg focus:border-accent-soft focus:outline-none [@media(pointer:coarse)]:min-h-11";
 
   return (
     <div
@@ -1411,7 +1411,7 @@ function BlockDialog({
       onClick={onClose}
     >
       <div
-        className="mt-10 w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-2xl"
+        className="mt-10 w-full max-w-md rounded-[24px] bg-surface p-6 shadow-[0_24px_64px_-24px_rgba(0,0,0,0.35)]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -1461,7 +1461,7 @@ function BlockDialog({
           <button
             onClick={submit}
             disabled={pending || !barber}
-            className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40 [@media(pointer:coarse)]:min-h-11"
           >
             {pending ? "…" : "Blokker"}
           </button>
@@ -1502,7 +1502,7 @@ function TransferDialog({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm rounded-2xl border border-line bg-surface p-6 shadow-2xl"
+        className="w-full max-w-sm rounded-[24px] bg-surface p-6 shadow-[0_24px_64px_-24px_rgba(0,0,0,0.35)]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -1528,7 +1528,7 @@ function TransferDialog({
             if (e.key === "Enter" && pin.length === 4) submit();
           }}
           placeholder="••••"
-          className="mb-4 w-full rounded-md border border-line bg-canvas px-3 py-2 text-center text-lg tracking-[0.5em] text-fg focus:border-accent-soft focus:outline-none"
+          className="mb-4 w-full rounded-lg border border-line bg-canvas px-3 py-2 text-center text-lg tracking-[0.5em] text-fg focus:border-accent-soft focus:outline-none [@media(pointer:coarse)]:min-h-11"
         />
         {error && <p className="mb-3 text-sm text-danger">{error}</p>}
         <div className="flex justify-end gap-2">
@@ -1538,7 +1538,7 @@ function TransferDialog({
           <button
             onClick={submit}
             disabled={pending || pin.length !== 4}
-            className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40 [@media(pointer:coarse)]:min-h-11"
           >
             {pending ? "…" : "Godkjenn og flytt"}
           </button>

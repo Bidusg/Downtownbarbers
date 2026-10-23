@@ -13,6 +13,16 @@
      ikke lenger telefonens mørke modus. De offentlige sidene bruker .cine. */
   color-scheme: light;
 
+  /* Hjørner – samme navn og verdier som variablene i Figma-designsystemet
+     (Spacing & radius → radius/*). Endres de her, endres de i Figma også. */
+  --dtb-radius-button-sm: 8px;
+  --dtb-radius-field: 8px;
+  --dtb-radius-card: 16px;
+  --dtb-radius-tile-sm: 22px;
+  --dtb-radius-tile: 28px;
+  --dtb-radius-full: 9999px;
+  --dtb-size-touch-min: 44px;
+
   --canvas: 97.3% 0.007 85;
   --surface: 99.2% 0.004 85;
   --surface-2: 93.8% 0.009 85;
@@ -988,13 +998,13 @@ body {
 
 /* Avrundet flis (kort/seksjon). */
 .tile {
-  border-radius: 28px;
+  border-radius: var(--dtb-radius-tile);
   overflow: hidden;
   isolation: isolate;
 }
 @media (max-width: 639px) {
   .tile {
-    border-radius: 22px;
+    border-radius: var(--dtb-radius-tile-sm);
   }
 }
 
@@ -1058,7 +1068,7 @@ textarea {
 }
 .bo-card,
 .bo-tile {
-  border-radius: 16px;
+  border-radius: var(--dtb-radius-card);
 }
 .act {
   border-radius: 10px;
@@ -1081,12 +1091,12 @@ textarea:focus-visible {
 /* Lukkeknapp (✕) i popuper: rund, 44 × 44 px. */
 .x-btn {
   display: inline-flex;
-  height: 44px;
-  width: 44px;
+  height: var(--dtb-size-touch-min);
+  width: var(--dtb-size-touch-min);
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  border-radius: 9999px;
+  border-radius: var(--dtb-radius-full);
   font-size: 1.125rem;
   line-height: 1;
   color: oklch(var(--muted));
@@ -1120,5 +1130,5 @@ textarea:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 .bo-app :is(div, section, form, aside, details).border.border-line:is(.bg-surface, .bg-surface-2):not(.rounded-full) {
-  border-radius: 14px;
+  border-radius: var(--dtb-radius-card);
 }
