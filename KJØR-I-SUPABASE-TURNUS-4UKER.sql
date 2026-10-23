@@ -10,6 +10,7 @@
 --     Tidlig 10:00–18:00 · Mellom 11:00–19:00 · Sen 12:00–20:00
 --     + Kochari 17:00–20:00 (jobber ikke før 17 på fredager)
 --  Søndag: alle fri.
+--  Pause: 30 min midt i hver vakt (se nederst). Krever TURNUS-PAUSE.sql.
 --
 -- Hva skriptet gjør:
 --  1) Sjekker at de fire navnene finnes (avbryter ellers).
@@ -175,11 +176,28 @@ select w.staff_id, v.weekday, v.start_t::time, v.end_t::time, v.week, date '2026
   ) as v(short, weekday, start_t, end_t, week)
   join _who w on w.short = v.short;
 
+-- Fast pause på 30 min midt i hver vakt (rundet ned til hel/halv time, så
+-- pausene blir forskjøvet og ikke alle har pause samtidig).
+-- Eks.: 10–17 → 13:30–14:00 · 11:30–18:30 → 15:00–15:30 · 13–20 → 16:30–17:00
+--       Lør 10–18 → 14:00 · 10:30–18:30 → 14:30 · 11:30–19:30 → 15:30 · 12–20 → 16:00
+--       Fre 17–20 (Kochari) → 18:30–19:00
+alter table staff_hours add column if not exists pause_start time;
+alter table staff_hours add column if not exists pause_end time;
+
+update staff_hours h
+   set pause_start = h.start_time
+         + make_interval(mins => (floor(extract(epoch from (h.end_time - h.start_time)) / 60 / 2 / 30) * 30)::int),
+       pause_end   = h.start_time
+         + make_interval(mins => (floor(extract(epoch from (h.end_time - h.start_time)) / 60 / 2 / 30) * 30)::int + 30)
+ where h.valid_from = date '2026-11-01'
+   and h.staff_id in (select staff_id from _who);
+
 commit;
 
 -- Kontroll: antall vakter og timer per ansatt per turnusuke
 select s.full_name, h.week_parity as turnusuke,
        count(*) as vakter,
+       string_agg(to_char(h.pause_start, 'HH24:MI'), ' ' order by h.weekday) as pauser,
        round(sum(extract(epoch from (h.end_time - h.start_time)) / 3600)::numeric, 1) as timer
   from staff_hours h join staff s on s.id = h.staff_id
  where h.valid_from = date '2026-11-01'
