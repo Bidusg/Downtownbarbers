@@ -13,7 +13,7 @@ export default async function AdminBilag() {
     <div className="mx-auto max-w-4xl space-y-8">
       <PageHeader
         title="Bilag til revisor"
-        description="Last opp fakturaer, kvitteringer og bilag. De dukker automatisk opp hos revisor – ingen manuell utsending. Filene lagres privat, og nedlasting skjer via tidsbegrensede lenker."
+        description="Last opp fakturaer, kvitteringer og bilag. De dukker automatisk opp hos revisor under «Bilag» i revisor-menyen (og som snarvei på revisorens oversikt) – ingen manuell utsending. Filene lagres privat, og nedlasting skjer via tidsbegrensede lenker."
       />
 
       <VoucherManager vouchers={vouchers} />

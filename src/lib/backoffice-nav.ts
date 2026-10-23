@@ -20,6 +20,7 @@ export const revisorNav: BoNav = {
     { href: "/revisor/saldobalanse", label: "Saldobalanse" },
     { href: "/revisor/lonnslipper", label: "Lønnsoversikt" },
     { href: "/revisor/ansatte", label: "Lønn per ansatt" },
+    { href: "/revisor/bilag", label: "Bilag" },
     { href: "/revisor/eksport", label: "Eksport (CSV)" },
   ],
 };

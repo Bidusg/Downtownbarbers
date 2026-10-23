@@ -9,6 +9,7 @@ import {
   getSalesForPeriod,
 } from "@/lib/dashboard-queries";
 import { osloMonthRange } from "@/lib/period";
+import { getVouchers } from "@/lib/vouchers-queries";
 import { formatKr as nok, methodLabel } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -29,11 +30,15 @@ export default async function RevisorHome({
   const exportFrom = `${month.key}-01`;
   const exportLast = new Date(Date.UTC(ey, em, 0)).getUTCDate();
   const exportTo = `${month.key}-${String(exportLast).padStart(2, "0")}`;
-  const [series, sum, monthDetail] = await Promise.all([
+  const [series, sum, monthDetail, vouchers] = await Promise.all([
     getRevenueSeries(period),
     getRevenueSummary(),
     getSalesForPeriod(monthStart, monthEnd),
+    getVouchers().catch(() => []),
   ]);
+  // Bilag lastet opp av salongen siste 30 dager (vises som snarvei øverst).
+  const since30 = new Date(new Date().getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const newVouchers = vouchers.filter((v) => v.createdAt >= since30).length;
   const maxBarber = Math.max(1, ...sum.perBarber.map((b) => b.nok));
 
   const tab = (key: "days" | "months", label: string) => (
@@ -67,6 +72,22 @@ export default async function RevisorHome({
           Last ned alle salg (CSV)
         </a>
       </div>
+
+      {/* Bilag fra salongen – snarvei, så de er lette å finne */}
+      <Link
+        href="/revisor/bilag"
+        className="bo-card flex flex-wrap items-center justify-between gap-3 border border-line bg-surface px-5 py-4 transition-colors hover:border-accent-soft"
+      >
+        <span>
+          <span className="block font-semibold text-fg">Bilag fra salongen</span>
+          <span className="block text-sm text-muted">
+            {vouchers.length === 0
+              ? "Ingen bilag lastet opp ennå."
+              : `${vouchers.length} bilag totalt${newVouchers > 0 ? ` · ${newVouchers} nye siste 30 dager` : ""} – fakturaer, kvitteringer og andre bilag.`}
+          </span>
+        </span>
+        <span className="act act-accent">Åpne bilag →</span>
+      </Link>
 
       <div className="grid gap-4 sm:grid-cols-4">
         <StatTile
