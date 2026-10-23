@@ -11,19 +11,35 @@ export const adminNav: BoNav = {
   groups: adminGroups,
 };
 
+// Revisor: samme rolige dropdown-meny som admin, med tre grupper.
 export const revisorNav: BoNav = {
-  kind: "flat",
-  links: [
-    { href: "/revisor", label: "Oversikt", exact: true },
-    { href: "/revisor/omsetning", label: "Omsetning" },
-    { href: "/revisor/rapport", label: "Perioderapport" },
-    { href: "/revisor/saldobalanse", label: "Saldobalanse" },
-    { href: "/revisor/lonnslipper", label: "Lønnsoversikt" },
-    { href: "/revisor/ansatte", label: "Lønn per ansatt" },
-    { href: "/revisor/arbeidstid", label: "Arbeidstid" },
-    { href: "/revisor/kasseoppgjor", label: "Kasseoppgjør" },
-    { href: "/revisor/bilag", label: "Bilag" },
-    { href: "/revisor/eksport", label: "Eksport (CSV)" },
+  kind: "grouped",
+  dashboard: { href: "/revisor", label: "Oversikt", exact: true },
+  groups: [
+    {
+      label: "Omsetning",
+      items: [
+        { href: "/revisor/omsetning", label: "Omsetning", description: "Dag for dag og per barber" },
+        { href: "/revisor/rapport", label: "Perioderapport", description: "Kvartal, halvår og helår" },
+        { href: "/revisor/kasseoppgjor", label: "Kasseoppgjør", description: "Talt kontant/kort/Vipps og avvik" },
+      ],
+    },
+    {
+      label: "Lønn",
+      items: [
+        { href: "/revisor/lonnslipper", label: "Lønnsoversikt", description: "Generer og send lønnsslipper" },
+        { href: "/revisor/ansatte", label: "Lønn per ansatt", description: "Grunnlag og manuelle linjer" },
+        { href: "/revisor/arbeidstid", label: "Arbeidstid", description: "Stemplede timer per ansatt" },
+      ],
+    },
+    {
+      label: "Regnskap",
+      items: [
+        { href: "/revisor/saldobalanse", label: "Saldobalanse" },
+        { href: "/revisor/bilag", label: "Bilag", description: "Fakturaer og kvitteringer fra salongen" },
+        { href: "/revisor/eksport", label: "Eksport (CSV)", description: "Alle salg som regneark" },
+      ],
+    },
   ],
 };
 

@@ -144,6 +144,10 @@ const GROUP_ICON: Record<string, string> = {
   Økonomi: "okonomi",
   "Mål & rapporter": "mal",
   Innhold: "innhold",
+  // Revisor
+  Omsetning: "mal",
+  Lønn: "ansatte",
+  Regnskap: "okonomi",
 };
 
 // Kortere etiketter KUN i topp-raden (dropdown/palett beholder fullt navn), så
