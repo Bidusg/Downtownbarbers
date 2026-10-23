@@ -3,6 +3,7 @@ import {
   renderPurchaseHistoryPdf,
   type PurchaseHistoryData,
 } from "@/lib/pdf/purchase-history";
+import { getRequestLang, translateServiceText } from "@/lib/i18n/server-lang";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,6 +52,12 @@ export async function GET(
     barber: r.staff?.full_name ?? "—",
   }));
 
+  // Språk: det kunden har valgt på nettsiden (cookie). Tjenestenavn oversettes.
+  const lang = await getRequestLang();
+  if (lang === "en") {
+    for (const b of bookings) b.service = await translateServiceText(b.service, lang);
+  }
+
   const completed = bookings.filter((b) => b.status === "completed");
   const data: PurchaseHistoryData = {
     full_name: (c.full_name as string) ?? "Kunde",
@@ -62,6 +69,7 @@ export async function GET(
     totalSpent: completed.reduce((a, b) => a + b.price_nok, 0),
     noShows: bookings.filter((b) => b.status === "no_show").length,
     lastVisit: completed[0]?.start_at ?? null,
+    lang,
     bookings,
   };
 
@@ -70,7 +78,7 @@ export async function GET(
   return new Response(new Uint8Array(buf), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="downtown_kjopshistorikk_${safe}.pdf"`,
+      "Content-Disposition": `attachment; filename="downtown_${lang === "en" ? "purchase_history" : "kjopshistorikk"}_${safe}.pdf"`,
     },
   });
 }

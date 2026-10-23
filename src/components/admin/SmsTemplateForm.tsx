@@ -107,6 +107,8 @@ export function SmsTemplateForm({ initial }: { initial: SmsTemplates }) {
   const [confirmation, setConfirmation] = useState(initial.confirmation);
   const [confirmationEnabled, setConfirmationEnabled] = useState(initial.confirmationEnabled);
   const [reminder, setReminder] = useState(initial.reminder);
+  const [confirmationEn, setConfirmationEn] = useState(initial.confirmationEn);
+  const [reminderEn, setReminderEn] = useState(initial.reminderEn);
   const [to, setTo] = useState("");
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -114,6 +116,8 @@ export function SmsTemplateForm({ initial }: { initial: SmsTemplates }) {
   const dirty =
     confirmation.trim() !== initial.confirmation.trim() ||
     reminder.trim() !== initial.reminder.trim() ||
+    confirmationEn.trim() !== initial.confirmationEn.trim() ||
+    reminderEn.trim() !== initial.reminderEn.trim() ||
     confirmationEnabled !== initial.confirmationEnabled;
 
   const test = (text: string) =>
@@ -156,6 +160,25 @@ export function SmsTemplateForm({ initial }: { initial: SmsTemplates }) {
         onTest={test}
         pending={pending}
       />
+      <TemplateEditor
+        title="Bekreftelse – engelsk"
+        hint="Sendes i stedet for den norske når kunden booket på engelsk."
+        value={confirmationEn}
+        onChange={setConfirmationEn}
+        defaultText={DEFAULT_SMS_TEMPLATES.confirmationEn}
+        disabled={!confirmationEnabled}
+        onTest={test}
+        pending={pending}
+      />
+      <TemplateEditor
+        title="Påminnelse – engelsk"
+        hint="Sendes dagen før timen til kunder som booket på engelsk."
+        value={reminderEn}
+        onChange={setReminderEn}
+        defaultText={DEFAULT_SMS_TEMPLATES.reminderEn}
+        onTest={test}
+        pending={pending}
+      />
 
       {msg && <p className={"text-sm " + (msg.ok ? "text-accent-soft" : "text-danger")}>{msg.text}</p>}
 
@@ -171,6 +194,8 @@ export function SmsTemplateForm({ initial }: { initial: SmsTemplates }) {
               fd.set("confirmation", confirmation);
               fd.set("confirmationEnabled", confirmationEnabled ? "true" : "false");
               fd.set("reminder", reminder);
+              fd.set("confirmationEn", confirmationEn);
+              fd.set("reminderEn", reminderEn);
               const r = await saveSmsTemplates(fd);
               setMsg(r.error ? { ok: false, text: r.error } : { ok: true, text: "Lagret ✓" });
             })

@@ -561,6 +561,7 @@ export function BookingWizard({
         marketingConsent,
         note: note.trim() || undefined,
         website,
+        lang,
       });
       if (res?.code === "taken") {
         setTime("");

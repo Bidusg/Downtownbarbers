@@ -13,6 +13,24 @@
 import { salon } from "@/lib/data/salon";
 import { siteUrl } from "@/lib/site-url";
 import { staffDisplayName } from "@/lib/staff-display";
+import type { Lang } from "@/lib/i18n/dictionary";
+
+/* ---- Faste tekster i kunde-e-postene (norsk / engelsk) ------------------ */
+const L = {
+  no: {
+    yourBarber: "Din barber", directions: "Veibeskrivelse", call: "Ring oss",
+    service: "Tjeneste", date: "Dato", time: "Tid", price: "Pris", barber: "Barber",
+    discount: "Rabatt", paid: "Betalt", payMethod: "Betalingsmåte", fee: "Gebyr",
+    there: "der",
+  },
+  en: {
+    yourBarber: "Your barber", directions: "Directions", call: "Call us",
+    service: "Service", date: "Date", time: "Time", price: "Price", barber: "Barber",
+    discount: "Discount", paid: "Paid", payMethod: "Payment", fee: "Fee",
+    there: "there",
+  },
+} as const;
+const tx = (lang: Lang | undefined) => L[lang === "en" ? "en" : "no"];
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
@@ -101,9 +119,9 @@ export async function sendEmailBatch(
 }
 
 /** «2026-10-05» → «Mandag 5. oktober 2026» (ISO-datoer uendret ellers). */
-function prettyDate(d: string): string {
+function prettyDate(d: string, lang: Lang = "no"): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
-  const t = new Date(d + "T12:00:00Z").toLocaleDateString("nb-NO", {
+  const t = new Date(d + "T12:00:00Z").toLocaleDateString(lang === "en" ? "en-GB" : "nb-NO", {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -122,7 +140,8 @@ function escapeHtml(s: string): string {
 }
 
 /* ---- Felles bunn: veibeskrivelse + ring + sosiale lenker --------------- */
-function footerHtml(): string {
+function footerHtml(lang: Lang = "no"): string {
+  const w = tx(lang);
   return `
       <tr><td style="padding:4px 32px 0">
         <div style="height:1px;background:${C.line};margin:26px 0 0;font-size:0;line-height:0">&nbsp;</div>
@@ -130,10 +149,10 @@ function footerHtml(): string {
       <tr><td align="center" style="padding:22px 32px 2px">
         <table role="presentation" cellpadding="0" cellspacing="0" align="center"><tr>
           <td style="padding:0 5px">
-            <a href="${MAPS_URL}" style="display:inline-block;border:1px solid ${C.line};color:${C.cream};text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:13px;padding:11px 18px">Veibeskrivelse</a>
+            <a href="${MAPS_URL}" style="display:inline-block;border:1px solid ${C.line};color:${C.cream};text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:13px;padding:11px 18px">${w.directions}</a>
           </td>
           <td style="padding:0 5px">
-            <a href="tel:${TEL}" style="display:inline-block;border:1px solid ${C.line};color:${C.cream};text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:13px;padding:11px 18px">Ring oss</a>
+            <a href="tel:${TEL}" style="display:inline-block;border:1px solid ${C.line};color:${C.cream};text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:13px;padding:11px 18px">${w.call}</a>
           </td>
         </tr></table>
       </td></tr>
@@ -155,10 +174,10 @@ function footerHtml(): string {
  * Ytre ramme for alle e-poster: logo-topp, innhold, premium-bunn.
  * `inner` er ferdig HTML som legges inn i kort-kroppen.
  */
-function pageWrap(inner: string): string {
+function pageWrap(inner: string, lang: Lang = "no"): string {
   const site = siteUrl();
   return `<!DOCTYPE html>
-<html lang="nb" xmlns="http://www.w3.org/1999/xhtml"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><style>:root{color-scheme:light;supported-color-schemes:light}</style></head>
+<html lang="${lang === "en" ? "en" : "nb"}" xmlns="http://www.w3.org/1999/xhtml"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><style>:root{color-scheme:light;supported-color-schemes:light}</style></head>
 <body bgcolor="${C.bg}" style="margin:0;padding:0;background:${C.bg};background-color:${C.bg};-webkit-text-size-adjust:100%">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.bg}" style="background:${C.bg};background-color:${C.bg}">
     <tr><td align="center" bgcolor="${C.bg}" style="padding:30px 14px;background-color:${C.bg}">
@@ -174,7 +193,7 @@ function pageWrap(inner: string): string {
         <tr><td style="padding:28px 32px 10px">
           ${inner}
         </td></tr>
-${footerHtml()}
+${footerHtml(lang)}
       </table>
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:100%">
         <tr><td align="center" style="padding:16px 14px 6px;font-family:Arial,Helvetica,sans-serif;color:${C.muted};font-size:11px;line-height:1.6">
@@ -197,7 +216,7 @@ function initials(name: string): string {
   return (first + last).toUpperCase();
 }
 
-function barberBlock(b: BarberInfo): string {
+function barberBlock(b: BarberInfo, lang: Lang = "no"): string {
   const avatar = b.photoUrl
     ? `<img src="${escapeHtml(b.photoUrl)}" width="64" height="64" alt="${escapeHtml(
         b.name,
@@ -217,7 +236,7 @@ function barberBlock(b: BarberInfo): string {
       <tr>
         <td width="64" style="padding:16px 18px;width:64px;vertical-align:middle">${avatar}</td>
         <td style="padding:16px 18px 16px 0;vertical-align:middle">
-          <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:${C.accent}">Din barber</div>
+          <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:${C.accent}">${tx(lang).yourBarber}</div>
           <div style="font-family:Georgia,serif;font-size:18px;color:${C.cream};margin-top:4px">${escapeHtml(
             b.name,
           )}</div>
@@ -247,7 +266,7 @@ function shell(
   intro: string,
   rows: [string, string][],
   ctaHtml = "",
-  opts: { barber?: BarberInfo } = {},
+  opts: { barber?: BarberInfo; lang?: Lang } = {},
 ): string {
   const tr = rows
     .map(
@@ -261,13 +280,13 @@ function shell(
   const table = rows.length
     ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:22px 0 2px;border-collapse:collapse">${tr}</table>`
     : "";
-  const barber = opts.barber && opts.barber.name.trim() ? barberBlock(opts.barber) : "";
+  const barber = opts.barber && opts.barber.name.trim() ? barberBlock(opts.barber, opts.lang) : "";
   return pageWrap(`
     <h1 style="font-family:Georgia,'Times New Roman',serif;font-size:25px;line-height:1.28;margin:0 0 14px;color:${C.cream}">${heading}</h1>
     <p style="font-family:Arial,Helvetica,sans-serif;color:${C.soft};line-height:1.7;font-size:15px;margin:0">${intro}</p>
     ${barber}
     ${table}
-    ${ctaHtml}`);
+    ${ctaHtml}`, opts.lang);
 }
 
 export async function sendBookingConfirmation(opts: {
@@ -283,14 +302,18 @@ export async function sendBookingConfirmation(opts: {
   /** Valgfritt: barberens tittel + bilde-URL (vises i barber-blokken). */
   barberTitle?: string;
   barberPhotoUrl?: string;
+  /** Kundens språk – engelsk når kunden booket på engelsk. */
+  lang?: Lang;
 }): Promise<void> {
   // Visningsnavn (som på nettsiden) i stedet for fullt navn.
   opts = { ...opts, barber: await staffDisplayName(opts.barber) };
+  const en = opts.lang === "en";
+  const w = tx(opts.lang);
   const portalLink = opts.portalUrl
     ? `<p style="margin:18px 0 8px">
          <a href="${opts.portalUrl}"
             style="color:${C.accent};font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:600;text-decoration:none">
-           Se din side og klippekort →
+           ${en ? "See your page and punch card →" : "Se din side og klippekort →"}
          </a>
        </p>`
     : "";
@@ -298,20 +321,23 @@ export async function sendBookingConfirmation(opts: {
     ? `<p style="margin:0 0 6px">
          <a href="${opts.cancelUrl}"
             style="color:${C.muted};font-family:Arial,Helvetica,sans-serif;font-size:13px;text-decoration:underline">
-           Kan du ikke likevel? Avbestill timen her
+           ${en ? "Can't make it after all? Cancel your appointment here" : "Kan du ikke likevel? Avbestill timen her"}
          </a>
        </p>`
     : "";
   const cta = portalLink + cancelLink;
   const rows: [string, string][] = [
-    ["Tjeneste", escapeHtml(opts.service)],
-    ["Dato", escapeHtml(prettyDate(opts.date))],
-    ["Tid", escapeHtml(opts.time)],
+    [w.service, escapeHtml(opts.service)],
+    [w.date, escapeHtml(prettyDate(opts.date, opts.lang))],
+    [w.time, escapeHtml(opts.time)],
   ];
-  if (opts.price) rows.push(["Pris", escapeHtml(opts.price)]);
+  if (opts.price) rows.push([w.price, escapeHtml(opts.price)]);
+  const first = escapeHtml(opts.name.split(" ")[0]);
   const html = shell(
-    "Timen din er bekreftet",
-    `Hei ${escapeHtml(opts.name.split(" ")[0])}, vi gleder oss til å se deg. Her er detaljene:`,
+    en ? "Your appointment is confirmed" : "Timen din er bekreftet",
+    en
+      ? `Hi ${first}, we look forward to seeing you. Here are the details:`
+      : `Hei ${first}, vi gleder oss til å se deg. Her er detaljene:`,
     rows,
     cta,
     {
@@ -320,11 +346,14 @@ export async function sendBookingConfirmation(opts: {
         title: opts.barberTitle,
         photoUrl: opts.barberPhotoUrl,
       },
+      lang: opts.lang,
     },
   );
   await sendEmail(
     opts.to,
-    "Din time hos Downtown Barbers er bekreftet",
+    en
+      ? "Your appointment at Downtown Barbers is confirmed"
+      : "Din time hos Downtown Barbers er bekreftet",
     html,
   );
 }
@@ -373,31 +402,39 @@ export async function sendReceiptEmail(opts: {
   discount?: number;
   /** Splittbetaling: vises som «Kontant 200 kr · Kort 300 kr». */
   payments?: { method: string; amount: number }[];
+  lang?: Lang;
 }): Promise<void> {
   // Visningsnavn (som på nettsiden) i stedet for fullt navn.
   opts = { ...opts, barber: await staffDisplayName(opts.barber) };
+  const en = opts.lang === "en";
+  const w = tx(opts.lang);
   const rows: [string, string][] = [
-    ["Tjeneste", escapeHtml(opts.service)],
-    ["Barber", escapeHtml(opts.barber)],
-    ["Dato", escapeHtml(opts.date)],
+    [w.service, escapeHtml(opts.service)],
+    [w.barber, escapeHtml(opts.barber)],
+    [w.date, escapeHtml(opts.date)],
   ];
   if (opts.discount && opts.discount > 0) {
-    rows.push(["Rabatt", `−${Math.round(opts.discount)} kr`]);
+    rows.push([w.discount, `−${Math.round(opts.discount)} kr`]);
   }
-  rows.push(["Betalt", escapeHtml(opts.price)]);
+  rows.push([w.paid, escapeHtml(opts.price)]);
   const paymentLine =
     opts.payments && opts.payments.length > 0
       ? opts.payments
           .map((p) => `${p.method} ${Math.round(p.amount)} kr`)
           .join(" · ")
       : opts.paymentMethod;
-  if (paymentLine) rows.push(["Betalingsmåte", escapeHtml(paymentLine)]);
+  if (paymentLine) rows.push([w.payMethod, escapeHtml(paymentLine)]);
+  const first = escapeHtml(opts.name.split(" ")[0] || w.there);
   const html = shell(
-    "Kvittering",
-    `Hei ${escapeHtml(opts.name.split(" ")[0] || "der")}, takk for besøket! Her er kvitteringen din:`,
+    en ? "Receipt" : "Kvittering",
+    en
+      ? `Hi ${first}, thanks for visiting! Here is your receipt:`
+      : `Hei ${first}, takk for besøket! Her er kvitteringen din:`,
     rows,
+    "",
+    { lang: opts.lang },
   );
-  await sendEmail(opts.to, "Kvittering – Downtown Barbers", html);
+  await sendEmail(opts.to, en ? "Receipt – Downtown Barbers" : "Kvittering – Downtown Barbers", html);
 }
 
 /** Varsel når kunden ikke møtte – vennlig, med gebyr-notis og rebooking. */
@@ -408,30 +445,40 @@ export async function sendNoShowEmail(opts: {
   barber: string;
   date: string;
   fee?: string; // f.eks. "150 kr" – utelates hvis ikke satt
+  lang?: Lang;
 }): Promise<boolean> {
   // Visningsnavn (som på nettsiden) i stedet for fullt navn.
   opts = { ...opts, barber: await staffDisplayName(opts.barber) };
+  const en = opts.lang === "en";
+  const w = tx(opts.lang);
   const site = siteUrl();
   const rows: [string, string][] = [
-    ["Tjeneste", escapeHtml(opts.service)],
-    ["Barber", escapeHtml(opts.barber)],
-    ["Dato", escapeHtml(opts.date)],
+    [w.service, escapeHtml(opts.service)],
+    [w.barber, escapeHtml(opts.barber)],
+    [w.date, escapeHtml(opts.date)],
   ];
-  if (opts.fee) rows.push(["Gebyr", escapeHtml(opts.fee)]);
-  const feeLine = opts.fee
-    ? ` For uteblitte timer belastes et gebyr på ${escapeHtml(
-        opts.fee,
-      )}, som gjøres opp ved neste besøk.`
+  if (opts.fee) rows.push([w.fee, escapeHtml(opts.fee)]);
+  const fee = opts.fee ? escapeHtml(opts.fee) : "";
+  const feeLine = fee
+    ? en
+      ? ` A fee of ${fee} applies to missed appointments and is settled at your next visit.`
+      : ` For uteblitte timer belastes et gebyr på ${fee}, som gjøres opp ved neste besøk.`
     : "";
+  const first = escapeHtml(opts.name.split(" ")[0] || w.there);
   const html = shell(
-    "Vi savnet deg i dag",
-    `Hei ${escapeHtml(
-      opts.name.split(" ")[0] || "der",
-    )}, det ser ut til at du ikke rakk timen din hos oss.${feeLine} Ingen fare – book gjerne en ny tid når det passer.`,
+    en ? "We missed you today" : "Vi savnet deg i dag",
+    en
+      ? `Hi ${first}, it looks like you couldn't make your appointment with us.${feeLine} No worries – book a new time whenever it suits you.`
+      : `Hei ${first}, det ser ut til at du ikke rakk timen din hos oss.${feeLine} Ingen fare – book gjerne en ny tid når det passer.`,
     rows,
-    ctaButton(`${site}/booking`, "Book ny time"),
+    ctaButton(`${site}/booking`, en ? "Book a new appointment" : "Book ny time"),
+    { lang: opts.lang },
   );
-  return sendEmail(opts.to, "Du gikk glipp av timen din – Downtown Barbers", html);
+  return sendEmail(
+    opts.to,
+    en ? "You missed your appointment – Downtown Barbers" : "Du gikk glipp av timen din – Downtown Barbers",
+    html,
+  );
 }
 
 export async function sendBookingReminderEmail(opts: {
@@ -444,18 +491,22 @@ export async function sendBookingReminderEmail(opts: {
   /** Valgfritt: barberens tittel + bilde-URL (vises i barber-blokken). */
   barberTitle?: string;
   barberPhotoUrl?: string;
+  lang?: Lang;
 }): Promise<boolean> {
   // Visningsnavn (som på nettsiden) i stedet for fullt navn.
   opts = { ...opts, barber: await staffDisplayName(opts.barber) };
+  const en = opts.lang === "en";
+  const w = tx(opts.lang);
+  const first = escapeHtml(opts.name.split(" ")[0]);
   const html = shell(
-    "Påminnelse om timen din",
-    `Hei ${escapeHtml(
-      opts.name.split(" ")[0],
-    )}, dette er en vennlig påminnelse om timen din i morgen. Trenger du å endre? Ring oss gjerne.`,
+    en ? "Reminder about your appointment" : "Påminnelse om timen din",
+    en
+      ? `Hi ${first}, this is a friendly reminder about your appointment tomorrow. Need to change it? Feel free to call us.`
+      : `Hei ${first}, dette er en vennlig påminnelse om timen din i morgen. Trenger du å endre? Ring oss gjerne.`,
     [
-      ["Tjeneste", escapeHtml(opts.service)],
-      ["Dato", escapeHtml(opts.date)],
-      ["Tid", escapeHtml(opts.time)],
+      [w.service, escapeHtml(opts.service)],
+      [w.date, escapeHtml(opts.date)],
+      [w.time, escapeHtml(opts.time)],
     ],
     "",
     {
@@ -464,11 +515,12 @@ export async function sendBookingReminderEmail(opts: {
         title: opts.barberTitle,
         photoUrl: opts.barberPhotoUrl,
       },
+      lang: opts.lang,
     },
   );
   return sendEmail(
     opts.to,
-    "Påminnelse: timen din hos Downtown Barbers",
+    en ? "Reminder: your appointment at Downtown Barbers" : "Påminnelse: timen din hos Downtown Barbers",
     html,
   );
 }
@@ -590,20 +642,32 @@ export async function sendPasswordResetEmail(opts: {
 export async function sendPortalLinkEmail(opts: {
   to: string;
   portalUrl: string;
+  lang?: Lang;
 }): Promise<boolean> {
+  const en = opts.lang === "en";
   const cta = `
-    ${ctaButton(opts.portalUrl, "Åpne Min side")}
+    ${ctaButton(opts.portalUrl, en ? "Open My page" : "Åpne Min side")}
     <p style="color:${C.muted};font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;margin:16px 0 0">
-      Lenken er personlig – ikke del den. Ba du ikke om denne, kan du trygt se
-      bort fra e-posten.
+      ${
+        en
+          ? "This link is personal – don't share it. If you didn't ask for it, you can safely ignore this email."
+          : "Lenken er personlig – ikke del den. Ba du ikke om denne, kan du trygt se bort fra e-posten."
+      }
     </p>`;
   const html = shell(
-    "Din lenke til Min side",
-    "Her er lenken til din side hos Downtown Barbers – der ser du timene dine, kjøpshistorikk og medlemsnivå. Klikk på knappen nedenfor.",
+    en ? "Your link to My page" : "Din lenke til Min side",
+    en
+      ? "Here is the link to your page at Downtown Barbers – where you'll find your appointments, purchase history and membership level. Click the button below."
+      : "Her er lenken til din side hos Downtown Barbers – der ser du timene dine, kjøpshistorikk og medlemsnivå. Klikk på knappen nedenfor.",
     [],
     cta,
+    { lang: opts.lang },
   );
-  return sendEmail(opts.to, "Din lenke til Min side – Downtown Barbers", html);
+  return sendEmail(
+    opts.to,
+    en ? "Your link to My page – Downtown Barbers" : "Din lenke til Min side – Downtown Barbers",
+    html,
+  );
 }
 
 /**

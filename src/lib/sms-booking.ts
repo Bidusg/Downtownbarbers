@@ -3,6 +3,7 @@ import { getSiteSettings } from "@/lib/site-settings";
 import { sendSms } from "@/lib/sms";
 import { getSmsTemplates, renderSms } from "@/lib/sms-templates";
 import { staffDisplayName } from "@/lib/staff-display";
+import { translateServiceText, type Lang } from "@/lib/i18n/server-lang";
 
 /** Felles verdier for {adresse} og {telefon} (fra nettside-innstillingene). */
 export async function salonSmsVars(): Promise<{ adresse: string; telefon: string }> {
@@ -15,8 +16,8 @@ export async function salonSmsVars(): Promise<{ adresse: string; telefon: string
 }
 
 /** «fredag 24. oktober» / «14:30» i norsk tid. */
-export function smsDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("nb-NO", {
+export function smsDate(iso: string, lang: Lang = "no"): string {
+  return new Date(iso).toLocaleDateString(lang === "en" ? "en-GB" : "nb-NO", {
     timeZone: "Europe/Oslo",
     weekday: "long",
     day: "numeric",
@@ -44,6 +45,8 @@ export async function sendBookingConfirmationSms(o: {
   barber: string;
   startIso: string;
   bookingId?: string | null;
+  /** Kundens språk – engelsk mal når kunden booket på engelsk. */
+  lang?: Lang;
 }): Promise<boolean> {
   try {
     if (!o.phone?.trim()) return false;
@@ -52,13 +55,14 @@ export async function sendBookingConfirmationSms(o: {
     const tpl = await getSmsTemplates(sb);
     if (!tpl.confirmationEnabled) return false;
     const salon = await salonSmsVars();
-    const text = renderSms(tpl.confirmation, {
+    const en = o.lang === "en";
+    const text = renderSms(en ? tpl.confirmationEn : tpl.confirmation, {
       fornavn: o.name.trim().split(/\s+/)[0] ?? "",
       navn: o.name.trim(),
-      tjeneste: o.service,
+      tjeneste: await translateServiceText(o.service, o.lang ?? "no"),
       varighet: o.durationMin ? `${o.durationMin}'` : "",
       barber: await staffDisplayName(o.barber),
-      dato: smsDate(o.startIso),
+      dato: smsDate(o.startIso, o.lang),
       tid: smsTime(o.startIso),
       ...salon,
     });

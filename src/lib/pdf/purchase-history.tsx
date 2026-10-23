@@ -24,6 +24,8 @@ export type PurchaseHistoryData = {
   totalSpent: number;
   noShows: number;
   lastVisit: string | null;
+  /** Språk på PDF-en (kundens valg på Min side). Standard norsk. */
+  lang?: "no" | "en";
   bookings: {
     id: string;
     start_at: string;
@@ -40,19 +42,34 @@ const LINE = "#e6ded3";
 const ACCENT = "#F47721";
 const SOFT = "#faf7f2";
 
-const STATUS: Record<string, string> = {
-  pending: "Venter",
-  confirmed: "Bekreftet",
-  completed: "Fullført",
-  cancelled: "Avbestilt",
-  no_show: "Ikke møtt",
+const STATUS: Record<"no" | "en", Record<string, string>> = {
+  no: { pending: "Venter", confirmed: "Bekreftet", completed: "Fullført", cancelled: "Avbestilt", no_show: "Ikke møtt" },
+  en: { pending: "Pending", confirmed: "Confirmed", completed: "Completed", cancelled: "Cancelled", no_show: "No-show" },
 };
 
+const W = {
+  no: {
+    docTitle: "Kjøpshistorikk", generated: "Generert", since: "Kunde siden", visits: "Besøk",
+    totalPaid: "Totalt betalt", lastVisit: "Siste besøk", noShow: "Ikke møtt",
+    section: "Booking- og kjøpshistorikk", date: "Dato", service: "Tjeneste", barber: "Barber",
+    status: "Status", amount: "Beløp", none: "Ingen bookinger registrert.",
+    totalCompleted: "Totalt betalt (fullførte)", page: "Side",
+  },
+  en: {
+    docTitle: "Purchase history", generated: "Generated", since: "Customer since", visits: "Visits",
+    totalPaid: "Total paid", lastVisit: "Last visit", noShow: "No-shows",
+    section: "Bookings and purchases", date: "Date", service: "Service", barber: "Barber",
+    status: "Status", amount: "Amount", none: "No bookings registered.",
+    totalCompleted: "Total paid (completed)", page: "Page",
+  },
+} as const;
+
 const kr = (n: number) => `${Math.round(n).toLocaleString("nb-NO")} kr`;
-function dt(iso: string | null, withTime = false) {
+function fmtDt(iso: string | null, withTime: boolean, loc: string) {
   if (!iso) return "—";
   try {
-    return new Date(iso).toLocaleDateString("nb-NO", {
+    return new Date(iso).toLocaleDateString(loc, {
+      timeZone: "Europe/Oslo",
       day: "2-digit",
       month: "short",
       year: "numeric",
@@ -109,7 +126,12 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 function PurchaseHistoryDoc({ c }: { c: PurchaseHistoryData }) {
-  const generated = new Date().toLocaleString("nb-NO", {
+  const lang = c.lang === "en" ? "en" : "no";
+  const w = W[lang];
+  const loc = lang === "en" ? "en-GB" : "nb-NO";
+  const dt = (iso: string | null, withTime = false) => fmtDt(iso, withTime, loc);
+  const generated = new Date().toLocaleString(loc, {
+    timeZone: "Europe/Oslo",
     day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
   });
   const paidTotal = c.bookings
@@ -118,43 +140,43 @@ function PurchaseHistoryDoc({ c }: { c: PurchaseHistoryData }) {
   const contact = [c.phone, c.email, c.category].filter(Boolean).join("  ·  ");
 
   return (
-    <Document title={`Kjøpshistorikk – ${c.full_name}`} author="Downtown Barbers">
+    <Document title={`${w.docTitle} – ${c.full_name}`} author="Downtown Barbers">
       <Page size="A4" style={s.page}>
         {/* Merkevare-topp */}
         <View style={s.brandRow}>
           <View>
             <Text style={s.brand}>DOWNTOWN BARBERS</Text>
-            <Text style={s.brandSub}>Kjøpshistorikk</Text>
+            <Text style={s.brandSub}>{w.docTitle}</Text>
           </View>
-          <Text style={s.docType}>Generert {generated}</Text>
+          <Text style={s.docType}>{w.generated} {generated}</Text>
         </View>
         <View style={s.rule} />
 
         {/* Kunde */}
         <Text style={s.name}>{c.full_name}</Text>
-        <Text style={s.metaLine}>Kunde siden {dt(c.created_at)}</Text>
+        <Text style={s.metaLine}>{w.since} {dt(c.created_at)}</Text>
         {contact.length > 0 && <Text style={s.metaLine}>{contact}</Text>}
 
         {/* Nøkkeltall */}
         <View style={s.statRow}>
-          <Stat label="Besøk" value={String(c.visits)} />
-          <Stat label="Totalt betalt" value={kr(paidTotal)} />
-          <Stat label="Siste besøk" value={dt(c.lastVisit)} />
-          <Stat label="Ikke møtt" value={String(c.noShows)} />
+          <Stat label={w.visits} value={String(c.visits)} />
+          <Stat label={w.totalPaid} value={kr(paidTotal)} />
+          <Stat label={w.lastVisit} value={dt(c.lastVisit)} />
+          <Stat label={w.noShow} value={String(c.noShows)} />
         </View>
 
         {/* Historikk */}
-        <Text style={s.sectionTitle}>Booking- og kjøpshistorikk</Text>
+        <Text style={s.sectionTitle}>{w.section}</Text>
         <View style={s.thead}>
-          <Text style={[s.th, s.cDate]}>Dato</Text>
-          <Text style={[s.th, s.cService]}>Tjeneste</Text>
-          <Text style={[s.th, s.cBarber]}>Barber</Text>
-          <Text style={[s.th, s.cStatus]}>Status</Text>
-          <Text style={[s.th, s.cAmount]}>Beløp</Text>
+          <Text style={[s.th, s.cDate]}>{w.date}</Text>
+          <Text style={[s.th, s.cService]}>{w.service}</Text>
+          <Text style={[s.th, s.cBarber]}>{w.barber}</Text>
+          <Text style={[s.th, s.cStatus]}>{w.status}</Text>
+          <Text style={[s.th, s.cAmount]}>{w.amount}</Text>
         </View>
         {c.bookings.length === 0 ? (
           <View style={s.tr}>
-            <Text style={s.muted}>Ingen bookinger registrert.</Text>
+            <Text style={s.muted}>{w.none}</Text>
           </View>
         ) : (
           c.bookings.map((b) => {
@@ -164,7 +186,7 @@ function PurchaseHistoryDoc({ c }: { c: PurchaseHistoryData }) {
                 <Text style={[s.cDate, off ? s.muted : undefined]}>{dt(b.start_at, true)}</Text>
                 <Text style={s.cService}>{b.service}</Text>
                 <Text style={[s.cBarber, s.muted]}>{b.barber}</Text>
-                <Text style={[s.cStatus, s.muted]}>{STATUS[b.status] ?? b.status}</Text>
+                <Text style={[s.cStatus, s.muted]}>{STATUS[lang][b.status] ?? b.status}</Text>
                 <Text style={[s.cAmount, off ? s.muted : undefined]}>{off ? "—" : kr(b.price_nok)}</Text>
               </View>
             );
@@ -172,14 +194,14 @@ function PurchaseHistoryDoc({ c }: { c: PurchaseHistoryData }) {
         )}
 
         <View style={s.totalRow}>
-          <Text style={s.totalLabel}>Totalt betalt (fullførte)</Text>
+          <Text style={s.totalLabel}>{w.totalCompleted}</Text>
           <Text style={s.totalValue}>{kr(paidTotal)}</Text>
         </View>
 
         {/* Bunntekst med sidetall */}
         <View style={s.footer} fixed>
           <Text style={s.footerText}>Downtown Barbers · downtownbarbers.no</Text>
-          <Text style={s.footerText} render={({ pageNumber, totalPages }) => `Side ${pageNumber} / ${totalPages}`} />
+          <Text style={s.footerText} render={({ pageNumber, totalPages }) => `${w.page} ${pageNumber} / ${totalPages}`} />
         </View>
       </Page>
     </Document>

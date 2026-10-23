@@ -10,6 +10,7 @@ import { osloToUtcISO } from "@/lib/oslo-time";
 import { sendBookingConfirmationSms } from "@/lib/sms-booking";
 import { isValidEmail, isValidNorwegianPhone, titleCase } from "@/lib/validate";
 import { customerBookingLimited, ipRateLimited, isHoneypotTripped } from "@/lib/abuse-guard";
+import { getRequestLang, normLang, translateServiceText } from "@/lib/i18n/server-lang";
 
 export type CartMode = "single" | "group";
 
@@ -172,6 +173,8 @@ export type CartBookingInput = {
   note?: string; // kundens notat til barberen (vises i kassa)
   /** Honeypot – skal alltid være tomt. */
   website?: string;
+  /** Språket kunden booket på – bekreftelse og påminnelser sendes på dette. */
+  lang?: "no" | "en";
 };
 
 /**
@@ -380,6 +383,15 @@ export async function createBookingGroup(
     });
     if (cToken) cancelUrl = `${base}/avbestill/${cToken}`;
 
+    // Husk kundens språk (customers.lang) til påminnelser og kvitteringer.
+    const lang = input.lang ? normLang(input.lang) : await getRequestLang();
+    try {
+      await sb.rpc("set_customer_lang_for_booking", { p_booking: first, p_lang: lang });
+    } catch {
+      /* SQL ikke kjørt ennå – norsk som før */
+    }
+    const en = lang === "en";
+
     if (input.marketingConsent === true) {
       try {
         await sb.rpc("set_marketing_consent_for_booking", { p_booking: first });
@@ -392,14 +404,16 @@ export async function createBookingGroup(
     const summary = input.lines
       .map((l) => l.serviceName + (l.addonNames.length ? ` + ${l.addonNames.join(", ")}` : ""))
       .join(" · ");
+    const summaryLang = await translateServiceText(summary, lang);
     try {
       await sendBookingConfirmation({
         to: input.email.trim(),
         name,
-        service: summary,
+        service: summaryLang,
+        lang,
         barber:
           input.mode === "group"
-            ? "Flere barbere"
+            ? en ? "Several barbers" : "Flere barbere"
             : (barbers.find((b) => b.name === resolvedBarber)?.display ?? resolvedBarber ?? ""),
         barberTitle:
           input.mode === "group" ? undefined : barbers.find((b) => b.name === resolvedBarber)?.title,
@@ -430,10 +444,11 @@ export async function createBookingGroup(
         phone: input.phone,
         name,
         service: summary,
+        lang,
         durationMin: total || null,
         barber:
           input.mode === "group"
-            ? "flere barbere"
+            ? en ? "several barbers" : "flere barbere"
             : (barbers.find((b) => b.name === resolvedBarber)?.display ?? resolvedBarber ?? ""),
         startIso: osloToUtcISO(input.date, input.time),
         bookingId: first ?? null,

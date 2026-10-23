@@ -124,7 +124,9 @@ export async function saveSmsTemplates(
   const reminder = String(formData.get("reminder") ?? "").trim();
   const confirmation = String(formData.get("confirmation") ?? "").trim();
   const confirmationEnabled = formData.get("confirmationEnabled") === "true";
-  if (reminder.length > 600 || confirmation.length > 600)
+  const reminderEn = String(formData.get("reminderEn") ?? "").trim();
+  const confirmationEn = String(formData.get("confirmationEn") ?? "").trim();
+  if (reminder.length > 600 || confirmation.length > 600 || reminderEn.length > 600 || confirmationEn.length > 600)
     return { error: "Teksten er for lang (maks 600 tegn)." };
   const sb = await createClient();
   const { error } = await sb.from("settings").upsert(
@@ -134,6 +136,8 @@ export async function saveSmsTemplates(
         reminder: reminder || DEFAULT_SMS_TEMPLATES.reminder,
         confirmation: confirmation || DEFAULT_SMS_TEMPLATES.confirmation,
         confirmationEnabled,
+        reminderEn: reminderEn || DEFAULT_SMS_TEMPLATES.reminderEn,
+        confirmationEn: confirmationEn || DEFAULT_SMS_TEMPLATES.confirmationEn,
       },
     },
     { onConflict: "key" },

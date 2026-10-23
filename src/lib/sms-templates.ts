@@ -15,6 +15,9 @@ export type SmsTemplates = {
   confirmationEnabled: boolean;
   /** Påminnelse dagen før timen. */
   reminder: string;
+  /** Engelske utgaver – sendes til kunder som booket på engelsk. */
+  confirmationEn: string;
+  reminderEn: string;
 };
 
 export const DEFAULT_SMS_TEMPLATES: SmsTemplates = {
@@ -23,6 +26,10 @@ export const DEFAULT_SMS_TEMPLATES: SmsTemplates = {
   confirmationEnabled: true,
   reminder:
     "Påminnelse: {tjeneste} hos Downtown Barbers {dato} kl. {tid}. Osterhaus' gate 10. Trenger du å endre? Ring +47 463 58 764.",
+  confirmationEn:
+    "Hi {fornavn}, this confirms your booking: {tjeneste} {varighet} with {barber} at {tid} on {dato}. We look forward to seeing you at {adresse}. Need to change it? Call {telefon}.",
+  reminderEn:
+    "Reminder: {tjeneste} at Downtown Barbers {dato} at {tid}. Osterhaus' gate 10. Need to change it? Call +47 463 58 764.",
 };
 
 export const SMS_VARIABLES: { key: string; label: string; example: string }[] = [
@@ -80,6 +87,8 @@ export async function getSmsTemplates(sb: SupabaseClient): Promise<SmsTemplates>
       confirmation: v.confirmation?.trim() || DEFAULT_SMS_TEMPLATES.confirmation,
       confirmationEnabled: v.confirmationEnabled !== false,
       reminder: v.reminder?.trim() || DEFAULT_SMS_TEMPLATES.reminder,
+      confirmationEn: v.confirmationEn?.trim() || DEFAULT_SMS_TEMPLATES.confirmationEn,
+      reminderEn: v.reminderEn?.trim() || DEFAULT_SMS_TEMPLATES.reminderEn,
     };
   } catch {
     return DEFAULT_SMS_TEMPLATES;

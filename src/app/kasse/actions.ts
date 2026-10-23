@@ -3,6 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { sendBookingConfirmationSms } from "@/lib/sms-booking";
+import {
+  bookingCustomerLang,
+  customerLangByEmail,
+  payMethodLang,
+  translateServiceText,
+  type Lang,
+} from "@/lib/i18n/server-lang";
 import { createServiceClient } from "@/lib/supabase/service";
 import { osloToUtcISO } from "@/lib/oslo-time";
 import { getUserRole, isAdminRole } from "@/lib/auth";
@@ -115,9 +122,9 @@ function refresh() {
   revalidatePath("/kasse/kalender");
 }
 
-function fmtDay(iso: string) {
+function fmtDay(iso: string, lang: Lang = "no") {
   try {
-    return new Date(iso).toLocaleDateString("nb-NO", {
+    return new Date(iso).toLocaleDateString(lang === "en" ? "en-GB" : "nb-NO", {
       // Serveren kjører i UTC – uten Oslo-tidssone havner dato/tid feil
       // (i e-post m.m.). Europe/Oslo gir riktig norsk dag.
       timeZone: "Europe/Oslo",
@@ -399,16 +406,18 @@ export async function completeBooking(
       const s = b.services as { name?: string } | null;
       const st = b.staff as { full_name?: string } | null;
       const extras = await receiptExtras(sb, bookingId);
+      const lang = await bookingCustomerLang(sb, bookingId);
       await sendReceiptEmail({
         to: email,
         name: name ?? "",
-        service: s?.name ?? "",
+        service: await translateServiceText(s?.name ?? "", lang),
         barber: st?.full_name ?? "",
-        date: fmtDay(b.start_at),
+        date: fmtDay(b.start_at, lang),
         price: `${extras.totalNok ?? b.price_nok} kr`,
-        paymentMethod: o.paymentMethod,
+        paymentMethod: o.paymentMethod ? payMethodLang(o.paymentMethod, lang) : undefined,
         discount: extras.discountNok,
-        payments: extras.payments,
+        payments: extras.payments?.map((p) => ({ ...p, method: payMethodLang(p.method, lang) })),
+        lang,
       });
     }
   }
@@ -736,18 +745,23 @@ export async function recordWalkinSale(
             .maybeSingle();
           barberName = st?.full_name ?? "";
         }
+        const lang = await customerLangByEmail(sb, receiptEmail);
         await sendReceiptEmail({
           to: receiptEmail,
           name: customer?.name ?? "",
-          service: serviceNames.length > 0 ? serviceNames.join(" + ") : "Varekjøp",
+          service:
+            serviceNames.length > 0
+              ? await translateServiceText(serviceNames.join(" + "), lang)
+              : lang === "en" ? "Products" : "Varekjøp",
           barber: barberName,
-          date: fmtDay(new Date().toISOString()),
+          date: fmtDay(new Date().toISOString(), lang),
           price: `${Number(sale?.total_nok) || 0} kr`,
-          paymentMethod: input.paymentMethod,
+          paymentMethod: input.paymentMethod ? payMethodLang(input.paymentMethod, lang) : undefined,
           discount: Number(sale?.discount_nok) || 0,
           payments: ((pays ?? []) as { method: string; amount: number }[]).map(
-            (p) => ({ method: p.method, amount: Number(p.amount) || 0 }),
+            (p) => ({ method: payMethodLang(p.method, lang), amount: Number(p.amount) || 0 }),
           ),
+          lang,
         });
       } catch {
         // kvittering feiler stille – påvirker ikke salget
@@ -892,12 +906,14 @@ export async function markNoShow(
       const s = b.services as { name?: string } | null;
       const st = b.staff as { full_name?: string } | null;
       const feeNok = Number(process.env.NO_SHOW_FEE_NOK ?? "");
+      const lang = await bookingCustomerLang(sb, bookingId);
       emailed = await sendNoShowEmail({
         to: c.email,
         name: c.full_name ?? "",
-        service: s?.name ?? "",
+        service: await translateServiceText(s?.name ?? "", lang),
         barber: st?.full_name ?? "",
-        date: fmtDay(b.start_at),
+        date: fmtDay(b.start_at, lang),
+        lang,
         fee: feeNok > 0 ? `${feeNok} kr` : undefined,
       });
     }
@@ -1163,6 +1179,7 @@ export async function createDeskBooking(
         .eq("id", newId)
         .maybeSingle();
       const c = bk?.customers as { full_name?: string; email?: string; phone?: string | null } | null;
+      const lang = await bookingCustomerLang(sb, newId);
       // Bekreftelse på SMS (bare fremtidige timer, se sendBookingConfirmationSms).
       if (bk && (c?.phone || input.phone)) {
         const s2 = bk.services as { name?: string; duration_min?: number | null } | null;
@@ -1175,6 +1192,7 @@ export async function createDeskBooking(
           barber: st2?.full_name || input.barber,
           startIso: bk.start_at as string,
           bookingId: newId,
+          lang,
         });
       }
       if (bk && c?.email) {
@@ -1183,11 +1201,12 @@ export async function createDeskBooking(
         await sendBookingConfirmation({
           to: c.email,
           name: c.full_name ?? input.name ?? "",
-          service: s?.name ?? input.service,
+          service: await translateServiceText(s?.name ?? input.service, lang),
           barber: st?.full_name ?? input.barber,
-          date: fmtDay(bk.start_at),
+          date: fmtDay(bk.start_at, lang),
           time: fmtClock(bk.start_at),
           price: `${bk.price_nok} kr`,
+          lang,
         });
       }
     }
@@ -1286,15 +1305,17 @@ export async function sendReceiptForBooking(
     const s = b.services as { name?: string } | null;
     const st = b.staff as { full_name?: string } | null;
     const extras = await receiptExtras(sb, bookingId);
+    const lang = await bookingCustomerLang(sb, bookingId);
     await sendReceiptEmail({
       to: c.email,
       name: c.full_name ?? "",
-      service: s?.name ?? "",
+      service: await translateServiceText(s?.name ?? "", lang),
       barber: st?.full_name ?? "",
-      date: fmtDay(b.start_at),
+      date: fmtDay(b.start_at, lang),
       price: `${extras.totalNok ?? b.price_nok} kr`,
       discount: extras.discountNok,
-      payments: extras.payments,
+      payments: extras.payments?.map((p) => ({ ...p, method: payMethodLang(p.method, lang) })),
+      lang,
     });
     return { ok: true };
   } catch {

@@ -58,6 +58,8 @@ export function LanguageProvider({
   useEffect(() => {
     try {
       document.documentElement.lang = lang === "en" ? "en" : "nb";
+      // Serveren (e-post, SMS, PDF) leser språket fra denne cookien.
+      document.cookie = `${STORAGE_KEY}=${lang}; path=/; max-age=31536000; samesite=lax`;
     } catch {
       /* ingen document – ignorer. */
     }

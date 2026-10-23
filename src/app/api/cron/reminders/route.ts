@@ -6,6 +6,7 @@ import { getSmsTemplates, renderSms } from "@/lib/sms-templates";
 import { salonSmsVars } from "@/lib/sms-booking";
 import { staffDisplayName } from "@/lib/staff-display";
 import { runFollowups } from "@/lib/followups";
+import { bookingLangs, fmtDayLang, translateServiceText } from "@/lib/i18n/server-lang";
 
 /**
  * Sender timepåminnelser (e-post + SMS) for bookinger som starter innen 24t
@@ -99,12 +100,18 @@ export async function GET(req: NextRequest) {
     // Redigerbar SMS-tekst (admin → Integrasjoner → SMS-tekster).
     const smsTpl = await getSmsTemplates(sb);
     const salon = await salonSmsVars();
+    // Kundens språk (customers.lang) – engelsk e-post/SMS til dem som booket på engelsk.
+    const langs = await bookingLangs(sb, rows.map((r) => r.id));
 
     for (const b of rows) {
-      const date = fmtDate(b.start_at);
+      const lang = langs.get(b.id) ?? "no";
+      const en = lang === "en";
+      const date = en ? fmtDayLang(b.start_at, "en") : fmtDate(b.start_at);
       const time = fmtTime(b.start_at);
-      const service = b.service_name ?? "time";
-      const barber = b.barber_name ?? "oss";
+      const service = b.service_name
+        ? await translateServiceText(b.service_name, lang)
+        : en ? "appointment" : "time";
+      const barber = b.barber_name ?? (en ? "us" : "oss");
       const info = b.barber_name ? barberInfo.get(b.barber_name) : undefined;
 
       if (b.email) {
@@ -117,6 +124,7 @@ export async function GET(req: NextRequest) {
           time,
           barberPhotoUrl: info?.photoUrl,
           barberTitle: info?.title,
+          lang,
         });
         if (ok) emailed++;
       }
@@ -124,7 +132,7 @@ export async function GET(req: NextRequest) {
       if (b.phone) {
         const ok = await sendSms(
           b.phone,
-          renderSms(smsTpl.reminder, {
+          renderSms(en ? smsTpl.reminderEn : smsTpl.reminder, {
             fornavn: (b.customer_name ?? "").trim().split(/\s+/)[0] ?? "",
             navn: b.customer_name ?? "",
             tjeneste: service,

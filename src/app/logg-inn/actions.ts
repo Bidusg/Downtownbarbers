@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserRole, homeForRole } from "@/lib/auth";
 import { sendPortalLinkEmail } from "@/lib/email";
 import { siteUrl } from "@/lib/site-url";
+import { getRequestLang } from "@/lib/i18n/server-lang";
 
 /**
  * Basis-URL for lenker i e-post. Bygges fra den faktiske forespørselen
@@ -54,6 +55,7 @@ export async function requestPortalLink(
       await sendPortalLinkEmail({
         to: email,
         portalUrl: `${base}/min-side/${token}`,
+        lang: await getRequestLang(),
       });
     }
   } catch {
