@@ -86,3 +86,17 @@ export async function movePortfolioImage(id: string, dir: -1 | 1): Promise<Portf
   done(staffId);
   return { ok: true };
 }
+
+/** Bildene til én barber (til e-postskjemaet i Markedsføring). */
+export async function listPortfolio(staffId: string): Promise<{ id: string; url: string }[]> {
+  await requireRole(["admin"]);
+  const sb = await createClient();
+  const { data, error } = await sb
+    .from("staff_portfolio")
+    .select("id, image_url")
+    .eq("staff_id", staffId)
+    .order("sort_order")
+    .order("created_at");
+  if (error) return [];
+  return ((data ?? []) as { id: string; image_url: string }[]).map((r) => ({ id: r.id, url: r.image_url }));
+}

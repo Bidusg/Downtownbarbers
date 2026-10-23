@@ -11,7 +11,8 @@ import {
   SEGMENTS,
 } from "@/lib/dm-queries";
 import { sendMarketing } from "./actions";
-import { getPublicBarbers } from "@/lib/queries";
+import { getStaffOptions } from "@/lib/ops-queries";
+import { EmailBarberPicker } from "@/components/admin/EmailBarberPicker";
 import { after } from "next/server";
 import { kickMarketingWorker } from "@/lib/marketing-worker";
 import { siteUrl } from "@/lib/site-url";
@@ -45,12 +46,12 @@ export default async function AdminMarkedsforing({
   searchParams: Promise<{ sendt?: string; startet?: string; feil?: string; kanal?: string; utelatt?: string; detalj?: string }>;
 }) {
   const sp = await searchParams;
-  const [stats, sends, archived, inbound, barbers] = await Promise.all([
+  const [stats, sends, archived, inbound, staff] = await Promise.all([
     getConsentStats(),
     getMarketingSends(50),
     getMarketingSends(100, { archived: true }),
     getRecentInbound(15),
-    getPublicBarbers(),
+    getStaffOptions(),
   ]);
   // Pågående utsending? Da oppdaterer siden seg selv, og står den stille
   // (ingen fremdrift på 30 s) dyttes bakgrunnsjobben i gang igjen.
@@ -179,30 +180,9 @@ export default async function AdminMarkedsforing({
             ))}
           </Select>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-xs text-muted">Type e-post</label>
-            <Select name="email_type">
-              <option value="standard">Standard</option>
-              <option value="ny_barber">Ny barber (bilde + «Bestill time hos …»)</option>
-              <option value="kampanje">Kampanje / tilbud</option>
-            </Select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted">
-              Fremhevet barber <span className="text-muted/70">(for «Ny barber»)</span>
-            </label>
-            <Select name="featured_barber">
-              <option value="">— ingen —</option>
-              {barbers.map((b) => (
-                <option key={b.name} value={b.name}>
-                  {b.name}
-                  {b.title ? ` · ${b.title}` : ""}
-                </option>
-              ))}
-            </Select>
-          </div>
-        </div>
+        <EmailBarberPicker
+          staff={staff.map((st) => ({ id: st.id, name: st.full_name, title: st.title }))}
+        />
         <div>
           <label className="mb-1 block text-xs text-muted">
             Emne <span className="text-muted/70">(kun e-post)</span>
