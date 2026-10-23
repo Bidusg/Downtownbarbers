@@ -12,6 +12,8 @@ import { after } from "next/server";
 import { renderMarketingEmail, sendEmailBatch } from "@/lib/email";
 import { kickMarketingWorker, runMarketingWorker } from "@/lib/marketing-worker";
 import { siteUrl } from "@/lib/site-url";
+import { getEmailGalleries } from "@/lib/portfolio";
+import type { MarketingBarber } from "@/lib/email";
 
 /** Kjør kunde-filteret (kun admin/eier). Returnerer radene som matcher. */
 export async function runCustomerFilter(
@@ -23,7 +25,7 @@ export async function runCustomerFilter(
   return { rows };
 }
 
-type BarberInfo = { name: string; title?: string; photoUrl?: string };
+type BarberInfo = MarketingBarber;
 
 /** Hent bilde + tittel for fremhevede barbere (til e-post-render). */
 async function resolveBarbers(names: string[]): Promise<BarberInfo[]> {
@@ -42,6 +44,8 @@ async function resolveBarbers(names: string[]): Promise<BarberInfo[]> {
         photo_url: string | null;
       }[]).map((s) => [s.full_name, s]),
     );
+    // Bilder av arbeidet (portefølje) – vises som galleri i e-posten.
+    const galleries = await getEmailGalleries(clean, siteUrl(), sb);
     return await Promise.all(
       clean.map(async (n) => {
         const s = byName.get(n);
@@ -52,6 +56,7 @@ async function resolveBarbers(names: string[]): Promise<BarberInfo[]> {
               displayName,
               title: s.title ?? undefined,
               photoUrl: s.photo_url ?? undefined,
+              gallery: galleries.get(s.full_name),
             }
           : { name: n, displayName };
       }),

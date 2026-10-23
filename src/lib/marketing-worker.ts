@@ -1,6 +1,7 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { staffDisplayName } from "@/lib/staff-display";
-import { renderMarketingEmail, sendEmailBatch } from "@/lib/email";
+import { renderMarketingEmail, sendEmailBatch, type MarketingBarber } from "@/lib/email";
+import { getEmailGalleries } from "@/lib/portfolio";
 import { sendSms } from "@/lib/sms";
 import { siteUrl } from "@/lib/site-url";
 
@@ -114,7 +115,7 @@ export async function runMarketingWorker(): Promise<{ sent: number; failed: numb
     } else {
       // Fremhevede barbere (type «ny_barber»): featured_barber kan være ÉN
       // eller flere navn skilt med komma. Hent bilde + tittel for hver, én gang.
-      let barbers: { name: string; title?: string; photoUrl?: string }[] = [];
+      let barbers: MarketingBarber[] = [];
       if (send.featured_barber) {
         const names = String(send.featured_barber)
           .split(",")
@@ -132,6 +133,7 @@ export async function runMarketingWorker(): Promise<{ sent: number; failed: numb
               photo_url: string | null;
             }[]).map((s) => [s.full_name, s]),
           );
+          const galleries = await getEmailGalleries(names, base, svc);
           barbers = await Promise.all(
             names.map(async (n) => {
               const s = byName.get(n);
@@ -142,6 +144,7 @@ export async function runMarketingWorker(): Promise<{ sent: number; failed: numb
                     displayName,
                     title: s.title ?? undefined,
                     photoUrl: s.photo_url ?? undefined,
+                    gallery: galleries.get(s.full_name),
                   }
                 : { name: n, displayName };
             }),

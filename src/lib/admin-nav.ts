@@ -42,6 +42,11 @@ export const adminGroups: AdminNavGroup[] = [
         href: "/admin/ansattdokumenter",
         description: "Kontrakter og vedlegg per ansatt",
       },
+      {
+        label: "Bilder av arbeidet",
+        href: "/admin/ansatte/portefolje",
+        description: "Galleri per barber (nettside og e-post)",
+      },
       { label: "Timelister", href: "/admin/timelister" },
       {
         label: "Arbeidstid (stemplet)",

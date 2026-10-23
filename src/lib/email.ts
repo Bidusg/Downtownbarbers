@@ -811,6 +811,39 @@ export async function sendPayslipEmail(opts: {
  * har marketing_consent. Hver e-post har en obligatorisk avmeldingslenke.
  */
 /** HTML for en markedsførings-e-post (logo, emne som tittel, tekst, «Bestill time», avmelding). */
+export type MarketingBarber = {
+  name: string;
+  displayName?: string;
+  title?: string;
+  photoUrl?: string;
+  /** Bilder av arbeidet + lenke til hele galleriet (barbersiden). */
+  gallery?: { images: string[]; url: string };
+};
+
+/**
+ * Bilder av arbeidet i e-post: 2×2 rutenett (maks 4) som lenker til hele
+ * galleriet på nettsiden, der kunden kan bla med «neste/forrige».
+ * (Ekte karusell inne i e-posten virker ikke i Gmail/Outlook.)
+ */
+function galleryBlock(g: { images: string[]; url: string }, first: string): string {
+  const imgs = g.images.slice(0, 4);
+  if (!imgs.length) return "";
+  const cell = (src: string) =>
+    `<td width="50%" style="padding:4px;width:50%"><a href="${escapeHtml(g.url)}" style="text-decoration:none"><img src="${escapeHtml(
+      src,
+    )}" width="262" alt="Klipp av ${escapeHtml(first)}" style="display:block;width:100%;max-width:262px;height:auto;aspect-ratio:1/1;object-fit:cover;border:0;border-radius:6px"></a></td>`;
+  const rows: string[] = [];
+  for (let i = 0; i < imgs.length; i += 2) {
+    rows.push(`<tr>${cell(imgs[i])}${imgs[i + 1] ? cell(imgs[i + 1]) : '<td width="50%"></td>'}</tr>`);
+  }
+  return `
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:${C.accent};margin:22px 0 8px">Noe av arbeidet til ${escapeHtml(first)}</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 -4px">${rows.join("")}</table>
+    <p style="margin:12px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px">
+      <a href="${escapeHtml(g.url)}" style="color:${C.accent};font-weight:bold;text-decoration:none">Se flere av ${escapeHtml(first)}s klipp →</a>
+    </p>`;
+}
+
 export function renderMarketingEmail(opts: {
   subject: string;
   body: string;
@@ -818,9 +851,9 @@ export function renderMarketingEmail(opts: {
   /** Type utsending – styrer oppsett: 'standard' | 'ny_barber' | 'kampanje'. */
   emailType?: string;
   /** Fremhevet barber (brukes av 'ny_barber'): bilde + egen bestill-knapp. */
-  barber?: { name: string; displayName?: string; title?: string; photoUrl?: string };
+  barber?: MarketingBarber;
   /** Flere fremhevede barbere – hver får eget kort + «Bestill hos …»-knapp. */
-  barbers?: { name: string; displayName?: string; title?: string; photoUrl?: string }[];
+  barbers?: MarketingBarber[];
 }): string {
   const site = siteUrl();
   const paragraphs = opts.body
@@ -849,6 +882,7 @@ export function renderMarketingEmail(opts: {
         .map(
           (b) =>
             barberBlock({ ...b, name: b.displayName?.trim() || b.name }) +
+            (b.gallery ? galleryBlock(b.gallery, (b.displayName?.trim() || b.name).split(" ")[0]) : "") +
             ctaButton(
               `${site}/booking?barber=${encodeURIComponent(b.name)}`,
               `Bestill time hos ${escapeHtml((b.displayName?.trim() || b.name).split(" ")[0])}`,
