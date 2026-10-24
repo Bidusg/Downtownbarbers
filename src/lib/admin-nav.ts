@@ -82,6 +82,11 @@ export const adminGroups: AdminNavGroup[] = [
     items: [
       { label: "Kunder", href: "/admin/kunder" },
       {
+        label: "Henvendelser",
+        href: "/admin/henvendelser",
+        description: "Meldinger fra kontaktskjemaet",
+      },
+      {
         label: "Filtrer kunder",
         href: "/admin/kunder/filter",
         description: "Etter barber, samtykke, siste besøk, forbruk",

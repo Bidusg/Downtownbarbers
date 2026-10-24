@@ -1,5 +1,6 @@
 "use client";
 
+import { ScrollRow } from "@/components/booking/ScrollRow";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { trackBookingComplete, trackBookingStart } from "@/lib/track";
 import { getCartSlots, createBookingGroup, findNextCartSlot } from "@/app/booking/cart-actions";
@@ -943,7 +944,11 @@ export function BookingWizard({
               <h3 id="wiz-barber" className="mb-3 text-[13px] font-semibold text-muted">
                 {t("wiz.barberLabel")}
               </h3>
-              <div className="snap-row -mx-5 px-5 pb-1">
+              <ScrollRow
+                className="-mx-5 px-5 pb-1 sm:mx-0 sm:px-0"
+                prevLabel={t("wiz.scrollPrev")}
+                nextLabel={t("wiz.scrollNext")}
+              >
                 {[{ name: ANY, title: "" } as WizBarber, ...barbersForAll].map((b) => {
                   const any = b.name === ANY;
                   const on = singleBarber === b.name;
@@ -985,13 +990,18 @@ export function BookingWizard({
                       <span className={"line-clamp-2 w-full text-[13px] leading-tight break-words " + (on ? "font-semibold text-fg" : "text-fg")}>
                         {label}
                       </span>
+                      {!any && b.title && (
+                        <span className="-mt-1.5 line-clamp-1 w-full text-[11px] leading-tight text-fg/70">
+                          {tt(b.title)}
+                        </span>
+                      )}
                       <span className="-mt-1.5 text-[11px] text-muted tabular-nums">
                         {any ? t("wiz.anyBarberHint") : nok(total ?? 0)}
                       </span>
                     </button>
                   );
                 })}
-              </div>
+              </ScrollRow>
             </section>
           ) : (
             <section aria-labelledby="wiz-barber" className="space-y-3">
@@ -1070,7 +1080,11 @@ export function BookingWizard({
                 </p>
               ) : (
                 <>
-                  <div className="snap-row -mx-5 gap-2 px-5 pb-1">
+                  <ScrollRow
+                    className="-mx-5 gap-2 px-5 pb-1 sm:mx-0 sm:px-0"
+                    prevLabel={t("wiz.scrollPrev")}
+                    nextLabel={t("wiz.scrollNext")}
+                  >
                     {openDays.map((d) => {
                       const count = halfHourSlots(d.iso).length;
                       const isView = viewDay === d.iso;
@@ -1103,7 +1117,7 @@ export function BookingWizard({
                         </button>
                       );
                     })}
-                  </div>
+                  </ScrollRow>
 
                   {loadingSlots ? (
                     <div className="grid grid-cols-4 gap-2 sm:grid-cols-6" aria-busy="true" aria-label={t("wiz.loadingSlots")}>

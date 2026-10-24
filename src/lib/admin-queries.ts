@@ -364,3 +364,47 @@ export async function getUpcomingBookings(): Promise<AdminBooking[]> {
     return [];
   }
 }
+
+export type StaffWebOrderRow = {
+  id: string;
+  name: string;
+  title: string | null;
+  photo: string | null;
+  sortOrder: number | null;
+};
+
+/** Aktive ansatte i nettside-rekkefølgen (admin → Ansatte → Rekkefølge). */
+export async function getStaffWebOrder(): Promise<{ rows: StaffWebOrderRow[]; ready: boolean }> {
+  try {
+    const sb = await createClient();
+    const first = await sb
+      .from("staff")
+      .select("id, full_name, display_name, title, photo_url, sort_order")
+      .eq("active", true)
+      .order("sort_order", { ascending: true, nullsFirst: false })
+      .order("employee_number");
+    let data = first.data as Record<string, unknown>[] | null;
+    let ready = !first.error;
+    if (first.error) {
+      const fb = await sb
+        .from("staff")
+        .select("id, full_name, title, photo_url")
+        .eq("active", true)
+        .order("employee_number");
+      data = fb.data as Record<string, unknown>[] | null;
+      ready = false;
+    }
+    return {
+      ready,
+      rows: (data ?? []).map((r) => ({
+        id: r.id as string,
+        name: ((r.display_name as string | null) ?? "").trim() || (r.full_name as string),
+        title: (r.title as string | null) ?? null,
+        photo: (r.photo_url as string | null) ?? null,
+        sortOrder: (r.sort_order as number | null) ?? null,
+      })),
+    };
+  } catch {
+    return { rows: [], ready: false };
+  }
+}

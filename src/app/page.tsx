@@ -1,3 +1,4 @@
+import { ContactForm } from "@/components/site/ContactForm";
 import type { CSSProperties } from "react";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
@@ -637,6 +638,26 @@ export default async function Home({
                       <T k="home.contact.directions" /> <span aria-hidden>↗</span>
                     </a>
                   </div>
+                </div>
+              </FadeUp>
+              {/* Kontaktskjema – «Send oss en melding». */}
+              <FadeUp className="md:col-span-2">
+                <div className="tile grid gap-10 bg-canvas p-7 sm:p-9 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:gap-14">
+                  <div>
+                    <h3 className="text-xl font-semibold tracking-tight">
+                      <T k="contact.formTitle" />
+                    </h3>
+                    <p className="mt-4 max-w-sm text-[17px] leading-relaxed text-muted">
+                      <T k="contact.formIntro" />
+                    </p>
+                    <p className="mt-8 text-sm text-muted">
+                      <T k="contact.formBook" />
+                    </p>
+                    <a href="/booking" className="pill pill-primary mt-3">
+                      <T k="home.cta.button" />
+                    </a>
+                  </div>
+                  <ContactForm />
                 </div>
               </FadeUp>
             </div>

@@ -518,3 +518,31 @@ export async function setStaffPin(
   revalidatePath("/admin/ansatte");
   return { ok: true };
 }
+
+/* ------------------------- REKKEFØLGE PÅ NETTSIDEN ------------------------- */
+
+/**
+ * Lagre rekkefølgen barberne vises i på nettsiden (booking + «Teamet»).
+ * `ids` er aktive ansatte i ønsket rekkefølge. Kun admin.
+ */
+export async function saveStaffWebOrder(ids: string[]): Promise<{ ok?: true; error?: string }> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { error: "Kun admin." };
+  const clean = Array.from(new Set((ids ?? []).filter((x) => typeof x === "string" && x)));
+  if (!clean.length) return { error: "Ingen ansatte." };
+  const sb = await createClient();
+  for (let i = 0; i < clean.length; i++) {
+    const { error } = await sb.from("staff").update({ sort_order: i + 1 }).eq("id", clean[i]);
+    if (error) {
+      return {
+        error: /sort_order/.test(error.message)
+          ? "Kjør KJØR-I-SUPABASE-REKKEFOLGE-BARBERE.sql i Supabase først."
+          : "Kunne ikke lagre rekkefølgen.",
+      };
+    }
+  }
+  revalidatePath("/admin/ansatte");
+  revalidatePath("/booking");
+  revalidatePath("/");
+  return { ok: true };
+}

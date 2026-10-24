@@ -9,6 +9,7 @@ import { getUserRole, isAdminRole } from "@/lib/auth";
 import { getActiveNotices } from "@/lib/notices-queries";
 import { getMissingSettlementDays } from "@/lib/settlement-status";
 import { countPendingLeaveRequests } from "@/lib/ops-queries";
+import { countNewContactMessages } from "@/lib/contact-queries";
 import { SettlementReminderBanner } from "@/components/admin/SettlementReminderBanner";
 
 export default async function AdminLayout({
@@ -22,10 +23,11 @@ export default async function AdminLayout({
   if (!isAdminRole(me.role)) redirect("/ingen-tilgang");
 
   const initial = (me.email ?? "K").charAt(0).toUpperCase();
-  const [notices, missing, pendingLeave] = await Promise.all([
+  const [notices, missing, pendingLeave, newContacts] = await Promise.all([
     getActiveNotices("admin"),
     getMissingSettlementDays(),
     countPendingLeaveRequests(),
+    countNewContactMessages(),
   ]);
 
   return (
@@ -55,6 +57,19 @@ export default async function AdminLayout({
                 <strong>{pendingLeave}</strong> fraværssøknad{pendingLeave === 1 ? "" : "er"} fra ansatte venter på svar.
               </span>
               <span className="font-semibold text-accent-soft">Behandle →</span>
+            </Link>
+          </div>
+        )}
+        {newContacts > 0 && (
+          <div className="mx-auto mb-6 max-w-6xl">
+            <Link
+              href="/admin/henvendelser"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-line bg-surface px-4 py-3 text-sm hover:border-accent-soft"
+            >
+              <span className="text-fg">
+                <strong>{newContacts}</strong> ny{newContacts === 1 ? "" : "e"} melding{newContacts === 1 ? "" : "er"} fra kontaktskjemaet.
+              </span>
+              <span className="font-semibold text-accent-soft">Se meldinger →</span>
             </Link>
           </div>
         )}

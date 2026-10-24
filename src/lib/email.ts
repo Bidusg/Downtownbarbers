@@ -73,7 +73,7 @@ function fromAddress() {
 }
 
 /** Lav-nivå sender. Returnerer true hvis forsøkt sendt, false hvis hoppet over. */
-async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
+async function sendEmail(to: string, subject: string, html: string, replyTo?: string): Promise<boolean> {
   const key = process.env.RESEND_API_KEY;
   if (!key || !to) return false;
   try {
@@ -83,7 +83,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ from: fromAddress(), to, subject, html }),
+      body: JSON.stringify({ from: fromAddress(), to, subject, html, ...(replyTo ? { reply_to: replyTo } : {}) }),
     });
     // 429 (rate limit) og 4xx/5xx regnes som ikke sendt.
     return res.ok;
@@ -700,6 +700,83 @@ export async function sendPasswordResetEmail(opts: {
     cta,
   );
   return sendEmail(opts.to, "Tilbakestill passordet – Downtown Barbers", html);
+}
+
+/* ---- Kontaktskjema ----------------------------------------------------- */
+export const CONTACT_TOPICS: Record<string, { no: string; en: string }> = {
+  sporsmal: { no: "Spørsmål", en: "Question" },
+  gavekort: { no: "Gavekort", en: "Gift card" },
+  bedrift: { no: "Bedrift og grupper", en: "Business & groups" },
+  tilbakemelding: { no: "Ros eller ris", en: "Feedback" },
+  annet: { no: "Annet", en: "Other" },
+};
+
+/** Varsel til salongen om en ny melding fra kontaktskjemaet. Svar går rett til kunden. */
+export async function sendContactAlert(opts: {
+  to: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  topic: string;
+  message: string;
+  callback: boolean;
+  adminUrl: string;
+}): Promise<boolean> {
+  const topic = CONTACT_TOPICS[opts.topic]?.no ?? opts.topic;
+  const rows: [string, string][] = [
+    ["Navn", escapeHtml(opts.name)],
+    ["Gjelder", escapeHtml(topic)],
+  ];
+  if (opts.phone)
+    rows.push([
+      "Telefon",
+      `<a href="tel:${escapeHtml(opts.phone.replace(/[^\d+]/g, ""))}" style="color:${C.cream};text-decoration:none">${escapeHtml(opts.phone)}</a>`,
+    ]);
+  if (opts.email)
+    rows.push(["E-post", `<a href="mailto:${escapeHtml(opts.email)}" style="color:${C.cream};text-decoration:none">${escapeHtml(opts.email)}</a>`]);
+  if (opts.callback) rows.push(["Ønsker", "Å bli ringt opp"]);
+  const msg = `
+    <div style="margin:22px 0 4px;padding:16px 18px;background:${C.bg};border:1px solid ${C.line};font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.7;color:${C.cream}">${escapeHtml(
+      opts.message,
+    ).replace(/\n/g, "<br>")}</div>
+    ${ctaButton(opts.adminUrl, "Åpne Henvendelser")}
+    ${
+      opts.email
+        ? `<p style="color:${C.muted};font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;margin:12px 0 0">Trykk «Svar» i e-posten for å svare kunden direkte.</p>`
+        : ""
+    }`;
+  const html = shell(
+    opts.callback ? "Kunde vil bli ringt opp" : "Ny melding fra nettsiden",
+    "Noen har sendt en melding via kontaktskjemaet på nettsiden:",
+    rows,
+    msg,
+  );
+  return sendEmail(
+    opts.to,
+    `${opts.callback ? "Ring tilbake" : "Ny melding"}: ${opts.name} – ${topic}`,
+    html,
+    opts.email ?? undefined,
+  );
+}
+
+/** Kvittering til kunden: «Vi har fått meldingen din». */
+export async function sendContactReceipt(opts: { to: string; name: string; callback: boolean; lang?: Lang }): Promise<boolean> {
+  const en = opts.lang === "en";
+  const first = escapeHtml(opts.name.split(" ")[0] || (en ? "there" : "der"));
+  const html = shell(
+    en ? "Thanks for your message" : "Takk for meldingen",
+    en
+      ? `Hi ${first}, we've received your message and will get back to you as soon as we can${opts.callback ? " – usually by phone the same day" : ""}. Need us right away? Give us a call.`
+      : `Hei ${first}, vi har fått meldingen din og svarer så fort vi kan${opts.callback ? " – som regel ringer vi samme dag" : ""}. Haster det? Ring oss gjerne.`,
+    [],
+    ctaButton(`${siteUrl()}/booking`, en ? "Book an appointment" : "Bestill time"),
+    { lang: opts.lang },
+  );
+  return sendEmail(
+    opts.to,
+    en ? "We've received your message – Downtown Barbers" : "Vi har fått meldingen din – Downtown Barbers",
+    html,
+  );
 }
 
 /* ---- Lenke til Min side ------------------------------------------------ */

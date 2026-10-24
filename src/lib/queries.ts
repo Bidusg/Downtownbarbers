@@ -118,11 +118,21 @@ export function normalizeTitle(raw: string | null | undefined): string {
 export async function getPublicBarbers(): Promise<PublicBarber[]> {
   try {
     const sb = await createClient();
+    // Rekkefølge satt i admin (sort_order), ellers ansattnummer.
     let { data, error } = await sb
       .from("staff")
       .select("full_name, display_name, title, photo_url")
       .eq("active", true)
+      .order("sort_order", { ascending: true, nullsFirst: false })
       .order("employee_number");
+    if (error) {
+      // sort_order mangler (SQL ikke kjørt) → som før.
+      ({ data, error } = await sb
+        .from("staff")
+        .select("full_name, display_name, title, photo_url")
+        .eq("active", true)
+        .order("employee_number"));
+    }
     if (error) {
       // display_name-kolonnen mangler (SQL ikke kjørt) → hent uten, i stedet
       // for å falle tilbake til de statiske navnene.

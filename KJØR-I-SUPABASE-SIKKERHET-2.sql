@@ -26,7 +26,7 @@ do $$
 declare
   c text;
   cols text[] := array['id','full_name','display_name','title','bio','specialties',
-                       'photo_url','active','employee_number','level_id','created_at'];
+                       'photo_url','active','employee_number','level_id','created_at','sort_order'];
 begin
   foreach c in array cols loop
     if exists (select 1 from information_schema.columns
