@@ -12,7 +12,8 @@ import { siteUrl } from "@/lib/site-url";
 /* =====================================================================
  * KONTAKTSKJEMA («Send oss en melding» på forsiden)
  *   Lagres i contact_messages (admin → Henvendelser), salongen får e-post
- *   med kundens adresse som svar-adresse, og kunden får en kvittering.
+ *   (contact@downtownbarbers.no + booking-varslingen) med kundens adresse
+ *   som svar-adresse, og kunden får en kvittering.
  *   Vern: honeypot, «for rask utfylling», og maks 3 meldinger per IP per
  *   10 minutter (databasebasert).
  * ===================================================================== */
@@ -21,6 +22,9 @@ export type ContactState =
   | null
   | { ok: true }
   | { ok: false; error: "invalid" | "contact" | "rate" | "server"; fields?: string[] };
+
+/** Kontaktmeldinger går alltid hit (i tillegg til booking-varslingen). */
+const CONTACT_INBOX = "contact@downtownbarbers.no";
 
 const MAX_PER_WINDOW = 3;
 const WINDOW_MS = 10 * 60_000;
@@ -79,12 +83,17 @@ export async function sendContactMessage(_prev: ContactState, fd: FormData): Pro
       return { ok: false, error: "server" };
     }
 
-    // Varsle salongen: mottaker for booking-varsler, ellers salongens e-post.
+    // Varsle salongen: contact@downtownbarbers.no + mottaker for booking-varsler
+    // (ellers salongens e-post).
     try {
       const { data: cfg } = await svc.from("settings").select("value").eq("key", "booking_notify").maybeSingle();
       const v = (cfg?.value ?? null) as { email?: string } | null;
-      const to = v?.email?.trim() || (await getSiteSettings()).email?.trim() || "";
-      if (to) {
+      const extra = v?.email?.trim() || (await getSiteSettings()).email?.trim() || "";
+      // contact@ + booking-varslingen (uten dobbel e-post hvis det er samme adresse).
+      const recipients = Array.from(
+        new Set([CONTACT_INBOX, extra].map((x) => x.toLowerCase()).filter((x) => x.includes("@"))),
+      );
+      for (const to of recipients) {
         await sendContactAlert({
           to,
           name,
