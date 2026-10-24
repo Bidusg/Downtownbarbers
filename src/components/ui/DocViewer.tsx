@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 /* =====================================================================
  * DocViewer – gjenbrukbar popup for å SE et dokument uten å laste det ned.
@@ -209,9 +210,10 @@ function PdfPreview({ url, filename }: { url: string; filename: string }) {
       </div>
     );
   }
+  // Skjul miniatyr-panelet i nettleserens PDF-viser og tilpass bredden.
   return (
     <iframe
-      src={blobUrl}
+      src={`${blobUrl}#navpanes=0&view=FitH`}
       title={filename}
       className="h-full w-full border-0 bg-white"
     />
@@ -248,9 +250,11 @@ export function DocViewer({
     };
   }, [onClose]);
 
-  return (
+  // Portal til <body>: inne i sideanimasjonen (.bo-page) blir «fixed» regnet
+  // fra animasjonen, og popupen havnet bak topplinja og ble kuttet.
+  return createPortal(
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-label={filename}
@@ -259,7 +263,7 @@ export function DocViewer({
         className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
         onClick={onClose}
       />
-      <div className="relative flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-line bg-canvas shadow-2xl">
+      <div className="relative flex h-[calc(100dvh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-line bg-canvas shadow-2xl sm:h-[calc(100dvh-3rem)]">
         {/* Topplinje */}
         <div className="flex items-center gap-3 border-b border-line px-4 py-3">
           <span className="truncate text-sm font-semibold text-fg" title={filename}>
@@ -309,7 +313,8 @@ export function DocViewer({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
