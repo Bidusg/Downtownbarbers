@@ -41,6 +41,9 @@ export async function sendMarketing(formData: FormData): Promise<void> {
     String(formData.get("channel") ?? "email") === "sms" ? "sms" : "email";
   const subject = String(formData.get("subject") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
+  // Valgfri engelsk versjon (til kunder som har valgt engelsk).
+  const subjectEn = String(formData.get("subject_en") ?? "").trim() || null;
+  const bodyEn = String(formData.get("body_en") ?? "").trim() || null;
   const segment = String(formData.get("segment") ?? "all") as Segment;
   const emailType = String(formData.get("email_type") ?? "standard").trim() || "standard";
   // Fremhevet barber kun relevant for «ny_barber»-typen.
@@ -75,22 +78,27 @@ export async function sendMarketing(formData: FormData): Promise<void> {
   }
   if (recipients.length === 0) redirect("/admin/markedsforing?feil=ingen");
 
-  const { data: send, error } = await sb
+  const sendRow: Record<string, unknown> = {
+    subject: channel === "sms" ? subject || "SMS-utsending" : subject,
+    body,
+    channel,
+    segment,
+    email_type: emailType,
+    featured_barber: featuredBarber,
+    recipient_count: 0,
+    total: recipients.length,
+    status: "queued",
+    created_by: me.userId,
+  };
+  let { data: send, error } = await sb
     .from("marketing_sends")
-    .insert({
-      subject: channel === "sms" ? subject || "SMS-utsending" : subject,
-      body,
-      channel,
-      segment,
-      email_type: emailType,
-      featured_barber: featuredBarber,
-      recipient_count: 0,
-      total: recipients.length,
-      status: "queued",
-      created_by: me.userId,
-    })
+    .insert(bodyEn ? { ...sendRow, subject_en: subjectEn, body_en: bodyEn } : sendRow)
     .select("id")
     .single();
+  // Engelsk-kolonnene finnes ikke før SQL-en er kjørt → send på norsk.
+  if (error && bodyEn && /subject_en|body_en/.test(error.message)) {
+    ({ data: send, error } = await sb.from("marketing_sends").insert(sendRow).select("id").single());
+  }
   if (error || !send) {
     console.error("marketing_sends insert feilet:", error?.message, error?.details ?? "");
     redirect(
@@ -428,6 +436,16 @@ export async function sendToRest(sendId: string): Promise<void> {
       "/admin/markedsforing?feil=db&detalj=" +
         encodeURIComponent((error?.message ?? "ukjent feil").slice(0, 200)),
     );
+  }
+
+  // Ta med engelsk versjon (hvis den finnes / SQL-en er kjørt).
+  try {
+    const { data: en } = await sb.from("marketing_sends").select("subject_en, body_en").eq("id", sendId).maybeSingle();
+    if (en?.body_en) {
+      await sb.from("marketing_sends").update({ subject_en: en.subject_en, body_en: en.body_en }).eq("id", send.id);
+    }
+  } catch {
+    /* norsk til alle */
   }
 
   for (let i = 0; i < rest.length; i += 1000) {

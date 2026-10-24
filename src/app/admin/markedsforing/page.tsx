@@ -201,6 +201,30 @@ export default async function AdminMarkedsforing({
             SMS får automatisk en kort «Avmeld»-lenke lagt til.
           </p>
         </div>
+        <details className="border border-line-2 px-3 py-2">
+          <summary className="cursor-pointer text-sm text-fg">
+            Engelsk versjon <span className="text-xs text-muted">(valgfritt)</span>
+          </summary>
+          <p className="mt-2 text-xs text-muted">
+            Kunder som har valgt engelsk får denne. Lar du feltene stå tomme, oversettes
+            teksten automatisk når DeepL er satt opp. Uten engelsk versjon får alle norsk.
+          </p>
+          <div className="mt-3 space-y-3">
+            <div>
+              <label className="mb-1 block text-xs text-muted">Emne (engelsk)</label>
+              <Input name="subject_en" placeholder="E.g. 20% off beard care in March" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-muted">Tekst (engelsk)</label>
+              <textarea
+                name="body_en"
+                rows={5}
+                placeholder="Hi! We have an offer we think you'll like …"
+                className="w-full resize-y border border-line-2 bg-canvas px-3 py-2 text-sm text-fg"
+              />
+            </div>
+          </div>
+        </details>
         <div className="flex flex-wrap items-center gap-3">
           <SendMarketingButton emailCount={stats.reachable} smsCount={stats.smsReachable} />
           <span className="text-xs text-muted">Sender kun til kunder med samtykke.</span>

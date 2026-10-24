@@ -10,7 +10,7 @@ import { osloToUtcISO } from "@/lib/oslo-time";
 import { sendBookingConfirmationSms } from "@/lib/sms-booking";
 import { isValidEmail, isValidNorwegianPhone, titleCase } from "@/lib/validate";
 import { customerBookingLimited, ipRateLimited, isHoneypotTripped } from "@/lib/abuse-guard";
-import { getRequestLang, normLang, translateServiceText } from "@/lib/i18n/server-lang";
+import { getRequestLang, normLang } from "@/lib/i18n/server-lang";
 
 export type CartMode = "single" | "group";
 
@@ -404,16 +404,17 @@ export async function createBookingGroup(
     const summary = input.lines
       .map((l) => l.serviceName + (l.addonNames.length ? ` + ${l.addonNames.join(", ")}` : ""))
       .join(" · ");
-    const summaryLang = await translateServiceText(summary, lang);
     try {
       await sendBookingConfirmation({
         to: input.email.trim(),
         name,
-        service: summaryLang,
+        // Norsk tjenestenavn – e-posten oversetter selv (og lager språklenken).
+        service: summary,
         lang,
+        group: input.mode === "group",
         barber:
           input.mode === "group"
-            ? en ? "Several barbers" : "Flere barbere"
+            ? ""
             : (barbers.find((b) => b.name === resolvedBarber)?.display ?? resolvedBarber ?? ""),
         barberTitle:
           input.mode === "group" ? undefined : barbers.find((b) => b.name === resolvedBarber)?.title,

@@ -119,12 +119,14 @@ export async function GET(req: NextRequest) {
         const info = b.barber_name ? barberInfo.get(b.barber_name) : undefined;
 
         if (b.email) {
+          // Rådata (norsk tjeneste, ISO-tid) – e-posten oversetter selv og
+          // lager «Read in English / Les på norsk»-lenken.
           const ok = await sendBookingReminderEmail({
             to: b.email,
             name: b.customer_name,
-            service,
-            barber,
-            date,
+            service: b.service_name ?? "",
+            barber: b.barber_name ?? "",
+            date: b.start_at,
             time,
             barberPhotoUrl: info?.photoUrl,
             barberTitle: info?.title,

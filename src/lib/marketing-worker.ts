@@ -4,6 +4,10 @@ import { renderMarketingEmail, sendEmailBatch, type MarketingBarber } from "@/li
 import { getEmailGalleries } from "@/lib/portfolio";
 import { sendSms } from "@/lib/sms";
 import { siteUrl } from "@/lib/site-url";
+import { emailViewUrl } from "@/lib/email-link";
+import { deeplTranslate, getDeeplConfig } from "@/lib/deepl";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Lang } from "@/lib/i18n/dictionary";
 
 /* =====================================================================
  * MARKEDSFØRINGS-KØ (bakgrunnsjobb)
@@ -95,13 +99,18 @@ export async function runMarketingWorker(): Promise<{ sent: number; failed: numb
     }
 
     const ids = rows.map((r) => r.id as number);
+    const texts = await getSendTexts(svc, sendId, String(send.subject ?? ""), String(send.body ?? ""));
     if (send.channel === "sms") {
+      const smsLangs = texts.hasEn ? await recipientLangs(svc, rows.map((r) => r.token as string)) : new Map<string, Lang>();
       // SMS: 5 parallelt, enkeltvis status.
       for (let i = 0; i < rows.length; i += 5) {
         const chunk = rows.slice(i, i + 5);
         await Promise.all(
           chunk.map(async (r) => {
-            const msg = `${send.body}\n\nAvmeld: ${base}/avmeld/${r.token} · eller svar STOPP`;
+            const msg =
+              smsLangs.get(r.token as string) === "en"
+                ? `${texts.bodyEn}\n\nUnsubscribe: ${base}/avmeld/${r.token} · or reply STOP`
+                : `${texts.body}\n\nAvmeld: ${base}/avmeld/${r.token} · eller svar STOPP`;
             const ok = r.phone ? await sendSms(r.phone as string, msg, { kind: "markedsføring" }) : false;
             if (ok) sent++;
             else failed++;
@@ -113,55 +122,28 @@ export async function runMarketingWorker(): Promise<{ sent: number; failed: numb
         );
       }
     } else {
-      // Fremhevede barbere (type «ny_barber»): featured_barber kan være ÉN
-      // eller flere navn skilt med komma. Hent bilde + tittel for hver, én gang.
-      let barbers: MarketingBarber[] = [];
-      if (send.featured_barber) {
-        const names = String(send.featured_barber)
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean);
-        if (names.length) {
-          const { data: sts } = await svc
-            .from("staff")
-            .select("full_name, title, photo_url")
-            .in("full_name", names);
-          const byName = new Map(
-            ((sts ?? []) as {
-              full_name: string;
-              title: string | null;
-              photo_url: string | null;
-            }[]).map((s) => [s.full_name, s]),
-          );
-          const galleries = await getEmailGalleries(names, base, svc);
-          barbers = await Promise.all(
-            names.map(async (n) => {
-              const s = byName.get(n);
-              const displayName = await staffDisplayName(n);
-              return s
-                ? {
-                    name: s.full_name,
-                    displayName,
-                    title: s.title ?? undefined,
-                    photoUrl: s.photo_url ?? undefined,
-                    gallery: galleries.get(s.full_name),
-                  }
-                : { name: n, displayName };
-            }),
-          );
-        }
-      }
-      const items = rows.map((r) => ({
-        to: r.email as string,
-        subject: send.subject as string,
-        html: renderMarketingEmail({
-          subject: send.subject as string,
-          body: (send.body as string) ?? "",
-          unsubscribeUrl: `${base}/avmeld/${r.token}`,
-          emailType: (send.email_type as string) ?? "standard",
-          barbers,
-        }),
-      }));
+      const barbers = await loadMarketingBarbers(svc, (send.featured_barber as string | null) ?? null, base);
+      const langs = await recipientLangs(svc, rows.map((r) => r.token as string));
+      const items = rows.map((r) => {
+        // Engelsk til kunder som har valgt engelsk – når utsendingen har en engelsk versjon.
+        const lang: Lang = texts.hasEn && langs.get(r.token as string) === "en" ? "en" : "no";
+        const subject = lang === "en" ? texts.subjectEn! : texts.subject;
+        return {
+          to: r.email as string,
+          subject,
+          html: renderMarketingEmail({
+            subject,
+            body: lang === "en" ? texts.bodyEn! : texts.body,
+            unsubscribeUrl: `${base}/avmeld/${r.token}`,
+            emailType: (send.email_type as string) ?? "standard",
+            barbers,
+            lang,
+            switchUrl: texts.hasEn
+              ? emailViewUrl("mk", { s: sendId, t: r.token }, lang === "en" ? "no" : "en", r.email as string)
+              : null,
+          }),
+        };
+      });
       const res = await sendEmailBatch(items);
       if (res.error) {
         // Rate-limit eller nettverk: marker feil på bolken, logg på utsendingen.
@@ -192,4 +174,112 @@ export async function runMarketingWorker(): Promise<{ sent: number; failed: numb
   }
 
   return { sent, failed, more: true };
+}
+
+/* ---------------------------------------------------------------------
+ * Fremhevede barbere (type «ny_barber»): featured_barber kan være ÉN eller
+ * flere navn skilt med komma. Henter bilde, tittel og galleri for hver.
+ * Brukes av køen og av nettleser-visningen (/e/[t]).
+ * ------------------------------------------------------------------- */
+export async function loadMarketingBarbers(
+  svc: SupabaseClient,
+  featured: string | null,
+  base: string,
+): Promise<MarketingBarber[]> {
+  if (!featured) return [];
+  const names = String(featured)
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (!names.length) return [];
+  const { data: sts } = await svc.from("staff").select("full_name, title, photo_url").in("full_name", names);
+  const byName = new Map(
+    ((sts ?? []) as { full_name: string; title: string | null; photo_url: string | null }[]).map((s) => [s.full_name, s]),
+  );
+  const galleries = await getEmailGalleries(names, base, svc);
+  return Promise.all(
+    names.map(async (n) => {
+      const s = byName.get(n);
+      const displayName = await staffDisplayName(n);
+      return s
+        ? {
+            name: s.full_name,
+            displayName,
+            title: s.title ?? undefined,
+            photoUrl: s.photo_url ?? undefined,
+            gallery: galleries.get(s.full_name),
+          }
+        : { name: n, displayName };
+    }),
+  );
+}
+
+/** Språket hver mottaker har valgt (customers.lang), slått opp på portal-token. */
+export async function recipientLangs(svc: SupabaseClient, tokens: string[]): Promise<Map<string, Lang>> {
+  const out = new Map<string, Lang>();
+  const clean = tokens.filter(Boolean);
+  if (!clean.length) return out;
+  try {
+    const { data, error } = await svc.from("customers").select("portal_token, lang").in("portal_token", clean);
+    if (error) return out;
+    for (const c of (data ?? []) as { portal_token: string; lang: string | null }[]) {
+      if (c.lang === "en") out.set(c.portal_token, "en");
+    }
+  } catch {
+    /* alle får norsk */
+  }
+  return out;
+}
+
+export type SendTexts = {
+  subject: string;
+  body: string;
+  subjectEn: string | null;
+  bodyEn: string | null;
+  hasEn: boolean;
+};
+
+/**
+ * Norsk + engelsk tekst for en utsending. Engelsk kommer fra feltene admin
+ * fylte ut; er de tomme og DeepL er satt opp, oversettes teksten én gang og
+ * lagres på utsendingen. Uten engelsk versjon får alle norsk (og ingen
+ * språklenke) – akkurat som før.
+ */
+export async function getSendTexts(
+  svc: SupabaseClient,
+  sendId: string,
+  subject: string,
+  body: string,
+): Promise<SendTexts> {
+  let subjectEn: string | null = null;
+  let bodyEn: string | null = null;
+  let hasColumns = true;
+  try {
+    const { data, error } = await svc.from("marketing_sends").select("subject_en, body_en").eq("id", sendId).maybeSingle();
+    if (error) hasColumns = false;
+    else {
+      subjectEn = ((data?.subject_en as string | null) ?? "").trim() || null;
+      bodyEn = ((data?.body_en as string | null) ?? "").trim() || null;
+    }
+  } catch {
+    hasColumns = false;
+  }
+
+  if (hasColumns && !bodyEn && body.trim()) {
+    try {
+      const cfg = await getDeeplConfig();
+      if (cfg.key && cfg.auto) {
+        const [s, b] = await deeplTranslate(cfg.key, [subject || " ", body]);
+        subjectEn = subjectEn || s.trim() || subject;
+        bodyEn = b.trim() || null;
+        if (bodyEn) {
+          await svc.from("marketing_sends").update({ subject_en: subjectEn, body_en: bodyEn }).eq("id", sendId);
+        }
+      }
+    } catch {
+      /* ingen oversettelse – norsk til alle */
+    }
+  }
+  if (bodyEn && !subjectEn) subjectEn = subject;
+  return { subject, body, subjectEn, bodyEn, hasEn: !!bodyEn };
 }

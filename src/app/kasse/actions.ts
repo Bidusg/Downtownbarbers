@@ -6,9 +6,6 @@ import { sendBookingConfirmationSms } from "@/lib/sms-booking";
 import {
   bookingCustomerLang,
   customerLangByEmail,
-  payMethodLang,
-  translateServiceText,
-  type Lang,
 } from "@/lib/i18n/server-lang";
 import { createServiceClient } from "@/lib/supabase/service";
 import { osloToUtcISO } from "@/lib/oslo-time";
@@ -125,20 +122,6 @@ function refresh() {
   revalidatePath("/kasse/kalender");
 }
 
-function fmtDay(iso: string, lang: Lang = "no") {
-  try {
-    return new Date(iso).toLocaleDateString(lang === "en" ? "en-GB" : "nb-NO", {
-      // Serveren kjører i UTC – uten Oslo-tidssone havner dato/tid feil
-      // (i e-post m.m.). Europe/Oslo gir riktig norsk dag.
-      timeZone: "Europe/Oslo",
-      weekday: "long",
-      day: "2-digit",
-      month: "long",
-    });
-  } catch {
-    return iso;
-  }
-}
 function fmtClock(iso: string) {
   try {
     return new Date(iso).toLocaleTimeString("nb-NO", {
@@ -425,16 +408,17 @@ export async function completeBooking(
       const st = b.staff as { full_name?: string } | null;
       const extras = await receiptExtras(sb, bookingId);
       const lang = await bookingCustomerLang(sb, bookingId);
+      // Rådata – e-posten oversetter selv og lager språklenken.
       await sendReceiptEmail({
         to: email,
         name: name ?? "",
-        service: await translateServiceText(s?.name ?? "", lang),
+        service: s?.name ?? "",
         barber: st?.full_name ?? "",
-        date: fmtDay(b.start_at, lang),
+        date: b.start_at,
         price: `${extras.totalNok ?? b.price_nok} kr`,
-        paymentMethod: o.paymentMethod ? payMethodLang(o.paymentMethod, lang) : undefined,
+        paymentMethod: o.paymentMethod || undefined,
         discount: extras.discountNok,
-        payments: extras.payments?.map((p) => ({ ...p, method: payMethodLang(p.method, lang) })),
+        payments: extras.payments,
         lang,
       });
     }
@@ -772,17 +756,15 @@ export async function recordWalkinSale(
         await sendReceiptEmail({
           to: receiptEmail,
           name: customer?.name ?? "",
-          service:
-            serviceNames.length > 0
-              ? await translateServiceText(serviceNames.join(" + "), lang)
-              : lang === "en" ? "Products" : "Varekjøp",
+          // Tom tjeneste = «Varekjøp»/«Products» (e-posten oversetter selv).
+          service: serviceNames.join(" + "),
           barber: barberName,
-          date: fmtDay(new Date().toISOString(), lang),
+          date: new Date().toISOString(),
           price: `${Number(sale?.total_nok) || 0} kr`,
-          paymentMethod: input.paymentMethod ? payMethodLang(input.paymentMethod, lang) : undefined,
+          paymentMethod: input.paymentMethod || undefined,
           discount: Number(sale?.discount_nok) || 0,
           payments: ((pays ?? []) as { method: string; amount: number }[]).map(
-            (p) => ({ method: payMethodLang(p.method, lang), amount: Number(p.amount) || 0 }),
+            (p) => ({ method: p.method, amount: Number(p.amount) || 0 }),
           ),
           lang,
         });
@@ -938,9 +920,9 @@ export async function markNoShow(
       emailed = await sendNoShowEmail({
         to: c.email,
         name: c.full_name ?? "",
-        service: await translateServiceText(s?.name ?? "", lang),
+        service: s?.name ?? "",
         barber: st?.full_name ?? "",
-        date: fmtDay(b.start_at, lang),
+        date: b.start_at,
         lang,
         fee: feeNok > 0 ? `${feeNok} kr` : undefined,
       });
@@ -1235,9 +1217,9 @@ export async function createDeskBooking(
         await sendBookingConfirmation({
           to: c.email,
           name: c.full_name ?? input.name ?? "",
-          service: await translateServiceText(s?.name ?? input.service, lang),
+          service: s?.name ?? input.service,
           barber: st?.full_name ?? input.barber,
-          date: fmtDay(bk.start_at, lang),
+          date: bk.start_at,
           time: fmtClock(bk.start_at),
           price: `${bk.price_nok} kr`,
           lang,
@@ -1345,12 +1327,12 @@ export async function sendReceiptForBooking(
     await sendReceiptEmail({
       to: c.email,
       name: c.full_name ?? "",
-      service: await translateServiceText(s?.name ?? "", lang),
+      service: s?.name ?? "",
       barber: st?.full_name ?? "",
-      date: fmtDay(b.start_at, lang),
+      date: b.start_at,
       price: `${extras.totalNok ?? b.price_nok} kr`,
       discount: extras.discountNok,
-      payments: extras.payments?.map((p) => ({ ...p, method: payMethodLang(p.method, lang) })),
+      payments: extras.payments,
       lang,
     });
     return { ok: true };

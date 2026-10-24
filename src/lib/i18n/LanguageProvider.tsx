@@ -43,19 +43,28 @@ export function LanguageProvider({
   content?: Record<string, Record<string, string>>;
 }) {
   const [lang, setLangState] = useState<Lang>("no");
+  // Ikke skriv cookien før lagret valg er lest (ellers overskrives den med «no»).
+  const [ready, setReady] = useState(false);
 
   // Les lagret valg etter første render (unngår hydrerings-mismatch).
   useEffect(() => {
     try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
+      // Cookien holdes alltid lik localStorage herfra – er den ulik, er den
+      // satt av serveren (f.eks. «Read in English» i en e-post) og nyest.
+      const fromCookie = document.cookie.match(/(?:^|;\s*)dtb_lang=(no|en)\b/)?.[1];
+      const stored = fromCookie ?? window.localStorage.getItem(STORAGE_KEY);
+      if (fromCookie) window.localStorage.setItem(STORAGE_KEY, fromCookie);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- engangs-lesing etter hydrering
       if (stored === "no" || stored === "en") setLangState(stored);
     } catch {
       /* localStorage utilgjengelig – behold standard "no". */
     }
+    setReady(true);
   }, []);
 
   // Hold <html lang=…> i synk for tilgjengelighet/SEO når valget endres.
   useEffect(() => {
+    if (!ready) return;
     try {
       document.documentElement.lang = lang === "en" ? "en" : "nb";
       // Serveren (e-post, SMS, PDF) leser språket fra denne cookien.
@@ -63,7 +72,7 @@ export function LanguageProvider({
     } catch {
       /* ingen document – ignorer. */
     }
-  }, [lang]);
+  }, [lang, ready]);
 
   const setLang = useCallback((next: Lang) => {
     setLangState(next);
