@@ -462,3 +462,66 @@ export async function sendToRest(sendId: string): Promise<void> {
   revalidatePath("/admin/markedsforing");
   redirect(`/admin/markedsforing?startet=${rest.length}&kanal=email&utelatt=${all.length - rest.length}`);
 }
+
+/* ------------------------- FORHÅNDSVISNING ------------------------- */
+
+export type SendPreview = {
+  ok: boolean;
+  channel?: "email" | "sms";
+  subject?: string;
+  /** Ferdig e-post-HTML (vises i en iframe). */
+  html?: string;
+  /** SMS-tekst slik kundene fikk den. */
+  sms?: string;
+  hasEn?: boolean;
+  error?: string;
+};
+
+/**
+ * Forhåndsvis en utsending slik kundene fikk den (norsk eller engelsk).
+ * Avmeldingslenken er en ufarlig plassholder. Kun admin.
+ */
+export async function previewMarketingSend(sendId: string, lang: "no" | "en" = "no"): Promise<SendPreview> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { ok: false, error: "Ingen tilgang." };
+  try {
+    const { createServiceClient } = await import("@/lib/supabase/service");
+    const { renderMarketingEmail } = await import("@/lib/email");
+    const { getSendTexts, loadMarketingBarbers } = await import("@/lib/marketing-worker");
+    const svc = createServiceClient();
+    const { data: send } = await svc
+      .from("marketing_sends")
+      .select("id, subject, body, channel, email_type, featured_barber")
+      .eq("id", sendId)
+      .maybeSingle();
+    if (!send) return { ok: false, error: "Fant ikke utsendingen." };
+    const base = siteUrl();
+    const texts = await getSendTexts(svc, sendId, String(send.subject ?? ""), String(send.body ?? ""));
+    const en = lang === "en" && texts.hasEn;
+    const subject = en ? texts.subjectEn! : texts.subject;
+    const body = en ? texts.bodyEn! : texts.body;
+    if (send.channel === "sms") {
+      return {
+        ok: true,
+        channel: "sms",
+        subject,
+        hasEn: texts.hasEn,
+        sms: en
+          ? `${body}\n\nUnsubscribe: ${base}/avmeld/… · or reply STOP`
+          : `${body}\n\nAvmeld: ${base}/avmeld/… · eller svar STOPP`,
+      };
+    }
+    const html = renderMarketingEmail({
+      subject,
+      body,
+      unsubscribeUrl: "#",
+      emailType: (send.email_type as string) ?? "standard",
+      barbers: await loadMarketingBarbers(svc, (send.featured_barber as string | null) ?? null, base),
+      lang: en ? "en" : "no",
+      switchUrl: texts.hasEn ? "#" : null,
+    });
+    return { ok: true, channel: "email", subject, html, hasEn: texts.hasEn };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message.slice(0, 160) : "Noe gikk galt." };
+  }
+}

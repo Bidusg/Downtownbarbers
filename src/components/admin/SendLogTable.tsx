@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Table, THead, TBody, Tr, Th, Td } from "@/components/ui/Table";
 import { SendRestButton } from "@/components/admin/SendRestButton";
+import { SendPreviewButton } from "@/components/admin/SendPreviewButton";
 import type { MarketingSend } from "@/lib/dm-queries";
 import {
   sendToRest,
@@ -233,6 +234,7 @@ export function SendLogTable({
                   </Td>
                   <Td>
                     <span className="flex items-center gap-2">
+                      <SendPreviewButton sendId={s.id} subject={s.subject} />
                       {s.subject}
                       {isDup && (
                         <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
@@ -273,6 +275,7 @@ export function SendLogTable({
                   className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted"
                 >
                   <span className="whitespace-nowrap">{fmt(s.created_at)}</span>
+                  <SendPreviewButton sendId={s.id} subject={s.subject} />
                   <span className="text-fg">{s.subject}</span>
                   <span>{SEG_LABEL[s.segment ?? ""] ?? s.segment ?? "—"}</span>
                   <span className="tabular-nums">
