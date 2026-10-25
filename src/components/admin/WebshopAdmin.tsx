@@ -44,7 +44,7 @@ function CopyImagesButton({ external }: { external: number }) {
   return (
     <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-surface-2/60 px-4 py-3 text-sm">
       <span>
-        {external} produkter bruker bilder fra Fixit sin katalog. Lagre dem hos oss, så butikken ikke er avhengig av Fixit:
+        {external} produkter bruker bilder som ligger hos Fixit eller produsenten. Lagre dem hos oss, så butikken ikke er avhengig av andre nettsider:
       </span>
       <Button onClick={run} disabled={busy} className="px-3 py-1.5 text-sm">
         {busy ? "Kopierer …" : "Lagre bildene hos oss"}

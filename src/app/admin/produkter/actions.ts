@@ -309,13 +309,14 @@ export async function saveWebshopSettings(v: WebshopForm): Promise<{ ok?: true; 
 }
 
 /* =====================================================================
- * Bilder fra leverandørkatalogen (Fixit / Cloudinary) → egen lagring.
+ * Bilder fra leverandørkatalogen (Fixit) og produsenter → egen lagring.
  *   Produktbildene ble hentet fra Fixit sin produktkatalog. Denne kopierer
  *   dem over til vår egen lagring, så butikken ikke er avhengig av Fixit.
  *   Tar noen om gangen (serverløse funksjoner har tidsgrense); knappen i
  *   admin kaller den på nytt til alt er kopiert.
  * ===================================================================== */
-const EXTERNAL_IMG = /^https:\/\/res\.cloudinary\.com\//;
+/** Bilde som ligger hos andre (Fixit, produsent, forhandler) – ikke i vår egen lagring. */
+const EXTERNAL_IMG = { test: (u: string) => /^https:\/\//.test(u) && !u.includes("/storage/v1/object/public/") };
 
 export async function copyExternalProductImages(): Promise<{ copied: number; remaining: number; failed: number; error?: string }> {
   await requireRole(["admin"]);
@@ -335,7 +336,10 @@ export async function copyExternalProductImages(): Promise<{ copied: number; rem
     for (let i = 0; i < list.length; i++) {
       if (!EXTERNAL_IMG.test(list[i])) continue;
       try {
-        const res = await fetch(list[i], { cache: "no-store" });
+        const res = await fetch(list[i], {
+          cache: "no-store",
+          headers: { "User-Agent": "Mozilla/5.0 (compatible; DowntownBarbersBot/1.0)", Accept: "image/*" },
+        });
         if (!res.ok) throw new Error(String(res.status));
         const type = res.headers.get("content-type") || "image/jpeg";
         const ext = type.includes("png") ? "png" : type.includes("webp") ? "webp" : "jpg";

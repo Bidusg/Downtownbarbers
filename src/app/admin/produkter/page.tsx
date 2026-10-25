@@ -12,7 +12,7 @@ export default async function AdminProdukter() {
     online: items.filter((p) => p.slug && p.online !== false).length,
     noImage: items.filter((p) => !(p.images ?? []).length && !p.image_url).length,
     review: items.filter((p) => p.content_review).length,
-    external: items.filter((p) => [...(p.images ?? []), p.image_url ?? ""].some((u) => /^https:\/\/res\.cloudinary\.com\//.test(u))).length,
+    external: items.filter((p) => [...(p.images ?? []), p.image_url ?? ""].some((u) => /^https:\/\//.test(u) && !u.includes("/storage/v1/object/public/"))).length,
   };
   return (
     <div className="mx-auto max-w-5xl space-y-6">
