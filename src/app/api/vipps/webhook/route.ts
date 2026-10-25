@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { capturePayment } from "@/lib/vipps";
 import { config } from "@/lib/config";
+import { markOrderAuthorized } from "@/lib/shop-orders";
 import { createHash, createHmac, timingSafeEqual } from "crypto";
 
 /**
@@ -57,6 +58,13 @@ export async function GET(req: NextRequest) {
     if (config.vipps.mode !== "mock") {
       return new NextResponse("Not found", { status: 404 });
     }
+    // Nettbutikk (web-<ordre-id>): reservert → tilbake til ordresiden.
+    if (reference.startsWith("web-")) {
+      await markOrderAuthorized(reference.slice(4));
+      const back = req.nextUrl.searchParams.get("back");
+      const dest = back && back.startsWith(config.baseUrl) ? back : new URL("/butikk", req.url).toString();
+      return NextResponse.redirect(dest);
+    }
     await markPaid(reference);
     const url = new URL("/booking/bekreftelse", req.url);
     url.searchParams.set("ref", reference);
@@ -88,6 +96,11 @@ export async function POST(req: NextRequest) {
     // KUN nettbooking-betalinger (booking-<id>) håndteres her. Kasse-betalinger
     // (kasse-<id>-…) styres av polling i kassa (capture + registrer salg der),
     // så webhooken må IKKE røre dem – ellers blir det dobbel capture.
+    // Nettbutikk: beløpet RESERVERES ved kjøp og trekkes først når varen er
+    // utlevert/sendt (kassa → Nettordrer). Her markeres ordren bare som betalt.
+    if (reference.startsWith("web-") && String(name).toUpperCase().includes("AUTHORIZED")) {
+      await markOrderAuthorized(reference.slice(4));
+    }
     if (
       reference.startsWith("booking-") &&
       String(name).toUpperCase().includes("AUTHORIZED")

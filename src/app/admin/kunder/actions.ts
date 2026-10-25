@@ -60,10 +60,15 @@ export async function anonymizeCustomer(id: string) {
 export async function setMarketingConsent(id: string, consent: boolean) {
   await requireRole(["admin"]);
   const sb = await createClient();
-  await sb
-    .from("customers")
-    .update({ marketing_consent: consent, marketing_consent_at: new Date().toISOString() })
-    .eq("id", id);
+  // Via databasefunksjonen, så loggen får med hvem som endret samtykket.
+  const { error } = await sb.rpc("admin_set_marketing_consent", { p_customer: id, p_consent: consent });
+  if (error) {
+    // Før KJØR-I-SUPABASE-SAMTYKKE-LOGG.sql er kjørt.
+    await sb
+      .from("customers")
+      .update({ marketing_consent: consent, marketing_consent_at: new Date().toISOString() })
+      .eq("id", id);
+  }
   revalidatePath(`/admin/kunder/${id}`);
   redirect(`/admin/kunder/${id}?lagret=${consent ? "samtykke-ja" : "samtykke-nei"}`);
 }

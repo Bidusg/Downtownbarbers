@@ -7,6 +7,7 @@ import { SettlementReminderBanner } from "@/components/admin/SettlementReminderB
 import { NoticeBanner } from "@/components/admin/NoticeBanner";
 import { getActiveNotices } from "@/lib/notices-queries";
 import { countOpenCrisisRequests } from "@/lib/crisis-queries";
+import { countOpenOnlineOrders } from "@/lib/online-order-queries";
 import Link from "next/link";
 
 export default async function KasseLayout({
@@ -15,10 +16,11 @@ export default async function KasseLayout({
   children: React.ReactNode;
 }) {
   await requireRole(["shop", "admin"]);
-  const [missing, notices, crisis] = await Promise.all([
+  const [missing, notices, crisis, webOrders] = await Promise.all([
     getMissingSettlementDays(),
     getActiveNotices("shop"),
     countOpenCrisisRequests(),
+    countOpenOnlineOrders(),
   ]);
 
   return (
@@ -34,6 +36,19 @@ export default async function KasseLayout({
               <strong>{crisis}</strong> kunde{crisis === 1 ? "" : "r"} trenger krisetime – ring og finn en luke.
             </span>
             <span className="font-semibold text-accent-soft">Se krisetimer →</span>
+          </Link>
+        </div>
+      )}
+      {webOrders > 0 && (
+        <div className="px-4 pt-4 sm:px-6">
+          <Link
+            href="/kasse/nettordrer"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-line-2 bg-surface px-4 py-3 text-sm hover:border-accent-soft"
+          >
+            <span className="text-fg">
+              <strong>{webOrders}</strong> ny{webOrders === 1 ? "" : "e"} nettordre{webOrders === 1 ? "" : "r"} – plukk varene og gjør klar.
+            </span>
+            <span className="font-semibold text-accent-soft">Se nettordrer →</span>
           </Link>
         </div>
       )}

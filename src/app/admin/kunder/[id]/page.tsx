@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCustomer } from "@/lib/admin-queries";
-import { getCustomerConsent } from "@/lib/dm-queries";
+import { getCustomerConsentInfo } from "@/lib/dm-queries";
 import { getCustomerMembership, remainingToNext } from "@/lib/membership-queries";
 import { TierBadge } from "@/components/membership/TierBadge";
 import { updateCustomer, anonymizeCustomer, setMarketingConsent } from "../actions";
@@ -92,7 +92,12 @@ export default async function KundeKort({
   const { lagret } = await searchParams;
   const c = await getCustomer(id);
   if (!c) notFound();
-  const consent = await getCustomerConsent(id);
+  const consentInfo = await getCustomerConsentInfo(id);
+  const consent = consentInfo.consent;
+  const consentDate = (iso: string | null) =>
+    iso
+      ? new Date(iso).toLocaleDateString("nb-NO", { timeZone: "Europe/Oslo", day: "numeric", month: "short", year: "numeric" })
+      : "";
   const membership = await getCustomerMembership(id);
   const membershipLeft = membership ? remainingToNext(membership) : null;
   const save = updateCustomer.bind(null, id);
@@ -185,13 +190,39 @@ export default async function KundeKort({
       )}
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border border-line bg-surface px-5 py-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-fg">Markedsføring</p>
           <p className="text-xs text-muted">
-            {consent
-              ? "Kunden har sagt ja til tilbud og nyheter på e-post."
-              : "Ingen samtykke — kunden får ikke markedsføring."}
+            {consent ? (
+              <>
+                Kunden har sagt ja til tilbud og nyheter på e-post
+                {consentInfo.at ? ` (${consentDate(consentInfo.at)})` : ""}.
+                {consentInfo.source && <span className="block">Kilde: {consentInfo.source}</span>}
+              </>
+            ) : consentInfo.unsubscribedAt ? (
+              <>
+                <span className="font-semibold text-fg">Meldt av {consentDate(consentInfo.unsubscribedAt)}</span> – kunden hadde
+                samtykke, men får ikke lenger markedsføring.
+                {consentInfo.unsubscribeSource && <span className="block">Hvordan: {consentInfo.unsubscribeSource}</span>}
+              </>
+            ) : (
+              "Har aldri sagt ja — kunden får ikke markedsføring."
+            )}
           </p>
+          {consentInfo.log.length > 0 && (
+            <details className="mt-2 text-xs">
+              <summary className="cursor-pointer text-muted hover:text-fg">Historikk ({consentInfo.log.length})</summary>
+              <ul className="mt-1.5 space-y-1">
+                {consentInfo.log.map((l, i) => (
+                  <li key={i} className="flex flex-wrap gap-x-2">
+                    <span className="text-muted tabular-nums">{consentDate(l.at)}</span>
+                    <span className={l.consent ? "text-accent-soft" : "text-fg"}>{l.consent ? "Ja" : "Nei"}</span>
+                    <span className="text-muted">– {l.source}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
         </div>
         <form action={toggleConsent}>
           <button

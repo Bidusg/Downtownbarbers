@@ -58,15 +58,40 @@ export type AdminProduct = {
   is_gift_card: boolean;
   image_url: string | null;
   barcode: string | null;
+  // Nettbutikk (null/tomt hvis KJØR-I-SUPABASE-NETTBUTIKK.sql ikke er kjørt)
+  slug?: string | null;
+  web_name?: string | null;
+  brand?: string | null;
+  category?: string | null;
+  short_description?: string | null;
+  benefits?: string[] | null;
+  recommended_for?: string | null;
+  how_to_use?: string | null;
+  ingredients?: string | null;
+  size_label?: string | null;
+  hold_level?: number | null;
+  shine_level?: number | null;
+  images?: string[] | null;
+  related_slugs?: string[] | null;
+  compare_at_price_nok?: number | null;
+  featured?: boolean | null;
+  online?: boolean | null;
+  web_sort?: number | null;
+  content_review?: boolean | null;
+  content_note?: string | null;
 };
+
+const PRODUCT_WEB_COLS =
+  "slug, web_name, brand, category, short_description, benefits, recommended_for, how_to_use, ingredients, size_label, hold_level, shine_level, images, related_slugs, compare_at_price_nok, featured, online, web_sort, content_review, content_note";
 
 export async function getProductsAdmin(): Promise<AdminProduct[]> {
   try {
     const sb = await createClient();
-    const { data } = await sb
-      .from("products")
-      .select("id, name, description, price_nok, stock, active, is_gift_card, image_url, barcode")
-      .order("name");
+    const base = "id, name, description, price_nok, stock, active, is_gift_card, image_url, barcode";
+    const full = await sb.from("products").select(`${base}, ${PRODUCT_WEB_COLS}`).order("name");
+    if (!full.error) return (full.data as AdminProduct[]) ?? [];
+    // Nettbutikk-kolonnene finnes ikke ennå → vis de vanlige feltene.
+    const { data } = await sb.from("products").select(base).order("name");
     return (data as AdminProduct[]) ?? [];
   } catch {
     return [];

@@ -61,6 +61,7 @@ export const kasseNav: BoNav = {
     { href: "/kasse/kalender", label: "Kalender" },
     { href: "/kasse/kunder", label: "Kunder" },
     { href: "/kasse/krisetimer", label: "Krisetimer" },
+    { href: "/kasse/nettordrer", label: "Nettordrer" },
     { href: "/kasse/kasseoppgjor", label: "Kasseoppgjør" },
     { href: "/kasse/gavekort", label: "Gavekort" },
     { href: "/kasse/lager", label: "Lager" },

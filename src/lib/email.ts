@@ -793,6 +793,107 @@ export async function sendCrisisAlert(opts: {
   return sendEmail(opts.to, `Krisetime: ${opts.name} – ${opts.when}`, html, opts.email ?? undefined);
 }
 
+/* ---- Nettbutikk ------------------------------------------------------- */
+export type OrderMail = {
+  orderNo: number;
+  name: string;
+  items: { name: string; qty: number; line_total_nok: number }[];
+  subtotal: number;
+  discount: number;
+  memberTier?: string | null;
+  shipping: number;
+  total: number;
+  delivery: "pickup" | "ship";
+  address?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  payment: "vipps" | "card" | "pay_at_pickup";
+  orderUrl: string;
+};
+
+const krOrder = (n: number) => `${Math.round(n).toLocaleString("nb-NO")} kr`;
+
+function orderRows(o: OrderMail): [string, string][] {
+  const rows: [string, string][] = o.items.map((i) => [
+    `${escapeHtml(i.name)}${i.qty > 1 ? ` × ${i.qty}` : ""}`,
+    krOrder(i.line_total_nok),
+  ]);
+  if (o.discount > 0) rows.push([`${escapeHtml(o.memberTier ?? "Kundeklubb")}-rabatt`, `−${krOrder(o.discount)}`]);
+  rows.push([o.delivery === "ship" ? "Frakt" : "Henting i salongen", o.shipping > 0 ? krOrder(o.shipping) : "Gratis"]);
+  rows.push(["<strong>Totalt</strong>", `<strong>${krOrder(o.total)}</strong>`]);
+  return rows;
+}
+
+function deliveryText(o: OrderMail): string {
+  if (o.delivery === "ship") {
+    return `Vi sender pakken til ${escapeHtml([o.address, [o.postalCode, o.city].filter(Boolean).join(" ")].filter(Boolean).join(", "))}. Du får en e-post med sporingsnummer når den er sendt.`;
+  }
+  return `Hent varene i salongen i ${escapeHtml(salon.address)}. Du får en e-post når ordren er klar – som regel samme dag.`;
+}
+
+/** Ordrebekreftelse til kunden. */
+export async function sendOrderConfirmation(to: string, o: OrderMail): Promise<boolean> {
+  const first = escapeHtml(o.name.split(" ")[0] || "der");
+  const pay =
+    o.payment === "pay_at_pickup"
+      ? "Du betaler når du henter i salongen."
+      : "Beløpet er reservert og trekkes først når varene er utlevert eller sendt.";
+  const html = shell(
+    `Takk for bestillingen, ${first}!`,
+    `Ordre #${o.orderNo} er mottatt. ${deliveryText(o)} ${pay}`,
+    orderRows(o),
+    ctaButton(o.orderUrl, "Se ordren"),
+  );
+  return sendEmail(to, `Ordrebekreftelse #${o.orderNo} – Downtown Barbers`, html);
+}
+
+/** Varsel til salongen om ny nettordre. */
+export async function sendOrderAlert(to: string, o: OrderMail & { email: string; phone?: string | null; kasseUrl: string }): Promise<boolean> {
+  const rows: [string, string][] = [
+    ["Kunde", escapeHtml(o.name)],
+    ["E-post", escapeHtml(o.email)],
+  ];
+  if (o.phone) rows.push(["Telefon", escapeHtml(o.phone)]);
+  rows.push(["Levering", o.delivery === "ship" ? "Sending" : "Henting i salongen"]);
+  rows.push(["Betaling", o.payment === "pay_at_pickup" ? "Betal ved henting" : o.payment === "card" ? "Kort (reservert)" : "Vipps (reservert)"]);
+  const html = shell(
+    `Ny nettordre #${o.orderNo}`,
+    o.delivery === "ship" ? "Pakk og send ordren, og marker den som sendt i kassa." : "Gjør klar varene og trykk «Klar til henting» i kassa – kunden får e-post.",
+    [...rows, ...orderRows(o)],
+    ctaButton(o.kasseUrl, "Åpne nettordrer i kassa"),
+  );
+  return sendEmail(to, `Ny nettordre #${o.orderNo}: ${o.name} – ${krOrder(o.total)}`, html, o.email);
+}
+
+/** «Klar til henting» / «Sendt» til kunden. */
+export async function sendOrderUpdate(
+  to: string,
+  o: { orderNo: number; name: string; kind: "ready" | "shipped"; trackingNo?: string | null; orderUrl: string },
+): Promise<boolean> {
+  const first = escapeHtml(o.name.split(" ")[0] || "der");
+  const html =
+    o.kind === "ready"
+      ? shell(
+          "Ordren din er klar til henting",
+          `Hei ${first}! Ordre #${o.orderNo} ligger klar i salongen i ${escapeHtml(salon.address)}. Ta med ordrenummeret når du kommer.`,
+          [],
+          ctaButton(o.orderUrl, "Se ordren"),
+        )
+      : shell(
+          "Ordren din er sendt",
+          `Hei ${first}! Ordre #${o.orderNo} er på vei.${o.trackingNo ? ` Sporingsnummer: ${escapeHtml(o.trackingNo)}.` : ""}`,
+          [],
+          o.trackingNo
+            ? ctaButton(`https://sporing.posten.no/sporing/${encodeURIComponent(o.trackingNo)}`, "Spor pakken")
+            : ctaButton(o.orderUrl, "Se ordren"),
+        );
+  return sendEmail(
+    to,
+    o.kind === "ready" ? `Ordre #${o.orderNo} er klar til henting` : `Ordre #${o.orderNo} er sendt`,
+    html,
+  );
+}
+
 /** Kvittering til kunden: «Vi har fått meldingen din». */
 export async function sendContactReceipt(opts: { to: string; name: string; callback: boolean; lang?: Lang }): Promise<boolean> {
   const en = opts.lang === "en";

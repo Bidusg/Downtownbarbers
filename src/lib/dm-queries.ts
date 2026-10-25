@@ -230,6 +230,55 @@ export async function getCustomerConsent(id: string): Promise<boolean> {
   }
 }
 
+export type ConsentInfo = {
+  consent: boolean;
+  /** Når samtykket sist ble endret. */
+  at: string | null;
+  /** Hvor samtykket kom fra (booking, kassa, admin, import …). */
+  source: string | null;
+  /** Satt når kunden har meldt seg av / fått samtykket fjernet. */
+  unsubscribedAt: string | null;
+  unsubscribeSource: string | null;
+  log: { consent: boolean; source: string; at: string }[];
+};
+
+/** Samtykke med historikk til kundekortet (tåler at loggen ikke er installert ennå). */
+export async function getCustomerConsentInfo(id: string): Promise<ConsentInfo> {
+  const empty: ConsentInfo = { consent: false, at: null, source: null, unsubscribedAt: null, unsubscribeSource: null, log: [] };
+  try {
+    const sb = await createClient();
+    const full = await sb
+      .from("customers")
+      .select("marketing_consent, marketing_consent_at, marketing_consent_source, marketing_unsubscribed_at, marketing_unsubscribe_source")
+      .eq("id", id)
+      .maybeSingle();
+    if (full.error) {
+      return { ...empty, consent: await getCustomerConsent(id) };
+    }
+    const c = (full.data ?? {}) as Record<string, unknown>;
+    const { data: log } = await sb
+      .from("marketing_consent_log")
+      .select("consent, source, created_at")
+      .eq("customer_id", id)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    return {
+      consent: c.marketing_consent === true,
+      at: (c.marketing_consent_at as string | null) ?? null,
+      source: (c.marketing_consent_source as string | null) ?? null,
+      unsubscribedAt: (c.marketing_unsubscribed_at as string | null) ?? null,
+      unsubscribeSource: (c.marketing_unsubscribe_source as string | null) ?? null,
+      log: ((log ?? []) as { consent: boolean; source: string; created_at: string }[]).map((l) => ({
+        consent: l.consent,
+        source: l.source,
+        at: l.created_at,
+      })),
+    };
+  } catch {
+    return empty;
+  }
+}
+
 /* ---------------- Innkommende SMS (STOPP/START) — 0027 ---------------- */
 
 export type InboundMsg = {

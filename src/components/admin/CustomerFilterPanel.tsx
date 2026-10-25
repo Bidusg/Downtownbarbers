@@ -65,7 +65,7 @@ export function CustomerFilterPanel({ barbers }: { barbers: BarberOption[] }) {
   const [useSpend, setUseSpend] = useState(false);
 
   const [barberId, setBarberId] = useState(barbers[0]?.id ?? "");
-  const [consent, setConsent] = useState<"yes" | "no">("yes");
+  const [consent, setConsent] = useState<"yes" | "no" | "unsub">("yes");
   const [notVisitedDays, setNotVisitedDays] = useState("90");
   const [minSpent, setMinSpent] = useState("1000");
   const [q, setQ] = useState("");
@@ -182,11 +182,12 @@ export function CustomerFilterPanel({ barbers }: { barbers: BarberOption[] }) {
           <>
           <select
             value={consent}
-            onChange={(e) => setConsent(e.target.value as "yes" | "no")}
+            onChange={(e) => setConsent(e.target.value as "yes" | "no" | "unsub")}
             className={field + " w-64 max-w-full"}
           >
             <option value="yes">Har sagt ja</option>
             <option value="no">Har ikke sagt ja</option>
+            <option value="unsub">Har meldt seg av</option>
           </select>
         </>
         ) })}
@@ -273,6 +274,10 @@ export function CustomerFilterPanel({ barbers }: { barbers: BarberOption[] }) {
                   <Td>
                     {r.consent ? (
                       <span className="text-accent-soft">Ja</span>
+                    ) : r.unsubscribedAt ? (
+                      <span className="text-muted" title="Kunden hadde samtykke, men meldte seg av">
+                        Meldt av {no(r.unsubscribedAt)}
+                      </span>
                     ) : (
                       <span className="text-muted">Nei</span>
                     )}

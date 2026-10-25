@@ -23,6 +23,8 @@ export interface CreatePaymentInput {
   returnUrl?: string;
   /** Kunden er fysisk til stede (kasse) – kreves av regelverket ved POS. */
   customerPresent?: boolean;
+  /** WALLET = Vipps-appen, CARD = kortbetaling på Vipps sin side (må være slått på i avtalen). */
+  paymentMethod?: "WALLET" | "CARD";
 }
 
 export interface CreatePaymentResult {
@@ -93,6 +95,7 @@ export async function createPayment(
     // placeholder slik at skjermbildet ser riktig ut.
     if (userFlow === "WEB_REDIRECT") {
       const url = new URL("/api/vipps/webhook", config.baseUrl);
+      if (input.returnUrl) url.searchParams.set("back", input.returnUrl);
       url.searchParams.set("mock", "1");
       url.searchParams.set("reference", reference);
       return { redirectUrl: url.toString(), reference, mode: "mock" };
@@ -116,7 +119,7 @@ export async function createPayment(
 
   const body: Record<string, unknown> = {
     amount: { currency: "NOK", value: input.amountOre },
-    paymentMethod: { type: "WALLET" },
+    paymentMethod: { type: input.paymentMethod ?? "WALLET" },
     reference,
     returnUrl,
     userFlow,
@@ -239,5 +242,19 @@ export async function pingVipps(): Promise<{
         "Vipps-tilkobling feilet: " +
         (e instanceof Error ? e.message : String(e)),
     };
+  }
+}
+
+/** Kanseller en reservert (ikke trukket) betaling – f.eks. når en nettordre avbrytes. */
+export async function cancelPayment(reference: string): Promise<void> {
+  if (config.vipps.mode === "mock") return;
+  const token = await getAccessToken();
+  const res = await fetch(
+    `${config.vipps.apiBase}/epayment/v1/payments/${encodeURIComponent(reference)}/cancel`,
+    { method: "POST", headers: vippsHeaders(token), body: JSON.stringify({}) },
+  );
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Vipps cancel failed: ${res.status} ${body}`);
   }
 }

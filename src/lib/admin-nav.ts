@@ -67,7 +67,8 @@ export const adminGroups: AdminNavGroup[] = [
         href: "/admin/nivaer",
         description: "Pris per nivå × tjeneste",
       },
-      { label: "Produkter", href: "/admin/produkter" },
+      { label: "Produkter", href: "/admin/produkter", description: "Produkter og nettbutikk" },
+      { label: "Nettordrer", href: "/kasse/nettordrer", description: "Bestillinger fra nettbutikken" },
       { label: "Lager", href: "/admin/lager" },
       { label: "Gavekort", href: "/admin/gavekort" },
       {

@@ -32,8 +32,8 @@ export async function getFilterBarbers(): Promise<BarberOption[]> {
 export type CustomerFilter = {
   /** staff.id – vis kun kunder denne barberen har klippet. */
   barberId?: string | null;
-  /** "yes" = kun med samtykke, "no" = kun uten, undefined = begge. */
-  consent?: "yes" | "no" | null;
+  /** "yes" = kun med samtykke, "no" = kun uten, "unsub" = har meldt seg av, undefined = alle. */
+  consent?: "yes" | "no" | "unsub" | null;
   /** Kun kunder som IKKE har besøkt på minst så mange dager (inaktive). */
   notVisitedDays?: number | null;
   /** Kun kunder som har brukt minst så mye (kr, totalt). */
@@ -48,6 +48,8 @@ export type CustomerFilterRow = {
   phone: string | null;
   email: string | null;
   consent: boolean;
+  /** Når kunden meldte seg av / fikk samtykket fjernet (yyyy-mm-dd), ellers null. */
+  unsubscribedAt: string | null;
   lastVisit: string | null; // yyyy-mm-dd
   spent: number;
 };
@@ -65,16 +67,23 @@ export async function filterCustomers(
       phone: string | null;
       email: string | null;
       marketing_consent: boolean | null;
+      marketing_unsubscribed_at?: string | null;
     };
     const customers: Cust[] = [];
+    // Avmeldt-kolonnen finnes først etter KJØR-I-SUPABASE-SAMTYKKE-LOGG.sql.
+    let cols = "id, full_name, phone, email, marketing_consent, marketing_unsubscribed_at";
     for (let from = 0; ; from += 1000) {
-      const { data } = await sb
+      let { data, error } = await sb
         .from("customers")
-        .select("id, full_name, phone, email, marketing_consent")
+        .select(cols)
         .order("id")
         .range(from, from + 999);
+      if (error && from === 0 && /marketing_unsubscribed_at/.test(error.message)) {
+        cols = "id, full_name, phone, email, marketing_consent";
+        ({ data, error } = await sb.from("customers").select(cols).order("id").range(from, from + 999));
+      }
       if (!data || data.length === 0) break;
-      customers.push(...(data as Cust[]));
+      customers.push(...(data as unknown as Cust[]));
       if (data.length < 1000) break;
     }
     if (customers.length === 0) return [];
@@ -201,6 +210,8 @@ export async function filterCustomers(
       const consent = c.marketing_consent === true;
       if (f.consent === "yes" && !consent) continue;
       if (f.consent === "no" && consent) continue;
+      const unsub = !consent && c.marketing_unsubscribed_at ? c.marketing_unsubscribed_at.slice(0, 10) : null;
+      if (f.consent === "unsub" && !unsub) continue;
 
       const lv = lastVisit.get(c.id) ?? null;
       if (cutoff != null && (lv ?? 0) >= cutoff) continue; // har besøkt nylig → ut
@@ -214,6 +225,7 @@ export async function filterCustomers(
         phone: c.phone ?? null,
         email: (c.email ?? "")?.trim() || null,
         consent,
+        unsubscribedAt: unsub,
         lastVisit: lv ? new Date(lv).toISOString().slice(0, 10) : null,
         spent: sp,
       });

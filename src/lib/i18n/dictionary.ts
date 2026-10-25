@@ -530,6 +530,7 @@ export const dictionary: Dict = {
   // ---- Footer / personvern ----
   "footer.openMap": { no: "Åpne i Google Maps", en: "Open in Google Maps" },
   "footer.privacy": { no: "Personvern", en: "Privacy" },
+  "footer.terms": { no: "Kjøpsvilkår", en: "Terms of sale" },
   "wiz.privacyNote.pre": {
     no: "Ved å bestille godtar du at vi lagrer opplysningene dine for å håndtere timen. Les mer i ",
     en: "By booking you accept that we store your details to manage the appointment. Read more in our ",
@@ -632,4 +633,19 @@ export const dictionary: Dict = {
   "wiz.needCancel": { no: "Må du avbestille?", en: "Need to cancel?" },
   "wiz.addPerson": { no: "Legg til for en person til", en: "Add for another person" },
   "wiz.addingFor": { no: "Velg tjeneste for person", en: "Choose a service for person" },
+  // ---------- Nettbutikk ----------
+  "shop.cart": { no: "Handlekurv", en: "Bag" },
+  "shop.close": { no: "Lukk", en: "Close" },
+  "shop.added": { no: "Lagt i handlekurven", en: "Added to your bag" },
+  "shop.empty": { no: "Handlekurven er tom.", en: "Your bag is empty." },
+  "shop.remove": { no: "Fjern", en: "Remove" },
+  "shop.pairsWell": { no: "Passer godt med", en: "Pairs well with" },
+  "shop.add": { no: "Legg til", en: "Add" },
+  "shop.addToCart": { no: "Legg i handlekurven", en: "Add to bag" },
+  "shop.soldOut": { no: "Utsolgt", en: "Sold out" },
+  "shop.subtotal": { no: "Delsum", en: "Subtotal" },
+  "shop.toCheckout": { no: "Gå til kassen", en: "Checkout" },
+  "shop.continue": { no: "Fortsett å handle", en: "Continue shopping" },
+  "shop.freeShipLeft": { no: "Handle for {kr} til, så får du gratis frakt", en: "Spend {kr} more for free shipping" },
+  "shop.freeShipDone": { no: "Du har fått gratis frakt ✓", en: "You've unlocked free shipping ✓" },
 };

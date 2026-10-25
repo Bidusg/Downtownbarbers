@@ -127,6 +127,9 @@ export async function Footer() {
         <Link href="/personvern" className="underline-offset-2 hover:text-fg hover:underline">
           <T k="footer.privacy" />
         </Link>
+        <Link href="/kjopsvilkar" className="underline-offset-2 hover:text-fg hover:underline">
+          <T k="footer.terms" />
+        </Link>
         <ConsentLink className="underline-offset-2 hover:text-fg hover:underline" />
       </div>
     </footer>

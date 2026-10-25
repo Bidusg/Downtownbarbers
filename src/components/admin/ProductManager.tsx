@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, useState, useTransition } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
+import { WebProductEditor } from "@/components/admin/WebshopAdmin";
 import type { AdminProduct } from "@/lib/admin-queries";
 import {
   createProduct,
@@ -163,11 +164,47 @@ export function ProductManager({ products }: { products: AdminProduct[] }) {
   const [err, setErr] = useState<string | null>(null);
   const [rowErr, setRowErr] = useState<{ id: string; msg: string } | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
+  const [webId, setWebId] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [filter, setFilter] = useState<"all" | "review" | "noimg" | "offline">("all");
+  const hasWeb = products.some((p) => p.slug !== undefined);
+  const imgCount = (p: AdminProduct) => ((p.images ?? []).length || (p.image_url ? 1 : 0));
+  const shown = useMemo(() => {
+    const n = q.trim().toLowerCase();
+    return products.filter((p) => {
+      if (n && !`${p.name} ${p.web_name ?? ""} ${p.brand ?? ""} ${p.barcode ?? ""}`.toLowerCase().includes(n)) return false;
+      if (filter === "review") return !!p.content_review;
+      if (filter === "noimg") return !p.is_gift_card && imgCount(p) === 0;
+      if (filter === "offline") return !p.is_gift_card && (p.online === false || !p.slug);
+      return true;
+    });
+  }, [products, q, filter]);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted">{products.length} produkter</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Søk produkt, merke, strekkode …"
+            className="h-9 w-64 rounded-lg border border-line-2 bg-canvas px-3 text-sm"
+          />
+          {hasWeb &&
+            (
+              [
+                ["all", `Alle (${products.length})`],
+                ["review", `Sjekk tekst (${products.filter((p) => p.content_review).length})`],
+                ["noimg", `Mangler bilde (${products.filter((p) => !p.is_gift_card && imgCount(p) === 0).length})`],
+                ["offline", "Ikke på nett"],
+              ] as const
+            ).map(([k, l]) => (
+              <button key={k} type="button" onClick={() => setFilter(k)} className={filter === k ? "act act-accent" : "act"}>
+                {l}
+              </button>
+            ))}
+        </div>
         <Button
           onClick={() => {
             setErr(null);
@@ -226,15 +263,35 @@ export function ProductManager({ products }: { products: AdminProduct[] }) {
             </Tr>
           </THead>
           <TBody>
-            {products.length === 0 && (
+            {shown.length === 0 && (
               <TableEmpty colSpan={7}>
                 Ingen produkter enda – legg til det første, eller koble til databasen.
               </TableEmpty>
             )}
-            {products.map((p) => (
+            {shown.map((p) => (
               <Fragment key={p.id}>
               <Tr>
-                <Td className="font-medium text-fg">{p.name}</Td>
+                <Td className="font-medium text-fg">
+                  <span className="flex items-center gap-3">
+                    {p.image_url || (p.images ?? [])[0] ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={(p.images ?? [])[0] ?? p.image_url ?? ""} alt="" className="h-9 w-9 shrink-0 rounded object-cover" />
+                    ) : (
+                      <span className="h-9 w-9 shrink-0 rounded bg-surface-2" aria-hidden />
+                    )}
+                    <span>
+                      {p.name}
+                      {hasWeb && !p.is_gift_card && (
+                        <span className="mt-0.5 flex flex-wrap gap-1.5 text-[11px] font-normal">
+                          {p.brand && <span className="text-muted">{p.brand}</span>}
+                          {p.content_review && <span className="text-accent-soft">• Sjekk tekst</span>}
+                          {imgCount(p) === 0 && <span className="text-muted">• Mangler bilde</span>}
+                          {(p.online === false || !p.slug) && <span className="text-muted">• Ikke på nett</span>}
+                        </span>
+                      )}
+                    </span>
+                  </span>
+                </Td>
                 <Td className="font-display">{formatKr(p.price_nok)}</Td>
                 <Td muted>{p.stock}</Td>
                 <Td>
@@ -266,9 +323,21 @@ export function ProductManager({ products }: { products: AdminProduct[] }) {
                 </Td>
                 <Td align="right">
                   <span className="flex items-center justify-end gap-2">
+                    {hasWeb && !p.is_gift_card && (
+                      <button
+                        onClick={() => {
+                          setEditId(null);
+                          setWebId((id) => (id === p.id ? null : p.id));
+                        }}
+                        className={webId === p.id ? "act act-accent" : "act"}
+                      >
+                        {webId === p.id ? "Lukk" : "Nettbutikk"}
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         setRowErr(null);
+                        setWebId(null);
                         setEditId((id) => (id === p.id ? null : p.id));
                       }}
                       className={editId === p.id ? "act act-accent" : "act"}
@@ -285,6 +354,13 @@ export function ProductManager({ products }: { products: AdminProduct[] }) {
                   </span>
                 </Td>
               </Tr>
+              {webId === p.id && (
+                <Tr>
+                  <Td colSpan={7}>
+                    <WebProductEditor product={p} onDone={() => setWebId(null)} />
+                  </Td>
+                </Tr>
+              )}
               {editId === p.id && (
                 <Tr>
                   <Td colSpan={7}>
