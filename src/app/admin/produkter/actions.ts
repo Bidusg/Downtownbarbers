@@ -307,3 +307,53 @@ export async function saveWebshopSettings(v: WebshopForm): Promise<{ ok?: true; 
   revalidatePath("/butikk", "layout");
   return { ok: true };
 }
+
+/* =====================================================================
+ * Bilder fra leverandørkatalogen (Fixit / Cloudinary) → egen lagring.
+ *   Produktbildene ble hentet fra Fixit sin produktkatalog. Denne kopierer
+ *   dem over til vår egen lagring, så butikken ikke er avhengig av Fixit.
+ *   Tar noen om gangen (serverløse funksjoner har tidsgrense); knappen i
+ *   admin kaller den på nytt til alt er kopiert.
+ * ===================================================================== */
+const EXTERNAL_IMG = /^https:\/\/res\.cloudinary\.com\//;
+
+export async function copyExternalProductImages(): Promise<{ copied: number; remaining: number; failed: number; error?: string }> {
+  await requireRole(["admin"]);
+  const sb = await createClient();
+  const { data, error } = await sb.from("products").select("id, images, image_url").limit(1000);
+  if (error) return { copied: 0, remaining: 0, failed: 0, error: error.message };
+  const todo = ((data ?? []) as { id: string; images: string[] | null; image_url: string | null }[]).filter(
+    (p) => (p.images ?? []).some((u) => EXTERNAL_IMG.test(u)) || EXTERNAL_IMG.test(p.image_url ?? ""),
+  );
+  let copied = 0;
+  let failed = 0;
+  const started = Date.now();
+  for (const p of todo) {
+    if (Date.now() - started > 40_000) break;
+    const list = (p.images ?? []).length ? [...(p.images as string[])] : p.image_url ? [p.image_url] : [];
+    let ok = true;
+    for (let i = 0; i < list.length; i++) {
+      if (!EXTERNAL_IMG.test(list[i])) continue;
+      try {
+        const res = await fetch(list[i], { cache: "no-store" });
+        if (!res.ok) throw new Error(String(res.status));
+        const type = res.headers.get("content-type") || "image/jpeg";
+        const ext = type.includes("png") ? "png" : type.includes("webp") ? "webp" : "jpg";
+        const buf = new Uint8Array(await res.arrayBuffer());
+        const path = `products/${p.id}/fixit-${i}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
+        const up = await sb.storage.from(BUCKET).upload(path, buf, { contentType: type, upsert: false });
+        if (up.error) throw new Error(up.error.message);
+        list[i] = sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+      } catch {
+        ok = false;
+      }
+    }
+    const { error: upd } = await sb.from("products").update({ images: list, image_url: list[0] ?? null }).eq("id", p.id);
+    if (upd || !ok) failed++;
+    else copied++;
+  }
+  revalidatePath("/admin/produkter");
+  revalidatePath("/butikk", "layout");
+  const remaining = Math.max(0, todo.length - copied - failed);
+  return { copied, remaining, failed };
+}

@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import type { AdminProduct } from "@/lib/admin-queries";
-import { saveWebshopSettings, setProductImages, updateWebProduct, uploadProductImage } from "@/app/admin/produkter/actions";
+import { copyExternalProductImages, saveWebshopSettings, setProductImages, updateWebProduct, uploadProductImage } from "@/app/admin/produkter/actions";
 import { TAG_OPTIONS, TAXONOMY, deptOf, type WebshopSettings } from "@/lib/shop-shared";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -15,7 +15,52 @@ import { Button } from "@/components/ui/Button";
 const inp = "w-full rounded-lg border border-line-2 bg-canvas px-3 py-2 text-sm text-fg";
 const lbl = "block text-xs font-medium text-muted";
 
-export function WebshopSettingsCard({ settings, stats }: { settings: WebshopSettings; stats: { online: number; noImage: number; review: number } }) {
+/** Kopier produktbilder fra Fixit (Cloudinary) til vår egen lagring. */
+function CopyImagesButton({ external }: { external: number }) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  if (external === 0 && !msg) return null;
+  const run = async () => {
+    setBusy(true);
+    setMsg(null);
+    let total = 0;
+    let failed = 0;
+    for (let round = 0; round < 30; round++) {
+      const r = await copyExternalProductImages();
+      if (r.error) {
+        setMsg(`Feil: ${r.error}`);
+        break;
+      }
+      total += r.copied;
+      failed = r.failed;
+      setMsg(`Kopierer … ${total} produkter ferdig, ${r.remaining} igjen`);
+      if (r.remaining === 0 || r.copied === 0) {
+        setMsg(`Ferdig ✓ ${total} produkter har nå bildene lagret hos oss${failed ? ` (${failed} feilet – prøv igjen)` : ""}.`);
+        break;
+      }
+    }
+    setBusy(false);
+  };
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-surface-2/60 px-4 py-3 text-sm">
+      <span>
+        {external} produkter bruker bilder fra Fixit sin katalog. Lagre dem hos oss, så butikken ikke er avhengig av Fixit:
+      </span>
+      <Button onClick={run} disabled={busy} className="px-3 py-1.5 text-sm">
+        {busy ? "Kopierer …" : "Lagre bildene hos oss"}
+      </Button>
+      {msg && <span className="text-muted">{msg}</span>}
+    </div>
+  );
+}
+
+export function WebshopSettingsCard({
+  settings,
+  stats,
+}: {
+  settings: WebshopSettings;
+  stats: { online: number; noImage: number; review: number; external?: number };
+}) {
   const [v, setV] = useState({
     live: settings.live,
     shipping_nok: settings.shippingNok,
@@ -97,6 +142,7 @@ export function WebshopSettingsCard({ settings, stats }: { settings: WebshopSett
           Kortbetaling slås på med VIPPS_CARD_ENABLED=1 i Vercel når kort er aktivert i Vipps-avtalen.
         </span>
       </div>
+      <CopyImagesButton external={stats.external ?? 0} />
     </Card>
   );
 }
