@@ -36,7 +36,7 @@ export async function getConsentStats(): Promise<ConsentStats> {
   }
 }
 
-export type Segment = "all" | "gullkunder" | "inaktiv";
+export type Segment = "all" | "gullkunder" | "inaktiv" | `tier:${number}`;
 
 export const SEGMENTS: { key: Segment; label: string; hint: string }[] = [
   { key: "all", label: "Alle med samtykke", hint: "Alle som har sagt ja" },
@@ -92,6 +92,27 @@ export async function getMarketingRecipients(
     if (segment === "all" || base.length === 0) return base;
 
     const ids = new Set(base.map((r) => r.id));
+
+    // Kundeklubb-nivå («tier:<id>»): nivået regnes i databasen (forbruk +
+    // fullførte besøk + Fixit-besøk), samme regel som kundekortet.
+    if (segment.startsWith("tier:")) {
+      const tierId = Number(segment.slice(5));
+      if (!Number.isFinite(tierId)) return [];
+      const inTier = new Set<string>();
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await sb
+          .rpc("customers_in_tier", { p_tier: tierId })
+          .range(from, from + 999);
+        if (error || !data) break;
+        const rows = data as unknown[];
+        for (const x of rows) {
+          const id = typeof x === "string" ? x : String((x as Record<string, unknown>).customers_in_tier ?? "");
+          if (id) inTier.add(id);
+        }
+        if (rows.length < 1000) break;
+      }
+      return base.filter((r) => inTier.has(r.id));
+    }
 
     if (segment === "gullkunder") {
       const { data: sales } = await sb

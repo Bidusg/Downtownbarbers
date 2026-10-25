@@ -163,7 +163,7 @@ export default async function KundeKort({
               <div>
                 <p className="text-sm font-semibold text-fg">Kundeklubb</p>
                 <p className="text-xs text-muted">
-                  {nokFmt(membership.spend)} livstidsforbruk · {membership.visits} fullførte besøk
+                  {nokFmt(membership.spend)} forbruk · {membership.visits} besøk siste 12 mnd
                 </p>
               </div>
             </div>

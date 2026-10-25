@@ -76,7 +76,7 @@ function TierCard({
         <Field label="Farge (hex)">
           <Input name="color" defaultValue={tier.color ?? ""} placeholder="#E5E4E2" />
         </Field>
-        <Field label="Min. forbruk (kr, livstid)">
+        <Field label="Min. forbruk siste 12 mnd (kr)">
           <Input
             name="min_spend"
             type="number"
@@ -85,7 +85,7 @@ function TierCard({
             defaultValue={tier.minSpend}
           />
         </Field>
-        <Field label="Min. fullførte besøk">
+        <Field label="Min. besøk siste 12 mnd">
           <Input
             name="min_visits"
             type="number"
@@ -101,6 +101,33 @@ function TierCard({
             placeholder="Fritekst — vises til kunden på «min side»"
           />
         </Field>
+        <Field label="Rabatt på tjenester (%)">
+          <Input name="service_pct" type="number" min={0} max={100} step={1} defaultValue={tier.servicePct} />
+        </Field>
+        <Field label="Rabatt på produkter (%)">
+          <Input name="product_pct" type="number" min={0} max={100} step={1} defaultValue={tier.productPct} />
+        </Field>
+        <label className="flex items-start gap-2 text-sm text-fg sm:col-span-2">
+          <input type="checkbox" name="offpeak" defaultChecked={tier.serviceOffpeak} className="mt-0.5 accent-[#F47721]" />
+          <span>
+            Tjenesterabatt bare hverdager før kl. 15
+            <span className="block text-xs text-muted">
+              Rabatten gjelder timer mandag–fredag som starter før kl. 15 – når stolene ellers står ledige.
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-2 text-sm text-fg sm:col-span-2">
+          <input type="checkbox" name="crisis" defaultChecked={tier.crisis} className="mt-0.5 accent-[#F47721]" />
+          <span>
+            Kan be om krisetime
+            <span className="block text-xs text-muted">
+              Kunden ser «Be om krisetime» i bookingen og forespørselen kommer øverst i kassa.
+            </span>
+          </span>
+        </label>
+        <p className="text-xs text-muted sm:col-span-2">
+          Rabatten trekkes automatisk i kassa når kunden var innlogget da timen ble booket.
+        </p>
 
         <div className="flex flex-wrap items-center gap-4 sm:col-span-2">
           <Button type="submit" className="px-4 py-2 text-sm">
@@ -163,10 +190,10 @@ function AddTierForm() {
           <Field label="Farge (hex)">
             <Input name="color" placeholder="#E5E4E2" />
           </Field>
-          <Field label="Min. forbruk (kr, livstid)">
+          <Field label="Min. forbruk siste 12 mnd (kr)">
             <Input name="min_spend" type="number" min={0} step={100} defaultValue={0} />
           </Field>
-          <Field label="Min. fullførte besøk">
+          <Field label="Min. besøk siste 12 mnd">
             <Input name="min_visits" type="number" min={0} step={1} defaultValue={0} />
           </Field>
           <Field label="Medlemsgode" className="sm:col-span-2">

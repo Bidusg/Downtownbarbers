@@ -11,6 +11,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { osloToUtcISO } from "@/lib/oslo-time";
 import { getUserRole, isAdminRole, requireRole } from "@/lib/auth";
 import { getLoyaltyStatus } from "@/lib/loyalty-queries";
+import { bookingMember, memberDiscountFor, type BookingMember } from "@/lib/member";
 import { getShopContext } from "@/lib/shop-settings";
 
 /** Venn/familie-salgstype (0054). Tagges på salget for bruk/hyppighet. */
@@ -330,11 +331,14 @@ export async function completeBooking(
   const giftCode = o.gift?.code?.trim() || null;
   const giftAmount =
     o.gift && typeof o.gift.amount === "number" && o.gift.amount > 0 ? Math.round(o.gift.amount) : null;
+  // Kundeklubb-rabatt (innlogget kunde som booket): regnes her på serveren
+  // og legges til rabatten automatisk – uavhengig av kassa-rabattbryterne.
+  const member = await memberDiscountFor(sb, bookingId, products);
   const { data: saleId, error: saleErr } = await sb.rpc("record_sale", {
     p_booking: bookingId,
     p_payment_method: o.paymentMethod ?? null,
     p_products: products,
-    p_discount: discountNok,
+    p_discount: discountNok + member.nok,
     p_payments: payments.length > 0 ? payments : null,
     p_campaign: o.campaignId || null,
     ...(giftCode ? { p_gift_code: giftCode, p_gift_amount: giftAmount } : {}),
@@ -361,6 +365,18 @@ export async function completeBooking(
   }
 
   // --- Alt under er best-effort. Salget er allerede trygt registrert. ---
+
+  // Merk salget med kundeklubb-nivå og rabatt (rapporter/revisor).
+  if (member.nok > 0 && typeof saleId === "string") {
+    try {
+      await createServiceClient()
+        .from("sales")
+        .update({ member_tier: member.tier, member_discount_nok: member.nok })
+        .eq("id", saleId);
+    } catch {
+      // best-effort
+    }
+  }
 
   // Venn/familie-tag på salget (0054) – kun når venn/familie er på (unngå at
   // en manipulert forespørsel forurenser rapporten). Service-rolle fordi sales
@@ -831,6 +847,14 @@ export type BookingServiceState = {
 };
 
 /** Gjeldende behandling + tillegg + pris for en booking (til «endre behandling»). */
+/** Kundeklubb-rabatt lagret på timen (vises i kassa og trekkes automatisk). */
+export async function getBookingMember(bookingId: string): Promise<BookingMember | null> {
+  await requireRole(["shop", "admin"]);
+  if (!bookingId) return null;
+  const sb = await createClient();
+  return bookingMember(sb, bookingId);
+}
+
 export async function getBookingServiceState(
   bookingId: string,
 ): Promise<BookingServiceState> {

@@ -16,7 +16,7 @@ export default async function AdminKundeklubb() {
     <div className="mx-auto max-w-4xl space-y-8">
       <PageHeader
         title="Kundeklubb"
-        description="Medlemsnivåer utledes automatisk av kundens livstidsforbruk og antall fullførte besøk. En kunde får det høyeste nivået der forbruket eller antall besøk er over terskelen. Ingen poeng, ingen manuell tildeling. Du kan legge til nye topp-nivåer (f.eks. Platinum), slette nivåer og endre rekkefølgen selv — uten hjelp fra utvikler."
+        description="Nivået regnes automatisk av kundens aktivitet de siste 12 månedene: fullførte besøk (Fixit-besøk regnet om til et snitt per år fram til oktober 2027) eller forbruk. Kunden får det høyeste nivået der én av tersklene er nådd. Kunder som var Platinum etter gammel regel, beholder Platinum ut 2026. Rabattene trekkes automatisk i kassa når kunden var innlogget da timen ble booket."
       />
 
       {/* Antall kunder per nivå */}

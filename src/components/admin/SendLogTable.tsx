@@ -21,6 +21,12 @@ const SEG_LABEL: Record<string, string> = {
   filter: "Filter (kundefilter)",
 };
 
+function segLabel(seg: string | null | undefined): string {
+  if (!seg) return "—";
+  if (seg.startsWith("tier:")) return "Kundeklubb-nivå";
+  return SEG_LABEL[seg] ?? seg;
+}
+
 function fmt(iso: string) {
   try {
     return new Date(iso).toLocaleString("nb-NO", {
@@ -243,7 +249,7 @@ export function SendLogTable({
                       )}
                     </span>
                   </Td>
-                  <Td muted>{SEG_LABEL[s.segment ?? ""] ?? s.segment ?? "—"}</Td>
+                  <Td muted>{segLabel(s.segment)}</Td>
                   <Td>
                     <StatusCell s={s} />
                   </Td>
@@ -277,7 +283,7 @@ export function SendLogTable({
                   <span className="whitespace-nowrap">{fmt(s.created_at)}</span>
                   <SendPreviewButton sendId={s.id} subject={s.subject} />
                   <span className="text-fg">{s.subject}</span>
-                  <span>{SEG_LABEL[s.segment ?? ""] ?? s.segment ?? "—"}</span>
+                  <span>{segLabel(s.segment)}</span>
                   <span className="tabular-nums">
                     {s.total ? `${s.recipient_count} / ${s.total}` : s.recipient_count}
                   </span>

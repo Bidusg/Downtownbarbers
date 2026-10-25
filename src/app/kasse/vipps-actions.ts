@@ -1,5 +1,6 @@
 "use server";
 
+import { memberDiscountFor } from "@/lib/member";
 import { createClient } from "@/lib/supabase/server";
 import { getUserRole } from "@/lib/auth";
 import {
@@ -73,7 +74,9 @@ async function computeNetOre(
     }
   }
 
-  const discount = Math.min(Math.max(0, Math.round(discountNok || 0)), Math.round(gross));
+  // Kundeklubb-rabatt trekkes automatisk (samme som i completeBooking).
+  const member = await memberDiscountFor(sb, bookingId, clean.map((p) => ({ id: p.id, qty: p.qty })));
+  const discount = Math.min(Math.max(0, Math.round(discountNok || 0)) + member.nok, Math.round(gross));
   const net = Math.round(gross) - discount;
   return { ore: Math.round(net * 100) };
 }

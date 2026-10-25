@@ -1,5 +1,6 @@
 "use server";
 
+import { getCustomerToken } from "@/lib/customer-session";
 import { randomUUID } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { getPublicBarbers } from "@/lib/queries";
@@ -382,6 +383,16 @@ export async function createBookingGroup(
       p_booking: first,
     });
     if (cToken) cancelUrl = `${base}/avbestill/${cToken}`;
+
+    // Innlogget kunde: merk timene med kundeklubb-nivå og rabatt, så kassa
+    // trekker rabatten automatisk. Databasen sjekker at timene faktisk
+    // tilhører den innloggede kunden.
+    try {
+      const token = await getCustomerToken();
+      if (token) await sb.rpc("mark_member_booking", { p_token: token, p_bookings: created });
+    } catch {
+      /* SQL ikke kjørt ennå – vanlig pris */
+    }
 
     // Husk kundens språk (customers.lang) til påminnelser og kvitteringer.
     const lang = input.lang ? normLang(input.lang) : await getRequestLang();

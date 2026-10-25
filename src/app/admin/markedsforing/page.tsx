@@ -1,3 +1,4 @@
+import { getMembershipTiers } from "@/lib/membership-queries";
 import { StatTile } from "@/components/ui/StatTile";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -48,14 +49,22 @@ export default async function AdminMarkedsforing({
   searchParams: Promise<{ sendt?: string; startet?: string; feil?: string; kanal?: string; utelatt?: string; detalj?: string }>;
 }) {
   const sp = await searchParams;
-  const [stats, sends, archived, inbound, staff, filterBarbers] = await Promise.all([
+  const [stats, sends, archived, inbound, staff, filterBarbers, tiers] = await Promise.all([
     getConsentStats(),
     getMarketingSends(50),
     getMarketingSends(100, { archived: true }),
     getRecentInbound(15),
     getStaffOptions(),
     getFilterBarbers(),
+    getMembershipTiers(),
   ]);
+  // Kundeklubb-nivåer som egne mottakergrupper (høyeste nivå først).
+  const segmentOptions = [
+    ...SEGMENTS,
+    ...[...tiers]
+      .sort((a, b) => b.sortOrder - a.sortOrder)
+      .map((t) => ({ key: `tier:${t.id}`, label: `Kundeklubb: ${t.name}`, hint: "alle på dette nivået" })),
+  ];
   // Pågående utsending? Da oppdaterer siden seg selv, og står den stille
   // (ingen fremdrift på 30 s) dyttes bakgrunnsjobben i gang igjen.
   const active = sends.some((x) => x.status === "queued" || x.status === "sending");
@@ -175,7 +184,7 @@ export default async function AdminMarkedsforing({
             </label>
           </div>
         </div>
-        <SegmentPicker segments={SEGMENTS} barbers={filterBarbers} />
+        <SegmentPicker segments={segmentOptions} barbers={filterBarbers} />
         <EmailBarberPicker
           staff={staff.map((st) => ({ id: st.id, name: st.full_name, title: st.title }))}
         />

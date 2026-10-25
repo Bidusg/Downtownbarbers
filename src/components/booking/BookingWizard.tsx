@@ -1,6 +1,8 @@
 "use client";
 
 import { ScrollRow } from "@/components/booking/ScrollRow";
+import { CrisisRequest } from "@/components/booking/CrisisRequest";
+import type { MemberProfile } from "@/lib/member";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { trackBookingComplete, trackBookingStart } from "@/lib/track";
 import { getCartSlots, createBookingGroup, findNextCartSlot } from "@/app/booking/cart-actions";
@@ -126,6 +128,7 @@ export function BookingWizard({
   initialBarberName,
   address = "",
   phoneNumber = "",
+  member = null,
 }: {
   services: WizService[];
   barbers: WizBarber[];
@@ -138,6 +141,8 @@ export function BookingWizard({
   initialBarberName?: string;
   address?: string;
   phoneNumber?: string;
+  /** Innlogget kunde (kundekonto): ferdig utfylt + kundeklubb-pris + krisetime. */
+  member?: MemberProfile | null;
 }) {
   const { lang, t, tc: tcx } = useLanguage();
   const locale = lang === "en" ? "en-GB" : "nb-NO";
@@ -256,6 +261,19 @@ export function BookingWizard({
       setPhone(who.phone ?? "");
       if (who.cc) setCountryCode(who.cc);
       setRemembered(true);
+    }
+    // Innlogget kunde: kontaktinfo fra kundekontoen går foran det som er
+    // husket på enheten.
+    if (member) {
+      if (member.name) setName(member.name);
+      if (member.email) setEmail(member.email);
+      const ph = (member.phone ?? "").replace(/\s/g, "");
+      const no = ph.replace(/^(\+47|0047)/, "");
+      if (/^\d{8}$/.test(no)) {
+        setPhone(no);
+        setCountryCode("+47");
+      }
+      setRemembered(false);
     }
     setRestored(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -384,6 +402,18 @@ export function BookingWizard({
     };
   };
   const cartTotal = cart.reduce((s, it) => s + linePrice(it).value, 0);
+  // Kundeklubb-rabatt på tjenester (bare innloggede; kassa trekker den automatisk).
+  const memberPct = member && member.servicePct > 0 ? member.servicePct : 0;
+  // «Bare ledige tider»: rabatten gjelder man–fre med start før kl. 15.
+  const offpeakOk = (iso: string, hhmm: string) => {
+    if (!iso || !hhmm) return false;
+    const [y, m, d] = iso.split("-").map(Number);
+    const dow = new Date(Date.UTC(y, (m || 1) - 1, d || 1)).getUTCDay(); // 0 = søndag
+    return dow >= 1 && dow <= 5 && hhmm < "15:00";
+  };
+  const memberApplies = memberPct > 0 && (!member?.serviceOffpeak || offpeakOk(date, time));
+  const memberDisc = memberApplies ? Math.round((cartTotal * memberPct) / 100) : 0;
+  const payTotal = cartTotal - memberDisc;
   const anyEstimate = cart.some((it) => linePrice(it).estimate);
   const lineMin = (it: CartItem) => durMin(it.service.duration) + addonsMinutes(it.addons);
   const cartMinutes =
@@ -908,7 +938,12 @@ export function BookingWizard({
                   </p>
                   <p className="text-lg font-semibold tracking-tight tabular-nums">
                     {anyEstimate ? t("common.from") : ""}
-                    {nok(cartTotal)}
+                    {nok(payTotal)}
+                    {memberPct > 0 && (
+                      <span className="ml-2 text-[13px] font-medium text-canvas/70">
+                        {member?.tierName} −{memberPct} %{member?.serviceOffpeak ? ` ${t("wiz.offpeakShort")}` : ""}
+                      </span>
+                    )}
                   </p>
                 </div>
                 <button type="button" onClick={() => goStep(1)} className="pill pill-primary">
@@ -1161,6 +1196,16 @@ export function BookingWizard({
         </div>
       )}
 
+      {/* Krisetime for kundeklubb-nivåer som har det (f.eks. Platinum). */}
+      {step === 1 && member?.crisis && (
+        <div className="mt-10">
+          <CrisisRequest
+            tierName={member.tierName ?? ""}
+            service={cart.map((it) => it.service.name).join(" + ")}
+          />
+        </div>
+      )}
+
       {/* ======================= STEG 3: BEKREFT ========================== */}
       {step === 2 && (
         <form onSubmit={submit} noValidate className="relative space-y-6">
@@ -1195,17 +1240,38 @@ export function BookingWizard({
                 );
               })}
             </ul>
+            {memberDisc > 0 && (
+              <div className="mt-3 flex items-baseline justify-between border-t border-line pt-3 text-[15px]">
+                <span className="text-fg">
+                  {member?.tierName}-{t("wiz.memberPrice")}{" "}
+                  <span className="text-muted">(−{memberPct} %)</span>
+                </span>
+                <span className="tabular-nums text-fg">−{nok(memberDisc)}</span>
+              </div>
+            )}
+            {memberPct > 0 && !memberApplies && (
+              <p className="mt-3 border-t border-line pt-3 text-[13px] text-muted">
+                {member?.tierName}: {t("wiz.offpeakNote").replace("{pct}", String(memberPct))}
+              </p>
+            )}
             <div className="mt-3 flex items-baseline justify-between border-t border-line pt-3">
               <span className="font-medium text-fg">{t("wiz.total")}</span>
               <span className="text-lg font-semibold tracking-tight tabular-nums text-fg">
                 {anyEstimate ? t("common.from") : ""}
-                {nok(cartTotal)}
+                {nok(payTotal)}
               </span>
             </div>
             {anyEstimate && <p className="mt-1 text-[13px] text-muted">{t("wiz.estimateNote")}</p>}
           </div>
 
-          {remembered && (
+          {member && (
+            <p className="text-[15px] text-muted">
+              {t("wiz.loggedInAs")} <span className="font-medium text-fg">{member.name || member.email}</span>
+              {member.tierName ? ` · ${member.tierName}` : ""}
+              {memberDisc > 0 ? ` · ${t("wiz.memberApplied")}` : ""}
+            </p>
+          )}
+          {!member && remembered && (
             <p className="text-[15px] text-muted">
               {t("wiz.remembered")}{" "}
               <button type="button" onClick={forgetMe} className="m-link">

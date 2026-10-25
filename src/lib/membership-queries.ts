@@ -17,6 +17,13 @@ export type MembershipTier = {
   benefit: string | null;
   color: string | null;
   sortOrder: number;
+  /** Automatisk rabatt for innloggede kunder som booker (MEDLEMSFORDELER-SQL). */
+  servicePct: number;
+  productPct: number;
+  /** Kan be om krisetime. */
+  crisis: boolean;
+  /** Tjenesterabatt bare man–fre før kl. 15. */
+  serviceOffpeak: boolean;
 };
 
 export type CustomerMembership = {
@@ -90,12 +97,20 @@ export async function getCustomerMembershipByToken(
 export async function getMembershipTiers(): Promise<MembershipTier[]> {
   try {
     const sb = await createClient();
-    const { data } = await sb
+    let { data, error } = await sb
       .from("membership_tiers")
-      .select("id, name, min_spend, min_visits, benefit, color, sort_order")
+      .select("id, name, min_spend, min_visits, benefit, color, sort_order, service_discount_pct, product_discount_pct, crisis_booking, service_offpeak_only")
       .order("sort_order", { ascending: true })
       .order("id", { ascending: true });
-    return (data ?? []).map((t) => ({
+    if (error) {
+      // Fordels-kolonnene finnes ikke ennå (SQL ikke kjørt).
+      ({ data, error } = await sb
+        .from("membership_tiers")
+        .select("id, name, min_spend, min_visits, benefit, color, sort_order")
+        .order("sort_order", { ascending: true })
+        .order("id", { ascending: true }) as unknown as { data: typeof data; error: typeof error });
+    }
+    return ((data ?? []) as Record<string, unknown>[]).map((t) => ({
       id: Number(t.id),
       name: t.name as string,
       minSpend: Number(t.min_spend) || 0,
@@ -103,6 +118,10 @@ export async function getMembershipTiers(): Promise<MembershipTier[]> {
       benefit: (t.benefit as string | null) ?? null,
       color: (t.color as string | null) ?? null,
       sortOrder: Number(t.sort_order) || 0,
+      servicePct: Number(t.service_discount_pct) || 0,
+      productPct: Number(t.product_discount_pct) || 0,
+      crisis: t.crisis_booking === true,
+      serviceOffpeak: t.service_offpeak_only !== false,
     }));
   } catch {
     return [];
@@ -140,6 +159,23 @@ async function fetchAllRows<T>(
 export async function getMembershipCounts(): Promise<MembershipCount[]> {
   try {
     const sb = await createClient();
+    // Ny regel (siste 12 mnd + Platinum-lås): tell i databasen.
+    try {
+      const [{ data: counts, error: cErr }, { data: tl }] = await Promise.all([
+        sb.rpc("membership_counts"),
+        sb
+          .from("membership_tiers")
+          .select("id, name, sort_order")
+          .order("sort_order", { ascending: true })
+          .order("id", { ascending: true }),
+      ]);
+      if (!cErr && Array.isArray(counts) && tl) {
+        const byId = new Map((counts as { tier_id: number; n: number }[]).map((r) => [Number(r.tier_id), Number(r.n)]));
+        return tl.map((t) => ({ tierId: Number(t.id), name: t.name as string, count: byId.get(Number(t.id)) ?? 0 }));
+      }
+    } catch {
+      /* gammel utregning under */
+    }
     const [tiersRes, totalRes, sales, bookings] = await Promise.all([
       sb
         .from("membership_tiers")

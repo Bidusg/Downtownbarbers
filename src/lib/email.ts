@@ -759,6 +759,40 @@ export async function sendContactAlert(opts: {
   );
 }
 
+/** Krisetime: en kundeklubb-kunde trenger time raskt (internt varsel). */
+export async function sendCrisisAlert(opts: {
+  to: string;
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  tier?: string | null;
+  service: string;
+  when: string;
+  note?: string | null;
+  kasseUrl: string;
+}): Promise<boolean> {
+  const rows: [string, string][] = [
+    ["Kunde", escapeHtml(opts.name)],
+    ["Nivå", escapeHtml(opts.tier ?? "—")],
+    ["Ønsker", escapeHtml(opts.service || "—")],
+    ["Når", escapeHtml(opts.when)],
+  ];
+  if (opts.phone)
+    rows.push([
+      "Telefon",
+      `<a href="tel:${escapeHtml(opts.phone.replace(/[^\d+]/g, ""))}" style="color:${C.cream};text-decoration:none">${escapeHtml(opts.phone)}</a>`,
+    ]);
+  if (opts.email) rows.push(["E-post", escapeHtml(opts.email)]);
+  if (opts.note) rows.push(["Melding", escapeHtml(opts.note)]);
+  const html = shell(
+    "Krisetime – ring kunden",
+    `${escapeHtml(opts.tier ?? "Medlem")}-kunde trenger time raskt. Finn en luke, ring kunden og legg inn timen i kassa.`,
+    rows,
+    ctaButton(opts.kasseUrl, "Åpne krisetimer i kassa"),
+  );
+  return sendEmail(opts.to, `Krisetime: ${opts.name} – ${opts.when}`, html, opts.email ?? undefined);
+}
+
 /** Kvittering til kunden: «Vi har fått meldingen din». */
 export async function sendContactReceipt(opts: { to: string; name: string; callback: boolean; lang?: Lang }): Promise<boolean> {
   const en = opts.lang === "en";

@@ -42,6 +42,19 @@ export async function saveTier(formData: FormData): Promise<void> {
     })
     .eq("id", id);
 
+  // Fordeler som virker automatisk (MEDLEMSFORDELER-SQL). Egen oppdatering,
+  // så resten lagres selv om kolonnene ikke finnes ennå.
+  const pct = (v: FormDataEntryValue | null) => Math.min(100, Math.max(0, Number(v) || 0));
+  await sb
+    .from("membership_tiers")
+    .update({
+      service_discount_pct: pct(formData.get("service_pct")),
+      product_discount_pct: pct(formData.get("product_pct")),
+      crisis_booking: formData.get("crisis") === "on",
+      service_offpeak_only: formData.get("offpeak") === "on",
+    })
+    .eq("id", id);
+
   revalidatePath("/admin/kundeklubb");
 }
 

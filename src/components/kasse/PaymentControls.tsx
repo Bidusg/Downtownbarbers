@@ -9,6 +9,7 @@ import {
   listSellableProducts,
   getKasseAllowances,
   getMemberCampaignOffersForBooking,
+  getBookingMember,
   type SellableProduct,
   type BookingLoyalty,
   type KasseAllowances,
@@ -21,6 +22,7 @@ import { startVippsCharge, pollVippsCharge } from "@/app/kasse/vipps-actions";
 import { CouponPicker, couponDiscount } from "@/components/kasse/CouponPicker";
 import { ServiceEditor } from "@/components/kasse/ServiceEditor";
 import { formatKr } from "@/lib/format";
+import { memberDiscountNok, type BookingMember } from "@/lib/member-shared";
 
 const PAYMENTS = ["Kontant", "Kort", "Vipps"];
 
@@ -131,6 +133,9 @@ export function PaymentControls({
   const [giftAmt, setGiftAmt] = useState("");
   const [giftLooking, startGift] = useTransition();
 
+  // Kundeklubb-rabatt fra bookingen (innlogget kunde) – trekkes automatisk.
+  const [member, setMember] = useState<BookingMember | null>(null);
+
   // Medlems-kuponger for bookingens kunde
   const [offers, setOffers] = useState<MemberCampaignOffer[]>([]);
   const [couponId, setCouponId] = useState<string | null>(null);
@@ -164,6 +169,7 @@ export function PaymentControls({
     getMemberCampaignOffersForBooking(bookingId).then(
       (o) => alive && setOffers(o),
     );
+    getBookingMember(bookingId).then((m) => alive && setMember(m));
     return () => {
       alive = false;
     };
@@ -213,7 +219,9 @@ export function PaymentControls({
   // Kupong-rabatt (visning). Serveren beregner det autoritative beløpet.
   const coupon = offers.find((o) => o.id === couponId) ?? null;
   const couponDisc = coupon ? couponDiscount(coupon, gross) : 0;
-  const totalDiscount = Math.min(discountNum + couponDisc, Math.round(gross));
+  // Samme utregning som serveren (lib/member: memberDiscountNok).
+  const memberDisc = memberDiscountNok(member, servicePrice ?? 0, productTotal);
+  const totalDiscount = Math.min(discountNum + couponDisc + memberDisc, Math.round(gross));
   const total = Math.max(0, Math.round(gross) - totalDiscount);
 
   // Splittbetaling: beløp per måte, sum, og om det stemmer med totalen.
@@ -434,6 +442,23 @@ export function PaymentControls({
 
   const totalBox = (
     <div className="mb-3 rounded-lg bg-canvas px-3 py-2">
+      {member && memberDisc > 0 && (
+        <div className="mb-1.5 flex items-center justify-between gap-2 rounded-md bg-accent-soft/12 px-2 py-1 text-xs">
+          <span className="font-semibold text-fg">
+            {member.tier}-pris
+            <span className="ml-1 font-normal text-muted">
+              ({[
+                member.servicePct > 0 ? `${member.servicePct} % tjenester` : "",
+                member.productPct > 0 ? `${member.productPct} % produkter` : "",
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+              )
+            </span>
+          </span>
+          <span className="font-semibold text-fg tabular-nums">−{formatKr(memberDisc)}</span>
+        </div>
+      )}
       {totalDiscount > 0 && (
         <div className="mb-1 flex items-center justify-between text-xs text-muted">
           <span>
