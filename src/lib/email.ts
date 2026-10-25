@@ -453,6 +453,8 @@ export type BookingConfirmationData = {
   /** Valgfritt: barberens tittel + bilde-URL (vises i barber-blokken). */
   barberTitle?: string;
   barberPhotoUrl?: string;
+  /** «moved» = kunden har flyttet timen selv. */
+  variant?: "moved";
 };
 
 async function renderBookingConfirmation(
@@ -486,11 +488,16 @@ async function renderBookingConfirmation(
   ];
   if (d.price) rows.push([w.price, escapeHtml(d.price)]);
   const first = escapeHtml(d.name.split(" ")[0] || w.there);
+  const moved = d.variant === "moved";
   const html = shell(
-    en ? "Your appointment is confirmed" : "Timen din er bekreftet",
-    en
-      ? `Hi ${first}, we look forward to seeing you. Here are the details:`
-      : `Hei ${first}, vi gleder oss til å se deg. Her er detaljene:`,
+    moved ? (en ? "Your appointment has been moved" : "Timen din er flyttet") : en ? "Your appointment is confirmed" : "Timen din er bekreftet",
+    moved
+      ? en
+        ? `Hi ${first}, your appointment has been moved. Here is your new time:`
+        : `Hei ${first}, timen din er flyttet. Her er den nye tiden:`
+      : en
+        ? `Hi ${first}, we look forward to seeing you. Here are the details:`
+        : `Hei ${first}, vi gleder oss til å se deg. Her er detaljene:`,
     rows,
     portalLink + cancelLink,
     {
@@ -500,7 +507,13 @@ async function renderBookingConfirmation(
     },
   );
   return {
-    subject: en ? "Your appointment at Downtown Barbers is confirmed" : "Din time hos Downtown Barbers er bekreftet",
+    subject: moved
+      ? en
+        ? "Your appointment has been moved – Downtown Barbers"
+        : "Ny tid for timen din – Downtown Barbers"
+      : en
+        ? "Your appointment at Downtown Barbers is confirmed"
+        : "Din time hos Downtown Barbers er bekreftet",
     html,
   };
 }
@@ -966,12 +979,14 @@ export async function sendOrderUpdate(
   o: {
     orderNo: number;
     name: string;
-    kind: "ready" | "shipped";
+    kind: "ready" | "shipped" | "cancelled" | "picked_up";
     trackingNo?: string | null;
     orderUrl: string;
     /** Varer som manglet og er tatt ut av ordren («1 × Beard Balm»). */
     missing?: string[];
     totalNok?: number;
+    /** Kansellert: var beløpet reservert i Vipps (frigjøres)? */
+    reserved?: boolean;
   },
 ): Promise<boolean> {
   const first = escapeHtml(o.name.split(" ")[0] || "der");
@@ -981,27 +996,38 @@ export async function sendOrderUpdate(
           o.totalNok != null ? `. Ny total: ${o.totalNok.toLocaleString("nb-NO")} kr` : ""
         }. Du betaler bare for det du får.`
       : "";
-  const html =
-    o.kind === "ready"
-      ? shell(
-          "Ordren din er klar til henting",
-          `Hei ${first}! Ordre #${o.orderNo} ligger klar i salongen i ${escapeHtml(salon.address)}. Ta med ordrenummeret når du kommer.${missingText}`,
-          [],
-          ctaButton(o.orderUrl, "Se ordren"),
-        )
-      : shell(
-          "Ordren din er sendt",
-          `Hei ${first}! Ordre #${o.orderNo} er på vei.${o.trackingNo ? ` Sporingsnummer: ${escapeHtml(o.trackingNo)}.` : ""}`,
-          [],
-          o.trackingNo
-            ? ctaButton(`https://sporing.posten.no/sporing/${encodeURIComponent(o.trackingNo)}`, "Spor pakken")
-            : ctaButton(o.orderUrl, "Se ordren"),
-        );
-  return sendEmail(
-    to,
-    o.kind === "ready" ? `Ordre #${o.orderNo} er klar til henting` : `Ordre #${o.orderNo} er sendt`,
-    html,
-  );
+  const total = o.totalNok != null ? `${o.totalNok.toLocaleString("nb-NO")} kr` : "";
+  const T = {
+    ready: {
+      h: "Ordren din er klar til henting",
+      p: `Hei ${first}! Ordre #${o.orderNo} ligger klar i salongen i ${escapeHtml(salon.address)}. Ta med ordrenummeret når du kommer.${missingText}`,
+      cta: ctaButton(o.orderUrl, "Se ordren"),
+      s: `Ordre #${o.orderNo} er klar til henting`,
+    },
+    shipped: {
+      h: "Ordren din er sendt",
+      p: `Hei ${first}! Ordre #${o.orderNo} er på vei.${o.trackingNo ? ` Sporingsnummer: ${escapeHtml(o.trackingNo)}.` : ""}`,
+      cta: o.trackingNo
+        ? ctaButton(`https://sporing.posten.no/sporing/${encodeURIComponent(o.trackingNo)}`, "Spor pakken")
+        : ctaButton(o.orderUrl, "Se ordren"),
+      s: `Ordre #${o.orderNo} er sendt`,
+    },
+    picked_up: {
+      h: "Takk for handelen!",
+      p: `Hei ${first}! Ordre #${o.orderNo} er hentet${total ? ` og betalt (${total})` : ""}. Kvitteringen ligger på ordresiden.`,
+      cta: ctaButton(o.orderUrl, "Se kvitteringen"),
+      s: `Kvittering for ordre #${o.orderNo} – Downtown Barbers`,
+    },
+    cancelled: {
+      h: "Ordren din er kansellert",
+      p: `Hei ${first}! Ordre #${o.orderNo} er kansellert.${
+        o.reserved ? " Beløpet som var reservert i Vipps er frigjort – ingenting er trukket." : " Ingenting er trukket."
+      } Lurer du på noe, er det bare å ringe oss.`,
+      cta: ctaButton(`${siteUrl()}/butikk`, "Til nettbutikken"),
+      s: `Ordre #${o.orderNo} er kansellert`,
+    },
+  }[o.kind];
+  return sendEmail(to, T.s, shell(T.h, T.p, [], T.cta));
 }
 
 /** Kvittering til kunden: «Vi har fått meldingen din». */
@@ -1020,6 +1046,118 @@ export async function sendContactReceipt(opts: { to: string; name: string; callb
   return sendEmail(
     opts.to,
     en ? "We've received your message – Downtown Barbers" : "Vi har fått meldingen din – Downtown Barbers",
+    html,
+  );
+}
+
+/* ---- Bekreftelser på kundens egne handlinger ----------------------------
+ * Alt kunden gjør selv (avbestille, flytte, melde seg av, be om krisetime)
+ * bekreftes på e-post, så de vet at det gikk gjennom.
+ * ------------------------------------------------------------------------ */
+
+/** Avbestilt / flyttet time. date = ISO-tid. */
+export async function sendBookingChange(opts: {
+  to: string;
+  kind: "cancelled" | "moved";
+  name: string;
+  service: string;
+  barber: string;
+  date: string;
+  time: string;
+  portalUrl?: string;
+  cancelUrl?: string;
+  barberTitle?: string;
+  barberPhotoUrl?: string;
+  lang?: Lang;
+}): Promise<boolean> {
+  const lang: Lang = opts.lang === "en" ? "en" : "no";
+  if (opts.kind === "moved") {
+    const { to, kind: _kind, lang: _l, ...d } = opts;
+    void _kind;
+    void _l;
+    return sendLocalized("bc", to, { ...d, variant: "moved" }, lang);
+  }
+  const en = lang === "en";
+  const w = tx(lang);
+  const first = escapeHtml(opts.name.split(" ")[0] || w.there);
+  const html = shell(
+    en ? "Your appointment is cancelled" : "Timen din er avbestilt",
+    en
+      ? `Hi ${first}, this confirms that your appointment has been cancelled. You don't need to do anything else.`
+      : `Hei ${first}, dette bekrefter at timen din er avbestilt. Du trenger ikke gjøre noe mer.`,
+    [
+      [w.service, escapeHtml(await serviceText(opts.service, lang, w.appointment))],
+      [w.barber, escapeHtml(await staffDisplayName(opts.barber))],
+      [w.date, escapeHtml(dayText(opts.date, lang))],
+      [w.time, escapeHtml(opts.time)],
+    ],
+    ctaButton(`${siteUrl()}/booking`, en ? "Book a new time" : "Bestill ny time"),
+    { lang },
+  );
+  return sendEmail(
+    opts.to,
+    en ? "Your appointment is cancelled – Downtown Barbers" : "Timen din er avbestilt – Downtown Barbers",
+    html,
+  );
+}
+
+/** «Du er meldt av» – etter avmeldingslenke, Gmail sin «Meld av» eller SMS STOPP. */
+export async function sendUnsubscribeConfirmation(opts: {
+  to: string;
+  name?: string | null;
+  channel: "email" | "sms";
+  lang?: Lang;
+}): Promise<boolean> {
+  const en = opts.lang === "en";
+  const first = escapeHtml((opts.name ?? "").split(" ")[0] || (en ? "there" : "der"));
+  const via = opts.channel === "sms" ? (en ? " (you replied STOP by text)" : " (du svarte STOPP på SMS)") : "";
+  const html = shell(
+    en ? "You're unsubscribed" : "Du er meldt av",
+    en
+      ? `Hi ${first}, you will no longer receive news and offers from Downtown Barbers${via}. You'll still get messages about your own appointments and orders, like confirmations and reminders.`
+      : `Hei ${first}, du får ikke lenger nyheter og tilbud fra Downtown Barbers${via}. Du får fortsatt meldinger om dine egne timer og ordrer, som bekreftelser og påminnelser.`,
+    [],
+    `<p style="color:${C.muted};font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;margin:8px 0 0">
+      ${
+        en
+          ? "Changed your mind? Tick the newsletter box next time you book, or just tell us in the salon."
+          : "Ombestemt deg? Kryss av for nyhetsbrev neste gang du booker, eller si fra i salongen."
+      }
+    </p>`,
+    { lang: opts.lang },
+  );
+  return sendEmail(
+    opts.to,
+    en ? "You're unsubscribed – Downtown Barbers" : "Du er meldt av nyhetsbrevet – Downtown Barbers",
+    html,
+  );
+}
+
+/** Kvittering på krisetime-forespørsel. */
+export async function sendCrisisReceipt(opts: {
+  to: string;
+  name: string;
+  service: string;
+  when: string;
+  lang?: Lang;
+}): Promise<boolean> {
+  const en = opts.lang === "en";
+  const first = escapeHtml(opts.name.split(" ")[0] || (en ? "there" : "der"));
+  const html = shell(
+    en ? "We've got your request" : "Vi har fått forespørselen din",
+    en
+      ? `Hi ${first}, we've received your request for an emergency appointment and will call or text you as soon as we find a time.`
+      : `Hei ${first}, vi har fått forespørselen din om krisetime, og ringer eller sender SMS så snart vi finner en tid.`,
+    [
+      [en ? "Service" : "Tjeneste", escapeHtml(opts.service)],
+      [en ? "Wish" : "Ønske", escapeHtml(opts.when)],
+    ],
+    "",
+    { lang: opts.lang },
+  );
+  return sendEmail(
+    opts.to,
+    en ? "We've received your request – Downtown Barbers" : "Vi har fått forespørselen din – Downtown Barbers",
     html,
   );
 }

@@ -5,6 +5,7 @@ import { T, TDyn } from "@/lib/i18n/T";
 import { PortalDate } from "@/components/portal/PortalDate";
 import { PublicPage } from "@/components/site/PublicPage";
 import { CancelSubmit } from "./CancelSubmit";
+import { notifyCancelByToken } from "@/lib/customer-notices";
 import { PUBLIC_VIEWPORT } from "@/lib/public-viewport";
 
 export const dynamic = "force-dynamic";
@@ -23,9 +24,15 @@ async function cancelAction(formData: FormData) {
   "use server";
   const token = String(formData.get("token") ?? "");
   const sb = await createClient();
+  // Hent timen først, så vi kan sende «Timen din er avbestilt».
+  const { data: before } = await sb.rpc("get_booking_by_token", { p_token: token });
   const { data: status } = await sb.rpc("cancel_booking_by_token", {
     p_token: token,
   });
+  if (status === "ok") {
+    const b = (Array.isArray(before) ? before[0] : before) as BookingRow | null;
+    if (b) await notifyCancelByToken({ start_at: b.start_at, customer_name: b.customer_name });
+  }
   redirect(`/avbestill/${token}?status=${status ?? "not_found"}`);
 }
 

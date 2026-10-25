@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { notifyBookingChange } from "@/lib/customer-notices";
 
 const TOKEN_RE = /^[0-9a-f-]{36}$/i;
 
@@ -19,6 +20,7 @@ export async function portalCancel(
     });
     if (error) return { status: "error" };
     revalidatePath(`/min-side/${token}`);
+    if (data === "ok") await notifyBookingChange(bookingId, "cancelled");
     return { status: String(data ?? "not_found") };
   } catch {
     return { status: "error" };
@@ -64,6 +66,7 @@ export async function portalReschedule(
     });
     if (error) return { status: "error" };
     revalidatePath(`/min-side/${token}`);
+    if (data === "ok") await notifyBookingChange(bookingId, "moved");
     return { status: String(data ?? "error") };
   } catch {
     return { status: "error" };

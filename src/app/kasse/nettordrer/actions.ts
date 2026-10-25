@@ -174,12 +174,18 @@ export async function completeOrder(id: string, method: string | null, tracking:
     return { error: "Kunne ikke registrere salget. Prøv igjen." };
   }
 
-  if (o.delivery === "ship") {
-    try {
-      await sendOrderUpdate(o.email, { orderNo: o.order_no, name: o.name, kind: "shipped", trackingNo: tr, orderUrl: orderUrl(o.id, o.access_token) });
-    } catch {
-      /* beste innsats */
-    }
+  try {
+    const { data: fresh } = await sb.from("online_orders").select("total_nok").eq("id", id).maybeSingle();
+    await sendOrderUpdate(o.email, {
+      orderNo: o.order_no,
+      name: o.name,
+      kind: o.delivery === "ship" ? "shipped" : "picked_up",
+      trackingNo: tr,
+      orderUrl: orderUrl(o.id, o.access_token),
+      totalNok: fresh ? Number((fresh as { total_nok: number }).total_nok) : Number(o.total_nok),
+    });
+  } catch {
+    /* beste innsats */
   }
   done();
   revalidatePath("/kasse/lager");
@@ -203,6 +209,17 @@ export async function cancelOrder(id: string): Promise<R> {
   }
   const { error } = await sb.rpc("cancel_online_order", { p_order: id });
   if (error) return { error: "Kunne ikke kansellere." };
+  try {
+    await sendOrderUpdate(o.email, {
+      orderNo: o.order_no,
+      name: o.name,
+      kind: "cancelled",
+      orderUrl: orderUrl(o.id, o.access_token),
+      reserved: o.payment_status === "authorized",
+    });
+  } catch {
+    /* beste innsats */
+  }
   done();
   revalidatePath("/kasse/lager");
   return { ok: true };

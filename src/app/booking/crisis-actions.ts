@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getCustomerToken } from "@/lib/customer-session";
-import { sendCrisisAlert } from "@/lib/email";
+import { sendCrisisAlert, sendCrisisReceipt } from "@/lib/email";
 import { getSiteSettings } from "@/lib/site-settings";
 import { siteUrl } from "@/lib/site-url";
 
@@ -73,6 +73,16 @@ export async function requestCrisisTime(input: {
           when: `${DAY[String(r.wish_day)] ?? "I dag"}, ${TIME[String(r.wish_time)] ?? "når som helst"}`,
           note: (r.note as string | null) ?? null,
           kasseUrl: `${siteUrl()}/kasse/krisetimer`,
+        });
+      }
+      // Kvittering til kunden.
+      const custEmail = (r.email as string | null)?.trim();
+      if (custEmail) {
+        await sendCrisisReceipt({
+          to: custEmail,
+          name: String(r.name ?? ""),
+          service: String(r.service ?? ""),
+          when: `${DAY[String(r.wish_day)] ?? "I dag"}, ${TIME[String(r.wish_time)] ?? "når som helst"}`,
         });
       }
     }

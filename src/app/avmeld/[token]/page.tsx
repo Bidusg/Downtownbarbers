@@ -5,6 +5,7 @@ import { T } from "@/lib/i18n/T";
 import { PublicPage, MessageTile } from "@/components/site/PublicPage";
 import { PUBLIC_VIEWPORT } from "@/lib/public-viewport";
 import { UnsubscribeSubmit } from "./UnsubscribeSubmit";
+import { unsubscribeWithReceipt } from "@/lib/customer-notices";
 
 export const dynamic = "force-dynamic";
 export const viewport = PUBLIC_VIEWPORT;
@@ -13,8 +14,17 @@ export const metadata = { title: "Meld av | Downtown Barbers", robots: { index: 
 async function unsubscribe(formData: FormData) {
   "use server";
   const token = String(formData.get("token") ?? "");
-  const sb = await createClient();
-  const { data } = await sb.rpc("marketing_unsubscribe", { p_token: token });
+  let data: string | null = null;
+  if (/^[0-9a-f-]{36}$/i.test(token)) {
+    try {
+      // Melder av + sender «Du er meldt av» på e-post (første gang).
+      data = await unsubscribeWithReceipt(token);
+    } catch {
+      const sb = await createClient();
+      const r = await sb.rpc("marketing_unsubscribe", { p_token: token });
+      data = (r.data as string | null) ?? null;
+    }
+  }
   redirect(`/avmeld/${token}?done=${data ? "1" : "nf"}`);
 }
 

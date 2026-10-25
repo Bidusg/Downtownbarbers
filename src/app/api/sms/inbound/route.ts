@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { classifyInbound } from "@/lib/sms";
+import { classifyInbound, sendSms } from "@/lib/sms";
+import { notifySmsStop } from "@/lib/customer-notices";
 
 /**
  * Innkommende SMS – leverandør-uavhengig webhook for A2P-svar (STOPP/START).
@@ -121,6 +122,21 @@ async function handle(req: NextRequest): Promise<NextResponse> {
       p_action: action,
     });
     const result = (data ?? {}) as { action?: string; matched?: number };
+    // Bekreft til kunden at STOPP/START er registrert (SMS + e-post ved STOPP).
+    if ((action === "stop" || action === "start") && (result.matched ?? 0) > 0) {
+      try {
+        await sendSms(
+          from,
+          action === "stop"
+            ? "Downtown Barbers: Du er meldt av nyheter og tilbud. Du får fortsatt bekreftelser og påminnelser om timene dine. Svar START for å melde deg på igjen."
+            : "Downtown Barbers: Du er meldt på nyheter og tilbud igjen. Svar STOPP for å melde deg av.",
+          { kind: "annet" },
+        );
+        if (action === "stop") await notifySmsStop(from);
+      } catch {
+        /* bekreftelsen er beste-innsats */
+      }
+    }
     return NextResponse.json({
       ok: true,
       action: result.action ?? action,
