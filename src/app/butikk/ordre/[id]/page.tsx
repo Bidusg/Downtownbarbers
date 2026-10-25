@@ -27,8 +27,59 @@ type Order = {
   payment_status: string;
   status: string;
   tracking_no: string | null;
-  items: { name: string; qty: number; unit_price_nok: number; line_total_nok: number }[];
+  picking_started_at?: string | null;
+  ready_at?: string | null;
+  completed_at?: string | null;
+  items: { name: string; qty: number; unit_price_nok: number; line_total_nok: number; picked_qty?: number; missing_qty?: number }[];
 };
+
+function fmtWhen(iso: string | null | undefined) {
+  if (!iso) return null;
+  try {
+    return new Date(iso).toLocaleString("nb-NO", { timeZone: "Europe/Oslo", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return null;
+  }
+}
+
+/** Fremdriften kunden ser: Mottatt → Plukkes → Klar → Hentet / Sendt. */
+function OrderTracker({ o }: { o: Order }) {
+  const pickup = o.delivery === "pickup";
+  const need = o.items.reduce((a, i) => a + (i.qty - (i.missing_qty ?? 0)), 0);
+  const got = o.items.reduce((a, i) => a + Math.min(i.picked_qty ?? 0, i.qty - (i.missing_qty ?? 0)), 0);
+  const stage = { new: 0, picking: 1, ready: 2, picked_up: 3, shipped: 3 }[o.status] ?? 0;
+  const steps = [
+    { label: "Mottatt", sub: fmtWhen(o.created_at) },
+    {
+      label: pickup ? "Vi plukker varene" : "Vi pakker",
+      sub: stage === 1 && need > 0 ? `${got} av ${need} varer funnet` : stage > 1 ? "Ferdig" : null,
+    },
+    { label: pickup ? "Klar til henting" : "Pakket", sub: fmtWhen(o.ready_at) },
+    { label: pickup ? "Hentet" : "Sendt", sub: fmtWhen(o.completed_at) },
+  ];
+  return (
+    <ol className="mt-8 grid grid-cols-4 gap-2" aria-label="Status for ordren">
+      {steps.map((st, k) => {
+        const done = k < stage || (k === stage && k === 3);
+        const now = k === stage && k !== 3;
+        return (
+          <li key={st.label} aria-current={now ? "step" : undefined} className="min-w-0">
+            <div
+              className={
+                "h-1.5 rounded-full " +
+                (done ? "bg-accent-soft" : now ? "bg-accent-soft/60 motion-safe:animate-pulse" : "bg-line")
+              }
+            />
+            <p className={"mt-2 text-[13px] leading-tight font-semibold " + (done || now ? "text-fg" : "text-muted")}>
+              {st.label}
+            </p>
+            {st.sub && (done || now) && <p className="mt-0.5 text-xs text-muted">{st.sub}</p>}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -56,7 +107,8 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   const pending = !paidOk && !failed;
 
   const statusText: Record<string, string> = {
-    new: o.delivery === "pickup" ? "Vi gjør ordren klar" : "Vi pakker ordren",
+    new: "Mottatt",
+    picking: o.delivery === "pickup" ? "Vi plukker varene" : "Vi pakker ordren",
     ready: "Klar til henting",
     picked_up: "Hentet – takk for handelen!",
     shipped: "Sendt",
@@ -65,7 +117,11 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
 
   return (
     <main className="mx-auto max-w-2xl px-5 pt-10 pb-24 sm:pt-16">
-      <OrderClient clearCart={paidOk && !failed} poll={pending} />
+      <OrderClient
+        clearCart={paidOk && !failed}
+        poll={pending}
+        live={!pending && !failed && ["new", "picking", "ready"].includes(o.status)}
+      />
 
       {failed ? (
         <>
@@ -107,6 +163,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
           {o.payment_method !== "pay_at_pickup" && (
             <p className="mt-2 text-sm text-muted">Beløpet er reservert i Vipps og trekkes først når ordren er utlevert eller sendt.</p>
           )}
+          <OrderTracker o={o} />
         </>
       )}
 
@@ -116,14 +173,23 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
           {!failed && <span className="rounded-full bg-canvas px-3 py-1 text-xs font-semibold">{statusText[o.status] ?? o.status}</span>}
         </div>
         <ul className="mt-4 divide-y divide-line text-sm">
-          {o.items.map((i, k) => (
-            <li key={k} className="flex justify-between gap-4 py-2.5">
-              <span>
-                {i.qty} × {i.name}
-              </span>
-              <span className="tabular-nums">{kr(Number(i.line_total_nok))}</span>
-            </li>
-          ))}
+          {o.items.map((i, k) => {
+            const miss = i.missing_qty ?? 0;
+            const left = i.qty - miss;
+            return (
+              <li key={k} className="flex justify-between gap-4 py-2.5">
+                <span className={left === 0 ? "text-muted line-through" : ""}>
+                  {left || i.qty} × {i.name}
+                  {miss > 0 && (
+                    <span className="block text-xs text-muted no-underline">
+                      {miss} stk var utsolgt og er tatt ut – du betaler ikke for {miss === 1 ? "den" : "dem"}.
+                    </span>
+                  )}
+                </span>
+                <span className="tabular-nums">{kr(Number(i.unit_price_nok) * left)}</span>
+              </li>
+            );
+          })}
         </ul>
         <dl className="mt-3 space-y-1.5 border-t border-line pt-3 text-sm">
           {Number(o.discount_nok) > 0 && (

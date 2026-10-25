@@ -911,14 +911,29 @@ export async function sendOrderAlert(to: string, o: OrderMail & { email: string;
 /** «Klar til henting» / «Sendt» til kunden. */
 export async function sendOrderUpdate(
   to: string,
-  o: { orderNo: number; name: string; kind: "ready" | "shipped"; trackingNo?: string | null; orderUrl: string },
+  o: {
+    orderNo: number;
+    name: string;
+    kind: "ready" | "shipped";
+    trackingNo?: string | null;
+    orderUrl: string;
+    /** Varer som manglet og er tatt ut av ordren («1 × Beard Balm»). */
+    missing?: string[];
+    totalNok?: number;
+  },
 ): Promise<boolean> {
   const first = escapeHtml(o.name.split(" ")[0] || "der");
+  const missingText =
+    o.missing && o.missing.length > 0
+      ? ` Beklager – ${escapeHtml(o.missing.join(", "))} var dessverre utsolgt og er tatt ut av ordren${
+          o.totalNok != null ? `. Ny total: ${o.totalNok.toLocaleString("nb-NO")} kr` : ""
+        }. Du betaler bare for det du får.`
+      : "";
   const html =
     o.kind === "ready"
       ? shell(
           "Ordren din er klar til henting",
-          `Hei ${first}! Ordre #${o.orderNo} ligger klar i salongen i ${escapeHtml(salon.address)}. Ta med ordrenummeret når du kommer.`,
+          `Hei ${first}! Ordre #${o.orderNo} ligger klar i salongen i ${escapeHtml(salon.address)}. Ta med ordrenummeret når du kommer.${missingText}`,
           [],
           ctaButton(o.orderUrl, "Se ordren"),
         )

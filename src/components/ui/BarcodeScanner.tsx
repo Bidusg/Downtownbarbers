@@ -28,9 +28,12 @@ const FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "qr_code"];
 export function BarcodeScanner({
   onScan,
   autoFocus = true,
+  continuous = false,
 }: {
   onScan: (code: string) => void;
   autoFocus?: boolean;
+  /** Kameraet fortsetter etter et treff (plukking av flere varer på rad). */
+  continuous?: boolean;
 }) {
   const [manual, setManual] = useState("");
   const [camOn, setCamOn] = useState(false);
@@ -38,6 +41,11 @@ export function BarcodeScanner({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const supported = typeof window !== "undefined" && !!getDetectorCtor();
+  // Siste onScan i en ref, så kameraet ikke startes på nytt ved hver render.
+  const onScanRef = useRef(onScan);
+  useEffect(() => {
+    onScanRef.current = onScan;
+  }, [onScan]);
 
   // Kamera-skanning: start strøm + detektor-løkke mens camOn er på.
   useEffect(() => {
@@ -46,6 +54,7 @@ export function BarcodeScanner({
     if (!Ctor) return; // knappen vises kun når støttet – dette er en sikkerhetssjekk
     let stopped = false;
     let timer: ReturnType<typeof setInterval> | null = null;
+    let lastAt = 0;
     const detector = new Ctor({ formats: FORMATS });
 
     (async () => {
@@ -70,9 +79,16 @@ export function BarcodeScanner({
             const found = await detector.detect(el);
             const code = found[0]?.rawValue?.trim();
             if (code) {
+              if (continuous) {
+                // Litt pause mellom treff, så samme vare ikke telles flere ganger.
+                if (Date.now() - lastAt < 1500) return;
+                lastAt = Date.now();
+                onScanRef.current(code);
+                return;
+              }
               stopped = true;
               if (timer) clearInterval(timer);
-              onScan(code);
+              onScanRef.current(code);
               setCamOn(false);
             }
           } catch {
@@ -94,7 +110,7 @@ export function BarcodeScanner({
         streamRef.current = null;
       }
     };
-  }, [camOn, onScan]);
+  }, [camOn, continuous]);
 
   function submitManual(e: React.FormEvent) {
     e.preventDefault();
