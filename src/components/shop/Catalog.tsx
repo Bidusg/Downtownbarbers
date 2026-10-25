@@ -407,7 +407,7 @@ export function Catalog({
           </header>
 
           {dept && dept.subs.length > 1 && (
-            <div data-lenis-prevent className="-mx-5 mt-5 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none]">
+            <div data-lenis-prevent className="-mx-5 mt-4 flex gap-2 overflow-x-auto px-5 py-1.5 [scrollbar-width:none]">
               {[{ key: "", no: `Alle`, en: `All` }, ...dept.subs.filter((x) => totals.has(`${dept.key}/${x.key}`))].map((x) => {
                 const on = s.sub === x.key;
                 const c = x.key ? totals.get(`${dept.key}/${x.key}`) : totals.get(dept.key);

@@ -57,7 +57,7 @@ function Gallery({ p }: { p: ShopProduct }) {
         )}
       </div>
       {imgs.length > 1 && (
-        <div className="mt-3 flex gap-2 overflow-x-auto" role="tablist" aria-label="Bilder">
+        <div className="mt-2 flex gap-2 overflow-x-auto p-1" role="tablist" aria-label="Bilder">
           {imgs.map((src, k) => (
             <button
               key={src}

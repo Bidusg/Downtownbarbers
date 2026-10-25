@@ -980,7 +980,7 @@ export function BookingWizard({
                 {t("wiz.barberLabel")}
               </h3>
               <ScrollRow
-                className="-mx-5 px-5 pb-1 sm:mx-0 sm:px-0"
+                className="-mx-5 px-5 py-1 sm:mx-0 sm:px-1"
                 prevLabel={t("wiz.scrollPrev")}
                 nextLabel={t("wiz.scrollNext")}
               >
@@ -1116,7 +1116,7 @@ export function BookingWizard({
               ) : (
                 <>
                   <ScrollRow
-                    className="-mx-5 gap-2 px-5 pb-1 sm:mx-0 sm:px-0"
+                    className="-mx-5 gap-2 px-5 py-1 sm:mx-0 sm:px-1"
                     prevLabel={t("wiz.scrollPrev")}
                     nextLabel={t("wiz.scrollNext")}
                   >
