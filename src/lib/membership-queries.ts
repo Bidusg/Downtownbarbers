@@ -183,6 +183,24 @@ export async function getMembershipCounts(): Promise<MembershipCount[]> {
     for (const b of bookings) {
       visits.set(b.customer_id, (visits.get(b.customer_id) ?? 0) + 1);
     }
+    // Besøk fra Fixit (customers.legacy_visits) teller også – samme regel som
+    // customer_membership(). Mangler kolonnen (SQL ikke kjørt), hoppes det over.
+    try {
+      const legacy = await fetchAllRows<{ id: string; legacy_visits: number | null }>((from, to) =>
+        sb
+          .from("customers")
+          .select("id, legacy_visits")
+          .gt("legacy_visits", 0)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
+      for (const c of legacy) {
+        const n = Number(c.legacy_visits) || 0;
+        if (n > 0) visits.set(c.id, (visits.get(c.id) ?? 0) + n);
+      }
+    } catch {
+      /* uten Fixit-besøk */
+    }
 
     // Kun kunder med aktivitet kan ligge over laveste nivå.
     const counts = new Map<number, number>();
