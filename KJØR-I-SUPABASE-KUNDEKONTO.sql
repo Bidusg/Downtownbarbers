@@ -13,8 +13,14 @@
 -- Krever SUPABASE_SERVICE_ROLE_KEY i Vercel. Trygt å kjøre flere ganger.
 -- =====================================================================
 
-revoke execute on function portal_token_for_email(text) from public, anon, authenticated;
-grant execute on function portal_token_for_email(text) to service_role;
+-- (Hopper over stille hvis funksjonen ikke finnes i denne databasen.)
+do $$
+begin
+  revoke execute on function portal_token_for_email(text) from public, anon, authenticated;
+  grant execute on function portal_token_for_email(text) to service_role;
+exception when undefined_function then
+  raise notice 'portal_token_for_email finnes ikke – hopper over.';
+end $$;
 
 create table if not exists customer_login_codes (
   id          uuid primary key default gen_random_uuid(),

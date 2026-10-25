@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getUserRole, homeForRole } from "@/lib/auth";
-import { createHash, randomInt, timingSafeEqual } from "crypto";
+import { createHash, randomInt, randomUUID, timingSafeEqual } from "crypto";
 import { sendLoginCodeEmail, sendPortalLinkEmail } from "@/lib/email";
 import { createServiceClient } from "@/lib/supabase/service";
 import { setCustomerSession } from "@/lib/customer-session";
@@ -54,15 +54,43 @@ function hashCode(customerId: string, code: string): string {
 
 type Svc = ReturnType<typeof createServiceClient>;
 
-async function customerByEmail(svc: Svc, email: string) {
-  const { data } = await svc
+type CustomerRef = { id: string; portal_token: string | null; email: string | null };
+
+async function customerByEmail(svc: Svc, email: string): Promise<CustomerRef | null> {
+  const esc = email.replace(/[%_\\]/g, "\\$&");
+  const { data, error } = await svc
     .from("customers")
     .select("id, portal_token, email")
-    .ilike("email", email.replace(/[%_\\]/g, "\\$&"))
+    .ilike("email", esc)
     .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle();
-  return (data as { id: string; portal_token: string | null; email: string | null } | null) ?? null;
+  if (error) throw new Error(`customers: ${error.message}`);
+  if (data) return data as CustomerRef;
+  // Importerte kunder kan ha mellomrom rundt e-posten («ola@x.no »).
+  // Databasen regner dem som samme e-post (unik på lower(trim(email))),
+  // så de må finnes her også – ellers feiler registreringen på duplikat.
+  const { data: loose } = await svc
+    .from("customers")
+    .select("id, portal_token, email")
+    .ilike("email", `%${esc}%`)
+    .order("created_at", { ascending: true })
+    .limit(10);
+  return (
+    ((loose ?? []) as CustomerRef[]).find((c) => (c.email ?? "").trim().toLowerCase() === email) ?? null
+  );
+}
+
+/** Kunder uten portal-lenke (f.eks. importerte) kan ikke logge inn – gi dem en. */
+async function ensurePortal(svc: Svc, c: CustomerRef): Promise<CustomerRef> {
+  if (c.portal_token) return c;
+  const { data } = await svc
+    .from("customers")
+    .update({ portal_token: randomUUID() })
+    .eq("id", c.id)
+    .select("id, portal_token, email")
+    .maybeSingle();
+  return (data as CustomerRef | null) ?? c;
 }
 
 /** Lag og send en ny kode. Stille hvis for mange koder siste time. */
@@ -122,7 +150,8 @@ export async function requestLoginCode(
   if (await ipRateLimited()) return { error: "rateLimited" };
   try {
     const svc = createServiceClient();
-    const c = await customerByEmail(svc, email);
+    const found = await customerByEmail(svc, email);
+    const c = found ? await ensurePortal(svc, found) : null;
     const r = c ? await issueCode(svc, c, email) : "sent";
     if (r !== "sent") return { step: "code", email, at: Date.now(), notice: r };
   } catch (e) {
@@ -156,10 +185,17 @@ export async function registerCustomer(
         .insert({ full_name: name, email, phone: phone || null })
         .select("id, portal_token, email")
         .maybeSingle();
-      if (error) throw new Error(error.message);
-      c = data as { id: string; portal_token: string | null; email: string | null } | null;
-      welcome = true;
+      if (error) {
+        // Duplikat (samme e-post med annen skrivemåte, eller opprettet i samme
+        // øyeblikk): bruk kunden som finnes – svaret er uansett nøytralt.
+        if (error.code === "23505") c = await customerByEmail(svc, email);
+        if (!c) throw new Error(`insert customers: ${error.code ?? ""} ${error.message}`);
+      } else {
+        c = data as CustomerRef | null;
+        welcome = true;
+      }
     }
+    if (c) c = await ensurePortal(svc, c);
     if (c) {
       // Språkvalget følger kunden (e-post/SMS på riktig språk).
       try {

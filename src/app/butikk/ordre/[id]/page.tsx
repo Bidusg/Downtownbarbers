@@ -102,7 +102,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
             {o.delivery === "pickup"
               ? `Vi gir deg beskjed på e-post når ordren er klar til henting i ${salon.address}.`
               : "Vi sender deg sporingsnummer på e-post når pakken er på vei."}{" "}
-            Bekreftelsen er sendt til <span className="font-medium text-fg">{o.email}</span>.
+            Bekreftelsen sendes til <span className="font-medium text-fg">{o.email}</span>.
           </p>
           {o.payment_method !== "pay_at_pickup" && (
             <p className="mt-2 text-sm text-muted">Beløpet er reservert i Vipps og trekkes først når ordren er utlevert eller sendt.</p>

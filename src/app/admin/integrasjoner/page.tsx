@@ -10,6 +10,8 @@ import { getBookingNotify, saveBookingNotify } from "./actions";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { TripletexCard } from "@/components/admin/TripletexCard";
 import { VippsCard } from "@/components/admin/VippsCard";
+import { EmailDiagCard } from "@/components/admin/EmailDiagCard";
+import { getUserRole } from "@/lib/auth";
 import { DeeplCard } from "@/components/admin/DeeplCard";
 import { TrackingCard } from "@/components/admin/TrackingCard";
 import { getTrackingConfig } from "@/lib/tracking";
@@ -174,6 +176,9 @@ export default async function AdminIntegrasjoner({
         </IntegrationCard>
 
       </div>
+
+      {/* E-post + kundeinnlogging – feilsøk */}
+      <EmailDiagCard defaultTo={(await getUserRole())?.email ?? ""} />
 
       {/* Vipps – status + test av nøklene fra Vercel */}
       <VippsCard

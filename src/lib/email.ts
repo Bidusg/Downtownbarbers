@@ -72,11 +72,19 @@ function fromAddress() {
   );
 }
 
-/** Lav-nivå sender. Returnerer true hvis forsøkt sendt, false hvis hoppet over. */
-async function sendEmail(to: string, subject: string, html: string, replyTo?: string): Promise<boolean> {
-  const key = process.env.RESEND_API_KEY;
-  if (!key) console.error("E-post ikke sendt: RESEND_API_KEY mangler i Vercel.");
-  if (!key || !to) return false;
+/** Sender én e-post og returnerer nøyaktig hva Resend svarte (for feilsøking). */
+async function sendEmailRaw(
+  to: string,
+  subject: string,
+  html: string,
+  replyTo?: string,
+): Promise<{ ok: boolean; status: number; detail: string }> {
+  const key = process.env.RESEND_API_KEY?.trim();
+  if (!key) {
+    console.error("E-post ikke sendt: RESEND_API_KEY mangler i Vercel.");
+    return { ok: false, status: 0, detail: "RESEND_API_KEY mangler i Vercel." };
+  }
+  if (!to) return { ok: false, status: 0, detail: "Mangler mottaker." };
   try {
     const res = await fetch(RESEND_ENDPOINT, {
       method: "POST",
@@ -86,17 +94,45 @@ async function sendEmail(to: string, subject: string, html: string, replyTo?: st
       },
       body: JSON.stringify({ from: fromAddress(), to, subject, html, ...(replyTo ? { reply_to: replyTo } : {}) }),
     });
+    const body = await res.text().catch(() => "");
     // 429 (rate limit) og 4xx/5xx regnes som ikke sendt.
     if (!res.ok) {
       // Synlig i Vercel-loggene (f.eks. ubekreftet avsenderdomene eller feil nøkkel).
-      const body = await res.text().catch(() => "");
       console.error(`E-post ikke sendt (${res.status}) til ${to.replace(/^(.).*(@.*)$/, "$1…$2")}: ${body.slice(0, 300)}`);
     }
-    return res.ok;
+    let detail = body.slice(0, 500);
+    try {
+      const j = JSON.parse(body) as { message?: string; id?: string };
+      detail = j.message ?? (j.id ? `Akseptert av Resend (id ${j.id}).` : detail);
+    } catch {
+      /* ikke JSON */
+    }
+    return { ok: res.ok, status: res.status, detail };
   } catch (e) {
-    console.error("E-post feilet:", e instanceof Error ? e.message : e);
-    return false;
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("E-post feilet:", msg);
+    return { ok: false, status: 0, detail: msg };
   }
+}
+
+/** Lav-nivå sender. Returnerer true hvis sendt, false hvis hoppet over / avvist. */
+async function sendEmail(to: string, subject: string, html: string, replyTo?: string): Promise<boolean> {
+  return (await sendEmailRaw(to, subject, html, replyTo)).ok;
+}
+
+/** Avsenderen som faktisk brukes (vises i admin → Integrasjoner). */
+export function emailFromInUse(): string {
+  return fromAddress();
+}
+
+/** Test-e-post fra admin → Integrasjoner. Returnerer Resend sitt eksakte svar. */
+export async function sendTestEmail(to: string) {
+  const html = shell(
+    "Test fra nettsiden",
+    "Kommer denne frem, fungerer e-post (innloggingskoder, ordre- og bookingbekreftelser).",
+    [],
+  );
+  return sendEmailRaw(to, "Test-e-post – Downtown Barbers", html);
 }
 
 /**
