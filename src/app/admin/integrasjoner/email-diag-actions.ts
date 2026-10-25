@@ -2,7 +2,7 @@
 
 import { getUserRole, isAdminRole } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/service";
-import { emailFromInUse, sendTestEmail } from "@/lib/email";
+import { emailDeliveryStatus, emailFromInUse, sendTestEmail } from "@/lib/email";
 import { isValidEmail } from "@/lib/validate";
 
 export type DiagRow = { label: string; ok: boolean; detail: string };
@@ -68,6 +68,34 @@ export async function runEmailDiagnostics(to: string): Promise<{ rows: DiagRow[]
       ? `${r.detail} Sjekk innboksen (og søppelpost).`
       : `Avvist${r.status ? ` (${r.status})` : ""}: ${r.detail}`,
   });
+
+  // 5) Kom den faktisk frem? «Akseptert» betyr bare at Resend tok imot den.
+  //    Står adressen på Resend sin sperreliste (etter en avvisning eller
+  //    «marker som søppelpost»), blir ingenting levert – heller ikke koder.
+  if (r.ok && r.id) {
+    let st = { event: null as string | null, detail: "" };
+    for (let i = 0; i < 4; i++) {
+      await new Promise((res) => setTimeout(res, 2000));
+      st = await emailDeliveryStatus(r.id);
+      if (!st.event || !["queued", "scheduled", "sent"].includes(st.event)) break;
+    }
+    const EXPLAIN: Record<string, string> = {
+      delivered: "Levert til mottakerens e-postserver. Finner du den ikke, ligger den i søppelpost/kampanjer.",
+      suppressed:
+        "SPERRET av Resend: adressen står på sperrelisten (har tidligere avvist e-post eller merket den som søppelpost). Ingenting blir levert til den – heller ikke innloggingskoder. Fjern adressen i Resend → Emails → Suppressions.",
+      bounced: "Avvist av mottakerens e-postserver. Sjekk adressen, og at domenet er verifisert (SPF/DKIM) i Resend.",
+      complained: "Mottakeren har merket e-post fra dere som søppelpost. Resend sperrer adressen for videre utsending.",
+      delivery_delayed: "Forsinket hos mottakeren. Prøv igjen om litt.",
+      sent: "Sendt, men ikke bekreftet levert ennå. Sjekk igjen om et minutt.",
+      queued: "Står i kø hos Resend.",
+    };
+    const ok = st.event === "delivered" || st.event === "sent" || st.event === "queued";
+    rows.push({
+      label: "Levering",
+      ok: st.event ? ok : true,
+      detail: st.event ? `${st.event}: ${EXPLAIN[st.event] ?? ""}` : st.detail,
+    });
+  }
 
   return { rows };
 }

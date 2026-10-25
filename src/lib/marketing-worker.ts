@@ -131,6 +131,7 @@ export async function runMarketingWorker(): Promise<{ sent: number; failed: numb
         return {
           to: r.email as string,
           subject,
+          unsubscribeUrl: `${base}/avmeld/${r.token}`,
           html: renderMarketingEmail({
             subject,
             body: lang === "en" ? texts.bodyEn! : texts.body,

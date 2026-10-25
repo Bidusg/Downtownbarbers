@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserRole, homeForRole } from "@/lib/auth";
 import { createHash, randomInt, randomUUID, timingSafeEqual } from "crypto";
 import { sendLoginCodeEmail, sendPortalLinkEmail } from "@/lib/email";
+import { sendSms } from "@/lib/sms";
 import { createServiceClient } from "@/lib/supabase/service";
 import { setCustomerSession } from "@/lib/customer-session";
 import { isValidEmail, isValidNorwegianPhone, titleCase } from "@/lib/validate";
@@ -116,6 +117,26 @@ async function issueCode(
   });
   if (error) throw new Error(error.message);
 
+  // Koden sendes også på SMS når vi har mobilnummeret – da kommer kunden
+  // inn selv om e-posten havner i søppelpost eller blir stoppet.
+  let smsSent = false;
+  try {
+    const { data: ph } = await svc.from("customers").select("phone").eq("id", c.id).maybeSingle();
+    const phone = (ph as { phone: string | null } | null)?.phone?.trim();
+    if (phone) {
+      const en = (await getRequestLang()) === "en";
+      smsSent = await sendSms(
+        phone,
+        en
+          ? `${code} is your Downtown Barbers login code. Valid for ${CODE_TTL_MIN} minutes.`
+          : `${code} er koden din for å logge inn hos Downtown Barbers. Gjelder i ${CODE_TTL_MIN} minutter.`,
+        { kind: "annet", logBody: "Innloggingskode (skjult)" },
+      );
+    }
+  } catch {
+    /* SMS er en bonus */
+  }
+
   const base = await requestBaseUrl();
   const sent = await sendLoginCodeEmail({
     to: email,
@@ -127,7 +148,7 @@ async function issueCode(
   // Rydd gamle koder innimellom (billig, best-effort).
   if (Math.random() < 0.1) await svc.rpc("purge_customer_login_codes");
   if (!sent) console.error("Innloggingskode: e-posten ble ikke sendt (se feilen over).");
-  return sent ? "sent" : "failed";
+  return sent || smsSent ? "sent" : "failed";
 }
 
 export type CodeRequestState = {

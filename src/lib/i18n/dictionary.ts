@@ -50,7 +50,7 @@ export const dictionary: Dict = {
   "login.cust.new": { no: "Ny kunde? Opprett konto", en: "New customer? Create an account" },
   "login.cust.have": { no: "Har du konto? Logg inn", en: "Already have an account? Log in" },
   "login.cust.codeTitle": { no: "Sjekk e-posten din", en: "Check your email" },
-  "login.cust.codeText": { no: "Har {email} en konto hos oss, har vi sendt en 6-sifret kode. Den gjelder i 10 minutter.", en: "If {email} has an account with us, we've sent a 6-digit code. It's valid for 10 minutes." },
+  "login.cust.codeText": { no: "Har {email} en konto hos oss, har vi sendt en 6-sifret kode på e-post – og på SMS hvis vi har mobilnummeret ditt. Den gjelder i 10 minutter.", en: "If {email} has an account with us, we've sent a 6-digit code by email – and by text if we have your mobile number. It's valid for 10 minutes." },
   "login.cust.code": { no: "Kode", en: "Code" },
   "login.cust.verify": { no: "Logg inn", en: "Log in" },
   "login.cust.verifying": { no: "Sjekker …", en: "Checking …" },

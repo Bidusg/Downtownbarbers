@@ -332,7 +332,7 @@ async function logSms(row: {
 export async function sendSms(
   to: string,
   body: string,
-  meta?: { kind?: SmsKind; bookingId?: string | null },
+  meta?: { kind?: SmsKind; bookingId?: string | null; /** Tekst som lagres i loggen i stedet (skjul koder). */ logBody?: string },
 ): Promise<boolean> {
   const c = await getSmsConfig();
   const kind = meta?.kind ?? "annet";
@@ -342,7 +342,7 @@ export async function sendSms(
   else if (!dest) skip = "ugyldig telefonnummer";
   else if (!body?.trim()) skip = "tom tekst";
   if (skip) {
-    await logSms({ to: dest || to, kind, body, status: "hoppet over", error: skip, bookingId: meta?.bookingId });
+    await logSms({ to: dest || to, kind, body: meta?.logBody ?? body, status: "hoppet over", error: skip, bookingId: meta?.bookingId });
     return false;
   }
   lastProviderError = null;
@@ -350,7 +350,7 @@ export async function sendSms(
   await logSms({
     to: dest,
     kind,
-    body,
+    body: meta?.logBody ?? body,
     status: ok ? "sendt" : "feilet",
     error: ok ? null : (lastProviderError ?? "leverandøren avviste meldingen"),
     bookingId: meta?.bookingId,

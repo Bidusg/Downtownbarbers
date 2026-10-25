@@ -72,13 +72,23 @@ function fromAddress() {
   );
 }
 
+/**
+ * Avsender for nyhetsbrev/kampanjer. Settes EMAIL_FROM_MARKETING (f.eks.
+ * «Downtown Barbers <nyheter@downtownbarbers.no>»), skilles kampanjene fra
+ * koder og bekreftelser – så en kunde som legger et nyhetsbrev i søppelpost
+ * ikke også får innloggingskodene sine dit.
+ */
+function marketingFromAddress() {
+  return process.env.EMAIL_FROM_MARKETING?.trim() || fromAddress();
+}
+
 /** Sender én e-post og returnerer nøyaktig hva Resend svarte (for feilsøking). */
 async function sendEmailRaw(
   to: string,
   subject: string,
   html: string,
   replyTo?: string,
-): Promise<{ ok: boolean; status: number; detail: string }> {
+): Promise<{ ok: boolean; status: number; detail: string; id?: string }> {
   const key = process.env.RESEND_API_KEY?.trim();
   if (!key) {
     console.error("E-post ikke sendt: RESEND_API_KEY mangler i Vercel.");
@@ -101,13 +111,15 @@ async function sendEmailRaw(
       console.error(`E-post ikke sendt (${res.status}) til ${to.replace(/^(.).*(@.*)$/, "$1…$2")}: ${body.slice(0, 300)}`);
     }
     let detail = body.slice(0, 500);
+    let id: string | undefined;
     try {
       const j = JSON.parse(body) as { message?: string; id?: string };
+      id = j.id;
       detail = j.message ?? (j.id ? `Akseptert av Resend (id ${j.id}).` : detail);
     } catch {
       /* ikke JSON */
     }
-    return { ok: res.ok, status: res.status, detail };
+    return { ok: res.ok, status: res.status, detail, id };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("E-post feilet:", msg);
@@ -123,6 +135,29 @@ async function sendEmail(to: string, subject: string, html: string, replyTo?: st
 /** Avsenderen som faktisk brukes (vises i admin → Integrasjoner). */
 export function emailFromInUse(): string {
   return fromAddress();
+}
+
+/**
+ * Hva skjedde med en sendt e-post (Resend: delivered, bounced, suppressed,
+ * complained, delivery_delayed …). Krever en API-nøkkel med full tilgang;
+ * en «sending access»-nøkkel får 401/403.
+ */
+export async function emailDeliveryStatus(id: string): Promise<{ event: string | null; detail: string }> {
+  const key = process.env.RESEND_API_KEY?.trim();
+  if (!key) return { event: null, detail: "RESEND_API_KEY mangler." };
+  try {
+    const res = await fetch(`${RESEND_ENDPOINT}/${encodeURIComponent(id)}`, {
+      headers: { Authorization: `Bearer ${key}` },
+      cache: "no-store",
+    });
+    if (res.status === 401 || res.status === 403)
+      return { event: null, detail: "Nøkkelen har bare sendetilgang – se status i Resend → Emails." };
+    if (!res.ok) return { event: null, detail: `Resend svarte ${res.status}.` };
+    const j = (await res.json()) as { last_event?: string };
+    return { event: j.last_event ?? null, detail: j.last_event ?? "ukjent" };
+  } catch (e) {
+    return { event: null, detail: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 /** Test-e-post fra admin → Integrasjoner. Returnerer Resend sitt eksakte svar. */
@@ -142,7 +177,7 @@ export async function sendTestEmail(to: string) {
  * Returnerer { ok: antall akseptert, error } – ved feil er ingen sendt.
  */
 export async function sendEmailBatch(
-  items: { to: string; subject: string; html: string }[],
+  items: { to: string; subject: string; html: string; /** Avmeldingslenke → List-Unsubscribe-header. */ unsubscribeUrl?: string }[],
 ): Promise<{ ok: number; error?: string }> {
   const key = process.env.RESEND_API_KEY;
   if (!key) return { ok: 0, error: "RESEND_API_KEY mangler" };
@@ -152,7 +187,24 @@ export async function sendEmailBatch(
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify(
-        items.slice(0, 100).map((it) => ({ from: fromAddress(), to: it.to, subject: it.subject, html: it.html })),
+        items.slice(0, 100).map((it) => {
+          // Ett-klikks avmelding (Gmail/Yahoo krever det for masseutsendelser).
+          const oneClick = it.unsubscribeUrl?.replace(/\/avmeld\/([0-9a-f-]{36})$/i, "/api/avmeld/$1");
+          return {
+            from: marketingFromAddress(),
+            to: it.to,
+            subject: it.subject,
+            html: it.html,
+            ...(it.unsubscribeUrl
+              ? {
+                  headers: {
+                    "List-Unsubscribe": `<${oneClick ?? it.unsubscribeUrl}>`,
+                    ...(oneClick && oneClick !== it.unsubscribeUrl ? { "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } : {}),
+                  },
+                }
+              : {}),
+          };
+        }),
       ),
     });
     if (!res.ok) {
