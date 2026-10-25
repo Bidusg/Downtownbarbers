@@ -2,6 +2,7 @@
 
 import { Fragment, useMemo, useState, useTransition } from "react";
 import { WebProductEditor } from "@/components/admin/WebshopAdmin";
+import { deptOf, subOf } from "@/lib/shop-shared";
 import type { AdminProduct } from "@/lib/admin-queries";
 import {
   createProduct,
@@ -166,16 +167,17 @@ export function ProductManager({ products }: { products: AdminProduct[] }) {
   const [editId, setEditId] = useState<string | null>(null);
   const [webId, setWebId] = useState<string | null>(null);
   const [q, setQ] = useState("");
-  const [filter, setFilter] = useState<"all" | "review" | "noimg" | "offline">("all");
+  const [filter, setFilter] = useState<"all" | "review" | "noimg" | "offline" | "nocat">("all");
   const hasWeb = products.some((p) => p.slug !== undefined);
   const imgCount = (p: AdminProduct) => ((p.images ?? []).length || (p.image_url ? 1 : 0));
   const shown = useMemo(() => {
     const n = q.trim().toLowerCase();
     return products.filter((p) => {
-      if (n && !`${p.name} ${p.web_name ?? ""} ${p.brand ?? ""} ${p.barcode ?? ""}`.toLowerCase().includes(n)) return false;
+      if (n && !`${p.name} ${p.web_name ?? ""} ${p.brand ?? ""} ${p.barcode ?? ""} ${deptOf(p.category)?.no ?? ""}`.toLowerCase().includes(n)) return false;
       if (filter === "review") return !!p.content_review;
       if (filter === "noimg") return !p.is_gift_card && imgCount(p) === 0;
       if (filter === "offline") return !p.is_gift_card && (p.online === false || !p.slug);
+      if (filter === "nocat") return !p.is_gift_card && !p.subcategory;
       return true;
     });
   }, [products, q, filter]);
@@ -198,6 +200,7 @@ export function ProductManager({ products }: { products: AdminProduct[] }) {
                 ["review", `Sjekk tekst (${products.filter((p) => p.content_review).length})`],
                 ["noimg", `Mangler bilde (${products.filter((p) => !p.is_gift_card && imgCount(p) === 0).length})`],
                 ["offline", "Ikke på nett"],
+                ["nocat", "Mangler kategori"],
               ] as const
             ).map(([k, l]) => (
               <button key={k} type="button" onClick={() => setFilter(k)} className={filter === k ? "act act-accent" : "act"}>
@@ -284,6 +287,14 @@ export function ProductManager({ products }: { products: AdminProduct[] }) {
                       {hasWeb && !p.is_gift_card && (
                         <span className="mt-0.5 flex flex-wrap gap-1.5 text-[11px] font-normal">
                           {p.brand && <span className="text-muted">{p.brand}</span>}
+                          {deptOf(p.category) && (
+                            <span className="text-muted">
+                              · {deptOf(p.category)!.no}
+                              {subOf({ category: p.category ?? null, subcategory: p.subcategory ?? null })
+                                ? ` › ${subOf({ category: p.category ?? null, subcategory: p.subcategory ?? null })!.no}`
+                                : ""}
+                            </span>
+                          )}
                           {p.content_review && <span className="text-accent-soft">• Sjekk tekst</span>}
                           {imgCount(p) === 0 && <span className="text-muted">• Mangler bilde</span>}
                           {(p.online === false || !p.slug) && <span className="text-muted">• Ikke på nett</span>}

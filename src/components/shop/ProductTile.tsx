@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCart } from "@/components/shop/CartProvider";
-import { kr, stockLabel, type ShopProduct } from "@/lib/shop-shared";
+import { finishGroup, holdGroup, kr, stockLabel, type ShopProduct } from "@/lib/shop-shared";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 /** Bilde eller en pen plassholder (merke + forbokstaver) når bilde mangler. */
@@ -80,6 +80,14 @@ export function ProductTile({ p, eager = false }: { p: ShopProduct; eager?: bool
             {p.name}
           </Link>
         </h3>
+        {(p.hold != null || p.shine != null) && (
+          <p className="mt-1 text-[12px] font-medium text-fg-soft">
+            {[holdGroup(p.hold), finishGroup(p.shine)]
+              .filter(Boolean)
+              .map((g) => (lang === "en" ? g!.en : g!.no))
+              .join(" · ")}
+          </p>
+        )}
         {p.short && <p className="mt-1 line-clamp-2 text-[13px] leading-snug text-muted">{p.short}</p>}
         <div className="mt-auto flex items-center justify-between gap-2 pt-3">
           <div className="flex flex-col">

@@ -7,7 +7,7 @@ import { useCart } from "@/components/shop/CartProvider";
 import { QtyStepper, useShopData } from "@/components/shop/ShopShell";
 import { PriceTag, ProductImage, ProductRow } from "@/components/shop/ProductTile";
 import { rememberViewed, useRecentlyViewed } from "@/components/shop/recent";
-import { CATEGORY_EN, kr, stockLabel, type ShopProduct } from "@/lib/shop-shared";
+import { deptOf, finishGroup, holdGroup, kr, stockLabel, subOf, type ShopProduct } from "@/lib/shop-shared";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 /* =====================================================================
@@ -15,7 +15,7 @@ import { useLanguage } from "@/lib/i18n/LanguageProvider";
  * beskrivelser i trekkspill, og forslag nederst.
  * ===================================================================== */
 
-function Meter({ label, value }: { label: string; value: number }) {
+function Meter({ label, value, note }: { label: string; value: number; note?: string }) {
   return (
     <div className="flex items-center gap-3 text-sm">
       <span className="w-14 text-muted">{label}</span>
@@ -24,6 +24,7 @@ function Meter({ label, value }: { label: string; value: number }) {
           <span key={i} className={"h-1.5 w-6 rounded-full " + (i <= value ? "bg-fg" : "bg-line")} />
         ))}
       </span>
+      {note && <span className="text-muted">{note}</span>}
     </div>
   );
 }
@@ -176,15 +177,23 @@ export function ProductDetail({ product, member }: { product: ShopProduct; membe
   const together = useMemo(() => related.filter((x) => x.stock > 0).slice(0, 2), [related]);
   const similar = useMemo(() => {
     const ids = new Set([p.id, ...together.map((x) => x.id)]);
-    const same = products.filter((x) => !ids.has(x.id) && x.category === p.category);
-    // Samme merke først, så nærmest i pris.
-    same.sort((a, b) => Number(b.brand === p.brand) - Number(a.brand === p.brand) || Math.abs(a.price - p.price) - Math.abs(b.price - p.price));
+    const same = products.filter((x) => !ids.has(x.id) && deptOf(x.category)?.key === deptOf(p.category)?.key);
+    // Samme produkttype først, så samme merke, så nærmest i pris.
+    same.sort(
+      (a, b) =>
+        Number(b.subcategory === p.subcategory) - Number(a.subcategory === p.subcategory) ||
+        Number(b.brand === p.brand) - Number(a.brand === p.brand) ||
+        Math.abs(a.price - p.price) - Math.abs(b.price - p.price),
+    );
     return [...related.filter((x) => !ids.has(x.id)), ...same].filter((x, i, arr) => arr.findIndex((y) => y.id === x.id) === i).slice(0, 10);
   }, [p, products, related, together]);
   const recentList = useMemo(() => recent.map((s) => bySlug.get(s)).filter(Boolean).slice(0, 8) as ShopProduct[], [recent, bySlug]);
 
   const memberPrice = member ? Math.round(p.price - (p.price * member.pct) / 100) : null;
-  const catLabel = p.category ? (en ? CATEGORY_EN[p.category] ?? p.category : p.category) : null;
+  const dept = deptOf(p.category);
+  const sub = subOf(p);
+  const hg = holdGroup(p.hold);
+  const fg = finishGroup(p.shine);
 
   const addToCart = () => add(p, qty);
   const buyNow = () => {
@@ -208,12 +217,22 @@ export function ProductDetail({ product, member }: { product: ShopProduct; membe
               {en ? "Shop" : "Butikk"}
             </Link>
           </li>
-          {p.category && (
+          {dept && (
             <>
               <li aria-hidden>/</li>
               <li>
-                <Link href={`/butikk?kategori=${encodeURIComponent(p.category)}`} className="hover:text-fg hover:underline">
-                  {catLabel}
+                <Link href={`/butikk?kategori=${dept.key}`} className="hover:text-fg hover:underline">
+                  {en ? dept.en : dept.no}
+                </Link>
+              </li>
+            </>
+          )}
+          {dept && sub && (
+            <>
+              <li aria-hidden>/</li>
+              <li>
+                <Link href={`/butikk?kategori=${dept.key}&type=${sub.key}`} className="hover:text-fg hover:underline">
+                  {en ? sub.en : sub.no}
                 </Link>
               </li>
             </>
@@ -250,8 +269,8 @@ export function ProductDetail({ product, member }: { product: ShopProduct; membe
 
           {(p.hold != null || p.shine != null) && (
             <div className="mt-5 space-y-2">
-              {p.hold != null && <Meter label={en ? "Hold" : "Hold"} value={p.hold} />}
-              {p.shine != null && <Meter label={en ? "Shine" : "Glans"} value={p.shine} />}
+              {p.hold != null && <Meter label="Hold" value={p.hold} note={hg ? (en ? hg.en : hg.no) : undefined} />}
+              {p.shine != null && <Meter label={en ? "Shine" : "Glans"} value={p.shine} note={fg ? (en ? fg.en : fg.no) : undefined} />}
             </div>
           )}
 

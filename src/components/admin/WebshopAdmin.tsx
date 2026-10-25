@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import type { AdminProduct } from "@/lib/admin-queries";
 import { saveWebshopSettings, setProductImages, updateWebProduct, uploadProductImage } from "@/app/admin/produkter/actions";
-import { CATEGORIES, type WebshopSettings } from "@/lib/shop-shared";
+import { TAG_OPTIONS, TAXONOMY, deptOf, type WebshopSettings } from "@/lib/shop-shared";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 
@@ -199,6 +199,38 @@ function ImageManager({ id, initial, name }: { id: string; initial: string[]; na
   );
 }
 
+/** Avdeling → produkttype (produkttypene følger valgt avdeling). */
+function CategoryPicker({ category, subcategory }: { category: string | null; subcategory: string | null }) {
+  const [dept, setDept] = useState(deptOf(category)?.key ?? "");
+  const d = TAXONOMY.find((x) => x.key === dept);
+  return (
+    <>
+      <label>
+        <span className={lbl}>Kategori</span>
+        <select name="category" value={dept} onChange={(e) => setDept(e.target.value)} className={inp}>
+          <option value="">–</option>
+          {TAXONOMY.map((x) => (
+            <option key={x.key} value={x.key}>
+              {x.no}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        <span className={lbl}>Produkttype</span>
+        <select key={dept} name="subcategory" defaultValue={d?.subs.some((x) => x.key === subcategory) ? (subcategory ?? "") : ""} className={inp} disabled={!d}>
+          <option value="">–</option>
+          {d?.subs.map((x) => (
+            <option key={x.key} value={x.key}>
+              {x.no}
+            </option>
+          ))}
+        </select>
+      </label>
+    </>
+  );
+}
+
 export function WebProductEditor({ product: p, onDone }: { product: AdminProduct; onDone: () => void }) {
   const [saving, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
@@ -240,15 +272,7 @@ export function WebProductEditor({ product: p, onDone }: { product: AdminProduct
         <span className={lbl}>Merke</span>
         <input name="brand" defaultValue={p.brand ?? ""} className={inp} />
       </label>
-      <label>
-        <span className={lbl}>Kategori</span>
-        <select name="category" defaultValue={p.category ?? ""} className={inp}>
-          <option value="">–</option>
-          {CATEGORIES.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </select>
-      </label>
+<CategoryPicker category={p.category ?? null} subcategory={p.subcategory ?? null} />
       <label className="sm:col-span-2">
         <span className={lbl}>Kort beskrivelse (vises på produktkortet – én setning)</span>
         <input name="short_description" defaultValue={p.short_description ?? ""} maxLength={400} className={inp} />
@@ -309,6 +333,16 @@ export function WebProductEditor({ product: p, onDone }: { product: AdminProduct
         <span className={lbl}>Passer godt med (nettadresser, komma mellom) – brukes i handlekurven og «kjøpes ofte sammen»</span>
         <input name="related_slugs" defaultValue={(p.related_slugs ?? []).join(", ")} className={inp} />
       </label>
+      <fieldset className="sm:col-span-2">
+        <legend className={lbl}>Behov / merking (brukes i «Finn produktet ditt»; matt, blank og sterkt hold regnes ut fra hold og glans)</legend>
+        <div className="mt-1.5 flex flex-wrap gap-x-5 gap-y-1.5 text-sm">
+          {TAG_OPTIONS.map((t) => (
+            <label key={t.key} className="flex items-center gap-2">
+              <input type="checkbox" name="tags" value={t.key} defaultChecked={(p.tags ?? []).includes(t.key)} /> {t.no}
+            </label>
+          ))}
+        </div>
+      </fieldset>
       <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm sm:col-span-2">
         <label className="flex items-center gap-2">
           <input type="checkbox" name="online" defaultChecked={p.online !== false} /> Vis i nettbutikken

@@ -9,8 +9,10 @@ export const metadata = {
 export default async function ButikkPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; kategori?: string; merke?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const sp = await searchParams;
-  return <Catalog initialQuery={sp.q ?? ""} initialCategory={sp.kategori ?? ""} initialBrand={sp.merke ?? ""} />;
+  const initial: Record<string, string | undefined> = {};
+  for (const [k, v] of Object.entries(sp)) initial[k] = Array.isArray(v) ? v[0] : v;
+  return <Catalog initial={initial} />;
 }

@@ -199,6 +199,12 @@ export async function updateWebProduct(formData: FormData): Promise<{ ok?: true;
     web_name: clean(formData.get("web_name"), 200),
     brand: clean(formData.get("brand"), 120),
     category: clean(formData.get("category"), 80),
+    subcategory: clean(formData.get("subcategory"), 80),
+    tags: formData
+      .getAll("tags")
+      .map((x) => String(x).trim())
+      .filter(Boolean)
+      .slice(0, 12),
     short_description: clean(formData.get("short_description"), 400),
     description: clean(formData.get("description")),
     benefits: String(formData.get("benefits") ?? "")
@@ -228,7 +234,8 @@ export async function updateWebProduct(formData: FormData): Promise<{ ok?: true;
   const { error } = await sb.from("products").update(fields).eq("id", id);
   if (error) {
     if (/products_slug_uidx|duplicate|unique/i.test(error.message)) return { error: "Nettadressen er allerede brukt av et annet produkt." };
-    if (/column/i.test(error.message)) return { error: "Kjør KJØR-I-SUPABASE-NETTBUTIKK.sql i Supabase først." };
+    if (/column/i.test(error.message))
+      return { error: "Kjør KJØR-I-SUPABASE-NETTBUTIKK.sql og KJØR-I-SUPABASE-NETTBUTIKK-KATEGORIER.sql i Supabase først." };
     return { error: `Kunne ikke lagre: ${error.message}` };
   }
   revalidatePath("/admin/produkter");

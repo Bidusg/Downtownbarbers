@@ -7,10 +7,39 @@ import { DEFAULT_SETTINGS, type ShopProduct, type WebshopSettings } from "@/lib/
  * har fått en nettadresse (slug). Gavekort selges i salongen.
  * ===================================================================== */
 
-const COLS =
+const BASE_COLS =
   "id, slug, name, web_name, brand, category, short_description, description, benefits, recommended_for, how_to_use, ingredients, size_label, hold_level, shine_level, price_nok, compare_at_price_nok, image_url, images, stock, featured, related_slugs, is_gift_card, web_sort";
 
+// subcategory/tags kommer med KJØR-I-SUPABASE-NETTBUTIKK-KATEGORIER.sql.
+const COLS = `${BASE_COLS}, subcategory, tags`;
+
 type Row = Record<string, unknown>;
+
+/**
+ * Merket vises over navnet (som i de store butikkene), så «Reuzel - Fiber Gel»
+ * blir «Fiber Gel» når merket er Reuzel. Gjelder bare når web_name er tomt.
+ */
+export function displayName(name: string, brand: string | null): string {
+  const m = name.match(/^(.+?)\s*[-–]\s+(.+)$/);
+  if (!m || !brand) return name;
+  const key = (x: string) =>
+    x
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]/g, "");
+  const a = key(m[1]);
+  const b = key(brand);
+  if (!a || !b) return name;
+  if (b.startsWith(a) || a === b) return m[2].trim().length < 4 ? name : m[2].trim();
+  // «Depot No. 402 - …» → «No. 402 – …» (modellnummeret beholdes).
+  if (a.startsWith(b)) {
+    const firstWord = brand.trim().split(/\s+/)[0];
+    const rest = m[1].trim().slice(firstWord.length).trim();
+    return rest ? `${rest} – ${m[2].trim()}` : m[2].trim();
+  }
+  return name;
+}
 
 function map(r: Row): ShopProduct {
   const imgs = ((r.images as string[] | null) ?? []).filter(Boolean);
@@ -18,9 +47,11 @@ function map(r: Row): ShopProduct {
   return {
     id: r.id as string,
     slug: r.slug as string,
-    name: ((r.web_name as string | null) ?? "").trim() || (r.name as string),
+    name: ((r.web_name as string | null) ?? "").trim() || displayName(r.name as string, (r.brand as string | null) ?? null),
     brand: (r.brand as string | null) ?? null,
     category: (r.category as string | null) ?? null,
+    subcategory: (r.subcategory as string | null) ?? null,
+    tags: ((r.tags as string[] | null) ?? []).filter(Boolean),
     short: (r.short_description as string | null) ?? null,
     description: (r.description as string | null) ?? null,
     benefits: ((r.benefits as string[] | null) ?? []).filter(Boolean),
@@ -43,18 +74,21 @@ function map(r: Row): ShopProduct {
 export async function getShopProducts(): Promise<ShopProduct[]> {
   try {
     const sb = await createClient();
-    const { data, error } = await sb
-      .from("products")
-      .select(COLS)
-      .eq("active", true)
-      .eq("online", true)
-      .eq("is_gift_card", false)
-      .not("slug", "is", null)
-      .order("web_sort", { ascending: true })
-      .order("name", { ascending: true })
-      .limit(1000);
+    const run = (cols: string) =>
+      sb
+        .from("products")
+        .select(cols)
+        .eq("active", true)
+        .eq("online", true)
+        .eq("is_gift_card", false)
+        .not("slug", "is", null)
+        .order("web_sort", { ascending: true })
+        .order("name", { ascending: true })
+        .limit(1000);
+    let { data, error } = await run(COLS);
+    if (error && /subcategory|tags/.test(error.message)) ({ data, error } = await run(BASE_COLS));
     if (error) return [];
-    return ((data ?? []) as Row[]).map(map);
+    return ((data ?? []) as unknown as Row[]).map(map);
   } catch {
     return [];
   }
@@ -63,15 +97,12 @@ export async function getShopProducts(): Promise<ShopProduct[]> {
 export async function getShopProduct(slug: string): Promise<ShopProduct | null> {
   try {
     const sb = await createClient();
-    const { data, error } = await sb
-      .from("products")
-      .select(COLS)
-      .eq("slug", slug)
-      .eq("active", true)
-      .eq("online", true)
-      .maybeSingle();
+    const run = (cols: string) =>
+      sb.from("products").select(cols).eq("slug", slug).eq("active", true).eq("online", true).maybeSingle();
+    let { data, error } = await run(COLS);
+    if (error && /subcategory|tags/.test(error.message)) ({ data, error } = await run(BASE_COLS));
     if (error || !data) return null;
-    return map(data as Row);
+    return map(data as unknown as Row);
   } catch {
     return null;
   }

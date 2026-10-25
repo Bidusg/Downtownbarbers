@@ -63,6 +63,8 @@ export type AdminProduct = {
   web_name?: string | null;
   brand?: string | null;
   category?: string | null;
+  subcategory?: string | null;
+  tags?: string[] | null;
   short_description?: string | null;
   benefits?: string[] | null;
   recommended_for?: string | null;
@@ -88,8 +90,11 @@ export async function getProductsAdmin(): Promise<AdminProduct[]> {
   try {
     const sb = await createClient();
     const base = "id, name, description, price_nok, stock, active, is_gift_card, image_url, barcode";
-    const full = await sb.from("products").select(`${base}, ${PRODUCT_WEB_COLS}`).order("name");
+    const full = await sb.from("products").select(`${base}, ${PRODUCT_WEB_COLS}, subcategory, tags`).order("name");
     if (!full.error) return (full.data as AdminProduct[]) ?? [];
+    // Kategori-kolonnene (NETTBUTIKK-KATEGORIER.sql) mangler → uten dem.
+    const web = await sb.from("products").select(`${base}, ${PRODUCT_WEB_COLS}`).order("name");
+    if (!web.error) return (web.data as AdminProduct[]) ?? [];
     // Nettbutikk-kolonnene finnes ikke ennå → vis de vanlige feltene.
     const { data } = await sb.from("products").select(base).order("name");
     return (data as AdminProduct[]) ?? [];
