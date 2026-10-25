@@ -55,8 +55,25 @@ function WhoBadge({ by }: { by: CancelledBooking["cancelledBy"] }) {
   return <span className="text-[11px] text-muted">– ukjent</span>;
 }
 
+/** Søketekst for én avbestilling: navn, telefon, e-post, barber, tjeneste og datoer. */
+function haystack(b: CancelledBooking): string {
+  return [
+    b.customer,
+    b.customerPhone,
+    b.customerEmail,
+    b.barber,
+    b.service,
+    fmtDateTime(b.startAt),
+    fmtDateTime(b.cancelledAt),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
 export function CancelledList({ items }: { items: CancelledBooking[] }) {
   const [filter, setFilter] = useState<Filter>("all");
+  const [q, setQ] = useState("");
 
   const counts = useMemo(
     () => ({
@@ -67,13 +84,18 @@ export function CancelledList({ items }: { items: CancelledBooking[] }) {
     [items],
   );
 
-  const shown = useMemo(
-    () =>
-      filter === "all"
-        ? items
-        : items.filter((i) => i.cancelledBy === filter),
-    [items, filter],
-  );
+  const shown = useMemo(() => {
+    const byWho = filter === "all" ? items : items.filter((i) => i.cancelledBy === filter);
+    const terms = q.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    if (!terms.length) return byWho;
+    // Telefon: søk på sifre uansett mellomrom og +47.
+    const digits = q.replace(/\D/g, "");
+    return byWho.filter((b) => {
+      const h = haystack(b);
+      if (terms.every((t) => h.includes(t))) return true;
+      return digits.length >= 3 && (b.customerPhone ?? "").replace(/\D/g, "").includes(digits);
+    });
+  }, [items, filter, q]);
 
   const tabs: { key: Filter; label: string; n: number }[] = [
     { key: "all", label: "Alle", n: counts.all },
@@ -89,6 +111,26 @@ export function CancelledList({ items }: { items: CancelledBooking[] }) {
 
   return (
     <div className="space-y-4">
+      <div role="search" className="flex flex-wrap items-center gap-2">
+        <label htmlFor="cancel-search" className="sr-only">
+          Søk i avbestillinger
+        </label>
+        <input
+          id="cancel-search"
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Søk på navn, telefon, e-post, barber, tjeneste eller dato (f.eks. 24.10) …"
+          autoComplete="off"
+          className="w-full max-w-xl rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg placeholder:text-muted transition-colors focus:border-accent-soft focus:outline-none [@media(pointer:coarse)]:min-h-11"
+        />
+        {q && (
+          <button type="button" onClick={() => setQ("")} className="act">
+            Tøm
+          </button>
+        )}
+      </div>
+
       <div className="flex flex-wrap gap-2">
         {tabs.map((t) => (
           <button
@@ -169,6 +211,12 @@ export function CancelledList({ items }: { items: CancelledBooking[] }) {
           </div>
         ))}
       </div>
+
+      {shown.length === 0 && (
+        <p className="rounded-lg border border-line bg-surface px-4 py-6 text-center text-sm text-muted">
+          Fant ingen avbestillinger som passer søket.
+        </p>
+      )}
 
       <p className="text-xs text-muted">
         Viser {shown.length} av {items.length} avbestilte timer. «Booket»-dato og

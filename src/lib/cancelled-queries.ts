@@ -24,6 +24,9 @@ export type CancelledBooking = {
   /** Hvem avbestilte – 'customer' | 'staff' | null (ukjent). */
   cancelledBy: CancelledBy;
   customer: string | null;
+  /** Kundens telefon/e-post – brukes av søket på avbestillingssiden. */
+  customerPhone: string | null;
+  customerEmail: string | null;
   barber: string | null;
   service: string | null;
 };
@@ -35,7 +38,7 @@ type Row = {
   cancelled_at: string | null;
   cancelled_by: string | null;
   person_label: string | null;
-  customers: { full_name: string | null } | null;
+  customers: { full_name: string | null; phone: string | null; email: string | null } | null;
   staff: { full_name: string | null } | null;
   services: { name: string | null } | null;
 };
@@ -49,7 +52,7 @@ export async function getCancelledBookings(
     const { data } = await sb
       .from("bookings")
       .select(
-        "id, start_at, created_at, cancelled_at, cancelled_by, person_label, customers(full_name), staff(full_name), services(name)",
+        "id, start_at, created_at, cancelled_at, cancelled_by, person_label, customers(full_name, phone, email), staff(full_name), services(name)",
       )
       .eq("status", "cancelled")
       .order("cancelled_at", { ascending: false, nullsFirst: false })
@@ -66,6 +69,8 @@ export async function getCancelledBookings(
           ? r.cancelled_by
           : null,
       customer: r.customers?.full_name ?? r.person_label ?? null,
+      customerPhone: r.customers?.phone ?? null,
+      customerEmail: r.customers?.email ?? null,
       barber: r.staff?.full_name ?? null,
       service: r.services?.name ?? null,
     }));
