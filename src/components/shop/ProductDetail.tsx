@@ -7,7 +7,7 @@ import { useCart } from "@/components/shop/CartProvider";
 import { QtyStepper, useShopData } from "@/components/shop/ShopShell";
 import { PriceTag, ProductImage, ProductRow } from "@/components/shop/ProductTile";
 import { rememberViewed, useRecentlyViewed } from "@/components/shop/recent";
-import { deptOf, finishGroup, holdGroup, kr, stockLabel, subOf, type ShopProduct } from "@/lib/shop-shared";
+import { catUrl, deptOf, finishGroup, holdGroup, kr, stockLabel, subOf, type ShopProduct } from "@/lib/shop-shared";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 /* =====================================================================
@@ -221,7 +221,7 @@ export function ProductDetail({ product, member }: { product: ShopProduct; membe
             <>
               <li aria-hidden>/</li>
               <li>
-                <Link href={`/butikk?kategori=${dept.key}`} className="hover:text-fg hover:underline">
+                <Link href={catUrl(dept.key)} className="hover:text-fg hover:underline">
                   {en ? dept.en : dept.no}
                 </Link>
               </li>
@@ -231,7 +231,7 @@ export function ProductDetail({ product, member }: { product: ShopProduct; membe
             <>
               <li aria-hidden>/</li>
               <li>
-                <Link href={`/butikk?kategori=${dept.key}&type=${sub.key}`} className="hover:text-fg hover:underline">
+                <Link href={catUrl(dept.key, sub.key)} className="hover:text-fg hover:underline">
                   {en ? sub.en : sub.no}
                 </Link>
               </li>
@@ -249,7 +249,7 @@ export function ProductDetail({ product, member }: { product: ShopProduct; membe
 
         <div>
           {p.brand && (
-            <Link href={`/butikk?merke=${encodeURIComponent(p.brand)}`} className="text-[13px] font-semibold tracking-wide text-muted uppercase hover:text-fg">
+            <Link href={catUrl(null, null, `merke=${encodeURIComponent(p.brand)}`)} className="text-[13px] font-semibold tracking-wide text-muted uppercase hover:text-fg">
               {p.brand}
             </Link>
           )}

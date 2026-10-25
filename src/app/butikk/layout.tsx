@@ -4,6 +4,7 @@ import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { BackToTop } from "@/components/site/BackToTop";
 import { ShopShell } from "@/components/shop/ShopShell";
+import { ShopNav } from "@/components/shop/ShopNav";
 import { ShopClosed } from "@/components/shop/ShopClosed";
 import { getShopProducts, getWebshopSettings, canPreviewShop } from "@/lib/shop";
 import { PUBLIC_VIEWPORT } from "@/lib/public-viewport";
@@ -43,6 +44,7 @@ export default async function ButikkLayout({ children }: { children: ReactNode }
         </div>
       )}
       <ShopShell products={products} settings={settings}>
+        <ShopNav />
         {children}
       </ShopShell>
       <Footer />

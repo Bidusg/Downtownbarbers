@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { seoUrl } from "@/lib/site-url";
 import { getShopProducts, getWebshopSettings } from "@/lib/shop";
+import { TAXONOMY } from "@/lib/shop-shared";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = seoUrl();
@@ -16,6 +17,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const s = await getWebshopSettings();
     if (s.live) {
+      for (const d of TAXONOMY) {
+        pages.push({ url: `${base}/butikk/kategori/${d.key}`, lastModified: now, changeFrequency: "weekly", priority: 0.6 });
+        for (const x of d.subs) pages.push({ url: `${base}/butikk/kategori/${d.key}/${x.key}`, lastModified: now, changeFrequency: "weekly", priority: 0.5 });
+      }
       const products = await getShopProducts();
       for (const p of products) pages.push({ url: `${base}/butikk/${p.slug}`, lastModified: now, changeFrequency: "weekly", priority: 0.5 });
     }

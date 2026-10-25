@@ -24,6 +24,8 @@ export type ShopProduct = {
   images: string[];
   stock: number;
   featured: boolean;
+  /** Hvor populært produktet er (solgte enheter siste 180 dager + litt tilfeldig blanding). */
+  popularity: number;
   related: string[];
   isGiftCard: boolean;
 };
@@ -123,6 +125,12 @@ export const TAXONOMY: Dept[] = [
     ],
   },
 ];
+
+/** Nettadresse til en kategori / produkttype (som ASOS/Zalando: egne sider). */
+export function catUrl(dept?: string | null, sub?: string | null, query?: string): string {
+  const base = dept ? `/butikk/kategori/${dept}${sub ? `/${sub}` : ""}` : "/butikk/kategori/alle";
+  return query ? `${base}?${query}` : base;
+}
 
 /** Gamle kategorinavn (før inndelingen) → avdeling. */
 const LEGACY_DEPT: Record<string, string> = {

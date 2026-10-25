@@ -1,4 +1,6 @@
+import { unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { getUserRole, isAdminRole } from "@/lib/auth";
 import { DEFAULT_SETTINGS, type ShopProduct, type WebshopSettings } from "@/lib/shop-shared";
 
@@ -33,7 +35,7 @@ export function displayName(name: string, brand: string | null): string {
   if (!a || !b) return name;
   if (b.startsWith(a) || a === b) return m[2].trim().length < 4 ? name : m[2].trim();
   // «Depot No. 402 - …» → «No. 402 – …» (modellnummeret beholdes).
-  if (a.startsWith(b)) {
+  if (a.startsWith(b) && /\d/.test(m[1])) {
     const firstWord = brand.trim().split(/\s+/)[0];
     const rest = m[1].trim().slice(firstWord.length).trim();
     return rest ? `${rest} – ${m[2].trim()}` : m[2].trim();
@@ -66,12 +68,61 @@ function map(r: Row): ShopProduct {
     images: main && !imgs.includes(main) ? [main, ...imgs] : imgs.length ? imgs : main ? [main] : [],
     stock: Number(r.stock) || 0,
     featured: r.featured === true,
+    popularity: 0,
     related: ((r.related_slugs as string[] | null) ?? []).filter(Boolean),
     isGiftCard: r.is_gift_card === true,
   };
 }
 
+/**
+ * Solgte enheter per produkt siste 180 dager (kasse + nettbutikk – nettordrer
+ * blir salg når de utleveres). Mellomlagres i en time, så lista oppdaterer
+ * seg av seg selv etter hvert som vi selger.
+ */
+const salesByProduct = unstable_cache(
+  async (): Promise<Record<string, number>> => {
+    try {
+      const svc = createServiceClient();
+      const since = new Date(Date.now() - 180 * 86400000).toISOString();
+      const out: Record<string, number> = {};
+      for (let from = 0; from < 50000; from += 1000) {
+        const { data, error } = await svc
+          .from("sale_items")
+          .select("ref_id, quantity, sales!inner(sold_at)")
+          .eq("kind", "product")
+          .not("ref_id", "is", null)
+          .gte("sales.sold_at", since)
+          .range(from, from + 999);
+        if (error || !data?.length) break;
+        for (const r of data as { ref_id: string; quantity: number }[]) out[r.ref_id] = (out[r.ref_id] ?? 0) + (Number(r.quantity) || 1);
+        if (data.length < 1000) break;
+      }
+      return out;
+    } catch {
+      return {};
+    }
+  },
+  ["shop-sales-by-product"],
+  { revalidate: 3600 },
+);
+
+/** Lite, stabilt «tilfeldig» tall per produkt som bytter hver dag (0–1). */
+function dailyJitter(id: string): number {
+  const seed = `${id}:${new Date().toISOString().slice(0, 10)}`;
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619);
+  return ((h >>> 0) % 1000) / 1000;
+}
+
 export async function getShopProducts(): Promise<ShopProduct[]> {
+  const [list, sold] = await Promise.all([loadShopProducts(), salesByProduct()]);
+  // Salg teller mest; favoritter får et lite løft; resten blandes tilfeldig
+  // (til vi har nok salgsdata vil lista se tilfeldig ut – det er meningen).
+  for (const p of list) p.popularity = (sold[p.id] ?? 0) * 10 + (p.featured ? 3 : 0) + dailyJitter(p.id) * 2;
+  return list;
+}
+
+async function loadShopProducts(): Promise<ShopProduct[]> {
   try {
     const sb = await createClient();
     const run = (cols: string) =>

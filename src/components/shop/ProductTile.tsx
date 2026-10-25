@@ -50,7 +50,7 @@ export function PriceTag({ p, large = false }: { p: ShopProduct; large?: boolean
   );
 }
 
-export function ProductTile({ p, eager = false }: { p: ShopProduct; eager?: boolean }) {
+export function ProductTile({ p, eager = false, badge }: { p: ShopProduct; eager?: boolean; badge?: string }) {
   const { add } = useCart();
   const { lang, t } = useLanguage();
   const st = stockLabel(p.stock);
@@ -64,7 +64,8 @@ export function ProductTile({ p, eager = false }: { p: ShopProduct; eager?: bool
           <ProductImage p={p} eager={eager} className="transition-transform duration-500 group-hover:scale-[1.02]" />
           <div className="absolute top-2.5 left-2.5 flex flex-col items-start gap-1">
             {sale && <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-[#1d1a17]">{lang === "en" ? "Sale" : "Tilbud"}</span>}
-            {p.featured && !sale && (
+            {badge && !sale && <span className="rounded-full bg-fg px-2 py-0.5 text-[11px] font-semibold text-canvas">{badge}</span>}
+            {p.featured && !sale && !badge && (
               <span className="rounded-full bg-fg px-2 py-0.5 text-[11px] font-semibold text-canvas">{lang === "en" ? "Barbers' pick" : "Barbernes favoritt"}</span>
             )}
           </div>
@@ -111,13 +112,16 @@ export function ProductTile({ p, eager = false }: { p: ShopProduct; eager?: bool
 }
 
 /** Vannrett rad med produkter (forslag nederst på sider). */
-export function ProductRow({ title, products, id }: { title: string; products: ShopProduct[]; id: string }) {
+export function ProductRow({ title, products, id, action }: { title: string; products: ShopProduct[]; id: string; action?: React.ReactNode }) {
   if (!products.length) return null;
   return (
     <section aria-labelledby={id} className="mt-14">
-      <h2 id={id} className="text-xl font-semibold tracking-tight sm:text-2xl">
-        {title}
-      </h2>
+      <div className="flex items-end justify-between gap-4">
+        <h2 id={id} className="text-xl font-semibold tracking-tight sm:text-2xl">
+          {title}
+        </h2>
+        {action}
+      </div>
       <div data-lenis-prevent className="-mx-5 mt-5 flex snap-x scroll-pl-5 gap-4 overflow-x-auto px-5 pb-2 [scrollbar-width:thin]">
         {products.map((p) => (
           <div key={p.id} className="w-[46%] shrink-0 snap-start sm:w-[30%] lg:w-[22%]">

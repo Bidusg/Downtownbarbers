@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SVGProps } from "react";
 import Link from "next/link";
 import { LogoMark } from "@/components/site/LogoMark";
@@ -81,6 +81,7 @@ export function Header({
     setIsCustomer(/(?:^|;\s*)dtb_kunde_in=1(?:;|$)/.test(document.cookie));
   }, []);
   const [scrolled, setScrolled] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
 
   // Mobilmeny: Esc lukker, og siden bak låses mens menyen er åpen.
   useEffect(() => {
@@ -105,16 +106,23 @@ export function Header({
 
   useEffect(() => {
     if (!overlay) return;
+    const title = document.querySelector<HTMLElement>("[data-hero-title]");
     const onScroll = () => {
       const y = window.scrollY;
-      // Headeren er GJENNOMSIKTIG over hero (kun desktop) og blir solid (frostet)
-      // når hero er nesten forbi. Headeren HENGER ALLTID MED – den skjules aldri,
-      // så den glir jevnt (smooth) gjennom hele siden.
-      setScrolled(y > Math.max(300, window.innerHeight - 120));
+      // Headeren er GJENNOMSIKTIG over hero og blir solid (frostet krem) idet
+      // «Downtown Barbers»-tittelen nærmer seg menyen – så menyteksten aldri
+      // havner oppå tittelen. Reserve: når hero er nesten forbi.
+      const headerBottom = headerRef.current?.getBoundingClientRect().bottom ?? 64;
+      const nearTitle = title ? title.getBoundingClientRect().top < headerBottom + 96 : false;
+      setScrolled(y > 4 && (nearTitle || y > Math.max(300, window.innerHeight - 120)));
     };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
   }, [overlay]);
 
   // «over» = gjennomsiktig modus: på forsiden, over hero, før man har scrollet.
@@ -135,11 +143,12 @@ export function Header({
   return (
     <>
     <header
+      ref={headerRef}
       className={
         (overlay ? "fixed" : "sticky") +
         // pt-safe: på iPhone går headeren helt opp under klokka/batteriet
         // (samme frostede glass), så innhold aldri synes over navbaren.
-        " inset-x-0 top-0 z-40 pt-[env(safe-area-inset-top)] transition-colors duration-500 " +
+        " inset-x-0 top-0 z-40 pt-[env(safe-area-inset-top)] transition-colors duration-300 " +
         // Over hero (mobil som PC): helt gjennomsiktig, så hero-bildet går helt
         // opp til toppen uten krem-stripe. Scrollet forbi hero: frostet krembar.
         (over

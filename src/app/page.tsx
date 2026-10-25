@@ -244,6 +244,7 @@ export default async function Home({
               Oslo · Osterhaus&apos; gate 10 · <T k="home.hero.since" /> {s.established}
             </p>
             <h1
+              data-hero-title
               className="rise m-title mt-3 text-[2.6rem] text-white sm:text-6xl md:text-7xl"
               style={rise(180)}
             >

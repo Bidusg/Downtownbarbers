@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useShopData, CartButton } from "@/components/shop/ShopShell";
-import { ProductImage, ProductRow, ProductTile } from "@/components/shop/ProductTile";
+import { useRouter } from "next/navigation";
+import { useShopData } from "@/components/shop/ShopShell";
+import { ProductRow, ProductTile } from "@/components/shop/ProductTile";
 import { useRecentlyViewed } from "@/components/shop/recent";
 import {
   FINISH_ORDER,
@@ -14,7 +15,7 @@ import {
   deptOf,
   finishGroup,
   holdGroup,
-  kr,
+  catUrl,
   type Dept,
   type ShopProduct,
 } from "@/lib/shop-shared";
@@ -29,7 +30,7 @@ import { useLanguage } from "@/lib/i18n/LanguageProvider";
  *   Alt ligger i adressefeltet, så lenker kan deles og «tilbake» virker.
  * ===================================================================== */
 
-type Sort = "rec" | "price-asc" | "price-desc" | "name";
+type Sort = "pop" | "price-asc" | "price-desc" | "name";
 type State = {
   dept: string;
   sub: string;
@@ -47,7 +48,6 @@ type FacetKey = "sub" | "dept" | "need" | "brands" | "hold" | "finish" | "price"
 
 const STYLE_NEEDS = ["matt", "blank", "sterkt"];
 
-const EMPTY: State = { dept: "", sub: "", need: "", q: "", brands: [], hold: [], finish: [], price: [], inStock: false, sort: "rec", all: false };
 
 const list = (v: string | null) => (v ? v.split(",").filter(Boolean) : []);
 
@@ -63,15 +63,13 @@ export function parseState(sp: URLSearchParams): State {
     finish: list(sp.get("finish")),
     price: list(sp.get("pris")),
     inStock: sp.get("lager") === "1",
-    sort: sort && ["rec", "price-asc", "price-desc", "name"].includes(sort) ? sort : "rec",
+    sort: sort && ["pop", "price-asc", "price-desc", "name"].includes(sort) ? sort : "pop",
     all: sp.get("vis") === "alle",
   };
 }
 
 function toQuery(s: State): string {
   const sp = new URLSearchParams();
-  if (s.dept) sp.set("kategori", s.dept);
-  if (s.sub) sp.set("type", s.sub);
   if (s.need) sp.set("behov", s.need);
   if (s.q) sp.set("q", s.q);
   if (s.brands.length) sp.set("merke", s.brands.join(","));
@@ -79,10 +77,8 @@ function toQuery(s: State): string {
   if (s.finish.length) sp.set("finish", s.finish.join(","));
   if (s.price.length) sp.set("pris", s.price.join(","));
   if (s.inStock) sp.set("lager", "1");
-  if (s.sort !== "rec") sp.set("sorter", s.sort);
-  if (s.all && !s.dept && !s.need && !s.q) sp.set("vis", "alle");
-  const str = sp.toString();
-  return str ? `/butikk?${str}` : "/butikk";
+  if (s.sort !== "pop") sp.set("sorter", s.sort);
+  return catUrl(s.dept || null, s.sub || null, sp.toString() || undefined);
 }
 
 const norm = (s: string) =>
@@ -165,35 +161,42 @@ function FacetGroup({ title, children, open = true }: { title: string; children:
 
 /* ---------- Hovedkomponent ---------- */
 
-export function Catalog({ initial }: { initial: Record<string, string | undefined> }) {
-  const { products, bySlug, settings } = useShopData();
+export function Catalog({
+  deptKey,
+  subKey,
+  initial,
+}: {
+  deptKey: string | null;
+  subKey: string | null;
+  initial: Record<string, string | undefined>;
+}) {
+  const { products, bySlug } = useShopData();
+  const router = useRouter();
   const { lang } = useLanguage();
   const en = lang === "en";
   const [s, setS] = useState<State>(() => {
     const sp = new URLSearchParams();
     for (const [k, v] of Object.entries(initial)) if (v) sp.set(k, v);
-    return parseState(sp);
+    return { ...parseState(sp), dept: deptKey ?? "", sub: subKey ?? "" };
   });
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showAllBrands, setShowAllBrands] = useState(false);
   const recent = useRecentlyViewed();
 
-  // Navigasjon (kategori/behov) = nytt steg i historikken; filtre = erstatt.
-  const go = useCallback((next: State, push = false) => {
-    setS(next);
-    const url = toQuery(next);
-    if (push) window.history.pushState(null, "", url);
-    else window.history.replaceState(null, "", url);
-    if (push) window.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
+  // Ny kategori = ny side (egen adresse). Filtre og produkttype = samme side,
+  // adressen oppdateres så lenken kan deles.
+  const go = useCallback(
+    (next: State, push = false) => {
+      if (push && next.dept !== s.dept) {
+        router.push(toQuery(next));
+        return;
+      }
+      setS(next);
+      window.history.replaceState(null, "", toQuery(next));
+    },
+    [router, s.dept],
+  );
   const update = (patch: Partial<State>, push = false) => go({ ...s, ...patch }, push);
-  const navigate = (patch: Partial<State>) => go({ ...EMPTY, sort: s.sort, ...patch }, true);
-
-  useEffect(() => {
-    const onPop = () => setS(parseState(new URLSearchParams(window.location.search)));
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
 
   useEffect(() => {
     if (!filtersOpen) return;
@@ -217,7 +220,7 @@ export function Catalog({ initial }: { initial: Record<string, string | undefine
     if (s.sort === "price-asc") l.sort((a, b) => a.price - b.price);
     else if (s.sort === "price-desc") l.sort((a, b) => b.price - a.price);
     else if (s.sort === "name") l.sort((a, b) => a.name.localeCompare(b.name, "nb"));
-    else l.sort((a, b) => Number(b.featured) - Number(a.featured) || Number(b.stock > 0) - Number(a.stock > 0));
+    else l.sort((a, b) => Number(b.stock > 0) - Number(a.stock > 0) || b.popularity - a.popularity);
     return l;
   }, [products, s]);
 
@@ -242,20 +245,13 @@ export function Catalog({ initial }: { initial: Record<string, string | undefine
     }
     return m;
   }, [products]);
-  const brandsAll = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const p of products) if (p.brand) m.set(p.brand, (m.get(p.brand) ?? 0) + 1);
-    return [...m.entries()].sort((a, b) => b[1] - a[1]);
-  }, [products]);
 
   const toggle = (k: "brands" | "hold" | "finish" | "price", v: string) =>
     update({ [k]: s[k].includes(v) ? s[k].filter((x) => x !== v) : [...s[k], v] } as Partial<State>);
 
   const facetCount = s.brands.length + s.hold.length + s.finish.length + s.price.length + (s.inStock ? 1 : 0) + (s.need ? 1 : 0) + (s.sub ? 1 : 0);
-  const landing = !s.dept && !s.need && !s.q && !s.all && facetCount === 0;
   const hasStyling = results.some((p) => p.hold != null || p.shine != null) || s.hold.length > 0 || s.finish.length > 0;
   const recentList = useMemo(() => recent.map((x) => bySlug.get(x)).filter(Boolean).slice(0, 8) as ShopProduct[], [recent, bySlug]);
-  const featured = useMemo(() => products.filter((p) => p.featured && p.stock > 0).slice(0, 10), [products]);
 
   /* ---------- Filterpanel (samme innhold på PC og mobil) ---------- */
   const facets = (
@@ -354,12 +350,6 @@ export function Catalog({ initial }: { initial: Record<string, string | undefine
   if (s.inStock) pills.push({ label: t("På lager", "In stock"), clear: () => update({ inStock: false }) });
   const clearFilters = () => update({ sub: "", need: dept ? "" : s.need, brands: [], hold: [], finish: [], price: [], inStock: false });
 
-  const usps = [
-    settings.ship && settings.freeOverNok > 0 ? t(`Gratis frakt over ${kr(settings.freeOverNok)}`, `Free shipping over ${kr(settings.freeOverNok)}`) : null,
-    settings.pickup ? t("Hent i salongen i Oslo", "Pick up in the salon") : null,
-    t("Betal med Vipps", "Pay with Vipps"),
-    t("Det barberne våre bruker", "What our barbers use"),
-  ].filter(Boolean) as string[];
 
   const title = s.q
     ? t(`Søk: «${s.q}»`, `Search: “${s.q}”`)
@@ -380,182 +370,22 @@ export function Catalog({ initial }: { initial: Record<string, string | undefine
 
   return (
     <main className="mx-auto max-w-7xl px-5 pt-6 pb-24 sm:pt-10">
-      {/* ---------- Avdelinger + søk ---------- */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <nav aria-label={t("Kategorier", "Categories")} className="-mx-5 min-w-0 flex-1 overflow-x-auto px-5 [scrollbar-width:none]" data-lenis-prevent>
-          <ul className="flex gap-6 border-b border-line">
-            {[{ key: "", no: "Butikk", en: "Shop" }, ...TAXONOMY.filter((d) => totals.has(d.key))].map((d) => {
-              const active = d.key ? s.dept === d.key : landing;
-              return (
-                <li key={d.key || "home"}>
-                  <button
-                    type="button"
-                    onClick={() => (d.key ? navigate({ dept: d.key }) : navigate({}))}
-                    aria-current={active ? "page" : undefined}
-                    className={
-                      "-mb-px block border-b-2 py-3 text-[15px] font-medium whitespace-nowrap transition-colors " +
-                      (active ? "border-fg text-fg" : "border-transparent text-muted hover:text-fg")
-                    }
-                  >
-                    {en ? d.en : d.no}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-        <div className="flex w-full items-center gap-2 sm:w-auto">
-          <label className="relative flex-1 sm:w-72 sm:flex-none">
-            <span className="sr-only">{t("Søk i produkter", "Search products")}</span>
-            <input
-              type="search"
-              value={s.q}
-              onChange={(e) => update({ q: e.target.value })}
-              placeholder={t("Søk etter produkt eller merke", "Search product or brand")}
-              className="h-11 w-full rounded-full bg-surface px-5 text-[15px] text-fg shadow-[0_0_0_1px_oklch(var(--line-2))] outline-none placeholder:text-muted focus:shadow-[0_0_0_2px_oklch(var(--fg))]"
-              autoComplete="off"
-            />
-          </label>
-          <CartButton />
-        </div>
-      </div>
-
-      {landing ? (
-        <>
-          {/* ---------- Forside ---------- */}
-          <header className="mt-10">
-            <p className="text-[10px] font-semibold tracking-[0.34em] text-accent-soft uppercase">{t("Nettbutikk", "Online store")}</p>
-            <h1 className="mt-2 max-w-3xl font-display text-4xl font-bold sm:text-5xl">{t("Produktene barberne våre bruker", "The products our barbers use")}</h1>
-            <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-[13px] text-muted">
-              {usps.map((u) => (
-                <li key={u} className="flex items-center gap-1.5">
-                  <span aria-hidden className="text-accent-soft">
-                    ✓
-                  </span>
-                  {u}
-                </li>
-              ))}
-            </ul>
-          </header>
-
-          <section aria-labelledby="by-cat" className="mt-12">
-            <div className="flex items-end justify-between gap-4">
-              <h2 id="by-cat" className="text-xl font-semibold tracking-tight sm:text-2xl">
-                {t("Handle etter kategori", "Shop by category")}
-              </h2>
-              <button type="button" onClick={() => navigate({ all: true })} className="text-sm underline hover:text-fg">
-                {t(`Se alle ${products.length}`, `View all ${products.length}`)}
-              </button>
-            </div>
-            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {TAXONOMY.filter((d) => totals.has(d.key)).map((d, i) => {
-                // Bare ekte produktbilder i flisen (ingen tom plassholder).
-                const hero = products.find((p) => deptOf(p.category)?.key === d.key && p.featured && p.images.length) ?? products.find((p) => deptOf(p.category)?.key === d.key && p.images.length);
-                return (
-                  <article key={d.key} className={"group relative flex flex-col overflow-hidden rounded-3xl bg-surface " + (i === 0 ? "lg:row-span-2" : "")}>
-                    <button type="button" onClick={() => navigate({ dept: d.key })} className="flex flex-1 flex-col p-6 text-left">
-                      <span className="text-[11px] font-semibold tracking-[0.2em] text-muted uppercase tabular-nums">
-                        {totals.get(d.key)} {t("produkter", "products")}
-                      </span>
-                      <span className="mt-2 font-display text-3xl font-bold">{en ? d.en : d.no}</span>
-                      <span className="mt-2 max-w-sm text-[14px] leading-relaxed text-fg-soft">{en ? d.introEn : d.introNo}</span>
-                      {i === 0 && hero && (
-                        <span className="mt-6 hidden aspect-[4/3] overflow-hidden rounded-2xl lg:block">
-                          <ProductImage p={hero} />
-                        </span>
-                      )}
-                      <span className="mt-auto pt-5 text-sm font-semibold">
-                        {t("Utforsk", "Explore")} <span aria-hidden className="inline-block transition-transform group-hover:translate-x-1">→</span>
-                      </span>
-                    </button>
-                    <ul className="flex flex-wrap gap-1.5 px-6 pb-6">
-                      {d.subs
-                        .filter((x) => totals.has(`${d.key}/${x.key}`))
-                        .map((x) => (
-                          <li key={x.key}>
-                            <button
-                              type="button"
-                              onClick={() => navigate({ dept: d.key, sub: x.key })}
-                              className="rounded-full bg-canvas px-3 py-1.5 text-[13px] text-fg shadow-[0_0_0_1px_oklch(var(--line))] hover:shadow-[0_0_0_1px_oklch(var(--fg))]"
-                            >
-                              {en ? x.en : x.no}
-                            </button>
-                          </li>
-                        ))}
-                    </ul>
-                  </article>
-                );
-              })}
-            </div>
-          </section>
-
-          <section aria-labelledby="by-need" className="mt-14">
-            <h2 id="by-need" className="text-xl font-semibold tracking-tight sm:text-2xl">
-              {t("Finn produktet ditt", "Find your product")}
-            </h2>
-            <p className="mt-1 text-sm text-muted">{t("Velg hva du er ute etter – vi viser det som passer.", "Pick what you're after – we'll show what fits.")}</p>
-            <ul className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              {NEEDS.map((n) => {
-                const c = products.filter(n.match).length;
-                if (!c) return null;
-                return (
-                  <li key={n.key}>
-                    <button
-                      type="button"
-                      onClick={() => navigate({ need: n.key })}
-                      className="flex h-full w-full flex-col items-start rounded-2xl p-4 text-left shadow-[0_0_0_1px_oklch(var(--line-2))] transition-shadow hover:shadow-[0_0_0_1.5px_oklch(var(--fg))]"
-                    >
-                      <span className="text-[15px] font-semibold">{en ? n.en : n.no}</span>
-                      <span className="mt-0.5 text-[13px] text-muted">{en ? n.hintEn : n.hintNo}</span>
-                      <span className="mt-3 text-xs text-muted tabular-nums">
-                        {c} {t("produkter", "products")}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-
-          {featured.length > 0 && <ProductRow id="fav" title={t("Barbernes favoritter", "Our barbers' favourites")} products={featured} />}
-
-          <section aria-labelledby="brands" className="mt-14">
-            <h2 id="brands" className="text-xl font-semibold tracking-tight sm:text-2xl">
-              {t("Merker", "Brands")}
-            </h2>
-            <ul className="mt-5 flex flex-wrap gap-2">
-              {brandsAll.map(([b, c]) => (
-                <li key={b}>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ all: true, brands: [b] })}
-                    className="rounded-full px-4 py-2 text-sm font-medium shadow-[0_0_0_1px_oklch(var(--line-2))] hover:shadow-[0_0_0_1px_oklch(var(--fg))]"
-                  >
-                    {b} <span className="ml-1 text-xs text-muted tabular-nums">{c}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        </>
-      ) : (
-        <>
           {/* ---------- Listevisning ---------- */}
           <nav aria-label={t("Brødsmuler", "Breadcrumb")} className="mt-6 text-[13px] text-muted">
             <ol className="flex flex-wrap items-center gap-1.5">
               <li>
-                <button type="button" onClick={() => navigate({})} className="hover:text-fg hover:underline">
+                <Link href="/butikk" className="hover:text-fg hover:underline">
                   {t("Butikk", "Shop")}
-                </button>
+                </Link>
               </li>
               {dept && (
                 <>
                   <li aria-hidden>/</li>
                   <li>
                     {sub ? (
-                      <button type="button" onClick={() => navigate({ dept: dept.key })} className="hover:text-fg hover:underline">
+                      <Link href={catUrl(dept.key)} className="hover:text-fg hover:underline">
                         {en ? dept.en : dept.no}
-                      </button>
+                      </Link>
                     ) : (
                       <span className="text-fg">{en ? dept.en : dept.no}</span>
                     )}
@@ -630,7 +460,7 @@ export function Catalog({ initial }: { initial: Record<string, string | undefine
                     onChange={(e) => update({ sort: e.target.value as Sort })}
                     className="h-10 rounded-full bg-surface px-4 text-sm text-fg shadow-[0_0_0_1px_oklch(var(--line-2))]"
                   >
-                    <option value="rec">{t("Anbefalt", "Recommended")}</option>
+                    <option value="pop">{t("Mest populære", "Most popular")}</option>
                     <option value="price-asc">{t("Pris: lav til høy", "Price: low to high")}</option>
                     <option value="price-desc">{t("Pris: høy til lav", "Price: high to low")}</option>
                     <option value="name">{t("Navn A–Å", "Name A–Z")}</option>
@@ -666,9 +496,9 @@ export function Catalog({ initial }: { initial: Record<string, string | undefine
                         {t("Nullstill filtre", "Clear filters")}
                       </button>
                     )}
-                    <button type="button" onClick={() => navigate({})} className="pill pill-soft">
+                    <Link href="/butikk" className="pill pill-soft">
                       {t("Til butikken", "Back to shop")}
-                    </button>
+                    </Link>
                   </div>
                 </div>
               ) : (
@@ -680,8 +510,6 @@ export function Catalog({ initial }: { initial: Record<string, string | undefine
               )}
             </div>
           </div>
-        </>
-      )}
 
       {recentList.length > 0 && <ProductRow id="recent" title={t("Nylig sett", "Recently viewed")} products={recentList} />}
 
