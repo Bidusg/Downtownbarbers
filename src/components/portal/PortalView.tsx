@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getCustomerMembershipByToken, remainingToNext } from "@/lib/membership-queries";
 import { TierBadge } from "@/components/membership/TierBadge";
 import { UpcomingBookings } from "@/components/portal/UpcomingBookings";
-import { T, TDyn, TF } from "@/lib/i18n/T";
+import { T, TDyn, TF, TOr } from "@/lib/i18n/T";
 import { PortalDate } from "@/components/portal/PortalDate";
 import { PublicPage } from "@/components/site/PublicPage";
 
@@ -30,16 +30,39 @@ const NF = new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 0 });
 const nok = (n: number) => `${NF.format(Math.round(n))} kr`;
 const TILE = "rounded-[28px] bg-surface p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_40px_-24px_rgba(0,0,0,0.18)] sm:p-8";
 
+export type PortalOrder = {
+  id: string;
+  order_no: number;
+  created_at: string;
+  status: string;
+  total_nok: number;
+  refunded_nok: number;
+  access_token: string;
+  item_count: number;
+};
+
+const ORDER_STATUS: Record<string, { no: string; en: string }> = {
+  new: { no: "Mottatt", en: "Received" },
+  picking: { no: "Vi plukker varene", en: "Being picked" },
+  ready: { no: "Klar til henting", en: "Ready for pick-up" },
+  picked_up: { no: "Hentet", en: "Picked up" },
+  shipped: { no: "Sendt", en: "Shipped" },
+  cancelled: { no: "Kansellert", en: "Cancelled" },
+};
+
 export function PortalView({
   token,
   p,
   addonsByBooking,
   membership,
+  orders = [],
 }: {
   token: string;
   p: Portal;
   addonsByBooking: Map<string, string[]>;
   membership: Awaited<ReturnType<typeof getCustomerMembershipByToken>>;
+  /** Bestillinger i nettbutikken. */
+  orders?: PortalOrder[];
 }) {
   const membershipLeft = membership ? remainingToNext(membership) : null;
   const now = Date.now();
@@ -202,6 +225,50 @@ export function PortalView({
           </section>
         )}
       </div>
+
+      {/* Mine bestillinger (nettbutikken) */}
+      {orders.length > 0 && (
+        <section className="mt-12" aria-labelledby="pt-orders">
+          <h2 id="pt-orders" className="text-xl font-semibold tracking-tight">
+            <TOr no="Mine bestillinger" en="My orders" />
+          </h2>
+          <div className={TILE + " mt-4 !p-2 sm:!p-3"}>
+            <ul className="divide-y divide-line">
+              {orders.map((o) => (
+                <li key={o.id}>
+                  <a
+                    href={`/butikk/ordre/${o.id}?t=${o.access_token}`}
+                    className="flex items-center justify-between gap-3 rounded-2xl px-4 py-4 hover:bg-canvas"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium text-fg">
+                        <TOr no="Ordre" en="Order" /> #{o.order_no}
+                      </p>
+                      <p className="mt-0.5 text-sm text-muted tabular-nums">
+                        <PortalDate iso={o.created_at} /> · {o.item_count} <TOr no="varer" en="items" /> ·{" "}
+                        <TOr no={ORDER_STATUS[o.status]?.no ?? o.status} en={ORDER_STATUS[o.status]?.en ?? o.status} />
+                        {Number(o.refunded_nok) > 0 && (
+                          <>
+                            {" · "}
+                            <TOr no={`refundert ${nok(Number(o.refunded_nok))}`} en={`refunded ${nok(Number(o.refunded_nok))}`} />
+                          </>
+                        )}
+                      </p>
+                    </div>
+                    <span className="shrink-0 font-medium tabular-nums">{nok(Number(o.total_nok))}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <p className="mt-3 px-1 text-sm text-muted">
+            <TOr
+              no="Vil du returnere eller bytte noe? Ta med varen til salongen innen 14 dager, eller ring oss."
+              en="Want to return or exchange something? Bring it to the salon within 14 days, or give us a call."
+            />
+          </p>
+        </section>
+      )}
 
       {/* Historikk */}
       <section className="mt-12" aria-labelledby="pt-history">

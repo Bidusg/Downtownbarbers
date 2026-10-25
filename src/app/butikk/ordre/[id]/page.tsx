@@ -30,7 +30,8 @@ type Order = {
   picking_started_at?: string | null;
   ready_at?: string | null;
   completed_at?: string | null;
-  items: { name: string; qty: number; unit_price_nok: number; line_total_nok: number; picked_qty?: number; missing_qty?: number }[];
+  refunded_nok?: number;
+  items: { name: string; qty: number; unit_price_nok: number; line_total_nok: number; picked_qty?: number; missing_qty?: number; returned_qty?: number }[];
 };
 
 function fmtWhen(iso: string | null | undefined) {
@@ -185,6 +186,9 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
                       {miss} stk var utsolgt og er tatt ut – du betaler ikke for {miss === 1 ? "den" : "dem"}.
                     </span>
                   )}
+                  {(i.returned_qty ?? 0) > 0 && (
+                    <span className="block text-xs text-muted">{i.returned_qty} stk returnert / byttet.</span>
+                  )}
                 </span>
                 <span className="tabular-nums">{kr(Number(i.unit_price_nok) * left)}</span>
               </li>
@@ -206,6 +210,12 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
             <dt>Totalt</dt>
             <dd className="tabular-nums">{kr(Number(o.total_nok))}</dd>
           </div>
+          {Number(o.refunded_nok ?? 0) > 0 && (
+            <div className="flex justify-between text-sm">
+              <dt className="text-muted">Refundert til deg</dt>
+              <dd className="tabular-nums">−{kr(Number(o.refunded_nok))}</dd>
+            </div>
+          )}
         </dl>
         <div className="mt-5 grid gap-4 border-t border-line pt-4 text-sm sm:grid-cols-2">
           <div>

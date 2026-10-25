@@ -10,8 +10,8 @@ import { orderUrl } from "@/lib/shop-orders";
 type R = { ok?: true; error?: string };
 
 function done() {
-  revalidatePath("/kasse/nettordrer");
-  revalidatePath("/admin/nettordrer");
+  revalidatePath("/kasse/nettordrer", "layout");
+  revalidatePath("/admin/nettordrer", "layout");
   revalidatePath("/kasse", "layout");
 }
 

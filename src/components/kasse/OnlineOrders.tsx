@@ -145,7 +145,18 @@ function PickLine({
   );
 }
 
-function OrderCard({ o, pickingReady }: { o: OnlineOrder; pickingReady: boolean }) {
+export function OrderCard({
+  o,
+  pickingReady,
+  href,
+  as: Tag = "li",
+}: {
+  o: OnlineOrder;
+  pickingReady: boolean;
+  /** Lenke til ordresiden (endre, retur, historikk). */
+  href?: string;
+  as?: "li" | "div";
+}) {
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
   const [method, setMethod] = useState("");
@@ -176,11 +187,16 @@ function OrderCard({ o, pickingReady }: { o: OnlineOrder; pickingReady: boolean 
     });
 
   return (
-    <li className="bo-card border border-line bg-surface p-5">
+    <Tag className="bo-card border border-line bg-surface p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm text-muted">
             #{o.order_no} · {when(o.created_at)}
+            {href && (
+              <a href={href} className="ml-2 font-semibold text-accent-soft underline">
+                Åpne ordre →
+              </a>
+            )}
           </p>
           <p className="mt-0.5 text-lg font-semibold">{o.name}</p>
           <p className="text-sm text-muted">
@@ -198,6 +214,10 @@ function OrderCard({ o, pickingReady }: { o: OnlineOrder; pickingReady: boolean 
         <div className="text-right">
           <span className={"inline-block rounded-full px-2.5 py-1 text-xs font-semibold " + st.cls}>{st.label}</span>
           <p className="mt-2 font-display text-xl">{formatKr(Number(o.total_nok))}</p>
+          {o.refunded_nok > 0 && <p className="text-xs font-semibold text-danger">Refundert {formatKr(o.refunded_nok)}</p>}
+          {o.items.some((i) => i.returned_qty > 0) && o.refunded_nok === 0 && (
+            <p className="text-xs font-semibold text-muted">Retur/bytte registrert</p>
+          )}
           <p className="text-xs text-muted">
             {PAY[o.payment_method]}
             {o.payment_method !== "pay_at_pickup" && (o.payment_status === "authorized" ? " · reservert" : o.payment_status === "paid" ? " · trukket" : "")}
@@ -270,6 +290,7 @@ function OrderCard({ o, pickingReady }: { o: OnlineOrder; pickingReady: boolean 
                   {i.missing_qty > 0 && i.qty - i.missing_qty > 0 && (
                     <span className="text-xs text-muted"> ({i.missing_qty} manglet)</span>
                   )}
+                  {i.returned_qty > 0 && <span className="text-xs font-semibold text-danger"> · {i.returned_qty} returnert</span>}
                 </span>
                 <span className="text-muted tabular-nums">{formatKr(Number(i.unit_price_nok) * (i.qty - i.missing_qty))}</span>
               </li>
@@ -367,19 +388,55 @@ function OrderCard({ o, pickingReady }: { o: OnlineOrder; pickingReady: boolean 
       )}
       {pending && <p className="mt-2 text-sm text-muted">Lagrer …</p>}
       {err && <p className="mt-2 text-sm text-danger">{err}</p>}
-    </li>
+    </Tag>
   );
 }
 
 const isOpen = (r: OnlineOrder) => r.status === "new" || r.status === "picking" || r.status === "ready";
 
-export function OnlineOrders({ rows, pickingReady = true }: { rows: OnlineOrder[]; pickingReady?: boolean }) {
-  const [tab, setTab] = useState<"open" | "done">("open");
+export function OnlineOrders({
+  rows,
+  pickingReady = true,
+  basePath,
+  search = "",
+}: {
+  rows: OnlineOrder[];
+  pickingReady?: boolean;
+  /** «/admin/nettordrer» eller «/kasse/nettordrer» – lenker til ordresiden. */
+  basePath?: string;
+  search?: string;
+}) {
+  const [tab, setTab] = useState<"open" | "done">(search && !rows.some(isOpen) ? "done" : "open");
   const open = useMemo(() => rows.filter(isOpen), [rows]);
   const closed = useMemo(() => rows.filter((r) => !isOpen(r)), [rows]);
   const list = tab === "open" ? open : closed;
   return (
     <div className="space-y-4">
+      {basePath && (
+        <form action={basePath} method="get" role="search" className="flex flex-wrap items-center gap-2">
+          <input
+            type="search"
+            name="q"
+            defaultValue={search}
+            placeholder="Søk: ordrenr., navn, e-post, telefon eller vare"
+            aria-label="Søk i nettordrer"
+            className="h-10 min-w-0 flex-1 rounded-lg border border-line-2 bg-canvas px-3 text-sm [@media(pointer:coarse)]:h-11"
+          />
+          <button type="submit" className={btnPrimary}>
+            Søk
+          </button>
+          {search && (
+            <a href={basePath} className="text-sm text-muted underline">
+              Nullstill
+            </a>
+          )}
+        </form>
+      )}
+      {search && (
+        <p className="text-sm text-muted">
+          {rows.length} treff på «{search}» (alle datoer).
+        </p>
+      )}
       <div className="flex gap-2">
         {(
           [
@@ -394,12 +451,16 @@ export function OnlineOrders({ rows, pickingReady = true }: { rows: OnlineOrder[
       </div>
       {list.length === 0 ? (
         <p className="bo-card border border-line bg-surface px-5 py-10 text-center text-sm text-muted">
-          {tab === "open" ? "Ingen nettordrer som venter." : "Ingen fullførte nettordrer de siste 90 dagene."}
+          {search
+            ? "Ingen ordrer her som passer søket."
+            : tab === "open"
+              ? "Ingen nettordrer som venter."
+              : "Ingen fullførte nettordrer de siste 90 dagene."}
         </p>
       ) : (
         <ul className="space-y-3">
           {list.map((o) => (
-            <OrderCard key={o.id} o={o} pickingReady={pickingReady} />
+            <OrderCard key={o.id} o={o} pickingReady={pickingReady} href={basePath ? `${basePath}/${o.id}` : undefined} />
           ))}
         </ul>
       )}

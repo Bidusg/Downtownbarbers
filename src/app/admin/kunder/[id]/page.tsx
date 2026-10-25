@@ -9,6 +9,16 @@ import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { formatKr } from "@/lib/format";
+import { getCustomerOnlineOrders } from "@/lib/online-order-queries";
+
+const WEB_STATUS: Record<string, string> = {
+  new: "Ny",
+  picking: "Plukkes",
+  ready: "Klar",
+  picked_up: "Utlevert",
+  shipped: "Sendt",
+  cancelled: "Kansellert",
+};
 
 const nokFmt = (n: number) => Math.round(n).toLocaleString("nb-NO") + " kr";
 
@@ -99,6 +109,7 @@ export default async function KundeKort({
       ? new Date(iso).toLocaleDateString("nb-NO", { timeZone: "Europe/Oslo", day: "numeric", month: "short", year: "numeric" })
       : "";
   const membership = await getCustomerMembership(id);
+  const webOrders = await getCustomerOnlineOrders(id, c.email);
   const membershipLeft = membership ? remainingToNext(membership) : null;
   const save = updateCustomer.bind(null, id);
   const banner =
@@ -345,6 +356,39 @@ export default async function KundeKort({
             </table>
           </div>
         </div>
+      </div>
+
+      {/* Nettordrer – åpne for å endre, plukke eller registrere retur/bytte */}
+      <div className="mt-6 border border-line">
+        <h2 className="border-b border-line bg-surface-2 px-4 py-3 text-xs font-semibold tracking-wide text-muted uppercase">
+          Nettordrer
+        </h2>
+        {webOrders.length === 0 ? (
+          <p className="px-4 py-8 text-center text-sm text-muted">Ingen bestillinger i nettbutikken.</p>
+        ) : (
+          <ul className="divide-y divide-line text-sm">
+            {webOrders.map((o) => (
+              <li key={o.id}>
+                <Link href={`/admin/nettordrer/${o.id}`} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 hover:bg-surface-2">
+                  <span>
+                    <strong>#{o.order_no}</strong>{" "}
+                    <span className="text-muted">
+                      · {fmt(o.created_at)} · {o.items.reduce((a, i) => a + i.qty - i.missing_qty, 0)} varer
+                    </span>
+                    {o.refunded_nok > 0 && <span className="text-xs font-semibold text-danger"> · refundert {formatKr(o.refunded_nok)}</span>}
+                  </span>
+                  <span className="flex items-center gap-3">
+                    <span className="font-display">{formatKr(Number(o.total_nok))}</span>
+                    <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-xs font-semibold text-muted">
+                      {WEB_STATUS[o.status] ?? o.status}
+                    </span>
+                    <span className="text-accent-soft">Åpne →</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {/* Personvern / GDPR */}

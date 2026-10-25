@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { useCart } from "@/components/shop/CartProvider";
 import { FreeShippingBar, QtyStepper, Thumb, useShopData, useSuggestions } from "@/components/shop/ShopShell";
 import { placeOrder, type PlaceOrderInput } from "@/app/butikk/actions";
@@ -72,7 +73,8 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
   );
 }
 
-export function Checkout({ member }: { member: Member }) {
+export function Checkout({ member, terms: termsNode }: { member: Member; /** Kjøpsvilkårene (vises i et vindu over kassen). */ terms?: React.ReactNode }) {
+  const [showTerms, setShowTerms] = useState(false);
   const { lines, setQty, remove, add, clear, ready } = useCart();
   const { byId, settings } = useShopData();
   const { lang, t } = useLanguage();
@@ -440,9 +442,22 @@ export function Checkout({ member }: { member: Member }) {
               <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--color-fg)]" aria-invalid={inv(!terms)} />
               <span>
                 {en ? "I accept the " : "Jeg godtar "}
-                <Link href="/kjopsvilkar" target="_blank" className="underline">
-                  {en ? "terms of sale" : "kjøpsvilkårene"}
-                </Link>
+                {termsNode ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setShowTerms(true);
+                    }}
+                    className="underline"
+                  >
+                    {en ? "terms of sale" : "kjøpsvilkårene"}
+                  </button>
+                ) : (
+                  <Link href="/kjopsvilkar" target="_blank" className="underline">
+                    {en ? "terms of sale" : "kjøpsvilkårene"}
+                  </Link>
+                )}
                 {en ? " and have read the " : " og har lest "}
                 <Link href="/personvern" target="_blank" className="underline">
                   {en ? "privacy policy" : "personvernerklæringen"}
@@ -476,6 +491,83 @@ export function Checkout({ member }: { member: Member }) {
           {summary}
         </aside>
       </div>
+      {showTerms && termsNode != null && (
+        <TermsDialog
+          title={en ? "Terms of sale" : "Kjøpsvilkår"}
+          closeLabel={en ? "Close" : "Lukk"}
+          acceptLabel={en ? "I accept" : "Jeg godtar"}
+          onClose={() => setShowTerms(false)}
+          onAccept={() => {
+            setTerms(true);
+            setShowTerms(false);
+          }}
+        >
+          {termsNode}
+        </TermsDialog>
+      )}
     </main>
+  );
+}
+
+/** Kjøpsvilkårene i et vindu over kassen (kunden mister ikke det de har fylt ut). */
+function TermsDialog({
+  title,
+  closeLabel,
+  acceptLabel,
+  onClose,
+  onAccept,
+  children,
+}: {
+  title: string;
+  closeLabel: string;
+  acceptLabel: string;
+  onClose: () => void;
+  onAccept: () => void;
+  children: React.ReactNode;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 80 }}
+      className="flex items-end justify-center bg-black/40 sm:items-center sm:p-6"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="terms-title"
+        onClick={(e) => e.stopPropagation()}
+        className="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl bg-canvas text-fg shadow-2xl sm:rounded-3xl"
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-line px-6 py-4">
+          <h2 id="terms-title" className="text-lg font-semibold tracking-tight">
+            {title}
+          </h2>
+          <button type="button" onClick={onClose} aria-label={closeLabel} className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-surface">
+            ✕
+          </button>
+        </div>
+        <div className="overflow-y-auto overscroll-contain px-6 pb-6">{children}</div>
+        <div className="flex justify-end gap-2 border-t border-line px-6 py-4">
+          <button type="button" onClick={onClose} className="pill pill-soft">
+            {closeLabel}
+          </button>
+          <button type="button" onClick={onAccept} className="pill pill-primary">
+            {acceptLabel}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }

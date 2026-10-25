@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCustomerMembershipByToken } from "@/lib/membership-queries";
 import { T } from "@/lib/i18n/T";
 import { PublicPage, MessageTile } from "@/components/site/PublicPage";
-import { PortalView, type Portal } from "@/components/portal/PortalView";
+import { PortalView, type Portal, type PortalOrder } from "@/components/portal/PortalView";
 import { PUBLIC_VIEWPORT } from "@/lib/public-viewport";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +46,9 @@ export default async function MinSide({ params }: { params: Promise<{ token: str
   }
 
   const membership = await getCustomerMembershipByToken(token);
-  return <PortalView token={token} p={p} addonsByBooking={addonsByBooking} membership={membership} />;
+  // Nettbutikk-bestillinger (KJØR-I-SUPABASE-NETTORDRE-RETUR.sql). Mangler funksjonen, vises ingenting.
+  const { data: orderRows } = await sb.rpc("customer_portal_orders", { p_token: token });
+  const orders = ((orderRows ?? []) as PortalOrder[]) ?? [];
+  return <PortalView token={token} p={p} addonsByBooking={addonsByBooking} membership={membership} orders={orders} />;
 }
 

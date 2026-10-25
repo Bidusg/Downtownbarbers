@@ -202,6 +202,24 @@ export async function capturePayment(
   }
 }
 
+/** Refunder (deler av) et trukket beløp. Pengene går tilbake til kundens Vipps/kort. */
+export async function refundPayment(reference: string, amountOre: number): Promise<void> {
+  if (config.vipps.mode === "mock") return;
+  const token = await getAccessToken();
+  const res = await fetch(
+    `${config.vipps.apiBase}/epayment/v1/payments/${encodeURIComponent(reference)}/refund`,
+    {
+      method: "POST",
+      headers: vippsHeaders(token),
+      body: JSON.stringify({ modificationAmount: { currency: "NOK", value: amountOre } }),
+    },
+  );
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Vipps refund failed: ${res.status} ${body}`);
+  }
+}
+
 /** Booking-id fra en Vipps-referanse (booking-<uuid>). */
 export function bookingIdFromReference(reference: string): string {
   return reference.replace(/^booking-/, "");

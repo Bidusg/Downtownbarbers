@@ -979,7 +979,14 @@ export async function sendOrderUpdate(
   o: {
     orderNo: number;
     name: string;
-    kind: "ready" | "shipped" | "cancelled" | "picked_up";
+    kind: "ready" | "shipped" | "cancelled" | "picked_up" | "changed" | "returned";
+    /** Endret ordre / retur: hva som er gjort («Balm 2 → 1», «1 × Balm»). */
+    summary?: string;
+    /** Retur: refundert beløp og måte. */
+    refundNok?: number;
+    refundMethod?: string;
+    /** Retur: «retur» | «reklamasjon» | «bytte». */
+    returnKind?: string;
     trackingNo?: string | null;
     orderUrl: string;
     /** Varer som manglet og er tatt ut av ordren («1 × Beard Balm»). */
@@ -1017,6 +1024,32 @@ export async function sendOrderUpdate(
       p: `Hei ${first}! Ordre #${o.orderNo} er hentet${total ? ` og betalt (${total})` : ""}. Kvitteringen ligger på ordresiden.`,
       cta: ctaButton(o.orderUrl, "Se kvitteringen"),
       s: `Kvittering for ordre #${o.orderNo} – Downtown Barbers`,
+    },
+    changed: {
+      h: "Ordren din er endret",
+      p: `Hei ${first}! Vi har endret ordre #${o.orderNo}${o.summary ? `: ${escapeHtml(o.summary)}` : ""}.${
+        total ? ` Ny total: ${total}.` : ""
+      } Er noe feil, er det bare å ringe oss.`,
+      cta: ctaButton(o.orderUrl, "Se ordren"),
+      s: `Ordre #${o.orderNo} er endret`,
+    },
+    returned: {
+      h: o.returnKind === "bytte" ? "Byttet er registrert" : o.returnKind === "reklamasjon" ? "Reklamasjonen er registrert" : "Returen er registrert",
+      p: `Hei ${first}! Vi har registrert ${
+        o.returnKind === "bytte" ? "byttet" : o.returnKind === "reklamasjon" ? "reklamasjonen" : "returen"
+      } på ordre #${o.orderNo}${o.summary ? `: ${escapeHtml(o.summary)}` : ""}.${
+        o.refundNok && o.refundNok > 0
+          ? ` ${o.refundNok.toLocaleString("nb-NO")} kr ${
+              o.refundMethod === "Vipps"
+                ? "er refundert til Vipps/kortet du betalte med. Det kan ta noen dager før pengene vises på kontoen."
+                : o.refundMethod === "Kontant"
+                  ? "er betalt tilbake i kontanter."
+                  : `er refundert (${escapeHtml(o.refundMethod ?? "")}).`
+            }`
+          : ""
+      }`,
+      cta: ctaButton(o.orderUrl, "Se ordren"),
+      s: `Ordre #${o.orderNo}: ${o.returnKind === "bytte" ? "bytte" : o.returnKind === "reklamasjon" ? "reklamasjon" : "retur"} registrert`,
     },
     cancelled: {
       h: "Ordren din er kansellert",
