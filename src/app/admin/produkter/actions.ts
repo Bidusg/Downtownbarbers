@@ -287,6 +287,8 @@ export type WebshopForm = {
   pickup: boolean;
   ship: boolean;
   pay_at_pickup: boolean;
+  vipps: boolean;
+  card: boolean;
 };
 
 export async function saveWebshopSettings(v: WebshopForm): Promise<{ ok?: true; error?: string }> {
@@ -294,11 +296,15 @@ export async function saveWebshopSettings(v: WebshopForm): Promise<{ ok?: true; 
   const ship = Math.max(0, Math.min(1000, Math.round(Number(v.shipping_nok) || 0)));
   const free = Math.max(0, Math.min(100000, Math.round(Number(v.free_over_nok) || 0)));
   if (!v.pickup && !v.ship) return { error: "Minst én leveringsmåte må være på." };
+  const cardOn = !!v.card && process.env.VIPPS_CARD_ENABLED === "1";
+  const online = !!v.vipps || cardOn;
+  if (!online && !(v.pay_at_pickup && v.pickup)) return { error: "Minst én betalingsmåte må være på." };
+  if (v.ship && !online) return { error: "Sending med Posten krever Vipps eller kort – «Betal ved henting» gjelder bare henting." };
   const sb = await createClient();
   const { error } = await sb.from("settings").upsert(
     {
       key: "webshop",
-      value: { live: !!v.live, shipping_nok: ship, free_over_nok: free, pickup: !!v.pickup, ship: !!v.ship, pay_at_pickup: !!v.pay_at_pickup },
+      value: { live: !!v.live, shipping_nok: ship, free_over_nok: free, pickup: !!v.pickup, ship: !!v.ship, pay_at_pickup: !!v.pay_at_pickup, vipps: !!v.vipps, card: !!v.card },
     },
     { onConflict: "key" },
   );

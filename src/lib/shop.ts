@@ -164,6 +164,7 @@ export async function getWebshopSettings(): Promise<WebshopSettings> {
     const sb = await createClient();
     const { data, error } = await sb.rpc("webshop_settings");
     if (error || !data) return { ...DEFAULT_SETTINGS, card: process.env.VIPPS_CARD_ENABLED === "1" };
+    const cardEnv = process.env.VIPPS_CARD_ENABLED === "1";
     const d = data as Record<string, unknown>;
     return {
       live: d.live === true,
@@ -172,7 +173,9 @@ export async function getWebshopSettings(): Promise<WebshopSettings> {
       pickup: d.pickup !== false,
       ship: d.ship !== false,
       payAtPickup: d.pay_at_pickup !== false,
-      card: process.env.VIPPS_CARD_ENABLED === "1",
+      vipps: d.vipps !== false,
+      cardWanted: d.card !== false,
+      card: cardEnv && d.card !== false,
     };
   } catch {
     return { ...DEFAULT_SETTINGS, card: process.env.VIPPS_CARD_ENABLED === "1" };

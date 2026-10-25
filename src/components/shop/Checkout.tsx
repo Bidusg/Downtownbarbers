@@ -89,7 +89,10 @@ export function Checkout({ member }: { member: Member }) {
   const [address, setAddress] = useState("");
   const [postalCode, setPostalCode] = useState("");
   const [city, setCity] = useState("");
-  const [payment, setPayment] = useState<Pay>("vipps");
+  // Første tilgjengelige betalingsmåte er valgt fra start.
+  const firstPay = (d: Delivery): Pay =>
+    settings.vipps ? "vipps" : settings.card ? "card" : d === "pickup" && settings.payAtPickup ? "pay_at_pickup" : "vipps";
+  const [payment, setPayment] = useState<Pay>(() => firstPay(settings.pickup ? "pickup" : "ship"));
   const [note, setNote] = useState("");
   const [terms, setTerms] = useState(false);
   const [website, setWebsite] = useState("");
@@ -360,7 +363,7 @@ export function Checkout({ member }: { member: Member }) {
                   checked={delivery === "ship"}
                   onChange={() => {
                     setDelivery("ship");
-                    if (payment === "pay_at_pickup") setPayment("vipps");
+                    if (payment === "pay_at_pickup") setPayment(firstPay("ship"));
                   }}
                   title={en ? "Home delivery with Posten" : "Send hjem med Posten"}
                   sub={en ? "2–5 working days, to your mailbox or pick-up point" : "2–5 virkedager, i postkassen eller til hentested"}
@@ -395,14 +398,16 @@ export function Checkout({ member }: { member: Member }) {
 
           <Step n={3} title={en ? "Payment" : "Betaling"}>
             <div className="grid gap-3">
-              <Option
-                name="pay"
-                value="vipps"
-                checked={payment === "vipps"}
-                onChange={() => setPayment("vipps")}
-                title="Vipps"
-                sub={en ? "You approve in the Vipps app. We charge when the order is handed over or shipped." : "Du godkjenner i Vipps-appen. Beløpet trekkes først når varene er utlevert eller sendt."}
-              />
+              {settings.vipps && (
+                <Option
+                  name="pay"
+                  value="vipps"
+                  checked={payment === "vipps"}
+                  onChange={() => setPayment("vipps")}
+                  title="Vipps"
+                  sub={en ? "You approve in the Vipps app. We charge when the order is handed over or shipped." : "Du godkjenner i Vipps-appen. Beløpet trekkes først når varene er utlevert eller sendt."}
+                />
+              )}
               {settings.card && (
                 <Option
                   name="pay"

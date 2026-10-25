@@ -3,6 +3,7 @@ import { WebshopSettingsCard } from "@/components/admin/WebshopAdmin";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { getProductsAdmin } from "@/lib/admin-queries";
 import { getWebshopSettings } from "@/lib/shop";
+import { config } from "@/lib/config";
 
 export default async function AdminProdukter() {
   const [products, settings] = await Promise.all([getProductsAdmin(), getWebshopSettings()]);
@@ -18,7 +19,12 @@ export default async function AdminProdukter() {
     <div className="mx-auto max-w-5xl space-y-6">
       <PageHeader title="Produkter & nettbutikk" />
       {hasWeb ? (
-        <WebshopSettingsCard settings={settings} stats={stats} />
+        <WebshopSettingsCard
+          settings={settings}
+          stats={stats}
+          cardEnv={process.env.VIPPS_CARD_ENABLED === "1"}
+          vippsMode={config.vipps.mode}
+        />
       ) : (
         <p className="bo-card border border-line bg-surface p-5 text-sm text-danger">
           Kjør KJØR-I-SUPABASE-NETTBUTIKK.sql i Supabase for å slå på nettbutikken (tekster, bilder og bestilling).

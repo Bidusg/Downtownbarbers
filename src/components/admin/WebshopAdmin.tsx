@@ -57,9 +57,14 @@ function CopyImagesButton({ external }: { external: number }) {
 export function WebshopSettingsCard({
   settings,
   stats,
+  cardEnv = false,
+  vippsMode = "production",
 }: {
   settings: WebshopSettings;
   stats: { online: number; noImage: number; review: number; external?: number };
+  /** VIPPS_CARD_ENABLED=1 i Vercel (kort aktivert i Vipps-avtalen). */
+  cardEnv?: boolean;
+  vippsMode?: "mock" | "test" | "production";
 }) {
   const [v, setV] = useState({
     live: settings.live,
@@ -68,6 +73,8 @@ export function WebshopSettingsCard({
     pickup: settings.pickup,
     ship: settings.ship,
     pay_at_pickup: settings.payAtPickup,
+    vipps: settings.vipps,
+    card: settings.cardWanted,
   });
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
@@ -77,7 +84,7 @@ export function WebshopSettingsCard({
       const r = await saveWebshopSettings(next);
       setMsg(r.error ? { ok: false, text: r.error } : { ok: true, text: "Lagret ✓" });
     });
-  const toggle = (k: "pickup" | "ship" | "pay_at_pickup") => setV((s) => ({ ...s, [k]: !s[k] }));
+  const toggle = (k: "pickup" | "ship" | "pay_at_pickup" | "vipps" | "card") => setV((s) => ({ ...s, [k]: !s[k] }));
 
   return (
     <Card>
@@ -121,26 +128,44 @@ export function WebshopSettingsCard({
           <span className={lbl}>Gratis frakt over (kr)</span>
           <input type="number" min={0} className={inp} value={v.free_over_nok} onChange={(e) => setV({ ...v, free_over_nok: Number(e.target.value) })} />
         </label>
-        <div className="flex flex-col justify-end gap-1.5 text-sm sm:col-span-2">
+        <fieldset className="flex flex-col gap-1.5 text-sm">
+          <legend className={lbl}>Levering</legend>
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={v.pickup} onChange={() => toggle("pickup")} /> Hent i salongen
           </label>
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={v.ship} onChange={() => toggle("ship")} /> Sending med Posten
           </label>
+        </fieldset>
+        <fieldset className="flex flex-col gap-1.5 text-sm">
+          <legend className={lbl}>Betaling</legend>
           <label className="flex items-center gap-2">
-            <input type="checkbox" checked={v.pay_at_pickup} onChange={() => toggle("pay_at_pickup")} /> «Betal ved henting»
+            <input type="checkbox" checked={v.vipps} onChange={() => toggle("vipps")} /> Vipps
           </label>
-        </div>
+          <label className={"flex items-center gap-2 " + (cardEnv ? "" : "text-muted")}>
+            <input type="checkbox" checked={v.card && cardEnv} disabled={!cardEnv} onChange={() => toggle("card")} /> Kort (Visa / Mastercard)
+          </label>
+          <label className={"flex items-center gap-2 " + (v.pickup ? "" : "text-muted")}>
+            <input type="checkbox" checked={v.pay_at_pickup} disabled={!v.pickup} onChange={() => toggle("pay_at_pickup")} /> Betal ved henting
+          </label>
+        </fieldset>
       </div>
+      {(v.vipps || (v.card && cardEnv)) && vippsMode === "mock" && (
+        <p className="mt-3 rounded-lg bg-danger/5 px-3 py-2 text-sm text-danger">
+          Vipps er i testmodus (nøklene mangler i Vercel) – betalinger med Vipps eller kort er ikke ekte. Slå av Vipps
+          til nøklene er lagt inn, eller bruk bare «Betal ved henting».
+        </p>
+      )}
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <Button onClick={() => save()} disabled={pending} className="px-4 py-2 text-sm">
           {pending ? "Lagrer …" : "Lagre innstillinger"}
         </Button>
         {msg && <span className={"text-sm " + (msg.ok ? "text-muted" : "text-danger")}>{msg.text}</span>}
-        <span className="text-xs text-muted">
-          Kortbetaling slås på med VIPPS_CARD_ENABLED=1 i Vercel når kort er aktivert i Vipps-avtalen.
-        </span>
+        {!cardEnv && (
+          <span className="text-xs text-muted">
+            Kort kan krysses av når kort er aktivert i Vipps-avtalen og VIPPS_CARD_ENABLED=1 er satt i Vercel.
+          </span>
+        )}
       </div>
       <CopyImagesButton external={stats.external ?? 0} />
     </Card>

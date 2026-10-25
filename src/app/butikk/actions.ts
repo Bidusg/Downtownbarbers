@@ -47,6 +47,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
   if (!input.items?.length) return { ok: false, error: "Handlekurven er tom." };
   if (input.delivery === "ship" && !cfg.ship) return { ok: false, error: "Sending er ikke tilgjengelig akkurat nå." };
   if (input.delivery === "pickup" && !cfg.pickup) return { ok: false, error: "Henting er ikke tilgjengelig akkurat nå." };
+  if (input.payment === "vipps" && !cfg.vipps) return { ok: false, error: "Vipps er ikke tilgjengelig akkurat nå." };
   if (input.payment === "card" && !cfg.card) return { ok: false, error: "Kortbetaling er ikke slått på ennå." };
   if (input.payment === "pay_at_pickup" && (!cfg.payAtPickup || input.delivery !== "pickup"))
     return { ok: false, error: "«Betal ved henting» gjelder bare henting i salongen." };

@@ -11,6 +11,7 @@ type R = { ok?: true; error?: string };
 
 function done() {
   revalidatePath("/kasse/nettordrer");
+  revalidatePath("/admin/nettordrer");
   revalidatePath("/kasse", "layout");
 }
 

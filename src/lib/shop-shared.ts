@@ -37,8 +37,12 @@ export type WebshopSettings = {
   pickup: boolean;
   ship: boolean;
   payAtPickup: boolean;
+  /** Vipps-appen som betalingsmåte. */
+  vipps: boolean;
   /** Kort via Vipps (krever at kortbetaling er slått på i Vipps-avtalen). */
   card: boolean;
+  /** Admin har krysset av for kort (gjelder bare når VIPPS_CARD_ENABLED=1). */
+  cardWanted: boolean;
 };
 
 export const DEFAULT_SETTINGS: WebshopSettings = {
@@ -48,7 +52,9 @@ export const DEFAULT_SETTINGS: WebshopSettings = {
   pickup: true,
   ship: true,
   payAtPickup: true,
+  vipps: true,
   card: false,
+  cardWanted: true,
 };
 
 /* ---------------------------------------------------------------------
