@@ -71,14 +71,14 @@ async function issueCode(
   c: { id: string; portal_token: string | null },
   email: string,
   welcome = false,
-): Promise<void> {
+): Promise<"sent" | "limited" | "failed"> {
   const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const { count } = await svc
     .from("customer_login_codes")
     .select("id", { count: "exact", head: true })
     .eq("customer_id", c.id)
     .gte("created_at", since);
-  if ((count ?? 0) >= MAX_CODES_PER_HOUR) return;
+  if ((count ?? 0) >= MAX_CODES_PER_HOUR) return "limited";
 
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   const { error } = await svc.from("customer_login_codes").insert({
@@ -89,7 +89,7 @@ async function issueCode(
   if (error) throw new Error(error.message);
 
   const base = await requestBaseUrl();
-  await sendLoginCodeEmail({
+  const sent = await sendLoginCodeEmail({
     to: email,
     code,
     portalUrl: c.portal_token ? `${base}/min-side/${c.portal_token}` : undefined,
@@ -98,9 +98,19 @@ async function issueCode(
   });
   // Rydd gamle koder innimellom (billig, best-effort).
   if (Math.random() < 0.1) await svc.rpc("purge_customer_login_codes");
+  if (!sent) console.error("Innloggingskode: e-posten ble ikke sendt (se feilen over).");
+  return sent ? "sent" : "failed";
 }
 
-export type CodeRequestState = { step?: "code"; email?: string; error?: string };
+export type CodeRequestState = {
+  step?: "code";
+  email?: string;
+  error?: string;
+  /** Tidspunkt (ms) da forespørselen ble behandlet – brukes til nedtelling i skjemaet. */
+  at?: number;
+  /** Ekstra beskjed: for mange koder siste time / e-posten kunne ikke sendes. */
+  notice?: "limited" | "failed";
+};
 
 /** Steg 1 (eksisterende kunde): send kode til e-posten. */
 export async function requestLoginCode(
@@ -113,12 +123,13 @@ export async function requestLoginCode(
   try {
     const svc = createServiceClient();
     const c = await customerByEmail(svc, email);
-    if (c) await issueCode(svc, c, email);
+    const r = c ? await issueCode(svc, c, email) : "sent";
+    if (r !== "sent") return { step: "code", email, at: Date.now(), notice: r };
   } catch (e) {
     console.error("requestLoginCode:", e instanceof Error ? e.message : e);
     return { error: "notConfigured" };
   }
-  return { step: "code", email };
+  return { step: "code", email, at: Date.now() };
 }
 
 /** Steg 1 (ny kunde): opprett konto og send kode. */
@@ -156,14 +167,15 @@ export async function registerCustomer(
       } catch {
         /* lang-kolonnen finnes kanskje ikke ennå */
       }
-      await issueCode(svc, c, email, welcome);
+      const r = await issueCode(svc, c, email, welcome);
+      if (r !== "sent") return { step: "code", email, at: Date.now(), notice: r };
     }
   } catch (e) {
     console.error("registerCustomer:", e instanceof Error ? e.message : e);
     return { error: "notConfigured" };
   }
   // Nøytralt: samme svar om e-posten fantes fra før eller ikke.
-  return { step: "code", email };
+  return { step: "code", email, at: Date.now() };
 }
 
 export type VerifyState = { error?: string; redirect?: string };

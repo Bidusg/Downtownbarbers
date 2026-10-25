@@ -75,6 +75,7 @@ function fromAddress() {
 /** Lav-nivå sender. Returnerer true hvis forsøkt sendt, false hvis hoppet over. */
 async function sendEmail(to: string, subject: string, html: string, replyTo?: string): Promise<boolean> {
   const key = process.env.RESEND_API_KEY;
+  if (!key) console.error("E-post ikke sendt: RESEND_API_KEY mangler i Vercel.");
   if (!key || !to) return false;
   try {
     const res = await fetch(RESEND_ENDPOINT, {
@@ -86,8 +87,14 @@ async function sendEmail(to: string, subject: string, html: string, replyTo?: st
       body: JSON.stringify({ from: fromAddress(), to, subject, html, ...(replyTo ? { reply_to: replyTo } : {}) }),
     });
     // 429 (rate limit) og 4xx/5xx regnes som ikke sendt.
+    if (!res.ok) {
+      // Synlig i Vercel-loggene (f.eks. ubekreftet avsenderdomene eller feil nøkkel).
+      const body = await res.text().catch(() => "");
+      console.error(`E-post ikke sendt (${res.status}) til ${to.replace(/^(.).*(@.*)$/, "$1…$2")}: ${body.slice(0, 300)}`);
+    }
     return res.ok;
-  } catch {
+  } catch (e) {
+    console.error("E-post feilet:", e instanceof Error ? e.message : e);
     return false;
   }
 }

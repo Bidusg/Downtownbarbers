@@ -20,6 +20,9 @@ const verifyInitial: VerifyState = {};
 const fieldCls =
   "w-full rounded-xl border border-line-2 bg-canvas px-3.5 py-3 text-[15px] text-fg outline-none transition-colors focus:border-accent-soft";
 const labelCls = "mb-1.5 block text-[13px] font-semibold text-muted";
+/** Sekunder før kunden kan be om en ny kode. */
+const RESEND_COOLDOWN = 30;
+
 const primaryBtn =
   "w-full rounded-full bg-accent px-4 py-3 text-[15px] font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-60 min-h-11";
 
@@ -44,6 +47,27 @@ function CustomerForm() {
     if (verState.redirect) router.push(verState.redirect);
   }, [verState.redirect, router]);
 
+  // Siste svar for denne e-posten (første utsending eller «Send ny kode»).
+  const latest =
+    codeEmail !== null && reqState.email === codeEmail && (reqState.at ?? 0) > (active.at ?? 0) ? reqState : active;
+  const sentAt = latest.at ?? 0;
+  const [now, setNow] = useState(() => Date.now());
+  const left = Math.max(0, Math.ceil((sentAt + RESEND_COOLDOWN * 1000 - now) / 1000));
+  useEffect(() => {
+    if (!sentAt) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- start nedtellingen med en gang
+    setNow(Date.now());
+    const iv = window.setInterval(() => {
+      setNow(Date.now());
+      if (Date.now() > sentAt + RESEND_COOLDOWN * 1000) window.clearInterval(iv);
+    }, 1000);
+    return () => window.clearInterval(iv);
+  }, [sentAt]);
+  const resent = latest !== active;
+  const sentClock = sentAt
+    ? new Date(sentAt).toLocaleTimeString("nb-NO", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+    : "";
+
   const err = (k?: string) => (k ? t(`login.err.${k}`) : null);
 
   if (codeEmail !== null) {
@@ -54,6 +78,19 @@ function CustomerForm() {
           <p className="mt-2 text-sm text-muted">
             {t("login.cust.codeText").replace("{email}", codeEmail || "e-posten")}
           </p>
+          {latest.notice === "failed" ? (
+            <p role="alert" className="mt-3 rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
+              {t("login.cust.sendFailed")}
+            </p>
+          ) : latest.notice === "limited" ? (
+            <p role="alert" className="mt-3 rounded-lg bg-accent-soft/10 px-3 py-2 text-sm text-fg">
+              {t("login.cust.limited")}
+            </p>
+          ) : (
+            <p role="status" aria-live="polite" className="mt-3 text-xs text-muted">
+              {(resent ? t("login.cust.resentAt") : t("login.cust.sentAt")).replace("{time}", sentClock)} {t("login.cust.spamHint")}
+            </p>
+          )}
         </div>
         <form action={verAction} className="space-y-3">
           <input type="hidden" name="email" value={codeEmail} />
@@ -87,8 +124,17 @@ function CustomerForm() {
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-sm">
           <form action={reqAction}>
             <input type="hidden" name="email" value={codeEmail} />
-            <button type="submit" disabled={reqPending || regPending} className="m-link min-h-11">
-              {t("login.cust.resend")}
+            <button
+              type="submit"
+              disabled={reqPending || regPending || left > 0}
+              className="m-link min-h-11 disabled:cursor-not-allowed disabled:opacity-50 tabular-nums"
+              aria-live="polite"
+            >
+              {reqPending
+                ? t("login.cust.sending")
+                : left > 0
+                  ? t("login.cust.resendIn").replace("{s}", String(left))
+                  : t("login.cust.resend")}
             </button>
           </form>
           <button
