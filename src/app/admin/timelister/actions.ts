@@ -534,3 +534,102 @@ export async function setTurnusAnchor(formData: FormData) {
     .upsert({ key: "turnus_anchor", value: { a_is_even: aIsEven } });
   revalidatePath("/admin/timelister");
 }
+
+/**
+ * Antall aktive (ikke avbestilte) bookinger på én dato for én ansatt.
+ * Henter et romslig vindu og filtrerer på Oslo-dato, så sommertid ikke bommer.
+ */
+async function bookingsOnDate(sb: Sb, staff_id: string, date: string): Promise<number> {
+  const from = new Date(date + "T00:00:00Z");
+  from.setUTCDate(from.getUTCDate() - 1);
+  const to = new Date(date + "T00:00:00Z");
+  to.setUTCDate(to.getUTCDate() + 2);
+  const { data } = await sb
+    .from("bookings")
+    .select("id, start_at, status")
+    .eq("staff_id", staff_id)
+    .gte("start_at", from.toISOString())
+    .lt("start_at", to.toISOString());
+  return (data ?? []).filter(
+    (b) =>
+      b.status !== "cancelled" &&
+      new Date(b.start_at as string).toLocaleDateString("en-CA", {
+        timeZone: "Europe/Oslo",
+      }) === date,
+  ).length;
+}
+
+/**
+ * «Fjern vakt» for én dato – for når noen er satt opp ved en feil.
+ *
+ * Turnusvakter er et ukesmønster og kan ikke slettes for én enkelt dag, så
+ * dagen registreres som **fri hele dagen (betalt)**: tidene forsvinner fra
+ * booking og ledige tider, men lønnen trekkes ikke. Er det satt en ekstravakt
+ * for datoen, slettes den direkte. Angres ved å slette «Fri»-raden.
+ *
+ * Har barbereren bookinger den dagen, stoppes fjerningen med antallet, så de
+ * kan flyttes først. `force` fjerner likevel.
+ */
+export async function removeShiftForDate(
+  staff_id: string,
+  date: string,
+  opts?: { hasTurnus?: boolean; force?: boolean },
+): Promise<Res & { bookings?: number }> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { error: "Ikke tilgang." };
+  if (!staff_id || !/^\d{4}-\d{2}-\d{2}$/.test(date))
+    return { error: "Velg ansatt og dato." };
+  const sb = await createClient();
+
+  const { data: exs, error: exErr } = await sb
+    .from("staff_exceptions")
+    .select("id, kind, start_time")
+    .eq("staff_id", staff_id)
+    .eq("date", date);
+  if (exErr) return { error: `Kunne ikke lese avvik: ${exErr.message}` };
+
+  const offAll = (exs ?? []).some((e) => e.kind === "off" && !e.start_time);
+  const extras = (exs ?? []).filter((e) => e.kind === "extra");
+  if (offAll && extras.length === 0)
+    return { error: "Vakten er allerede fjernet denne dagen." };
+  if (!offAll && extras.length === 0 && !opts?.hasTurnus)
+    return { error: "Ingen vakt å fjerne denne dagen." };
+
+  if (!opts?.force) {
+    const n = await bookingsOnDate(sb, staff_id, date);
+    if (n > 0)
+      return {
+        error: `Det ligger ${n} ${n === 1 ? "booking" : "bookinger"} på denne dagen. Flytt eller avbestill dem først.`,
+        bookings: n,
+      };
+  }
+
+  // Ekstravakt satt for datoen: den fjernes direkte.
+  if (extras.length > 0) {
+    const { error } = await sb
+      .from("staff_exceptions")
+      .delete()
+      .in("id", extras.map((e) => e.id as string));
+    if (error) return { error: `Kunne ikke fjerne vakten: ${error.message}` };
+  }
+
+  // Turnusvakt: dagen settes som betalt fri, så mønsteret ellers står urørt.
+  if (opts?.hasTurnus && !offAll) {
+    const row = {
+      staff_id,
+      date,
+      kind: "off" as const,
+      start_time: null,
+      end_time: null,
+      note: "Vakt fjernet",
+    };
+    const { error } = await sb.from("staff_exceptions").insert({ ...row, paid: true });
+    if (error && missingPaid(error.message)) {
+      const r2 = await sb.from("staff_exceptions").insert(row);
+      if (r2.error) return { error: `Kunne ikke fjerne vakten: ${r2.error.message}` };
+    } else if (error) return { error: `Kunne ikke fjerne vakten: ${error.message}` };
+  }
+
+  revalidateSchedule();
+  return { ok: true };
+}

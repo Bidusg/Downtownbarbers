@@ -7,7 +7,12 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { colorAt } from "@/lib/colors";
 import type { Absence, StaffException, StaffHour, StaffOption } from "@/lib/ops-queries";
-import { createStaffException, updateStaffException, deleteStaffException } from "@/app/admin/timelister/actions";
+import {
+  createStaffException,
+  updateStaffException,
+  deleteStaffException,
+  removeShiftForDate,
+} from "@/app/admin/timelister/actions";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate } from "@/lib/format";
 
@@ -21,7 +26,15 @@ function nextDateFor(dow: number): string {
   return now.toISOString().slice(0, 10);
 }
 
-type Pick = { staff: StaffOption; dow: number; date: string; start: string; end: string };
+type Pick = {
+  staff: StaffOption;
+  dow: number;
+  date: string;
+  start: string;
+  end: string;
+  /** Turnusvaktene som gjelder denne datoen (for «Fjern vakt»). */
+  shifts: StaffHour[];
+};
 
 /** Dato (YYYY-MM-DD) for ukedag `dow` i uken som starter mandag `weekStart`. */
 function dateInWeek(weekStart: string, dow: number): string {
@@ -56,6 +69,30 @@ function SingleDayDialog({
   const existing = staffExceptions
     .filter((e) => e.date === date)
     .sort((a, b) => (a.start_time ?? "").localeCompare(b.start_time ?? ""));
+
+  // «Fjern vakt» gjelder datoen vi kom fra – bytter man dato, er turnusen en annen.
+  const sameDay = date === pick.date;
+  const offAllToday = existing.some((e) => e.kind === "off" && !e.start_time);
+  const extrasToday = existing.filter((e) => e.kind === "extra");
+  const canRemove = sameDay && !offAllToday && (pick.shifts.length > 0 || extrasToday.length > 0);
+  const [removeAsk, setRemoveAsk] = useState<string | null>(null);
+
+  function removeShift(force = false) {
+    setErr(null);
+    run(async () => {
+      const r = await removeShiftForDate(pick.staff.id, date, {
+        hasTurnus: pick.shifts.length > 0,
+        force,
+      });
+      if (r?.error) {
+        if (r.bookings && !force) return setRemoveAsk(r.error);
+        return setErr(r.error);
+      }
+      setRemoveAsk(null);
+      router.refresh();
+      onClose();
+    });
+  }
 
   function startEdit(e: StaffException) {
     setErr(null);
@@ -140,6 +177,61 @@ function SingleDayDialog({
             className={field + " mt-1"}
           />
         </label>
+
+        {canRemove && (
+          <div className="mt-3 rounded-md border border-line bg-surface-2/40 p-3">
+            <p className="text-xs text-muted">Satt opp denne dagen</p>
+            <p className="font-display text-sm font-semibold text-fg">
+              {(pick.shifts.length > 0 ? pick.shifts : [])
+                .map((h) => `${h.start_time}–${h.end_time}`)
+                .concat(extrasToday.map((e) => `${e.start_time}–${e.end_time} (ekstravakt)`))
+                .join(" · ")}
+            </p>
+            {removeAsk ? (
+              <div className="mt-2">
+                <p className="text-xs text-danger">{removeAsk}</p>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => removeShift(true)}
+                    disabled={pending}
+                    className="flex-1 rounded-md bg-danger px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    {pending ? "Fjerner …" : "Fjern likevel"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRemoveAsk(null)}
+                    className="rounded-md border border-line-2 px-3 py-2 text-sm text-fg"
+                  >
+                    Avbryt
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => removeShift()}
+                  disabled={pending}
+                  className="mt-2 w-full rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm font-semibold text-danger hover:bg-danger hover:text-white disabled:opacity-60"
+                >
+                  {pending ? "Fjerner …" : "Fjern vakt denne dagen"}
+                </button>
+                <p className="mt-1.5 text-[11px] text-muted">
+                  Dagen blir fri (betalt, så lønnen trekkes ikke) og tidene forsvinner fra booking.
+                  Turnusen ellers står urørt.
+                </p>
+              </>
+            )}
+          </div>
+        )}
+
+        {sameDay && offAllToday && (
+          <p className="mt-3 rounded-md border border-line bg-surface-2/40 px-3 py-2 text-[11px] text-muted">
+            Vakten er fjernet denne dagen. Slett «Fri hele dagen» under for å sette den tilbake.
+          </p>
+        )}
 
         {/* Det som allerede er satt for datoen – endre / slett */}
         {existing.length > 0 && (
@@ -313,7 +405,25 @@ export function WeekSchedule({
   /** Hvilken uke-indeks (1..N) som vises. Rader for "hver uke" (0) vises alltid. */
   parity?: number;
 }) {
+  const router = useRouter();
   const [pick, setPick] = useState<Pick | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [quickErr, setQuickErr] = useState<string | null>(null);
+  const [, startRemove] = useTransition();
+
+  /** ✕ i rutenettet: fjerner vakten for den datoen med ett klikk. */
+  function quickRemove(s: StaffOption, date: string, hasTurnus: boolean) {
+    const key = s.id + date;
+    setQuickErr(null);
+    setBusy(key);
+    startRemove(async () => {
+      const r = await removeShiftForDate(s.id, date, { hasTurnus });
+      setBusy(null);
+      if (r?.error) return setQuickErr(`${s.full_name} ${dm(date)}: ${r.error}`);
+      router.refresh();
+    });
+  }
+
   if (staff.length === 0)
     return <EmptyState description="Legg til ansatte under Ansatte først." />;
   const cols = "120px repeat(7, minmax(72px, 1fr))";
@@ -367,10 +477,11 @@ export function WeekSchedule({
                   ? absences.find((a) => a.staff_id === s.id && a.from_date <= date && a.to_date >= date)
                   : undefined;
                 const blocked = (offAll || !!absent) && extras.length === 0;
+                const removable = !!date && !blocked && (shifts.length > 0 || extras.length > 0);
                 return (
+                  <div key={d.n} className="group relative border-l border-line">
                   <button
                     type="button"
-                    key={d.n}
                     onClick={() =>
                       setPick({
                         staff: s,
@@ -378,10 +489,11 @@ export function WeekSchedule({
                         date,
                         start: shifts[0]?.start_time ?? "10:00",
                         end: shifts[0]?.end_time ?? "19:00",
+                        shifts,
                       })
                     }
                     title={`Sett, endre eller slett vakt / fri for ${s.full_name} denne datoen`}
-                    className="group block border-l border-line px-1.5 py-2 text-left transition-colors hover:bg-accent-soft/10"
+                    className="block w-full px-1.5 py-2 text-left transition-colors hover:bg-accent-soft/10"
                   >
                     <div className="relative h-6 overflow-hidden rounded bg-surface-2/50 ring-accent-soft/60 group-hover:ring-1">
                       {/* Ekstravakter denne datoen (vinner over fravær) */}
@@ -461,15 +573,38 @@ export function WeekSchedule({
                       })}
                     </div>
                   </button>
+                  {removable && (
+                    <button
+                      type="button"
+                      onClick={() => quickRemove(s, date, shifts.length > 0)}
+                      disabled={busy === s.id + date}
+                      title={`Fjern vakt for ${s.full_name} ${dm(date)}`}
+                      aria-label={`Fjern vakt for ${s.full_name} ${dm(date)}`}
+                      className="absolute top-0.5 right-0.5 z-[6] hidden h-5 w-5 items-center justify-center rounded-full border border-line bg-surface text-[10px] font-bold text-danger shadow-sm hover:bg-danger hover:text-white disabled:opacity-50 group-hover:flex"
+                    >
+                      {busy === s.id + date ? "·" : "✕"}
+                    </button>
+                  )}
+                  </div>
                 );
               })}
             </div>
           );
         })}
       </div>
+      {quickErr && (
+        <p className="border-t border-line bg-danger/10 px-3 py-2 text-xs text-danger">
+          {quickErr}{" "}
+          <button type="button" onClick={() => setQuickErr(null)} className="text-muted hover:text-fg">
+            Lukk
+          </button>
+        </p>
+      )}
       <p className="border-t border-line px-3 py-1.5 text-[10px] text-muted">
         Tidsskala 09–21. Trykk på en dag for å legge inn en ekstravakt eller fri for akkurat den datoen
-        (stripet = vakt satt for datoen – erstatter turnusen; grå = fravær/fri). Fast turnus endres i redigeringen under.
+        (stripet = vakt satt for datoen – erstatter turnusen; grå = fravær/fri). Hold over en dag og trykk{" "}
+        <strong>✕</strong> for å fjerne vakten den datoen – f.eks. hvis noen er satt opp ved en feil.
+        Fast turnus endres i redigeringen under.
       </p>
       {pick && (
         <SingleDayDialog
