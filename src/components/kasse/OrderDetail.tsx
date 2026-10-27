@@ -211,6 +211,8 @@ function EditPanel({ o, products }: { o: OnlineOrder; products: PickableProduct[
 /* ---------------- Retur / reklamasjon / bytte ---------------- */
 type Kind = "retur" | "reklamasjon" | "bytte";
 type Method = "Vipps" | "Kort" | "Kontant" | "";
+/** Refusjon: Vipps-refusjon finnes ikke hos oss – gavekort er alternativet. */
+type RefundMethod = "Gavekort" | "Kort" | "Kontant" | "";
 
 function ReturnPanel({ o, products }: { o: OnlineOrder; products: PickableProduct[] }) {
   const [kind, setKind] = useState<Kind>("retur");
@@ -218,8 +220,8 @@ function ReturnPanel({ o, products }: { o: OnlineOrder; products: PickableProduc
   const [restock, setRestock] = useState(true);
   const [repl, setRepl] = useState<{ p: PickableProduct; qty: number }[]>([]);
   const [refundTouched, setRefundTouched] = useState<string | null>(null);
-  const online = o.payment_method !== "pay_at_pickup";
-  const [method, setMethod] = useState<Method>(online ? "Vipps" : "");
+  const [method, setMethod] = useState<RefundMethod>("");
+  const [giftCode, setGiftCode] = useState<string | null>(null);
   const [extraMethod, setExtraMethod] = useState<Method>("");
   const [note, setNote] = useState("");
   const [notify, setNotify] = useState(true);
@@ -266,7 +268,11 @@ function ReturnPanel({ o, products }: { o: OnlineOrder; products: PickableProduc
       setConfirm(false);
       if (r.error) setMsg({ ok: false, text: r.error });
       else {
-        setMsg({ ok: true, text: "Registrert ✓" });
+        setGiftCode(r.giftCode ?? null);
+        setMsg({
+          ok: true,
+          text: r.giftCode ? `Registrert ✓ – gavekort ${r.giftCode}` : "Registrert ✓",
+        });
         setQty({});
         setRepl([]);
         setNote("");
@@ -377,12 +383,32 @@ function ReturnPanel({ o, products }: { o: OnlineOrder; products: PickableProduc
             {pct > 0 && ` (etter ${Math.round(pct * 100)} % kundeklubbrabatt)`}. Maks {formatKr(remaining)}.
           </p>
           {refund > 0 && (
-            <select value={method} onChange={(e) => setMethod(e.target.value as Method)} aria-label="Refusjonsmåte" className={inp + " mt-2 w-full"}>
-              <option value="">Betales tilbake med …</option>
-              <option value="Vipps">{online ? "Tilbake til Vipps/kortet (automatisk)" : "Vipps (manuelt)"}</option>
-              <option value="Kort">Kort i terminalen</option>
-              <option value="Kontant">Kontant</option>
-            </select>
+            <>
+              <select
+                value={method}
+                onChange={(e) => setMethod(e.target.value as RefundMethod)}
+                aria-label="Refusjonsmåte"
+                className={inp + " mt-2 w-full"}
+              >
+                <option value="">Betales tilbake med …</option>
+                <option value="Gavekort">Gavekort / tilgodelapp</option>
+                <option value="Kort">Kort i terminalen</option>
+                <option value="Kontant">Kontant</option>
+              </select>
+              {method === "Gavekort" && (
+                <p className="mt-1 text-xs text-muted">
+                  Det utstedes et gavekort på {formatKr(refund)} uten utløpsdato. Koden vises her og
+                  sendes kunden på e-post.
+                  {kind === "retur" && (
+                    <>
+                      {" "}
+                      <strong>Ved angrerett må kunden si ja til gavekort</strong> – ellers skal
+                      pengene tilbake på kort eller kontant.
+                    </>
+                  )}
+                </p>
+              )}
+            </>
           )}
         </div>
         {extra > 0 && (
@@ -418,7 +444,9 @@ function ReturnPanel({ o, products }: { o: OnlineOrder; products: PickableProduc
           <>
             <span className="text-sm font-semibold">
               {refund > 0
-                ? `Betale tilbake ${formatKr(refund)}${method === "Vipps" && online ? " i Vipps nå" : ` (${method.toLowerCase()})`}?`
+                ? `Betale tilbake ${formatKr(refund)}${
+                    method === "Gavekort" ? " som gavekort" : ` (${method.toLowerCase()})`
+                  }?`
                 : extra > 0
                   ? `Kunden betaler ${formatKr(extra)} – registrere?`
                   : "Registrere uten pengeoverføring?"}
@@ -436,6 +464,17 @@ function ReturnPanel({ o, products }: { o: OnlineOrder; products: PickableProduc
         </label>
         {msg && <span role="status" className={"text-sm " + (msg.ok ? "text-[oklch(45%_0.13_150)]" : "text-danger")}>{msg.text}</span>}
       </div>
+
+      {giftCode && (
+        <div className="mt-4 rounded-xl border border-line-2 bg-surface-2 p-4">
+          <p className="text-xs font-medium text-muted">Gavekortkode til kunden</p>
+          <p className="mt-1 font-display text-2xl font-bold tracking-widest tabular-nums">{giftCode}</p>
+          <p className="mt-1 text-xs text-muted">
+            Skriv den på en tilgodelapp, eller la kunden ta et bilde. Koden er også sendt på e-post
+            og ligger under Gavekort i admin. Ingen utløpsdato.
+          </p>
+        </div>
+      )}
     </section>
   );
 }

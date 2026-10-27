@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { refundPayment } from "@/lib/vipps";
 import { sendOrderUpdate } from "@/lib/email";
 import { orderUrl } from "@/lib/shop-orders";
 
@@ -29,7 +28,9 @@ function dbError(message: string): string {
   if (/NOT_COMPLETED/.test(message)) return "Retur gjelder ordrer som er utlevert eller sendt. En åpen ordre endrer du direkte.";
   if (/EMPTY/.test(message)) return "Ordren kan ikke stå tom – kanseller den i stedet.";
   if (/NOTHING/.test(message)) return "Velg minst én vare.";
-  if (/BAD_METHOD/.test(message)) return "Velg hvordan pengene betales tilbake.";
+  if (/BAD_METHOD/.test(message))
+    return "Refusjonsmåten ble ikke godtatt. Er «Gavekort» valgt, må KJØR-I-SUPABASE-NETTORDRE-TILGODELAPP.sql kjøres i Supabase først.";
+  if (/GIFT_FAILED/.test(message)) return "Klarte ikke å utstede gavekortet. Prøv igjen, eller velg Kort/Kontant.";
   if (/function|schema cache|does not exist/i.test(message)) return "Kjør KJØR-I-SUPABASE-NETTORDRE-RETUR.sql i Supabase først.";
   return "Kunne ikke lagre. Prøv igjen.";
 }
@@ -89,8 +90,11 @@ export async function editOrder(
 }
 
 /**
- * Retur / reklamasjon / bytte på en utlevert ordre. «Vipps» som
- * refusjonsmåte på en Vipps/kort-ordre refunderer automatisk i Vipps.
+ * Retur / reklamasjon / bytte på en utlevert ordre. Refusjon gis som
+ * gavekort (tilgodelapp), kort i terminalen eller kontant – Vipps-refusjon
+ * er ikke en mulighet hos oss. Velges «Gavekort», utsteder databasen et
+ * gavekort på beløpet og returnerer koden, som vises i kassa og sendes
+ * kunden på e-post.
  */
 export async function returnOrder(input: {
   id: string;
@@ -98,13 +102,14 @@ export async function returnOrder(input: {
   lines: { item: string; qty: number }[];
   restock: boolean;
   refund: number;
-  refundMethod: "Vipps" | "Kort" | "Kontant" | "";
+  /** Vipps-refusjon finnes ikke hos oss – gavekort er alternativet. */
+  refundMethod: "Gavekort" | "Kort" | "Kontant" | "";
   replacements: { product: string; qty: number }[];
   extra: number;
   extraMethod: "Vipps" | "Kort" | "Kontant" | "";
   note: string;
   notifyCustomer: boolean;
-}): Promise<R> {
+}): Promise<R & { giftCode?: string }> {
   await requireRole(["shop", "admin"]);
   const { sb, o } = await loadOrder(input.id);
   if (!o) return { error: "Fant ikke ordren." };
@@ -113,18 +118,7 @@ export async function returnOrder(input: {
   if (refund > 0 && !input.refundMethod) return { error: "Velg hvordan pengene betales tilbake." };
   if (extra > 0 && !input.extraMethod) return { error: "Velg hvordan kunden betaler mellomlegget." };
 
-  // Vipps-refusjon først (pengene tilbake til kunden), så registreringen.
-  const viaVipps = refund > 0 && input.refundMethod === "Vipps" && o.payment_method !== "pay_at_pickup" && !!o.vipps_reference;
-  if (viaVipps) {
-    try {
-      await refundPayment(o.vipps_reference!, Math.round(refund * 100));
-    } catch (e) {
-      console.error("Vipps-refusjon feilet:", e instanceof Error ? e.message : e);
-      return { error: "Vipps godtok ikke refusjonen. Sjekk ordren i Vipps-portalen, eller velg Kort/Kontant og betal tilbake i kassa." };
-    }
-  }
-
-  const { error } = await sb.rpc("online_order_return", {
+  const { data, error } = await sb.rpc("online_order_return", {
     p_order: input.id,
     p_kind: input.kind,
     p_lines: input.lines.filter((l) => l.qty > 0),
@@ -136,20 +130,31 @@ export async function returnOrder(input: {
     p_extra_method: extra > 0 ? input.extraMethod : null,
     p_note: input.note.slice(0, 500) || null,
   });
-  if (error) {
-    if (viaVipps) {
-      console.error("Retur: Vipps refundert, men registreringen feilet:", error.message);
-      return {
-        error: `${refund} kr ER refundert i Vipps, men returen ble ikke lagret (${dbError(error.message)}). Ikke refunder på nytt – registrer returen med refusjon 0 kr og skriv «refundert i Vipps» i notatet.`,
-      };
-    }
-    return { error: dbError(error.message) };
-  }
+  if (error) return { error: dbError(error.message) };
+  const res = (data ?? {}) as { gift_code?: string | null; replaced_with?: string | null };
+  const giftCode = res.gift_code ?? undefined;
 
   if (input.notifyCustomer) {
     try {
       const { data: items } = await sb.from("online_order_items").select("id, name").eq("order_id", input.id);
       const names = new Map(((items ?? []) as { id: string; name: string }[]).map((i) => [i.id, i.name]));
+      // Hva kunden byttet TIL. Databasen gir navnene; faller den tilbake,
+      // slår vi dem opp på produktene selv.
+      let replacedWith = (res.replaced_with ?? "").trim();
+      if (!replacedWith && input.replacements.some((r) => r.qty > 0)) {
+        const ids = input.replacements.filter((r) => r.qty > 0).map((r) => r.product);
+        const { data: prods } = await sb.from("products").select("id, name, web_name").in("id", ids);
+        const pn = new Map(
+          ((prods ?? []) as { id: string; name: string; web_name: string | null }[]).map((x) => [
+            x.id,
+            x.web_name || x.name,
+          ]),
+        );
+        replacedWith = input.replacements
+          .filter((r) => r.qty > 0)
+          .map((r) => `${r.qty} × ${pn.get(r.product) ?? "vare"}`)
+          .join(", ");
+      }
       await sendOrderUpdate(o.email, {
         orderNo: o.order_no,
         name: o.name,
@@ -159,8 +164,12 @@ export async function returnOrder(input: {
           .filter((l) => l.qty > 0)
           .map((l) => `${l.qty} × ${names.get(l.item) ?? "vare"}`)
           .join(", "),
+        replacedWith: replacedWith || undefined,
         refundNok: refund,
-        refundMethod: viaVipps ? "Vipps" : input.refundMethod || undefined,
+        refundMethod: input.refundMethod || undefined,
+        giftCode,
+        extraNok: extra > 0 ? extra : undefined,
+        extraMethod: extra > 0 ? input.extraMethod || undefined : undefined,
         orderUrl: orderUrl(o.id, o.access_token),
       });
     } catch {
@@ -168,7 +177,7 @@ export async function returnOrder(input: {
     }
   }
   done(input.id);
-  return { ok: true };
+  return { ok: true, giftCode };
 }
 
 /** Notat i ordrehistorikken. */

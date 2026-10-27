@@ -82,6 +82,52 @@ function marketingFromAddress() {
   return process.env.EMAIL_FROM_MARKETING?.trim() || fromAddress();
 }
 
+/**
+ * Ren tekst-utgave av HTML-en. En e-post som BARE har HTML scorer dårligere
+ * hos spamfiltrene (og er uleselig i klienter som viser tekst), så hver
+ * utsending får begge deler.
+ */
+export function htmlToText(html: string): string {
+  return (
+    html
+      .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, "")
+      .replace(/<!--[\s\S]*?-->/g, "")
+      // Lenker: «tekst (adresse)», så adressen ikke går tapt.
+      .replace(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, (_m, href, label) => {
+        const t = String(label).replace(/<[^>]+>/g, "").trim();
+        return t && !/^https?:/i.test(t) ? `${t} (${href})` : String(href);
+      })
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(p|div|tr|h1|h2|h3|li|table)>/gi, "\n")
+      .replace(/<li\b[^>]*>/gi, "• ")
+      .replace(/<\/t[dh]>/gi, "  ")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;|&apos;/g, "'")
+      .replace(/&minus;/g, "−")
+      // Tallkoder, i tilfelle markedsføringsmalen inneholder dem.
+      .replace(/&#(\d{2,5});/g, (_m, d) => String.fromCodePoint(Number(d)))
+      .replace(/&#x([0-9a-f]{2,5});/gi, (_m, h) => String.fromCodePoint(parseInt(h, 16)))
+      .replace(/[ \t]+/g, " ")
+      .replace(/ ?\n ?/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim() || "Åpne e-posten i en klient som viser HTML."
+  );
+}
+
+/**
+ * Svaradresse når ingen er oppgitt. Settes EMAIL_REPLY_TO (f.eks.
+ * «post@downtownbarbers.no»), kan kunden svare på bekreftelsene sine og
+ * treffe en ekte innboks – som også leses som et ekthetstegn av filtrene.
+ */
+function defaultReplyTo(): string | undefined {
+  return process.env.EMAIL_REPLY_TO?.trim() || undefined;
+}
+
 /** Sender én e-post og returnerer nøyaktig hva Resend svarte (for feilsøking). */
 async function sendEmailRaw(
   to: string,
@@ -102,7 +148,14 @@ async function sendEmailRaw(
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ from: fromAddress(), to, subject, html, ...(replyTo ? { reply_to: replyTo } : {}) }),
+      body: JSON.stringify({
+        from: fromAddress(),
+        to,
+        subject,
+        html,
+        text: htmlToText(html),
+        ...((replyTo ?? defaultReplyTo()) ? { reply_to: replyTo ?? defaultReplyTo() } : {}),
+      }),
     });
     const body = await res.text().catch(() => "");
     // 429 (rate limit) og 4xx/5xx regnes som ikke sendt.
@@ -135,6 +188,11 @@ async function sendEmail(to: string, subject: string, html: string, replyTo?: st
 /** Avsenderen som faktisk brukes (vises i admin → Integrasjoner). */
 export function emailFromInUse(): string {
   return fromAddress();
+}
+
+/** Avsenderen nyhetsbrev og kampanjer sendes fra. */
+export function marketingFromInUse(): string {
+  return marketingFromAddress();
 }
 
 /**
@@ -195,6 +253,8 @@ export async function sendEmailBatch(
             to: it.to,
             subject: it.subject,
             html: it.html,
+            text: htmlToText(it.html),
+            ...(defaultReplyTo() ? { reply_to: defaultReplyTo() } : {}),
             ...(it.unsubscribeUrl
               ? {
                   headers: {
@@ -973,6 +1033,53 @@ export async function sendOrderAlert(to: string, o: OrderMail & { email: string;
   return sendEmail(to, `Ny nettordre #${o.orderNo}: ${o.name} – ${krOrder(o.total)}`, html, o.email);
 }
 
+type ReturnMail = {
+  summary?: string;
+  replacedWith?: string;
+  refundNok?: number;
+  refundMethod?: string;
+  extraNok?: number;
+  extraMethod?: string;
+  giftCode?: string;
+  kind?: string;
+};
+
+/** Setningen om pengene: gavekort, kontant eller kort. */
+function refundText(o: ReturnMail): string {
+  if (!o.refundNok || o.refundNok <= 0) return "";
+  const kr = `${o.refundNok.toLocaleString("nb-NO")} kr`;
+  if (o.refundMethod === "Gavekort") {
+    return ` Du har fått ${kr} som gavekort${
+      o.giftCode ? ` – koden er ${escapeHtml(o.giftCode)}` : ""
+    }. Det har ingen utløpsdato, og du bruker det i salongen.`;
+  }
+  if (o.refundMethod === "Kontant") return ` ${kr} er betalt tilbake i kontanter.`;
+  if (o.refundMethod === "Kort") return ` ${kr} er betalt tilbake på kortet ditt i terminalen.`;
+  return ` ${kr} er betalt tilbake.`;
+}
+
+/** Oppsummering i tabellform: inn, ut, penger. */
+function returnRows(o: ReturnMail & { kind?: string }): [string, string][] {
+  if (o.kind !== "returned") return [];
+  const rows: [string, string][] = [];
+  if (o.summary) rows.push(["Levert tilbake", escapeHtml(o.summary)]);
+  if (o.replacedWith) rows.push(["<strong>Byttet til</strong>", `<strong>${escapeHtml(o.replacedWith)}</strong>`]);
+  if (o.extraNok && o.extraNok > 0)
+    rows.push([
+      "Mellomlegg du betalte",
+      `${o.extraNok.toLocaleString("nb-NO")} kr${o.extraMethod ? ` (${escapeHtml(o.extraMethod)})` : ""}`,
+    ]);
+  if (o.refundNok && o.refundNok > 0)
+    rows.push([
+      o.refundMethod === "Gavekort" ? "Gavekort" : "Betalt tilbake",
+      `${o.refundNok.toLocaleString("nb-NO")} kr${
+        o.refundMethod && o.refundMethod !== "Gavekort" ? ` (${escapeHtml(o.refundMethod)})` : ""
+      }`,
+    ]);
+  if (o.giftCode) rows.push(["<strong>Gavekortkode</strong>", `<strong>${escapeHtml(o.giftCode)}</strong>`]);
+  return rows;
+}
+
 /** «Klar til henting» / «Sendt» til kunden. */
 export async function sendOrderUpdate(
   to: string,
@@ -985,6 +1092,13 @@ export async function sendOrderUpdate(
     /** Retur: refundert beløp og måte. */
     refundNok?: number;
     refundMethod?: string;
+    /** Bytte: varene kunden byttet TIL («1 × Beard Balm»). */
+    replacedWith?: string;
+    /** Bytte: mellomlegget kunden betalte. */
+    extraNok?: number;
+    extraMethod?: string;
+    /** Refusjon gitt som gavekort: koden kunden skal bruke. */
+    giftCode?: string;
     /** Retur: «retur» | «reklamasjon» | «bytte». */
     returnKind?: string;
     trackingNo?: string | null;
@@ -1037,17 +1151,9 @@ export async function sendOrderUpdate(
       h: o.returnKind === "bytte" ? "Byttet er registrert" : o.returnKind === "reklamasjon" ? "Reklamasjonen er registrert" : "Returen er registrert",
       p: `Hei ${first}! Vi har registrert ${
         o.returnKind === "bytte" ? "byttet" : o.returnKind === "reklamasjon" ? "reklamasjonen" : "returen"
-      } på ordre #${o.orderNo}${o.summary ? `: ${escapeHtml(o.summary)}` : ""}.${
-        o.refundNok && o.refundNok > 0
-          ? ` ${o.refundNok.toLocaleString("nb-NO")} kr ${
-              o.refundMethod === "Vipps"
-                ? "er refundert til Vipps/kortet du betalte med. Det kan ta noen dager før pengene vises på kontoen."
-                : o.refundMethod === "Kontant"
-                  ? "er betalt tilbake i kontanter."
-                  : `er refundert (${escapeHtml(o.refundMethod ?? "")}).`
-            }`
-          : ""
-      }`,
+      } på ordre #${o.orderNo}${o.summary ? `: ${escapeHtml(o.summary)}` : ""}${
+        o.replacedWith ? `, og du fikk ${escapeHtml(o.replacedWith)} i bytte` : ""
+      }.${refundText(o)}`,
       cta: ctaButton(o.orderUrl, "Se ordren"),
       s: `Ordre #${o.orderNo}: ${o.returnKind === "bytte" ? "bytte" : o.returnKind === "reklamasjon" ? "reklamasjon" : "retur"} registrert`,
     },
@@ -1060,7 +1166,7 @@ export async function sendOrderUpdate(
       s: `Ordre #${o.orderNo} er kansellert`,
     },
   }[o.kind];
-  return sendEmail(to, T.s, shell(T.h, T.p, [], T.cta));
+  return sendEmail(to, T.s, shell(T.h, T.p, returnRows(o), T.cta));
 }
 
 /** Kvittering til kunden: «Vi har fått meldingen din». */

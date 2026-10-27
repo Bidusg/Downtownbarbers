@@ -2,10 +2,74 @@
 
 import { getUserRole, isAdminRole } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/service";
-import { emailDeliveryStatus, emailFromInUse, sendTestEmail } from "@/lib/email";
+import { resolveTxt } from "node:dns/promises";
+import { emailDeliveryStatus, emailFromInUse, marketingFromInUse, sendTestEmail } from "@/lib/email";
 import { isValidEmail } from "@/lib/validate";
 
 export type DiagRow = { label: string; ok: boolean; detail: string };
+
+/** Domenet i en avsenderadresse («Navn <post@dittdomene.no>» → dittdomene.no). */
+function domainOf(addr: string): string {
+  return (addr.match(/@([^>\s]+)/)?.[1] ?? "").trim().toLowerCase();
+}
+
+/** TXT-oppslag som aldri kaster – tom liste betyr «ingen record». */
+async function txt(name: string): Promise<string[]> {
+  try {
+    return (await resolveTxt(name)).map((parts) => parts.join(""));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * SPF, DKIM og DMARC på avsenderdomenet. Mangler de, signerer vi ikke
+ * e-posten, og både Gmail og Outlook sorterer den som søppelpost nesten
+ * uansett hva den inneholder. Gmail og Yahoo KREVER i tillegg DMARC av alle
+ * som sender i volum.
+ */
+async function dnsRows(fromAddr: string): Promise<DiagRow[]> {
+  const domain = domainOf(fromAddr);
+  if (!domain || /resend\.dev$/i.test(domain)) return [];
+  const rows: DiagRow[] = [];
+
+  const [root, send, dkim, dmarc] = await Promise.all([
+    txt(domain),
+    txt(`send.${domain}`),
+    txt(`resend._domainkey.${domain}`),
+    txt(`_dmarc.${domain}`),
+  ]);
+
+  const spf = [...root, ...send].find((r) => /^v=spf1/i.test(r.trim()));
+  rows.push({
+    label: `SPF på ${domain}`,
+    ok: !!spf && /amazonses\.com|resend/i.test(spf),
+    detail: !spf
+      ? `Ingen SPF-record. Legg inn TXT på send.${domain} med verdien «v=spf1 include:amazonses.com ~all» (Resend → Domains viser den eksakte verdien).`
+      : /amazonses\.com|resend/i.test(spf)
+        ? spf
+        : `${spf} – mangler «include:amazonses.com», som er det Resend sender gjennom.`,
+  });
+
+  rows.push({
+    label: `DKIM på ${domain}`,
+    ok: dkim.length > 0,
+    detail: dkim.length
+      ? "Signaturnøkkelen ligger ute. E-postene blir signert."
+      : `Ingen DKIM-nøkkel på resend._domainkey.${domain}. Uten den er e-posten usignert, og da havner den i søppelpost nesten uansett. Hent verdien i Resend → Domains → ${domain} og legg den inn hos domeneleverandøren.`,
+  });
+
+  const dm = dmarc.find((r) => /^v=DMARC1/i.test(r.trim()));
+  rows.push({
+    label: `DMARC på ${domain}`,
+    ok: !!dm,
+    detail: dm
+      ? dm
+      : `Ingen DMARC-record. Legg inn TXT på _dmarc.${domain} med verdien «v=DMARC1; p=none; rua=mailto:post@${domain}». p=none overvåker bare og blokkerer ingenting, men Gmail og Yahoo krever at recorden finnes.`,
+  });
+
+  return rows;
+}
 
 /**
  * «Feilsøk e-post og kundeinnlogging» i admin → Integrasjoner.
@@ -58,6 +122,24 @@ export async function runEmailDiagnostics(to: string): Promise<{ rows: DiagRow[]
       ? `${from} – Resend sin testavsender kan BARE sende til e-posten Resend-kontoen er registrert med. Kunder får ingenting. Verifiser downtownbarbers.no i Resend og sett EMAIL_FROM, f.eks. «Downtown Barbers <post@downtownbarbers.no>».`
       : from,
   });
+
+  // 3b) Nyhetsbrev må sendes fra en ANNEN avsender enn bekreftelsene.
+  const mkt = marketingFromInUse();
+  const sameSender = mkt.trim().toLowerCase() === from.trim().toLowerCase();
+  rows.push({
+    label: "Avsender for nyhetsbrev (EMAIL_FROM_MARKETING)",
+    ok: !sameSender,
+    detail: sameSender
+      ? `Samme adresse som bekreftelsene. Da drar én kunde som merker et nyhetsbrev som søppelpost også ordre-, booking- og innloggingskodene med seg ned i filteret. Sett EMAIL_FROM_MARKETING til et eget subdomene – f.eks. «Downtown Barbers <nyheter@nyhetsbrev.${domainOf(from) || "downtownbarbers.no"}>» – og verifiser det i Resend.`
+      : `${mkt}${
+          domainOf(mkt) === domainOf(from)
+            ? " – skilt fra bekreftelsene, men på samme domene. Et eget subdomene skiller omdømmet helt."
+            : " – skilt fra bekreftelsene."
+        }`,
+  });
+
+  // 3c) Signering og autentisering i DNS.
+  if (!testSender) rows.push(...(await dnsRows(from)));
 
   // 4) Ekte test-e-post.
   const r = await sendTestEmail(target);
