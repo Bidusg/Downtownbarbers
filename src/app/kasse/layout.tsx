@@ -1,7 +1,7 @@
 import { requireRole } from "@/lib/auth";
 import { Topbar } from "@/components/backoffice/Topbar";
 import { PageTransition } from "@/components/backoffice/PageTransition";
-import { kasseNav } from "@/lib/backoffice-nav";
+import { kasseNavWith } from "@/lib/backoffice-nav";
 import { getMissingSettlementDays } from "@/lib/settlement-status";
 import { SettlementReminderBanner } from "@/components/admin/SettlementReminderBanner";
 import { NoticeBanner } from "@/components/admin/NoticeBanner";
@@ -25,7 +25,11 @@ export default async function KasseLayout({
 
   return (
     <div className="bo-app min-h-screen overflow-x-clip bg-canvas text-fg">
-      <Topbar role="Kasse" homeHref="/kasse" nav={kasseNav} />
+      <Topbar
+        role="Kasse"
+        homeHref="/kasse"
+        nav={kasseNavWith({ crisis, webOrders, settlements: missing.length })}
+      />
       {crisis > 0 && (
         <div className="px-4 pt-4 sm:px-6">
           <Link

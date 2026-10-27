@@ -30,8 +30,17 @@ import { LanguageToggle } from "@/components/i18n/PageTranslator";
 export type BoLink = {
   href: string;
   label: string;
+  /** Kortere etikett i selve topp-raden. «Mer»-menyen viser alltid `label`. */
+  short?: string;
   description?: string;
   exact?: boolean;
+  /**
+   * Hvem som blir stående når plassen tar slutt – lavest tall overlever
+   * lengst. Uten verdi brukes rekkefølgen i listen.
+   */
+  priority?: number;
+  /** Teller som vises som en liten pille, f.eks. uplukkede nettordrer. */
+  badge?: number;
 };
 export type BoGroup = { label: string; items: BoLink[] };
 export type BoNav =
@@ -195,45 +204,236 @@ function useRail(targetKey: string | null, signal: string) {
   return { railRef, style };
 }
 
-/* ---------- Flat nav (revisor/ansatt/kasse) ---------- */
+/* ---------- Flat nav (revisor/ansatt/kasse) ----------
+ * Raden måler seg selv: det som får plass vises, resten legger seg i en
+ * «Mer»-meny. Før lå overskytende lenker i en vannrett scroll-bane, og da
+ * var de i praksis usynlige på nettbrett – ingenting fortalte at det fantes
+ * mer til høyre. Nå forsvinner ingenting uten at det står en knapp igjen.
+ *
+ * Hvem som blir stående bestemmes av `priority`, ikke av rekkefølgen, så det
+ * er de mest brukte sidene som overlever på smal skjerm. Rekkefølgen i raden
+ * er alltid den samme – lenker bytter aldri plass, de faller bare bakover
+ * inn i menyen. Det betyr også at raden tåler at det legges til nye sider
+ * senere uten at noe må justeres på nytt. */
+
+/** Liten teller-pille («3») ved siden av en lenke. */
+function NavBadge({ n }: { n?: number }) {
+  if (!n || n <= 0) return null;
+  return (
+    <span className="ml-1.5 inline-flex min-w-[1.15rem] items-center justify-center rounded-full bg-accent-soft/20 px-1 text-[10px] font-bold tabular-nums text-accent-soft">
+      {n > 99 ? "99+" : n}
+    </span>
+  );
+}
+
+const NAV_ITEM_CLASS =
+  "bo-navbtn relative flex items-center rounded-md px-2.5 py-1.5 text-[13px] font-medium whitespace-nowrap sm:px-3";
+
 function FlatNav({ links, path }: { links: BoLink[]; path: string }) {
-  const activeKey =
-    links.find((l) => isActive(l.href, l.exact ?? false, path))?.href ?? null;
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const measureRef = useRef<HTMLDivElement | null>(null);
+  const moreWrapRef = useRef<HTMLDivElement | null>(null);
+  const [keep, setKeep] = useState<string[] | null>(null);
+  const [openPath, setOpenPath] = useState<string | null>(null);
   const [hoverKey, setHoverKey] = useState<string | null>(null);
+  // Menyen er åpen bare for siden den ble åpnet på, så navigasjon lukker den.
+  const open = openPath === path;
+
+  // Endres når noe som påvirker bredden er annerledes → mål på nytt.
+  const signal = links.map((l) => `${l.href}:${l.short ?? l.label}:${l.badge ?? 0}`).join("|");
+
+  useLayoutEffect(() => {
+    const wrap = wrapRef.current;
+    const strip = measureRef.current;
+    if (!wrap || !strip) return;
+
+    const fit = () => {
+      const widths = new Map<string, number>();
+      for (const el of Array.from(strip.querySelectorAll<HTMLElement>("[data-mk]"))) {
+        widths.set(el.dataset.mk as string, el.getBoundingClientRect().width);
+      }
+      const rail = wrap.querySelector<HTMLElement>(".bo-navrail");
+      const gap = rail ? parseFloat(getComputedStyle(rail).columnGap) || 8 : 8;
+      const avail = wrap.clientWidth;
+      if (avail <= 0 || widths.size === 0) return;
+
+      const width = (href: string) => (widths.get(href) ?? 0) + gap;
+      const total = links.reduce((a, l) => a + width(l.href), 0);
+      if (total <= avail) {
+        setKeep((prev) => (prev === null ? prev : null)); // alt får plass
+        return;
+      }
+
+      // Plassen må deles med «Mer»-knappen.
+      let used = width("__more");
+      const chosen = new Set<string>();
+      const byPriority = links
+        .map((l, i) => ({ l, p: l.priority ?? i }))
+        .sort((a, b) => a.p - b.p);
+      for (const { l } of byPriority) {
+        const w = width(l.href);
+        if (used + w > avail) break;
+        used += w;
+        chosen.add(l.href);
+      }
+      const next = links.filter((l) => chosen.has(l.href)).map((l) => l.href);
+      setKeep((prev) => (prev && prev.join() === next.join() ? prev : next));
+    };
+
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(wrap);
+    return () => ro.disconnect();
+  }, [signal, links]);
+
+  const shown = keep ? links.filter((l) => keep.includes(l.href)) : links;
+  const hidden = keep ? links.filter((l) => !keep.includes(l.href)) : [];
+
+  const activeLink = links.find((l) => isActive(l.href, l.exact ?? false, path));
+  const activeIsHidden = !!activeLink && hidden.some((h) => h.href === activeLink.href);
+  const activeKey = activeIsHidden ? "__more" : (activeLink?.href ?? null);
   const { railRef, style } = useRail(
     hoverKey ?? activeKey,
-    `${path}|${links.length}`,
+    `${path}|${shown.length}|${hidden.length}`,
   );
 
+  // Lukk «Mer» ved Escape og klikk utenfor.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenPath(null);
+    };
+    const onDown = (e: MouseEvent) => {
+      if (moreWrapRef.current && !moreWrapRef.current.contains(e.target as Node)) setOpenPath(null);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onDown);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onDown);
+    };
+  }, [open]);
+
+  const waiting = hidden.reduce((a, l) => a + (l.badge ?? 0), 0);
+
   return (
-    <div className="bo-navscroll min-w-0 w-full overflow-x-auto">
-    <div
-      ref={railRef}
-      className="bo-navrail relative flex items-center gap-1 sm:gap-2"
-      onMouseLeave={() => setHoverKey(null)}
-    >
-      <span className="bo-underline" style={style} aria-hidden />
-      {links.map((l) => {
-        const active = isActive(l.href, l.exact ?? false, path);
-        return (
-          <Link
-            key={l.href}
-            href={l.href}
-            data-rail-key={l.href}
-            onMouseEnter={() => setHoverKey(l.href)}
-            onFocus={() => setHoverKey(l.href)}
-            onBlur={() => setHoverKey(null)}
-            aria-current={active ? "page" : undefined}
-            className={
-              "bo-navbtn relative rounded-md px-2.5 py-1.5 text-[13px] font-medium whitespace-nowrap sm:px-3 " +
-              (active ? "text-fg" : "text-muted hover:text-fg")
-            }
-          >
-            {l.label}
-          </Link>
-        );
-      })}
-    </div>
+    <div ref={wrapRef} className="relative min-w-0 w-full">
+      {/* Målerad: alltid alle lenkene i full bredde, så vi vet hva hver av
+          dem koster i piksler. Den ligger i en 0×0-boks som klipper, slik at
+          den aldri kan lage vannrett overflyt på siden – elementene får
+          likevel ekte layout, og dermed ekte bredde. */}
+      <div aria-hidden className="pointer-events-none absolute top-0 left-0 h-0 w-0 overflow-hidden">
+      <div
+        ref={measureRef}
+        className="flex items-center"
+        style={{ visibility: "hidden", whiteSpace: "nowrap", width: "max-content" }}
+      >
+        {links.map((l) => (
+          <span key={l.href} data-mk={l.href} className={NAV_ITEM_CLASS}>
+            {l.short ?? l.label}
+            <NavBadge n={l.badge} />
+          </span>
+        ))}
+        <span data-mk="__more" className={NAV_ITEM_CLASS}>
+          Mer
+          <svg viewBox="0 0 24 24" className="ml-1 h-3.5 w-3.5" aria-hidden>
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </span>
+      </div>
+      </div>
+
+      <div
+        ref={railRef}
+        className="bo-navrail relative flex items-center gap-1 sm:gap-2"
+        onMouseLeave={() => setHoverKey(null)}
+      >
+        <span className="bo-underline" style={style} aria-hidden />
+
+        {shown.map((l) => {
+          const active = isActive(l.href, l.exact ?? false, path);
+          return (
+            <Link
+              key={l.href}
+              href={l.href}
+              data-rail-key={l.href}
+              onMouseEnter={() => setHoverKey(l.href)}
+              onFocus={() => setHoverKey(l.href)}
+              onBlur={() => setHoverKey(null)}
+              aria-current={active ? "page" : undefined}
+              className={NAV_ITEM_CLASS + " " + (active ? "text-fg" : "text-muted hover:text-fg")}
+            >
+              {l.short ?? l.label}
+              <NavBadge n={l.badge} />
+            </Link>
+          );
+        })}
+
+        {hidden.length > 0 && (
+          <div ref={moreWrapRef} className="relative">
+            <button
+              type="button"
+              data-rail-key="__more"
+              aria-expanded={open}
+              aria-haspopup="menu"
+              onMouseEnter={() => setHoverKey("__more")}
+              onFocus={() => setHoverKey("__more")}
+              onBlur={() => setHoverKey(null)}
+              onClick={() => setOpenPath(open ? null : path)}
+              className={
+                NAV_ITEM_CLASS +
+                " " +
+                (open || activeIsHidden ? "text-fg" : "text-muted hover:text-fg")
+              }
+            >
+              Mer
+              {/* Venter det noe bak menyen, skal det synes uten å åpne den. */}
+              {waiting > 0 ? (
+                <NavBadge n={waiting} />
+              ) : null}
+              <svg
+                viewBox="0 0 24 24"
+                className={"ml-1 h-3.5 w-3.5 transition-transform duration-300 " + (open ? "rotate-180" : "")}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden
+              >
+                <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+
+            {open && (
+              <div
+                role="menu"
+                className="bo-mega absolute right-0 top-full z-50 mt-2 w-60 rounded-2xl border border-line-2 bg-surface p-2"
+              >
+                {hidden.map((it, idx) => {
+                  const active = isActive(it.href, it.exact ?? false, path);
+                  return (
+                    <Link
+                      key={it.href}
+                      href={it.href}
+                      role="menuitem"
+                      onClick={() => setOpenPath(null)}
+                      style={{ ["--i" as string]: idx }}
+                      className={
+                        "bo-mega-item flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-sm font-medium " +
+                        (active
+                          ? "bg-accent-soft/12 text-fg ring-1 ring-accent-soft/30"
+                          : "text-fg-soft hover:bg-surface-2 hover:text-fg")
+                      }
+                    >
+                      <span className="truncate">{it.label}</span>
+                      <NavBadge n={it.badge} />
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -526,13 +726,14 @@ function MobileSheet({
                   onClick={onClose}
                   style={{ ["--i" as string]: counter++ }}
                   className={
-                    "bo-sheet-row rounded-xl px-3 py-2.5 text-sm font-medium " +
+                    "bo-sheet-row flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-sm font-medium " +
                     (active
                       ? "bg-accent-soft/12 text-fg ring-1 ring-accent-soft/30"
                       : "text-muted hover:bg-surface-2 hover:text-fg")
                   }
                 >
-                  {l.label}
+                  <span className="truncate">{l.label}</span>
+                  <NavBadge n={l.badge} />
                 </Link>
               );
             })}
@@ -789,14 +990,9 @@ export function Topbar({
               />
             </div>
           ) : (
-            <div className="hidden min-w-0 flex-1 lg:flex">
-              <FlatNav links={nav.links} path={path} />
-            </div>
-          )}
-
-          {/* For flat-nav på nettbrett vises den også på mindre skjerm. */}
-          {nav.kind === "flat" && (
-            <div className="hidden min-w-0 flex-1 md:flex lg:hidden">
+            /* Flat nav måler seg selv og legger overskuddet i «Mer», så den
+               samme raden funker fra nettbrett og oppover. */
+            <div className="hidden min-w-0 flex-1 md:flex">
               <FlatNav links={nav.links} path={path} />
             </div>
           )}

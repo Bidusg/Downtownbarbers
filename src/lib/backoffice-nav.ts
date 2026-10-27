@@ -2,7 +2,7 @@
 // Admin gjenbruker den eksisterende grupperte admin-navigasjonen; de øvrige
 // rollene er flate lenkerader.
 
-import type { BoNav } from "@/components/backoffice/Topbar";
+import type { BoLink, BoNav } from "@/components/backoffice/Topbar";
 import { adminDashboard, adminGroups } from "@/lib/admin-nav";
 
 export const adminNav: BoNav = {
@@ -54,17 +54,46 @@ export const ansattNav: BoNav = {
   ],
 };
 
-export const kasseNav: BoNav = {
-  kind: "flat",
-  links: [
-    { href: "/kasse", label: "Dashboard", exact: true },
-    { href: "/kasse/kalender", label: "Kalender" },
-    { href: "/kasse/kunder", label: "Kunder" },
-    { href: "/kasse/krisetimer", label: "Krisetimer" },
-    { href: "/kasse/nettordrer", label: "Nettordrer" },
-    { href: "/kasse/kasseoppgjor", label: "Kasseoppgjør" },
-    { href: "/kasse/gavekort", label: "Gavekort" },
-    { href: "/kasse/lager", label: "Lager" },
-    { href: "/kasse/stempling", label: "Stempling" },
-  ],
-};
+/**
+ * Kassa. `priority` avgjør hvem som blir stående i topp-raden når plassen
+ * tar slutt (lavest overlever lengst) – rekkefølgen i raden er uendret.
+ *
+ * De fire første er det man er innom hele dagen. Krisetimer, nettordrer og
+ * kasseoppgjør ligger bakerst med vilje: de har allerede hvert sitt banner
+ * øverst på siden når det faktisk venter noe, så de trenger ikke en fast
+ * plass i baren for å bli oppdaget.
+ */
+const kasseLinks: BoLink[] = [
+  { href: "/kasse", label: "Oversikt", exact: true, priority: 0 },
+  { href: "/kasse/kalender", label: "Kalender", priority: 1 },
+  { href: "/kasse/kunder", label: "Kunder", priority: 2 },
+  { href: "/kasse/stempling", label: "Stempling", priority: 3 },
+  { href: "/kasse/nettordrer", label: "Nettordrer", priority: 4 },
+  { href: "/kasse/kasseoppgjor", label: "Kasseoppgjør", short: "Oppgjør", priority: 5 },
+  { href: "/kasse/lager", label: "Lager", priority: 6 },
+  { href: "/kasse/gavekort", label: "Gavekort", priority: 7 },
+  { href: "/kasse/krisetimer", label: "Krisetimer", priority: 8 },
+];
+
+export const kasseNav: BoNav = { kind: "flat", links: kasseLinks };
+
+/**
+ * Samme meny, med tellere på det som venter på noen. Havner en av dem i
+ * «Mer»-menyen, summeres tellerne på selve Mer-knappen – så man ser at det
+ * ligger noe der uten å måtte åpne den.
+ */
+export function kasseNavWith(counts: {
+  crisis?: number;
+  webOrders?: number;
+  settlements?: number;
+}): BoNav {
+  const badges: Record<string, number | undefined> = {
+    "/kasse/krisetimer": counts.crisis,
+    "/kasse/nettordrer": counts.webOrders,
+    "/kasse/kasseoppgjor": counts.settlements,
+  };
+  return {
+    kind: "flat",
+    links: kasseLinks.map((l) => (badges[l.href] ? { ...l, badge: badges[l.href] } : l)),
+  };
+}
