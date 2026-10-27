@@ -2,7 +2,7 @@
 
 import { getUserRole, isAdminRole } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/service";
-import { resolveTxt } from "node:dns/promises";
+import { resolveMx, resolveTxt } from "node:dns/promises";
 import { emailDeliveryStatus, emailFromInUse, marketingFromInUse, sendTestEmail } from "@/lib/email";
 import { isValidEmail } from "@/lib/validate";
 
@@ -22,50 +22,120 @@ async function txt(name: string): Promise<string[]> {
   }
 }
 
+/** MX-oppslag som aldri kaster. */
+async function mx(name: string): Promise<string[]> {
+  try {
+    return (await resolveMx(name)).map((r) => `${r.priority} ${r.exchange}`);
+  } catch {
+    return [];
+  }
+}
+
 /**
- * SPF, DKIM og DMARC på avsenderdomenet. Mangler de, signerer vi ikke
- * e-posten, og både Gmail og Outlook sorterer den som søppelpost nesten
- * uansett hva den inneholder. Gmail og Yahoo KREVER i tillegg DMARC av alle
- * som sender i volum.
+ * Autentiseringen i DNS. Resend sender med konvolutt-avsender (Return-Path)
+ * på `send.<domene>`, og det er DER SPF-recorden skal ligge – ikke på
+ * hoveddomenet. SPF på hoveddomenet gjelder e-posten dere sender fra
+ * webhotellet og har ingenting med Resend å gjøre.
+ *
+ * DMARC godkjenner e-posten hvis ENTEN SPF ELLER DKIM passerer og er
+ * justert mot avsenderdomenet. Står DMARC på p=quarantine eller p=reject,
+ * går ALT som ikke passerer rett i søppelpost – da må Resend-oppsettet være
+ * helt på plass, ikke nesten.
  */
 async function dnsRows(fromAddr: string): Promise<DiagRow[]> {
   const domain = domainOf(fromAddr);
   if (!domain || /resend\.dev$/i.test(domain)) return [];
   const rows: DiagRow[] = [];
 
-  const [root, send, dkim, dmarc] = await Promise.all([
+  const [root, send, sendMx, dkim, dmarc] = await Promise.all([
     txt(domain),
     txt(`send.${domain}`),
+    mx(`send.${domain}`),
     txt(`resend._domainkey.${domain}`),
     txt(`_dmarc.${domain}`),
   ]);
 
-  const spf = [...root, ...send].find((r) => /^v=spf1/i.test(r.trim()));
+  const spfOf = (recs: string[]) => recs.find((r) => /^v=spf1/i.test(r.trim()));
+  const sendSpf = spfOf(send);
+  const rootSpf = spfOf(root);
+
   rows.push({
-    label: `SPF på ${domain}`,
-    ok: !!spf && /amazonses\.com|resend/i.test(spf),
-    detail: !spf
-      ? `Ingen SPF-record. Legg inn TXT på send.${domain} med verdien «v=spf1 include:amazonses.com ~all» (Resend → Domains viser den eksakte verdien).`
-      : /amazonses\.com|resend/i.test(spf)
-        ? spf
-        : `${spf} – mangler «include:amazonses.com», som er det Resend sender gjennom.`,
+    label: `SPF på send.${domain} (Resend)`,
+    ok: !!sendSpf,
+    detail: sendSpf
+      ? `${sendSpf}${
+          rootSpf ? ` — SPF på selve ${domain} («${rootSpf}») gjelder webhotellet og skal IKKE røres.` : ""
+        }`
+      : `Mangler. Legg inn TXT på send.${domain} med verdien Resend oppgir (vanligvis «v=spf1 include:amazonses.com ~all»).${
+          rootSpf
+            ? ` La SPF-recorden på selve ${domain} stå som den er – den gjelder e-posten fra webhotellet, og Resend bruker den ikke.`
+            : ""
+        }`,
+  });
+
+  rows.push({
+    label: `MX på send.${domain}`,
+    ok: sendMx.length > 0,
+    detail: sendMx.length
+      ? sendMx.join(", ")
+      : `Mangler. Resend bruker den til å ta imot avvisninger og klager. Verdien står i Resend → Domains → ${domain}.`,
   });
 
   rows.push({
     label: `DKIM på ${domain}`,
     ok: dkim.length > 0,
     detail: dkim.length
-      ? "Signaturnøkkelen ligger ute. E-postene blir signert."
-      : `Ingen DKIM-nøkkel på resend._domainkey.${domain}. Uten den er e-posten usignert, og da havner den i søppelpost nesten uansett. Hent verdien i Resend → Domains → ${domain} og legg den inn hos domeneleverandøren.`,
+      ? "Nøkkelen ligger ute. At den finnes betyr ikke at Resend faktisk signerer – domenet må også stå som «Verified» i Resend → Domains."
+      : `Ingen DKIM-nøkkel på resend._domainkey.${domain}. Uten signatur er e-posten ikke autentisert. Hent verdien i Resend → Domains → ${domain}.`,
   });
 
   const dm = dmarc.find((r) => /^v=DMARC1/i.test(r.trim()));
+  const policy = dm?.match(/\bp\s*=\s*(none|quarantine|reject)/i)?.[1]?.toLowerCase() ?? null;
+  const strict = policy === "quarantine" || policy === "reject";
   rows.push({
     label: `DMARC på ${domain}`,
     ok: !!dm,
     detail: dm
-      ? dm
-      : `Ingen DMARC-record. Legg inn TXT på _dmarc.${domain} med verdien «v=DMARC1; p=none; rua=mailto:post@${domain}». p=none overvåker bare og blokkerer ingenting, men Gmail og Yahoo krever at recorden finnes.`,
+      ? `${dm}${
+          strict
+            ? ` — p=${policy} betyr at e-post som IKKE passerer autentisering blir ${
+                policy === "reject" ? "avvist" : "lagt i søppelpost"
+              }. Havner alt i søppelpost, er dette den mest sannsynlige årsaken.`
+            : ""
+        }`
+      : `Ingen DMARC-record. Legg inn TXT på _dmarc.${domain}: «v=DMARC1; p=none; rua=mailto:post@${domain}».`,
+  });
+
+  // Streng policy + manglende byggekloss = alt havner i søppelpost.
+  if (strict && (!sendSpf || dkim.length === 0)) {
+    rows.push({
+      label: "Streng DMARC uten fullt Resend-oppsett",
+      ok: false,
+      detail: `DMARC står på p=${policy}, samtidig som ${
+        !sendSpf && dkim.length === 0
+          ? "både SPF og DKIM for Resend mangler"
+          : !sendSpf
+            ? `SPF på send.${domain} mangler`
+            : "DKIM mangler"
+      }. Det er nøyaktig kombinasjonen som sender ALT i søppelpost. Fullfør oppsettet i Resend → Domains først; sett eventuelt DMARC midlertidig til p=none mens du retter.`,
+    });
+  }
+
+  // Rapportene bør gå til dere, ikke til domeneleverandøren.
+  const rua = dm?.match(/\brua\s*=\s*mailto:([^;\s]+)/i)?.[1];
+  if (rua && !rua.toLowerCase().includes(domain)) {
+    rows.push({
+      label: "DMARC-rapporter",
+      ok: false,
+      detail: `Rapportene går til ${rua}, ikke til dere. Da ser dere aldri hvilke e-poster som feiler autentisering. Endre rua til en adresse på ${domain}.`,
+    });
+  }
+
+  rows.push({
+    label: "Fasiten ligger i e-posten du nettopp fikk",
+    ok: true,
+    detail:
+      "Åpne test-e-posten i Gmail → de tre prikkene → «Vis original». Øverst står SPF, DKIM og DMARC med PASS eller FAIL. Det er det eneste som sier sikkert om autentiseringen virker – DNS-sjekkene over viser bare at postene finnes.",
   });
 
   return rows;

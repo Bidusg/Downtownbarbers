@@ -27,7 +27,10 @@ tatt – Resend sin testavsender kan bare sende til e-posten kontoen er
 registrert med.
 
 1. Resend → **Domains** → legg inn `downtownbarbers.no`.
-2. Legg de tre postene Resend oppgir inn hos domeneleverandøren:
+2. Legg de tre postene Resend oppgir inn hos domeneleverandøren. Merk at SPF
+   skal på **`send.`-subdomenet**, ikke på hoveddomenet: det er der Resend har
+   konvolutt-avsenderen sin. SPF-recorden på selve `downtownbarbers.no`
+   gjelder e-posten fra webhotellet og skal ikke røres.
    - `TXT` på `send.downtownbarbers.no` → `v=spf1 include:amazonses.com ~all`
    - `MX` på `send.downtownbarbers.no` → `feedback-smtp.<region>.amazonses.com` (prioritet 10)
    - `TXT` på `resend._domainkey.downtownbarbers.no` → DKIM-nøkkelen fra Resend
@@ -36,20 +39,36 @@ registrert med.
 **DKIM er den viktigste.** Uten signatur sorteres e-posten som søppelpost
 nesten uansett hva den inneholder.
 
-## 2. DMARC må finnes
+## 2. DMARC står på p=quarantine – og det er strengt
 
-Gmail og Yahoo krever siden 2024 at alle som sender i volum har DMARC. Uten
-den filtreres vi hardere, uavhengig av innholdet.
-
-`TXT` på `_dmarc.downtownbarbers.no`:
+Vi har allerede DMARC:
 
 ```
-v=DMARC1; p=none; rua=mailto:post@downtownbarbers.no
+v=DMARC1; p=quarantine; rua=mailto:dmarc@domeneshop.no
 ```
 
-`p=none` overvåker bare og blokkerer ingenting – riktig å starte med. Når
-rapportene viser at alt vi sender passerer, kan den strammes til
-`p=quarantine`.
+`p=quarantine` betyr: **e-post som ikke passerer autentisering skal legges i
+søppelpost.** Det er ikke en anbefaling til mottakeren, det er en instruks fra
+oss. Havner alt vi sender i søppelpost, er dette den første mistanken – ikke
+innholdet, ikke oppvarming.
+
+DMARC godkjenner e-posten hvis **enten** SPF **eller** DKIM passerer og er
+justert mot `downtownbarbers.no`. Resend signerer med DKIM på vårt eget domene,
+så den skal holde alene – forutsatt at domenet faktisk står som **Verified** i
+Resend → Domains. At DKIM-recorden ligger i DNS er ikke det samme som at Resend
+bruker den.
+
+**Slik ser du fasiten på 30 sekunder:** åpne en av e-postene i Gmail → de tre
+prikkene → **Vis original**. Øverst står SPF, DKIM og DMARC med PASS eller
+FAIL. Står det `dmarc=fail`, er saken løst.
+
+Må du rette noe, sett DMARC midlertidig til `p=none` mens du jobber. Da
+slutter e-posten å bli kastet i søppelpost av vår egen policy, og du ser
+rapportene uten å straffe kundene i mellomtiden.
+
+Rapportene går i dag til `dmarc@domeneshop.no`, altså til domeneleverandøren,
+ikke til oss. Endre `rua` til en adresse på vårt eget domene, ellers ser vi
+aldri hvilke e-poster som feiler.
 
 ## 3. Nyhetsbrev og bekreftelser må ha ulike avsendere
 
