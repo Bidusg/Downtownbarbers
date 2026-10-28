@@ -73,6 +73,7 @@ const kasseLinks: BoLink[] = [
   { href: "/kasse/lager", label: "Lager", priority: 6 },
   { href: "/kasse/gavekort", label: "Gavekort", priority: 7 },
   { href: "/kasse/krisetimer", label: "Krisetimer", priority: 8 },
+  { href: "/kasse/dokumenter", label: "Dokumenter", priority: 9 },
 ];
 
 export const kasseNav: BoNav = { kind: "flat", links: kasseLinks };

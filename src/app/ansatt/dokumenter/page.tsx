@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { DocViewerButton } from "@/components/ui/DocViewer";
+import { CompanyDocsList } from "@/components/docs/CompanyDocsList";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +82,14 @@ export default async function AnsattDokumenter() {
         title="Mine dokumenter"
         description="Kontrakt, lønnsoversikter og andre dokumenter – kun synlig for deg og ledelsen."
       />
+
+      {/* Felles for alle ansatte – vises også uten koblet ansattprofil */}
+      <section>
+        <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted uppercase">
+          Personalhåndbok og rutiner
+        </h2>
+        <CompanyDocsList />
+      </section>
 
       {!link.linked ? (
         <EmptyState description="Kontoen din er ikke koblet til en ansattprofil enda. Be admin sette e-posten din på din ansatt-rad, så vises dokumentene dine her." />
