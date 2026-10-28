@@ -1,5 +1,7 @@
 "use server";
 
+import { isPlaceholderName } from "@/lib/customer-placeholder";
+
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { sendBookingConfirmationSms } from "@/lib/sms-booking";
@@ -276,9 +278,11 @@ export async function completeBooking(
   // match på e-post/telefon) og knytter det til timen FØR salget registreres,
   // så salget havner på riktig kunde. Uten info forblir timen anonym.
   const dinfo = o.customer;
+  // «Drop-in» i navnefeltet er ikke et navn – uten e-post/telefon lages
+  // ingen kunde (timen forblir anonym).
+  const realName = dinfo?.name?.trim() && !isPlaceholderName(dinfo.name) ? dinfo.name.trim() : "";
   const dropHasInfo =
-    !!dinfo &&
-    !!(dinfo.name?.trim() || dinfo.email?.trim() || dinfo.phone?.trim());
+    !!dinfo && !!(realName || dinfo.email?.trim() || dinfo.phone?.trim());
   if (!b?.customer_id && dropHasInfo) {
     const em = dinfo!.email?.trim().toLowerCase() || null;
     const ph = dinfo!.phone?.trim() || null;
@@ -305,7 +309,7 @@ export async function completeBooking(
       const { data } = await sb
         .from("customers")
         .insert({
-          full_name: dinfo!.name?.trim() || "Kunde",
+          full_name: realName || "Kunde",
           email: em,
           phone: ph,
         })
@@ -400,7 +404,7 @@ export async function completeBooking(
     (info.name?.trim() || info.email?.trim() || info.phone?.trim())
   ) {
     const patch: Record<string, string> = {};
-    if (info.name?.trim()) patch.full_name = info.name.trim();
+    if (info.name?.trim() && !isPlaceholderName(info.name)) patch.full_name = info.name.trim();
     if (info.email?.trim()) patch.email = info.email.trim();
     if (info.phone?.trim()) patch.phone = info.phone.trim();
     await sb.from("customers").update(patch).eq("id", b.customer_id);
@@ -812,11 +816,14 @@ export async function getBookingLoyalty(
     const sb = await createClient();
     const { data: b } = await sb
       .from("bookings")
-      .select("customer_id")
+      .select("customer_id, customers(full_name)")
       .eq("id", bookingId)
       .maybeSingle();
     const cid = (b?.customer_id as string | null | undefined) ?? null;
     if (!cid) return null;
+    // Felles «Drop-in»-kunde o.l. er ikke en person – ingen klippekort.
+    const cname = (b?.customers as { full_name?: string | null } | null)?.full_name;
+    if (isPlaceholderName(cname)) return null;
     const l = await getLoyaltyStatus(cid);
     return { customerId: cid, ...l };
   } catch {
