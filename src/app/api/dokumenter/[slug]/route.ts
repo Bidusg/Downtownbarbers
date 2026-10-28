@@ -17,13 +17,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
   const doc = COMPANY_DOCS.find((d) => d.slug === slug);
   if (!doc) return new NextResponse("Fant ikke dokumentet.", { status: 404 });
   try {
-    const bytes = await readFile(path.join(process.cwd(), "private", "dokumenter", doc.file));
-    const name = `${doc.title} – Downtown Barbers.pdf`;
+    const lang = req.nextUrl.searchParams.get("lang") === "en" && doc.files.en ? "en" : "no";
+    const file = doc.files[lang] ?? doc.files.no;
+    if (!file) return new NextResponse("Fant ikke dokumentet.", { status: 404 });
+    const bytes = await readFile(path.join(process.cwd(), "private", "dokumenter", file));
+    const name = `${lang === "en" ? doc.titleEn : doc.title} – Downtown Barbers.pdf`;
     const download = req.nextUrl.searchParams.has("last-ned");
     return new NextResponse(new Uint8Array(bytes), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${doc.slug}.pdf"; filename*=UTF-8''${encodeURIComponent(name)}`,
+        "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${file}"; filename*=UTF-8''${encodeURIComponent(name)}`,
         "Cache-Control": "private, no-store",
       },
     });
