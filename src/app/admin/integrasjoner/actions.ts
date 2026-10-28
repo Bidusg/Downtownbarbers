@@ -1,5 +1,6 @@
 "use server";
 
+import { refreshSiteConfig } from "@/lib/site-cache-actions";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getUserRole, isAdminRole } from "@/lib/auth";
@@ -248,5 +249,6 @@ export async function saveTrackingConfig(
   const { error } = await sb.from("settings").upsert({ key: "tracking", value }, { onConflict: "key" });
   if (error) return { ok: false, message: `Kunne ikke lagre: ${error.message}` };
   revalidatePath("/", "layout");
+  refreshSiteConfig();
   return { ok: true, message: "Lagret ✓ – cookie-banneret vises nå på nettsiden." };
 }

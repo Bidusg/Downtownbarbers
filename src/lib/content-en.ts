@@ -1,4 +1,6 @@
-import { createClient } from "@/lib/supabase/server";
+import { unstable_cache } from "next/cache";
+import { createPublicClient } from "@/lib/supabase/public";
+import { SITE_TAG, SITE_REVALIDATE } from "@/lib/site-cache";
 import { contentKey } from "@/lib/i18n/content-map";
 
 /* =====================================================================
@@ -11,9 +13,9 @@ import { contentKey } from "@/lib/i18n/content-map";
 
 export type DbContent = Record<string, Record<string, string>>;
 
-export async function getDbContentEn(): Promise<DbContent> {
+async function load_getDbContentEn(): Promise<DbContent> {
   try {
-    const sb = await createClient();
+    const sb = createPublicClient();
     const [svc, cats, tr] = await Promise.all([
       sb.from("services").select("name, description, name_en, description_en"),
       sb.from("service_categories").select("name, name_en"),
@@ -53,3 +55,6 @@ export async function getDbContentEn(): Promise<DbContent> {
     return {};
   }
 }
+
+/** Mellomlagret (5 min, tømmes når admin lagrer). */
+export const getDbContentEn = unstable_cache(load_getDbContentEn, ["getDbContentEn"], { tags: [SITE_TAG], revalidate: SITE_REVALIDATE });

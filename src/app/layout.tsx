@@ -9,6 +9,8 @@ import { getDbContentEn } from "@/lib/content-en";
 import { PageTranslator } from "@/components/i18n/PageTranslator";
 import { seoUrl } from "@/lib/site-url";
 import { getTrackingConfig } from "@/lib/tracking";
+import { Suspense } from "react";
+import { NavProgress } from "@/components/site/NavProgress";
 import { TrackingConsent } from "@/components/site/TrackingConsent";
 
 // Fontene ligger i repoet (src/fonts, OFL-lisens) og serveres fra vårt eget
@@ -84,6 +86,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="nb" className={`${inter.variable} ${playfair.variable}`}>
       <body className="min-h-full">
+        <Suspense fallback={null}>
+          <NavProgress />
+        </Suspense>
         <LanguageProvider overrides={textOverrides} content={dbContent}>
           <SectionFlagsProvider flags={sectionFlags}>
             <PageTranslator />

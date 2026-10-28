@@ -1,4 +1,6 @@
-import { createClient } from "@/lib/supabase/server";
+import { unstable_cache } from "next/cache";
+import { createPublicClient } from "@/lib/supabase/public";
+import { SITE_TAG, SITE_REVALIDATE } from "@/lib/site-cache";
 import type { SectionFlags } from "@/lib/site-sections-config";
 
 /* =====================================================================
@@ -7,9 +9,9 @@ import type { SectionFlags } from "@/lib/site-sections-config";
  * ===================================================================== */
 
 /** Hent av/på-status for alle seksjoner. Feiler trygt → alt på (som før). */
-export async function getSectionFlags(): Promise<SectionFlags> {
+async function load_getSectionFlags(): Promise<SectionFlags> {
   try {
-    const sb = await createClient();
+    const sb = createPublicClient();
     const { data } = await sb.from("site_section_flags").select("key, visible");
     const out: SectionFlags = {};
     for (const r of (data ?? []) as { key: string; visible: boolean }[]) {
@@ -20,3 +22,6 @@ export async function getSectionFlags(): Promise<SectionFlags> {
     return {};
   }
 }
+
+/** Mellomlagret (5 min, tømmes når admin lagrer). */
+export const getSectionFlags = unstable_cache(load_getSectionFlags, ["getSectionFlags"], { tags: [SITE_TAG], revalidate: SITE_REVALIDATE });

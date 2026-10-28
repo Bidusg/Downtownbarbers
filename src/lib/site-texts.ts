@@ -1,4 +1,6 @@
-import { createClient } from "@/lib/supabase/server";
+import { unstable_cache } from "next/cache";
+import { createPublicClient } from "@/lib/supabase/public";
+import { SITE_TAG, SITE_REVALIDATE } from "@/lib/site-cache";
 import type { TextOverrides } from "@/lib/site-texts-config";
 
 /* =====================================================================
@@ -7,9 +9,9 @@ import type { TextOverrides } from "@/lib/site-texts-config";
  *   ordboken brukes som fallback i LanguageProvider. Feiler trygt → {}.
  * ===================================================================== */
 
-export async function getSiteTexts(): Promise<TextOverrides> {
+async function load_getSiteTexts(): Promise<TextOverrides> {
   try {
-    const sb = await createClient();
+    const sb = createPublicClient();
     const { data } = await sb.from("site_texts").select("key, no, en");
     const out: TextOverrides = {};
     for (const r of (data ?? []) as { key: string; no: string | null; en: string | null }[]) {
@@ -22,3 +24,6 @@ export async function getSiteTexts(): Promise<TextOverrides> {
     return {};
   }
 }
+
+/** Mellomlagret (5 min, tømmes når admin lagrer). */
+export const getSiteTexts = unstable_cache(load_getSiteTexts, ["getSiteTexts"], { tags: [SITE_TAG], revalidate: SITE_REVALIDATE });

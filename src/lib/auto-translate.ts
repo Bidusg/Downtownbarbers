@@ -1,4 +1,5 @@
 import { revalidatePath } from "next/cache";
+import { refreshSiteConfig } from "@/lib/site-cache-actions";
 import { createClient } from "@/lib/supabase/server";
 import { contentKey, contentMaps } from "@/lib/i18n/content-map";
 import { getSiteSettings } from "@/lib/site-settings";
@@ -116,6 +117,7 @@ export async function translateMissing(opts: { onlyIfAuto?: boolean } = {}): Pro
         .eq("key", textTodo[i].key);
     }
     revalidatePath("/", "layout");
+    refreshSiteConfig();
     const n = todo.length + textTodo.length;
     return { ok: true, translated: n, message: `${n} tekst${n === 1 ? "" : "er"} oversatt.` };
   } catch (e) {

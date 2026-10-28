@@ -1,4 +1,6 @@
-import { createClient } from "@/lib/supabase/server";
+import { unstable_cache } from "next/cache";
+import { createPublicClient } from "@/lib/supabase/public";
+import { SITE_TAG, SITE_REVALIDATE } from "@/lib/site-cache";
 
 /* =====================================================================
  * SPORING (Google Analytics 4, Google Ads, Meta piksel)
@@ -43,7 +45,7 @@ export function trackingInvalid(v: Partial<Record<keyof TrackingConfig, string>>
   return (Object.keys(RX) as (keyof TrackingConfig)[]).filter((k) => (v[k] ?? "").trim() !== "" && !c[k]);
 }
 
-export async function getTrackingConfig(): Promise<TrackingConfig> {
+async function loadTrackingConfig(): Promise<TrackingConfig> {
   const env = cleanTracking({
     ga4: process.env.NEXT_PUBLIC_GA4_ID,
     adsId: process.env.NEXT_PUBLIC_GOOGLE_ADS_ID,
@@ -51,7 +53,7 @@ export async function getTrackingConfig(): Promise<TrackingConfig> {
     metaPixel: process.env.NEXT_PUBLIC_META_PIXEL_ID,
   });
   try {
-    const sb = await createClient();
+    const sb = createPublicClient();
     const { data } = await sb.from("settings").select("value").eq("key", "tracking").maybeSingle();
     const db = cleanTracking((data?.value ?? {}) as Record<string, unknown>);
     return {
@@ -68,3 +70,9 @@ export async function getTrackingConfig(): Promise<TrackingConfig> {
 export function trackingEnabled(c: TrackingConfig): boolean {
   return Boolean(c.ga4 || c.adsId || c.metaPixel);
 }
+
+/** Mellomlagret (5 min, tømmes når admin lagrer). */
+export const getTrackingConfig = unstable_cache(loadTrackingConfig, ["getTrackingConfig"], {
+  tags: [SITE_TAG],
+  revalidate: SITE_REVALIDATE,
+});

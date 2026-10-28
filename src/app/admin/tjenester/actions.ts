@@ -2,6 +2,7 @@
 
 import { autoTranslateAfterSave } from "@/lib/auto-translate";
 
+import { refreshSiteConfig } from "@/lib/site-cache-actions";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getUserRole, isAdminRole } from "@/lib/auth";
@@ -88,6 +89,7 @@ export async function createService(formData: FormData): Promise<ActionResult> {
 
   revalidatePath("/admin/tjenester");
   revalidatePath("/booking");
+  refreshSiteConfig();
   revalidatePath("/", "layout");
   await autoTranslateAfterSave();
   return { ok: true };
@@ -104,6 +106,7 @@ export async function updateService(id: string, formData: FormData): Promise<Act
   if (error) return { error: `Kunne ikke lagre endringene: ${error.message}` };
   revalidatePath("/admin/tjenester");
   revalidatePath("/booking");
+  refreshSiteConfig();
   revalidatePath("/", "layout");
   await autoTranslateAfterSave();
   return { ok: true };
@@ -139,6 +142,7 @@ export async function toggleService(id: string, active: boolean) {
 
   revalidatePath("/admin/tjenester");
   revalidatePath("/booking");
+  refreshSiteConfig();
 }
 
 export async function deleteService(id: string) {
@@ -155,6 +159,7 @@ export async function toggleOnlineBookable(id: string, online_bookable: boolean)
   await sb.from("services").update({ online_bookable }).eq("id", id);
   revalidatePath("/admin/tjenester");
   revalidatePath("/booking");
+  refreshSiteConfig();
 }
 
 /**
@@ -185,4 +190,5 @@ export async function setServiceExclusion(
   }
   revalidatePath("/admin/tjenester");
   revalidatePath("/booking");
+  refreshSiteConfig();
 }

@@ -2,6 +2,7 @@
 
 import { autoTranslateAfterSave } from "@/lib/auto-translate";
 
+import { refreshSiteConfig } from "@/lib/site-cache-actions";
 import { revalidatePath } from "next/cache";
 import { saveSiteSettings, type SiteSettings } from "@/lib/site-settings";
 import { createClient } from "@/lib/supabase/server";
@@ -14,6 +15,7 @@ export async function updateSite(
   const res = await saveSiteSettings(patch);
   if (res.ok) {
     revalidatePath("/");
+    refreshSiteConfig();
     revalidatePath("/admin/nettside");
   }
   if (res.ok) await autoTranslateAfterSave();
@@ -40,6 +42,7 @@ export async function saveSiteTexts(
   const { error } = await sb.from("site_texts").upsert(rows, { onConflict: "key" });
   if (error) return { error: "Kunne ikke lagre tekstene." };
   revalidatePath("/");
+  refreshSiteConfig();
   revalidatePath("/booking");
   revalidatePath("/admin/nettside");
   await autoTranslateAfterSave();
@@ -62,6 +65,7 @@ export async function setSectionVisible(
     );
   if (error) return { error: "Kunne ikke lagre." };
   revalidatePath("/");
+  refreshSiteConfig();
   revalidatePath("/admin/nettside");
   return { ok: true };
 }
@@ -85,6 +89,7 @@ function slug(name: string): string {
 
 function refreshSite() {
   revalidatePath("/");
+  refreshSiteConfig();
   revalidatePath("/admin/nettside");
 }
 

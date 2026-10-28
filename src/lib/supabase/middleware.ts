@@ -5,8 +5,20 @@ import { CUSTOMER_COOKIE, CUSTOMER_FLAG, sessionCookieOptions } from "@/lib/cust
 /** Beskyttede områder krever innlogging. Rolle sjekkes i hvert områdes layout. */
 const PROTECTED = ["/admin", "/kasse", "/ansatt"];
 
+/** Har nettleseren en Supabase-innlogging (sb-<ref>-auth-token, ev. delt i biter)? */
+function hasAuthCookie(request: NextRequest): boolean {
+  return request.cookies.getAll().some((c) => /^sb-.+-auth-token(\.\d+)?$/.test(c.name));
+}
+
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
+
+  // Raskt spor: besøkende uten innlogging (de fleste kunder) trenger ikke et
+  // oppslag mot Supabase Auth på hver side. Det sparer en nettverksrunde per
+  // sidevisning og per knappetrykk (server actions går også gjennom her).
+  if (!hasAuthCookie(request)) {
+    return finish(request, response, null);
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,6 +45,10 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  return finish(request, response, user);
+}
+
+function finish(request: NextRequest, response: NextResponse, user: unknown) {
   const path = request.nextUrl.pathname;
   const needsAuth = PROTECTED.some((p) => path.startsWith(p));
 
