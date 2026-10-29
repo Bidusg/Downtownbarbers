@@ -98,6 +98,11 @@ export const adminGroups: AdminNavGroup[] = [
         href: "/admin/kuponger",
         description: "Sesong-kuponger til medlemmer",
       },
+      {
+        label: "QR-tilbud",
+        href: "/admin/qr-tilbud",
+        description: "Skjulte tilbud via QR-kode (arrangementer)",
+      },
       { label: "Oppfølging", href: "/admin/oppfolging" },
       {
         label: "Markedsføring",

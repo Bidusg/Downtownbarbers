@@ -23,6 +23,8 @@ export default function robots(): MetadataRoute.Robots {
           "/glemt-passord",
           "/tilbakestill",
           "/sjekk-epost",
+          "/q/",
+          "/tilbud",
         ],
       },
     ],

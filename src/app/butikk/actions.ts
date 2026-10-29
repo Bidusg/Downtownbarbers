@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getCustomerToken } from "@/lib/customer-session";
+import { getPromoSlug } from "@/lib/promo";
 import { createPayment } from "@/lib/vipps";
 import { isValidEmail } from "@/lib/validate";
 import { ipRateLimited, isHoneypotTripped } from "@/lib/abuse-guard";
@@ -77,6 +78,18 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
   }
 
   const d = data as { id: string; order_no: number; token: string; total_nok: number };
+
+  // QR-tilbud: produktrabatt (før betalingen startes, så Vipps-beløpet stemmer).
+  const promoSlug = await getPromoSlug();
+  if (promoSlug) {
+    try {
+      const { data: p } = await sb.rpc("apply_promo_to_order", { p_order: d.id, p_token: d.token, p_slug: promoSlug });
+      const total = Number((p as { total_nok?: number } | null)?.total_nok);
+      if (Number.isFinite(total) && total >= 0) d.total_nok = total;
+    } catch {
+      /* SQL ikke kjørt ennå – vanlig pris */
+    }
+  }
   const back = orderUrl(d.id, d.token);
 
   if (input.payment === "pay_at_pickup") {

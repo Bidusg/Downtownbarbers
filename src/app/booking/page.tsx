@@ -11,6 +11,7 @@ import {
 import { getPublicAddons } from "@/lib/addon-queries";
 import { getSiteSettings } from "@/lib/site-settings";
 import { getMemberProfile } from "@/lib/member";
+import { getActivePromo } from "@/lib/promo";
 import { T } from "@/lib/i18n/T";
 import { PUBLIC_VIEWPORT } from "@/lib/public-viewport";
 
@@ -24,7 +25,7 @@ export default async function BookingPage({
   searchParams: Promise<{ service?: string; barber?: string }>;
 }) {
   const sp = await searchParams;
-  const [services, barbers, addons, exclusions, levelPrices, barberLevels, settings, member] =
+  const [services, barbers, addons, exclusions, levelPrices, barberLevels, settings, member, promo] =
     await Promise.all([
       getPublicServices(),
       getPublicBarbers(),
@@ -34,6 +35,7 @@ export default async function BookingPage({
       getPublicBarberLevels(),
       getSiteSettings(),
       getMemberProfile(),
+      getActivePromo(),
     ]);
   // Ukedager salongen er stengt (0=søndag … 6=lørdag) – styrer dagvalget i booking.
   const closedWeekdays = [0, 1, 2, 3, 4, 5, 6].filter((dow) => {
@@ -68,6 +70,17 @@ export default async function BookingPage({
               address={settings.address}
               phoneNumber={settings.phone}
               member={member}
+              promo={
+                promo?.bookingOpen
+                  ? {
+                      label: promo.label,
+                      servicePct: promo.servicePct,
+                      friendPct: promo.friendPct,
+                      productPct: promo.productPct,
+                      visitBy: promo.visitBy,
+                    }
+                  : null
+              }
             />
           </div>
         </main>

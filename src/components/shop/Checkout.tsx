@@ -73,7 +73,17 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
   );
 }
 
-export function Checkout({ member, terms: termsNode }: { member: Member; /** Kjøpsvilkårene (vises i et vindu over kassen). */ terms?: React.ReactNode }) {
+export function Checkout({
+  member,
+  promo = null,
+  terms: termsNode,
+}: {
+  member: Member;
+  /** QR-tilbud (skannet kode): produktrabatt som trekkes automatisk. */
+  promo?: { label: string; pct: number } | null;
+  /** Kjøpsvilkårene (vises i et vindu over kassen). */
+  terms?: React.ReactNode;
+}) {
   const [showTerms, setShowTerms] = useState(false);
   const { lines, setQty, remove, add, clear, ready } = useCart();
   const { byId, settings } = useShopData();
@@ -130,7 +140,10 @@ export function Checkout({ member, terms: termsNode }: { member: Member; /** Kj�
   );
   const live = rows.filter((r) => !r.gone);
   const subtotal = live.reduce((s, r) => s + r.price * r.line.qty, 0);
-  const discount = member && member.pct > 0 ? Math.round((subtotal * member.pct) / 100) : 0;
+  const memberDiscount = member && member.pct > 0 ? Math.round((subtotal * member.pct) / 100) : 0;
+  const promoDiscount = promo && promo.pct > 0 ? Math.round((subtotal * promo.pct) / 100) : 0;
+  const usePromo = promoDiscount > memberDiscount;
+  const discount = usePromo ? promoDiscount : memberDiscount;
   const shipping = delivery === "ship" && subtotal - discount < settings.freeOverNok ? settings.shippingNok : 0;
   const total = subtotal - discount + shipping;
 
@@ -275,7 +288,9 @@ export function Checkout({ member, terms: termsNode }: { member: Member; /** Kj�
         {discount > 0 && (
           <div className="flex justify-between">
             <dt className="text-muted">
-              {en ? "Customer club" : "Kundeklubb"} {member?.tier ? `(${member.tier})` : ""} −{member?.pct} %
+              {usePromo
+                ? `${promo?.label} −${promo?.pct} %`
+                : `${en ? "Customer club" : "Kundeklubb"} ${member?.tier ? `(${member.tier})` : ""} −${member?.pct} %`}
             </dt>
             <dd className="text-accent-soft tabular-nums">−{kr(discount)}</dd>
           </div>

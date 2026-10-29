@@ -1,6 +1,7 @@
 "use server";
 
 import { getCustomerToken } from "@/lib/customer-session";
+import { getPromoSlug } from "@/lib/promo";
 import { randomUUID } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { getPublicBarbers } from "@/lib/queries";
@@ -390,6 +391,21 @@ export async function createBookingGroup(
     try {
       const token = await getCustomerToken();
       if (token) await sb.rpc("mark_member_booking", { p_token: token, p_bookings: created });
+    } catch {
+      /* SQL ikke kjørt ennå – vanlig pris */
+    }
+
+    // QR-tilbud (skannet kode i informasjonskapselen): legg rabatten på timene.
+    // Første linje = den som booker; i gruppebooking får resten venne-rabatten.
+    try {
+      const promoSlug = await getPromoSlug();
+      if (promoSlug) {
+        await sb.rpc("mark_promo_booking", {
+          p_slug: promoSlug,
+          p_bookings: created,
+          p_group: input.mode === "group",
+        });
+      }
     } catch {
       /* SQL ikke kjørt ennå – vanlig pris */
     }

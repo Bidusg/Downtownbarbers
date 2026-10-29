@@ -92,6 +92,14 @@ type CartItem = {
   addons: string[]; // add-on navn
 };
 
+export type WizPromo = {
+  label: string;
+  servicePct: number;
+  friendPct: number;
+  productPct: number;
+  visitBy: string | null;
+};
+
 type Saved = {
   cart: { s: string; a: string[]; b: string | null; p: string }[];
   mode: "single" | "group";
@@ -129,6 +137,7 @@ export function BookingWizard({
   address = "",
   phoneNumber = "",
   member = null,
+  promo = null,
 }: {
   services: WizService[];
   barbers: WizBarber[];
@@ -143,6 +152,8 @@ export function BookingWizard({
   phoneNumber?: string;
   /** Innlogget kunde (kundekonto): ferdig utfylt + kundeklubb-pris + krisetime. */
   member?: MemberProfile | null;
+  /** QR-tilbud (skannet kode): rabatt til den som booker, venner og produkter. */
+  promo?: WizPromo | null;
 }) {
   const { lang, t, tc: tcx } = useLanguage();
   const locale = lang === "en" ? "en-GB" : "nb-NO";
@@ -413,7 +424,17 @@ export function BookingWizard({
   };
   const memberApplies = memberPct > 0 && (!member?.serviceOffpeak || offpeakOk(date, time));
   const memberDisc = memberApplies ? Math.round((cartTotal * memberPct) / 100) : 0;
-  const payTotal = cartTotal - memberDisc;
+  // QR-tilbud: den som booker får servicePct, venner i samme bestilling
+  // («Vi er flere personer») får friendPct. Kassa trekker det automatisk.
+  const promoApplies = !!promo && (!promo.visitBy || !date || date <= promo.visitBy);
+  const promoLinePct = (i: number) =>
+    !promo ? 0 : mode === "group" && i > 0 ? promo.friendPct : promo.servicePct;
+  const promoDisc = promoApplies
+    ? cart.reduce((sum, it, i) => sum + Math.round((linePrice(it).value * promoLinePct(i)) / 100), 0)
+    : 0;
+  const usePromo = promoDisc > memberDisc;
+  const discNok = usePromo ? promoDisc : memberDisc;
+  const payTotal = cartTotal - discNok;
   const anyEstimate = cart.some((it) => linePrice(it).estimate);
   const lineMin = (it: CartItem) => durMin(it.service.duration) + addonsMinutes(it.addons);
   const cartMinutes =
@@ -755,6 +776,25 @@ export function BookingWizard({
 
   return (
     <div ref={rootRef}>
+      {promo && (
+        <div className="mb-8 rounded-2xl bg-surface p-4 text-[15px] shadow-[0_0_0_1px_oklch(var(--line))] sm:p-5">
+          <p className="font-semibold tracking-tight text-fg">
+            {promo.label} – {lang === "en" ? "your offer is active" : "tilbudet ditt er aktivt"}
+          </p>
+          <p className="mt-1 text-muted">
+            {[
+              promo.servicePct > 0 && (lang === "en" ? `−${promo.servicePct} % on your appointment` : `−${promo.servicePct} % på timen din`),
+              promo.friendPct > 0 &&
+                (lang === "en"
+                  ? `−${promo.friendPct} % for a friend (choose «${t("wiz.groupOn")}»)`
+                  : `−${promo.friendPct} % til en venn (velg «${t("wiz.groupOn")}»)`),
+              promo.productPct > 0 && (lang === "en" ? `−${promo.productPct} % on products` : `−${promo.productPct} % på produkter`),
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        </div>
+      )}
       {/* Fremdrift */}
       <div className="mb-7">
         <div className="flex min-h-11 items-center justify-between gap-3">
@@ -939,7 +979,11 @@ export function BookingWizard({
                   <p className="text-lg font-semibold tracking-tight tabular-nums">
                     {anyEstimate ? t("common.from") : ""}
                     {nok(payTotal)}
-                    {memberPct > 0 && (
+                    {usePromo ? (
+                      <span className="ml-2 text-[13px] font-medium text-canvas/70">
+                        {promo?.label} −{nok(promoDisc)}
+                      </span>
+                    ) : memberPct > 0 && (
                       <span className="ml-2 text-[13px] font-medium text-canvas/70">
                         {member?.tierName} −{memberPct} %{member?.serviceOffpeak ? ` ${t("wiz.offpeakShort")}` : ""}
                       </span>
@@ -1240,7 +1284,20 @@ export function BookingWizard({
                 );
               })}
             </ul>
-            {memberDisc > 0 && (
+            {usePromo && (
+              <div className="mt-3 flex items-baseline justify-between border-t border-line pt-3 text-[15px]">
+                <span className="text-fg">
+                  {promo?.label}{" "}
+                  <span className="text-muted">
+                    ({mode === "group" && cart.length > 1 && promo && promo.friendPct !== promo.servicePct
+                      ? `−${promo.servicePct} % / ${lang === "en" ? "friend" : "venn"} −${promo.friendPct} %`
+                      : `−${promoLinePct(0)} %`})
+                  </span>
+                </span>
+                <span className="tabular-nums text-fg">−{nok(promoDisc)}</span>
+              </div>
+            )}
+            {!usePromo && memberDisc > 0 && (
               <div className="mt-3 flex items-baseline justify-between border-t border-line pt-3 text-[15px]">
                 <span className="text-fg">
                   {member?.tierName}-{t("wiz.memberPrice")}{" "}
@@ -1249,7 +1306,14 @@ export function BookingWizard({
                 <span className="tabular-nums text-fg">−{nok(memberDisc)}</span>
               </div>
             )}
-            {memberPct > 0 && !memberApplies && (
+            {promo && !promoApplies && promo.visitBy && (
+              <p className="mt-3 border-t border-line pt-3 text-[13px] text-muted">
+                {lang === "en"
+                  ? `${promo.label}: the offer applies to appointments up to ${promo.visitBy.split("-").reverse().join(".")}.`
+                  : `${promo.label}: tilbudet gjelder timer til og med ${promo.visitBy.split("-").reverse().join(".")}.`}
+              </p>
+            )}
+            {!usePromo && memberPct > 0 && !memberApplies && (
               <p className="mt-3 border-t border-line pt-3 text-[13px] text-muted">
                 {member?.tierName}: {t("wiz.offpeakNote").replace("{pct}", String(memberPct))}
               </p>
