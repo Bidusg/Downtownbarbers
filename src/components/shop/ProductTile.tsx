@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useCart } from "@/components/shop/CartProvider";
 import { finishGroup, holdGroup, kr, stockLabel, type ShopProduct } from "@/lib/shop-shared";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -113,22 +114,111 @@ export function ProductTile({ p, eager = false, badge }: { p: ShopProduct; eager
 
 /** Vannrett rad med produkter (forslag nederst på sider). */
 export function ProductRow({ title, products, id, action }: { title: string; products: ShopProduct[]; id: string; action?: React.ReactNode }) {
+  const { lang } = useLanguage();
+  const en = lang === "en";
+  const ref = useRef<HTMLDivElement>(null);
+  const [edge, setEdge] = useState({ l: false, r: false });
+
+  const update = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const l = el.scrollLeft > 4;
+    const r = el.scrollLeft + el.clientWidth < el.scrollWidth - 4;
+    setEdge((p) => (p.l === l && p.r === r ? p : { l, r }));
+  }, []);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    el.addEventListener("scroll", update, { passive: true });
+    return () => {
+      ro.disconnect();
+      el.removeEventListener("scroll", update);
+    };
+  }, [update, products.length]);
+
+  // Bla én «side» (det som er synlig), og land på starten av et kort.
+  const go = (dir: -1 | 1) => {
+    const el = ref.current;
+    if (!el) return;
+    const card = el.firstElementChild as HTMLElement | null;
+    const step = card ? card.offsetWidth + 16 : 240;
+    const perPage = Math.max(1, Math.floor((el.clientWidth + 16) / step));
+    el.scrollBy({ left: dir * perPage * step, behavior: "smooth" });
+  };
+
   if (!products.length) return null;
+
+  const btn =
+    "flex h-11 w-11 items-center justify-center rounded-full bg-canvas text-fg shadow-[0_0_0_1px_oklch(var(--line))] transition-[opacity,box-shadow] hover:shadow-[0_0_0_1px_oklch(var(--line-2)),0_2px_6px_rgb(0_0_0/0.08)] disabled:pointer-events-none disabled:opacity-35";
+  const arrows = edge.l || edge.r;
+
   return (
     <section aria-labelledby={id} className="mt-14">
       <div className="flex items-end justify-between gap-4">
         <h2 id={id} className="text-xl font-semibold tracking-tight sm:text-2xl">
           {title}
         </h2>
-        {action}
+        <div className="flex items-center gap-3">
+          {action}
+          {arrows && (
+            <div className="flex gap-2">
+              <button type="button" onClick={() => go(-1)} disabled={!edge.l} aria-label={en ? "Previous products" : "Forrige varer"} className={btn}>
+                <Chevron dir="left" />
+              </button>
+              <button type="button" onClick={() => go(1)} disabled={!edge.r} aria-label={en ? "Next products" : "Neste varer"} className={btn}>
+                <Chevron dir="right" />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-      <div data-lenis-prevent className="-mx-5 mt-5 flex snap-x scroll-pl-5 gap-4 overflow-x-auto px-5 pb-2 [scrollbar-width:thin]">
-        {products.map((p) => (
-          <div key={p.id} className="w-[46%] shrink-0 snap-start sm:w-[30%] lg:w-[22%]">
-            <ProductTile p={p} />
-          </div>
-        ))}
+      <div className="relative">
+        <div
+          ref={ref}
+          data-lenis-prevent
+          className="-mx-5 mt-5 flex snap-x scroll-pl-5 gap-4 overflow-x-auto px-5 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {products.map((p) => (
+            <div key={p.id} className="w-[46%] shrink-0 snap-start sm:w-[30%] lg:w-[22%]">
+              <ProductTile p={p} />
+            </div>
+          ))}
+        </div>
+        {/* Stor pil på siden av raden (PC), i tillegg til pilene ved tittelen */}
+        {edge.r && (
+          <button
+            type="button"
+            onClick={() => go(1)}
+            tabIndex={-1}
+            aria-hidden
+            className={btn + " absolute top-[calc(50%-2rem)] -right-3 z-10 hidden h-12 w-12 shadow-[0_0_0_1px_oklch(var(--line)),0_6px_18px_-6px_rgb(0_0_0/0.25)] sm:flex"}
+          >
+            <Chevron dir="right" />
+          </button>
+        )}
+        {edge.l && (
+          <button
+            type="button"
+            onClick={() => go(-1)}
+            tabIndex={-1}
+            aria-hidden
+            className={btn + " absolute top-[calc(50%-2rem)] -left-3 z-10 hidden h-12 w-12 shadow-[0_0_0_1px_oklch(var(--line)),0_6px_18px_-6px_rgb(0_0_0/0.25)] sm:flex"}
+          >
+            <Chevron dir="left" />
+          </button>
+        )}
       </div>
     </section>
+  );
+}
+
+function Chevron({ dir }: { dir: "left" | "right" }) {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d={dir === "left" ? "m15 5-7 7 7 7" : "m9 5 7 7-7 7"} />
+    </svg>
   );
 }
