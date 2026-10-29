@@ -181,6 +181,8 @@ export async function confirmSettlement(
 }
 
 export async function deleteSettlement(id: string): Promise<{ ok: boolean; error?: string }> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { ok: false, error: "Ingen tilgang." };
   const sb = await createClient();
   const { error } = await sb.from("cash_settlements").delete().eq("id", id);
   if (error) return { ok: false, error: `Kunne ikke slette: ${error.message}` };

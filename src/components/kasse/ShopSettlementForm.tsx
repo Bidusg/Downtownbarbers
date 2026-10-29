@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import type { MethodBreakdown } from "@/lib/ops-queries";
 import {
   deliverShopSettlement,
+  editShopSettlement,
   dateSettlementInfo,
   type DateSettlementInfo,
 } from "@/app/kasse/kasseoppgjor/actions";
@@ -49,6 +50,7 @@ export function ShopSettlementForm({
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const [date, setDate] = useState(today);
   const [info, setInfo] = useState<DateSettlementInfo>(initial);
@@ -63,6 +65,7 @@ export function ShopSettlementForm({
     setDate(d);
     setErr(null);
     setDone(false);
+    setEditing(false);
     setCounted({ counted_cash: "", counted_card: "", counted_vipps: "" });
     setLoading(true);
     dateSettlementInfo(d)
@@ -82,6 +85,24 @@ export function ShopSettlementForm({
   const expectedTotal = expected.cash + expected.card + expected.vipps;
 
   const delivered = info.delivered || done;
+
+  function refresh() {
+    setLoading(true);
+    dateSettlementInfo(date)
+      .then((res) => setInfo(res))
+      .finally(() => setLoading(false));
+  }
+
+  function startEdit() {
+    const c = info.counted ?? { cash: 0, card: 0, vipps: 0 };
+    setCounted({
+      counted_cash: String(c.cash),
+      counted_card: String(c.card),
+      counted_vipps: String(c.vipps),
+    });
+    setErr(null);
+    setEditing(true);
+  }
 
   return (
     <div className="space-y-6">
@@ -133,7 +154,7 @@ export function ShopSettlementForm({
         </div>
       )}
 
-      {delivered ? (
+      {delivered && !editing ? (
         <Card>
           <div className="flex items-start gap-3">
             <span className="mt-0.5 text-accent-soft" aria-hidden>
@@ -159,10 +180,36 @@ export function ShopSettlementForm({
               {info.note && (
                 <p className="mt-1 text-sm text-muted">Notat: {info.note}</p>
               )}
-              <p className="mt-2 text-xs text-muted">
-                Dagen er ferdig. Trenger du å rette et levert oppgjør, kontakt
-                admin/eier.
-              </p>
+              {!!info.editCount && (
+                <p className="mt-1 text-xs text-muted">
+                  Endret {info.editCount === 1 ? "én gang" : `${info.editCount} ganger`}
+                  {info.editedAt
+                    ? `, sist ${new Date(info.editedAt).toLocaleString("nb-NO", {
+                        timeZone: "Europe/Oslo",
+                        day: "2-digit",
+                        month: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}`
+                    : ""}
+                </p>
+              )}
+              {info.canEdit && info.id ? (
+                <div className="mt-3">
+                  <Button type="button" variant="ghost" onClick={startEdit} className="px-3 py-2 text-sm">
+                    Endre oppgjør
+                  </Button>
+                  <p className="mt-1 text-xs text-muted">
+                    Ført feil? Du kan rette oppgjøret de siste 7 dagene. Endringen loggføres.
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-muted">
+                  {done && !info.id
+                    ? "Oppgjøret er levert."
+                    : "Oppgjør eldre enn 7 dager kan bare rettes av admin/eier."}
+                </p>
+              )}
             </div>
           </div>
         </Card>
@@ -172,16 +219,22 @@ export function ShopSettlementForm({
             start(async () => {
               setErr(null);
               fd.set("settle_date", date);
-              const res = await deliverShopSettlement(fd);
+              if (editing && info.id) fd.set("id", info.id);
+              const res = editing ? await editShopSettlement(fd) : await deliverShopSettlement(fd);
               if (res.error) {
                 setErr(res.error);
                 return;
               }
+              setEditing(false);
               setDone(true);
+              refresh();
             })
           }
           className="space-y-4 border border-line bg-surface p-5"
         >
+          {editing && (
+            <p className="text-sm font-semibold text-fg">Endrer oppgjøret for {no(date)}</p>
+          )}
           <p className="text-sm text-muted">
             Tell opp kassa og fyll inn hva du faktisk har i kontant, på kort og
             på Vipps. «Forventet» kommer automatisk fra salgene i kassen.
@@ -243,8 +296,14 @@ export function ShopSettlementForm({
 
           <Input
             name="note"
+            defaultValue={editing ? (info.note ?? "") : undefined}
             placeholder="Notat (valgfritt) – f.eks. forklaring på avvik"
           />
+          {editing && (
+            <Field label="Hvorfor endres oppgjøret?">
+              <Input name="reason" required placeholder="F.eks. tastet 1500 i stedet for 150 på kontant" />
+            </Field>
+          )}
           {err && <p className="text-sm text-danger">{err}</p>}
           {!Object.values(counted).some((v) => v.trim() !== "") && (
             <p className="text-xs text-muted">Fyll inn talte beløp for å kunne lagre.</p>
@@ -255,8 +314,13 @@ export function ShopSettlementForm({
             disabled={pending || loading || !Object.values(counted).some((v) => v.trim() !== "")}
             className="px-4 py-2 text-sm"
           >
-            {pending ? "Leverer …" : "Lever oppgjør"}
+            {pending ? (editing ? "Lagrer …" : "Leverer …") : editing ? "Lagre endring" : "Lever oppgjør"}
           </Button>
+          {editing && (
+            <Button type="button" variant="ghost" onClick={() => setEditing(false)} className="ml-2 px-4 py-2 text-sm">
+              Avbryt
+            </Button>
+          )}
         </form>
       )}
     </div>

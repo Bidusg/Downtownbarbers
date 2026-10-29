@@ -35,7 +35,23 @@ export type DateSettlementInfo = {
   /** Talte beløp hvis levert (til kvitteringsvisning). */
   counted: MethodBreakdown | null;
   note: string | null;
+  /** Oppgjørets id (for «Endre»). */
+  id?: string | null;
+  /** Kan rettes fra kassa (levert innen siste 7 dager, eller admin). */
+  canEdit?: boolean;
+  editCount?: number;
+  editedAt?: string | null;
 };
+
+const EDIT_DAYS = 7;
+
+function osloToday(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" });
+}
+
+function daysBetween(a: string, b: string): number {
+  return Math.round((Date.parse(b + "T00:00:00Z") - Date.parse(a + "T00:00:00Z")) / 86400000);
+}
 
 /** Forventet + status for en dato (til live-oppdatering når shop bytter dag). */
 export async function dateSettlementInfo(
@@ -57,7 +73,7 @@ export async function dateSettlementInfo(
   // TVANG-SQL er kjørt → da teller enhver rad som levert.)
   const withConfirmed = await sb
     .from("cash_settlements")
-    .select("counted_cash, counted_card, counted_vipps, note, confirmed")
+    .select("id, counted_cash, counted_card, counted_vipps, note, confirmed")
     .eq("settle_date", date)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -65,6 +81,7 @@ export async function dateSettlementInfo(
 
   if (!withConfirmed.error && withConfirmed.data) {
     const row = withConfirmed.data as {
+      id: string;
       counted_cash: number | null;
       counted_card: number | null;
       counted_vipps: number | null;
@@ -72,7 +89,27 @@ export async function dateSettlementInfo(
       confirmed: boolean | null;
     };
     if (row.confirmed !== false) {
+      // Endringsinfo (kolonnene finnes etter KASSEOPPGJOR-ENDRE.sql).
+      let editCount = 0;
+      let editedAt: string | null = null;
+      try {
+        const { data: ed } = await sb
+          .from("cash_settlements")
+          .select("edit_count, edited_at")
+          .eq("id", row.id)
+          .maybeSingle();
+        editCount = Number((ed as { edit_count?: number } | null)?.edit_count) || 0;
+        editedAt = (ed as { edited_at?: string | null } | null)?.edited_at ?? null;
+      } catch {
+        /* SQL ikke kjørt ennå */
+      }
+      const me = await getUserRole();
+      const admin = !!me && isAdminRole(me.role);
       return {
+        id: row.id,
+        canEdit: admin || daysBetween(date, osloToday()) <= EDIT_DAYS,
+        editCount,
+        editedAt,
         expected,
         delivered: true,
         counted: {
@@ -189,5 +226,50 @@ export async function deliverShopSettlement(
   } catch {
     /* kasseoppgjøret er lagret; natt-cron er backup */
   }
+  return { ok: true };
+}
+
+/**
+ * Rett et levert oppgjør. Krever begrunnelse; de gamle tallene tas vare på
+ * i historikken (databasen). Kassa kan rette de siste 7 dagene, admin alle.
+ */
+export async function editShopSettlement(
+  formData: FormData,
+): Promise<{ ok?: true; error?: string }> {
+  if (!(await ensureShopOrAdmin())) return { error: "Ingen tilgang." };
+  const id = String(formData.get("id") ?? "").trim();
+  const settle_date = String(formData.get("settle_date") ?? "");
+  if (!id || !/^\d{4}-\d{2}-\d{2}$/.test(settle_date)) return { error: "Ugyldig oppgjør." };
+  const reason = String(formData.get("reason") ?? "").trim();
+  if (reason.length < 3) return { error: "Skriv kort hvorfor oppgjøret endres." };
+  for (const f of ["counted_cash", "counted_card", "counted_vipps"]) {
+    const raw = String(formData.get(f) ?? "").trim();
+    if (raw === "" || !Number.isFinite(Number(raw)) || Number(raw) < 0) {
+      return { error: "Fyll inn talte beløp (0 eller mer) i alle feltene." };
+    }
+  }
+  const expected = await getExpectedByMethodForDate(settle_date);
+  const sb = await createClient();
+  const { error } = await sb.rpc("edit_cash_settlement", {
+    p_id: id,
+    p_cash: num(formData.get("counted_cash")),
+    p_card: num(formData.get("counted_card")),
+    p_vipps: num(formData.get("counted_vipps")),
+    p_expected_cash: expected.cash,
+    p_expected_card: expected.card,
+    p_expected_vipps: expected.vipps,
+    p_note: String(formData.get("note") ?? ""),
+    p_reason: reason,
+  });
+  if (error) {
+    const m = error.message ?? "";
+    if (/TOO_OLD/.test(m)) return { error: `Oppgjør eldre enn ${EDIT_DAYS} dager må rettes av admin/eier.` };
+    if (/REASON_REQUIRED/.test(m)) return { error: "Skriv kort hvorfor oppgjøret endres." };
+    if (error.code === "PGRST202" || /edit_cash_settlement/.test(m))
+      return { error: "Endring er ikke slått på ennå (KJØR-I-SUPABASE-KASSEOPPGJOR-ENDRE.sql)." };
+    return { error: `Kunne ikke lagre endringen: ${m}` };
+  }
+  revalidatePath("/kasse/kasseoppgjor");
+  revalidatePath("/admin/kasseoppgjor");
   return { ok: true };
 }

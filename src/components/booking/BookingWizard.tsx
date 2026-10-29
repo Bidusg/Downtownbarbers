@@ -116,6 +116,23 @@ function CheckIcon({ className = "h-4 w-4" }: { className?: string }) {
     </svg>
   );
 }
+function PersonIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5" />
+    </svg>
+  );
+}
+function PeopleIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+      <circle cx="9" cy="8.5" r="3.2" />
+      <path d="M3 19.5c.7-3.2 3.1-5 6-5s5.3 1.8 6 5" />
+      <path d="M16 5.6a3 3 0 0 1 0 5.8M18 14.8c1.6.6 2.6 2.2 3 4.7" />
+    </svg>
+  );
+}
 function PlusIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
@@ -173,6 +190,9 @@ export function BookingWizard({
 
   const cats = useMemo(() => Array.from(new Set(services.map((s) => s.category))), [services]);
   const rootRef = useRef<HTMLDivElement>(null);
+  const peopleRef = useRef<HTMLDivElement>(null);
+  // Gruppe: hvilken person velger tjeneste nå (linje-id), eller «new» = ny person.
+  const [activePerson, setActivePerson] = useState<number | "new" | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   const [step, setStep] = useState(0);
@@ -472,6 +492,34 @@ export function BookingWizard({
         : [...c, newLine(service)],
     );
   const addLine = (service: WizService) => setCart((c) => [...c, newLine(service)]);
+  // Gruppe: tjenesten gjelder personen som er aktiv (én tjeneste per person).
+  const pickForPerson = (service: WizService) => {
+    const cur = typeof activePerson === "number" ? cart.find((l) => l.id === activePerson) : undefined;
+    if (cur) {
+      if (cur.service.name !== service.name) {
+        setCart((c) => c.map((l) => (l.id === cur.id ? { ...l, service, addons: [], barberName: null } : l)));
+      }
+      return;
+    }
+    const line = newLine(service);
+    setCart((c) => [...c, line]);
+    setActivePerson(line.id);
+  };
+  const removePerson = (id: number) => {
+    setCart((c) => c.filter((l) => l.id !== id));
+    if (activePerson === id) setActivePerson(null);
+  };
+  // «Legg til person»: bytt til gruppe (beholder det som er valgt som person 1)
+  // og la neste tjeneste-valg gjelde den nye personen.
+  const startNewPerson = () => {
+    if (mode !== "group") {
+      setMode("group");
+      // Flere tjenester på «meg» → behold den første som person 1.
+      setCart((c) => c.slice(0, 1));
+    }
+    setActivePerson("new");
+    requestAnimationFrame(() => peopleRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
   const removeOneOf = (serviceName: string) =>
     setCart((c) => {
       const idx = c.map((l) => l.service.name).lastIndexOf(serviceName);
@@ -486,8 +534,13 @@ export function BookingWizard({
       ),
     );
   const setGroupMode = (on: boolean) => {
+    if (on === (mode === "group")) return;
     setMode(on ? "group" : "single");
-    if (!on) {
+    if (on) {
+      setCart((c) => c.slice(0, 1));
+      setActivePerson(cart.length ? "new" : null);
+    } else {
+      setActivePerson(null);
       // Tilbake til «bare meg»: én av hver tjeneste.
       setCart((c) => c.filter((l, i) => c.findIndex((x) => x.service.name === l.service.name) === i));
     }
@@ -822,9 +875,134 @@ export function BookingWizard({
 
       {/* ======================= STEG 1: TJENESTE ========================= */}
       {step === 0 && (
-        <div className={cart.length ? "pb-28" : ""}>
+        <div className={cart.length ? "pb-40" : ""}>
+          {/* Hvem gjelder bestillingen – tydelig valg øverst */}
+          <div role="radiogroup" aria-label={t("wiz.whoFor")} className="grid grid-cols-2 gap-2">
+            {(
+              [
+                ["single", t("wiz.whoMe"), t("wiz.whoMeSub")],
+                ["group", t("wiz.whoGroup"), t("wiz.whoGroupSub")],
+              ] as const
+            ).map(([m, label, sub]) => {
+              const on = mode === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => setGroupMode(m === "group")}
+                  className={
+                    "flex min-h-16 flex-col items-start justify-center rounded-2xl px-4 py-3 text-left transition-[box-shadow,background-color] duration-200 " +
+                    (on
+                      ? "bg-fg text-canvas"
+                      : "bg-surface text-fg shadow-[0_0_0_1px_oklch(var(--line))] hover:shadow-[0_0_0_1px_oklch(var(--line-2))]")
+                  }
+                >
+                  <span className="flex items-center gap-2 font-semibold">
+                    {m === "group" ? <PeopleIcon /> : <PersonIcon />}
+                    {label}
+                  </span>
+                  <span className={"mt-0.5 text-[13px] " + (on ? "text-canvas/70" : "text-muted")}>{sub}</span>
+                </button>
+              );
+            })}
+          </div>
 
-          <div className="space-y-9">
+          {/* Gruppe: personene i bestillingen */}
+          {mode === "group" && (
+            <div ref={peopleRef} className="mt-4 scroll-mt-24">
+              <ul className="flex flex-wrap gap-2">
+                {cart.map((it, idx) => {
+                  const on = activePerson === it.id;
+                  const who = it.person.trim() || (idx === 0 ? t("wiz.you") : `${t("wiz.person")} ${idx + 1}`);
+                  return (
+                    <li
+                      key={it.id}
+                      className={
+                        "flex items-center rounded-full transition-colors " +
+                        (on ? "bg-fg text-canvas" : "bg-surface text-fg shadow-[0_0_0_1px_oklch(var(--line))]")
+                      }
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setActivePerson(it.id)}
+                        aria-pressed={on}
+                        className="min-h-11 max-w-[15rem] truncate py-2 pr-1 pl-4 text-left text-sm"
+                      >
+                        <span className="font-semibold">{who}</span>
+                        <span className={on ? "text-canvas/70" : "text-muted"}> · {tc(it.service.name)}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removePerson(it.id)}
+                        aria-label={`${t("wiz.remove")} ${who}`}
+                        className={
+                          "flex h-11 w-10 items-center justify-center rounded-full text-lg " +
+                          (on ? "text-canvas/70 hover:text-canvas" : "text-muted hover:text-fg")
+                        }
+                      >
+                        ×
+                      </button>
+                    </li>
+                  );
+                })}
+                {activePerson === "new" || cart.length === 0 ? (
+                  <li className="flex min-h-11 items-center rounded-full border-2 border-dashed border-fg/40 px-4 text-sm font-semibold text-fg">
+                    {cart.length === 0 ? t("wiz.you") : `${t("wiz.person")} ${cart.length + 1}`} ·{" "}
+                    <span className="ml-1 font-normal text-muted">{t("wiz.pickService")}</span>
+                  </li>
+                ) : (
+                  <li>
+                    <button
+                      type="button"
+                      onClick={startNewPerson}
+                      className="flex min-h-11 items-center gap-1.5 rounded-full bg-accent-soft px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                    >
+                      <PlusIcon /> {t("wiz.addPersonBtn")}
+                    </button>
+                  </li>
+                )}
+              </ul>
+              <p className="mt-3 text-[15px] text-fg" aria-live="polite">
+                {t("wiz.pickFor")}{" "}
+                <span className="font-semibold">
+                  {(() => {
+                    const idx = cart.findIndex((l) => l.id === activePerson);
+                    if (idx < 0) return cart.length === 0 ? t("wiz.you").toLowerCase() : `${t("wiz.person").toLowerCase()} ${cart.length + 1}`;
+                    return cart[idx].person.trim() || (idx === 0 ? t("wiz.you").toLowerCase() : `${t("wiz.person").toLowerCase()} ${idx + 1}`);
+                  })()}
+                </span>
+                :
+              </p>
+            </div>
+          )}
+
+          {/* Bare meg: det som er valgt, synlig øverst */}
+          {mode === "single" && cart.length > 0 && (
+            <div className="mt-4 flex flex-wrap items-center gap-2" aria-live="polite">
+              <span className="text-[13px] font-semibold text-muted">{t("wiz.yourOrder")}:</span>
+              {cart.map((it) => (
+                <span
+                  key={it.id}
+                  className="inline-flex min-h-9 items-center gap-1 rounded-full bg-fg py-1 pr-1 pl-3 text-sm text-canvas"
+                >
+                  <CheckIcon className="h-3.5 w-3.5" />
+                  {tc(it.service.name)}
+                  <button
+                    type="button"
+                    onClick={() => toggleService(it.service)}
+                    aria-label={`${t("wiz.remove")} ${tc(it.service.name)}`}
+                    className="flex h-7 w-7 items-center justify-center rounded-full text-canvas/70 hover:text-canvas"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-8 space-y-9">
             {cats.map((cat) => (
               <section key={cat} aria-labelledby={`cat-${cat}`}>
                 <h3 id={`cat-${cat}`} className="mb-3 text-[13px] font-semibold tracking-[-0.005em] text-muted">
@@ -836,6 +1014,9 @@ export function BookingWizard({
                     .map((s) => {
                       const lines = cart.filter((l) => l.service.name === s.name);
                       const sel = lines.length > 0;
+                      // Gruppe: kortet er «valgt» for personen som velger nå.
+                      const activeHas = mode === "group" && lines.some((l) => l.id === activePerson);
+                      const shown = mode === "group" ? lines.filter((l) => l.id === activePerson) : lines;
                       const exact = serviceExactPrice(s.name, singleBarber);
                       const priceTxt =
                         exact != null
@@ -846,7 +1027,7 @@ export function BookingWizard({
                           key={s.name}
                           className={
                             "overflow-hidden rounded-2xl bg-surface transition-shadow duration-300 " +
-                            (sel
+                            ((mode === "group" ? activeHas : sel)
                               ? "shadow-[0_0_0_2px_oklch(var(--fg))]"
                               : "shadow-[0_0_0_1px_oklch(var(--line))] hover:shadow-[0_0_0_1px_oklch(var(--line-2))]")
                           }
@@ -878,48 +1059,54 @@ export function BookingWizard({
                               </span>
                             </button>
                           ) : (
-                            <div className="flex items-start gap-4 p-4 sm:p-5">
-                              <div className="min-w-0 flex-1">
-                                <p className="font-semibold break-words text-fg">{tc(s.name)}</p>
-                                <p className="mt-2 text-[13px] text-muted tabular-nums">
+                            <button
+                              type="button"
+                              onClick={() => pickForPerson(s)}
+                              aria-pressed={activeHas}
+                              className="flex w-full items-start gap-4 p-4 text-left sm:p-5"
+                            >
+                              <span className="min-w-0 flex-1">
+                                <span className="block font-semibold break-words text-fg">{tc(s.name)}</span>
+                                {s.description && (
+                                  <span className="mt-1 block text-sm leading-relaxed text-muted">{tc(s.description)}</span>
+                                )}
+                                <span className="mt-2 block text-[13px] text-muted tabular-nums">
                                   {s.duration} · <span className="font-semibold text-fg">{priceTxt}</span>
-                                </p>
-                              </div>
-                              <div className="flex shrink-0 items-center gap-1" role="group" aria-label={tc(s.name)}>
-                                <button
-                                  type="button"
-                                  onClick={() => removeOneOf(s.name)}
-                                  disabled={!sel}
-                                  aria-label={`${t("wiz.remove")} ${tc(s.name)}`}
-                                  className="flex h-11 w-11 items-center justify-center rounded-full text-xl text-fg transition-colors hover:bg-surface-2 disabled:opacity-30"
-                                >
-                                  −
-                                </button>
-                                <span className="w-6 text-center font-semibold tabular-nums" aria-live="polite">
-                                  {lines.length}
                                 </span>
-                                <button
-                                  type="button"
-                                  onClick={() => addLine(s)}
-                                  aria-label={`${t("wiz.addService")} ${tc(s.name)}`}
-                                  className="flex h-11 w-11 items-center justify-center rounded-full text-xl text-fg transition-colors hover:bg-surface-2"
-                                >
-                                  +
-                                </button>
-                              </div>
-                            </div>
+                                {lines.length > 0 && (
+                                  <span className="mt-2 flex flex-wrap gap-1.5">
+                                    {lines.map((l) => {
+                                      const idx = cart.findIndex((x) => x.id === l.id);
+                                      return (
+                                        <span
+                                          key={l.id}
+                                          className="rounded-full bg-surface-2 px-2.5 py-0.5 text-[12px] font-medium text-fg"
+                                        >
+                                          {l.person.trim() || (idx === 0 ? t("wiz.you") : `${t("wiz.person")} ${idx + 1}`)}
+                                        </span>
+                                      );
+                                    })}
+                                  </span>
+                                )}
+                              </span>
+                              <span
+                                aria-hidden
+                                className={
+                                  "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors " +
+                                  (activeHas ? "bg-fg text-canvas" : "text-muted shadow-[inset_0_0_0_1.5px_oklch(var(--line-2))]")
+                                }
+                              >
+                                {activeHas ? <CheckIcon /> : <PlusIcon />}
+                              </span>
+                            </button>
                           )}
 
                           {/* Tillegg rett på kortet */}
-                          {sel && addons.length > 0 && (
+                          {shown.length > 0 && addons.length > 0 && (
                             <div className="space-y-3 border-t border-line px-4 pt-3 pb-4 sm:px-5">
-                              {lines.map((line, li) => (
+                              {shown.map((line) => (
                                 <div key={line.id}>
-                                  <p className="mb-2 text-[13px] text-muted">
-                                    {mode === "group" && lines.length > 1
-                                      ? `${t("wiz.person")} ${li + 1} – ${t("wiz.addonsOptional").toLowerCase()}`
-                                      : t("wiz.addonsOptional")}
-                                  </p>
+                                  <p className="mb-2 text-[13px] text-muted">{t("wiz.addonsOptional")}</p>
                                   <div className="flex flex-wrap gap-2">
                                     {addons.map((a) => {
                                       const on = line.addons.includes(a.name);
@@ -957,24 +1144,29 @@ export function BookingWizard({
             ))}
           </div>
 
-          <div className="mt-8 flex justify-center">
-            <button
-              type="button"
-              onClick={() => setGroupMode(mode !== "group")}
-              aria-pressed={mode === "group"}
-              className="pill pill-soft"
-            >
-              {mode === "group" ? t("wiz.groupOff") : t("wiz.groupOn")}
-            </button>
-          </div>
 
           {/* Fast bunnlinje med totalpris */}
           {cart.length > 0 && (
             <div className="fixed inset-x-0 bottom-0 z-30 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5">
+              {activePerson !== "new" && (
+                <div className="mx-auto mb-2 flex max-w-3xl justify-center">
+                  <button
+                    type="button"
+                    onClick={startNewPerson}
+                    className="inline-flex min-h-11 items-center gap-2 rounded-full bg-surface px-4 text-sm font-semibold text-fg shadow-[0_0_0_1px_oklch(var(--line)),0_10px_30px_-12px_rgba(0,0,0,0.35)] transition-colors hover:bg-surface-2"
+                  >
+                    <PeopleIcon />
+                    {mode === "group" ? t("wiz.addPersonBtn") : t("wiz.bringSomeone")}
+                  </button>
+                </div>
+              )}
               <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 rounded-[22px] bg-fg/95 py-2.5 pr-2.5 pl-5 text-canvas shadow-[0_20px_50px_-20px_rgba(0,0,0,0.6)] backdrop-blur-md">
                 <div className="min-w-0">
                   <p className="truncate text-[13px] text-canvas/70 tabular-nums">
-                    {cart.length} {t("wiz.selectedCount")} · ~{cartMinutes} min
+                    {mode === "group"
+                      ? `${cart.length} ${cart.length === 1 ? (lang === "en" ? "person" : "person") : lang === "en" ? "people" : "personer"}`
+                      : `${cart.length} ${t("wiz.selectedCount")}`}{" "}
+                    · ~{cartMinutes} min
                   </p>
                   <p className="text-lg font-semibold tracking-tight tabular-nums">
                     {anyEstimate ? t("common.from") : ""}
