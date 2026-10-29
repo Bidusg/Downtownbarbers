@@ -14,22 +14,30 @@ function readPause(
   formData: FormData,
   start: string,
   end: string,
-): { pause: { pause_start: string | null; pause_end: string | null }; error?: string } {
+): {
+  pause: { pause_start: string | null; pause_end: string | null; pause_note?: string | null };
+  error?: string;
+} {
   const ps = String(formData.get("pause_start") ?? "").trim().slice(0, 5);
   const pe = String(formData.get("pause_end") ?? "").trim().slice(0, 5);
-  const none = { pause_start: null, pause_end: null };
+  // Merknad (f.eks. «Opplæring») = arbeidstid som ikke er bookbar. Sendes bare
+  // med når feltet finnes i skjemaet, så eldre skjema/SQL ikke påvirkes.
+  const noteRaw = formData.get("pause_note");
+  const note = noteRaw == null ? undefined : String(noteRaw).trim().slice(0, 40) || null;
+  const none = { pause_start: null, pause_end: null, ...(note !== undefined ? { pause_note: null } : {}) };
   if (!ps && !pe) return { pause: none };
   if (!ps || !pe) return { pause: none, error: "Fyll inn både start og slutt på pausen (eller la begge stå tomme)." };
   if (pe <= ps) return { pause: none, error: "Pausen må slutte etter at den starter." };
   if (ps < start.slice(0, 5) || pe > end.slice(0, 5)) return { pause: none, error: "Pausen må ligge innenfor vakten." };
-  return { pause: { pause_start: ps, pause_end: pe } };
+  return { pause: { pause_start: ps, pause_end: pe, ...(note !== undefined ? { pause_note: note } : {}) } };
 }
 
 /** Er feilen at pause-kolonnene ikke finnes ennå (SQL ikke kjørt)? */
 function missingPause(msg: string | undefined): boolean {
-  return !!msg && /pause_(start|end)/.test(msg);
+  return !!msg && /pause_(start|end|note)/.test(msg);
 }
-const PAUSE_SQL_MSG = "Kjør KJØR-I-SUPABASE-TURNUS-PAUSE.sql i Supabase for å kunne lagre pause.";
+const PAUSE_SQL_MSG =
+  "Kjør KJØR-I-SUPABASE-TURNUS-PAUSE.sql og KJØR-I-SUPABASE-TURNUS-OPPLAERING.sql i Supabase for å kunne lagre pause.";
 
 /**
  * Bulk-turnus: sett arbeidstid for flere ukedager (og paritet) på én gang.

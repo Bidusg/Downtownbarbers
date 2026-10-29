@@ -211,7 +211,7 @@ export type DaySchedule = {
   /** Barbernavn → arbeidsblokker denne dagen (tom liste = ikke på jobb). */
   shifts: Record<string, ShiftBlock[]>;
   /** Barbernavn → faste pauser fra turnusen denne dagen. */
-  pauses: Record<string, { start: number; end: number }[]>;
+  pauses: Record<string, { start: number; end: number; label?: string | null }[]>;
 };
 
 const toMin = (t: string | null | undefined): number | null => {
@@ -256,8 +256,16 @@ export async function getDaySchedule(date: string): Promise<DaySchedule | null> 
       sb.from("staff").select("id, full_name").eq("active", true),
       sb
         .from("staff_hours")
-        .select("staff_id, weekday, start_time, end_time, week_parity, valid_from, valid_to, pause_start, pause_end")
+        .select("staff_id, weekday, start_time, end_time, week_parity, valid_from, valid_to, pause_start, pause_end, pause_note")
         .eq("weekday", dow)
+        .then(async (r) =>
+          r.error
+            ? await sb
+                .from("staff_hours")
+                .select("staff_id, weekday, start_time, end_time, week_parity, valid_from, valid_to, pause_start, pause_end")
+                .eq("weekday", dow)
+            : r,
+        )
         .then(async (r) =>
           r.error
             ? await sb
@@ -277,7 +285,7 @@ export async function getDaySchedule(date: string): Promise<DaySchedule | null> 
     const parity = typeof parityRes.data === "number" ? parityRes.data : null;
 
     const shifts: Record<string, ShiftBlock[]> = {};
-    const pauses: Record<string, { start: number; end: number }[]> = {};
+    const pauses: Record<string, { start: number; end: number; label?: string | null }[]> = {};
     const exc = (excRes.data ?? []) as {
       staff_id: string;
       kind: string;
@@ -306,6 +314,7 @@ export async function getDaySchedule(date: string): Promise<DaySchedule | null> 
             valid_to: string | null;
             pause_start?: string | null;
             pause_end?: string | null;
+            pause_note?: string | null;
           }[]).filter(
             (h) =>
               h.staff_id === st.id &&
@@ -320,7 +329,7 @@ export async function getDaySchedule(date: string): Promise<DaySchedule | null> 
             const pe = toMin(h.pause_end ?? null);
             if (ps != null && pe != null && pe > ps) {
               blocks = subtract(blocks, ps, pe);
-              (pauses[st.full_name] ??= []).push({ start: ps, end: pe });
+              (pauses[st.full_name] ??= []).push({ start: ps, end: pe, label: h.pause_note || null });
             }
           }
         }

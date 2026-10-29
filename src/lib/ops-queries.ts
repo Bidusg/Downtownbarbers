@@ -594,6 +594,8 @@ export type StaffHour = {
   valid_to?: string | null; // turnus slutter, null = løpende
   pause_start?: string | null; // fast pause (HH:MM), null = ingen
   pause_end?: string | null;
+  /** Hva pausen er (f.eks. «Opplæring»). Satt = arbeidstid, ikke fri. */
+  pause_note?: string | null;
 };
 
 export const WEEKDAYS = [
@@ -613,8 +615,13 @@ export async function getStaffHours(): Promise<StaffHour[]> {
     const sel = (cols: string) =>
       sb.from("staff_hours").select(cols).order("weekday").order("valid_from", { ascending: true, nullsFirst: true });
     let first = await sel(
-      "id, staff_id, weekday, start_time, end_time, week_parity, valid_from, valid_to, pause_start, pause_end, staff(full_name)",
+      "id, staff_id, weekday, start_time, end_time, week_parity, valid_from, valid_to, pause_start, pause_end, pause_note, staff(full_name)",
     );
+    // Før TURNUS-OPPLAERING er kjørt: uten pause_note.
+    if (first.error)
+      first = await sel(
+        "id, staff_id, weekday, start_time, end_time, week_parity, valid_from, valid_to, pause_start, pause_end, staff(full_name)",
+      );
     // Før TURNUS-PAUSE er kjørt: hent uten pause-kolonnene.
     if (first.error) first = await sel("id, staff_id, weekday, start_time, end_time, week_parity, valid_from, valid_to, staff(full_name)");
     let data: Record<string, unknown>[] | null = first.data as unknown as Record<string, unknown>[] | null;
@@ -643,6 +650,7 @@ export async function getStaffHours(): Promise<StaffHour[]> {
         valid_to: ((r as { valid_to?: string | null }).valid_to ?? null) as string | null,
         pause_start: ((r as { pause_start?: string | null }).pause_start ?? null)?.slice(0, 5) ?? null,
         pause_end: ((r as { pause_end?: string | null }).pause_end ?? null)?.slice(0, 5) ?? null,
+        pause_note: ((r as { pause_note?: string | null }).pause_note ?? null) || null,
       };
     });
   } catch {

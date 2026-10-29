@@ -950,7 +950,7 @@ export function DayCalendar({
                               style={{ top: (s0 - OPEN) * PX, height: (e0 - s0) * PX }}
                             >
                               <span className="mt-0.5 rounded bg-surface px-1.5 text-[11px] font-semibold text-muted">
-                                ☕ Pause {minToHHMM(p.start)}–{minToHHMM(p.end)}
+                                {p.label ? `📘 ${p.label}` : "☕ Pause"} {minToHHMM(p.start)}–{minToHHMM(p.end)}
                               </span>
                             </div>
                           );

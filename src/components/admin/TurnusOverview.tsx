@@ -75,7 +75,8 @@ export function TurnusOverview({
                           .sort((a, b) => a.start_time.localeCompare(b.start_time));
                         for (const h of list) {
                           let min = toMin(h.end_time) - toMin(h.start_time);
-                          if (h.pause_start && h.pause_end) min -= toMin(h.pause_end) - toMin(h.pause_start);
+                          // Pause med merknad (f.eks. «Opplæring») er arbeidstid – trekkes ikke fra.
+                          if (h.pause_start && h.pause_end && !h.pause_note) min -= toMin(h.pause_end) - toMin(h.pause_start);
                           // Tell bare vakter som gjelder (ikke de som avsluttes/kommer)
                           if (!h.valid_to) total += min / 60;
                         }
@@ -99,7 +100,9 @@ export function TurnusOverview({
                                       {h.start_time}–{h.end_time}
                                     </div>
                                     {h.pause_start && h.pause_end && (
-                                      <div className="text-[10px]">pause {h.pause_start}–{h.pause_end}</div>
+                                      <div className="text-[10px]">
+                                        {h.pause_note ? h.pause_note.toLowerCase() : "pause"} {h.pause_start}–{h.pause_end}
+                                      </div>
                                     )}
                                     {h.valid_from && h.valid_from > new Date().toISOString().slice(0, 10) && (
                                       <div className="text-[10px]">fra {dm(h.valid_from)}</div>

@@ -60,8 +60,17 @@ export default async function AnsattTurnus() {
       .sort((a, b) => a.start_time.localeCompare(b.start_time));
     if (rows.length === 0) return <span className="text-muted">Fri</span>;
     return (
-      <span className="font-display text-fg">
-        {rows.map((r) => `${r.start_time}–${r.end_time}`).join(", ")}
+      <span className="text-right">
+        <span className="font-display text-fg">
+          {rows.map((r) => `${r.start_time}–${r.end_time}`).join(", ")}
+        </span>
+        {rows
+          .filter((r) => r.pause_start && r.pause_end)
+          .map((r) => (
+            <span key={`${r.pause_start}`} className="block text-[11px] text-muted">
+              {r.pause_note || "Pause"} {r.pause_start}–{r.pause_end}
+            </span>
+          ))}
       </span>
     );
   };
@@ -133,6 +142,11 @@ export default async function AnsattTurnus() {
                   <span className="font-display font-bold text-fg">
                     {s.start_time}–{s.end_time}
                   </span>
+                  {s.pause_start && s.pause_end && (
+                    <span className="text-[12px] text-muted">
+                      {s.pause_note || "Pause"} {s.pause_start}–{s.pause_end}
+                    </span>
+                  )}
                   <Badge tone="accent" className="ml-auto uppercase">
                     {s.week_parity === 1 ? "Uke A" : "Uke B"}
                   </Badge>

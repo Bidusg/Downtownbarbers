@@ -170,6 +170,10 @@ export function StaffHoursManager({
               <Input name="pause_end" type="time" className="mt-1 block w-full" />
             </label>
             <label className="text-xs text-muted">
+              Hva er pausen? (valgfritt)
+              <Input name="pause_note" placeholder="F.eks. Opplæring" maxLength={40} className="mt-1 block w-full" />
+            </label>
+            <label className="text-xs text-muted">
               Gjelder fra (valgfritt)
               <Input name="valid_from" type="date" className="mt-1 block w-full" />
             </label>
@@ -248,6 +252,14 @@ export function StaffHoursManager({
                           className="w-28"
                           aria-label="Pause til"
                         />
+                        <Input
+                          name="pause_note"
+                          defaultValue={h.pause_note ?? ""}
+                          placeholder="Pause / Opplæring"
+                          maxLength={40}
+                          className="w-36"
+                          aria-label="Hva er pausen"
+                        />
                         <Select
                           name="week_parity"
                           defaultValue={String(h.week_parity)}
@@ -288,7 +300,7 @@ export function StaffHoursManager({
                         {h.start_time}–{h.end_time}
                         {h.pause_start && h.pause_end && (
                           <span className="ml-2 rounded bg-surface-2 px-1.5 py-0.5 text-[11px] text-muted">
-                            Pause {h.pause_start}–{h.pause_end}
+                            {h.pause_note || "Pause"} {h.pause_start}–{h.pause_end}
                           </span>
                         )}
                       </span>

@@ -102,6 +102,10 @@ export type MyTurnusRow = {
   week_parity: number; // 0 = hver uke, 1 = uke A, 2 = uke B
   start_time: string; // HH:MM
   end_time: string; // HH:MM
+  /** Fast pause / opplæring i vakten (HH:MM), null = ingen. */
+  pause_start?: string | null;
+  pause_end?: string | null;
+  pause_note?: string | null;
 };
 
 /** Egen turnus-mal (uke A/B). Kun lesing. */
@@ -114,6 +118,9 @@ export async function getMyTurnus(): Promise<MyTurnusRow[]> {
       week_parity: Number(r.week_parity ?? 0),
       start_time: String(r.start_time).slice(0, 5),
       end_time: String(r.end_time).slice(0, 5),
+      pause_start: r.pause_start ? String(r.pause_start).slice(0, 5) : null,
+      pause_end: r.pause_end ? String(r.pause_end).slice(0, 5) : null,
+      pause_note: r.pause_note ?? null,
     }));
   } catch {
     return [];
@@ -126,6 +133,9 @@ export type MyUpcomingShift = {
   start_time: string; // HH:MM
   end_time: string; // HH:MM
   week_parity: number;
+  pause_start?: string | null;
+  pause_end?: string | null;
+  pause_note?: string | null;
 };
 
 /** Kommende konkrete vakter (utledet av turnus + anker, fravær trukket fra). */
@@ -139,6 +149,9 @@ export async function getMyUpcomingShifts(days = 21): Promise<MyUpcomingShift[]>
       start_time: String(r.start_time).slice(0, 5),
       end_time: String(r.end_time).slice(0, 5),
       week_parity: Number(r.week_parity ?? 0),
+      pause_start: r.pause_start ? String(r.pause_start).slice(0, 5) : null,
+      pause_end: r.pause_end ? String(r.pause_end).slice(0, 5) : null,
+      pause_note: r.pause_note ?? null,
     }));
   } catch {
     return [];

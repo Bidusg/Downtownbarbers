@@ -544,7 +544,7 @@ export function WeekSchedule({
                         return (
                           <div
                             key={j}
-                            title={`${h.start_time}–${h.end_time}${h.pause_start && h.pause_end ? ` · pause ${h.pause_start}–${h.pause_end}` : ""}`}
+                            title={`${h.start_time}–${h.end_time}${h.pause_start && h.pause_end ? ` · ${h.pause_note ? h.pause_note.toLowerCase() : "pause"} ${h.pause_start}–${h.pause_end}` : ""}`}
                             className="absolute top-0 flex h-6 items-center justify-center overflow-hidden rounded"
                             style={{
                               left: `${left}%`,
@@ -558,7 +558,7 @@ export function WeekSchedule({
                             {/* Fast pause: lys «hull» i båndet */}
                             {h.pause_start && h.pause_end && b > a && (
                               <span
-                                title={`Pause ${h.pause_start}–${h.pause_end}`}
+                                title={`${h.pause_note || "Pause"} ${h.pause_start}–${h.pause_end}`}
                                 className="absolute top-0 bottom-0 bg-surface/80"
                                 style={{
                                   left: `${((toMin(h.pause_start) - a) / (b - a)) * 100}%`,
