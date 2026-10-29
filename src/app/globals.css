@@ -101,6 +101,14 @@ body {
   outline-offset: 2px;
 }
 
+/* Overskrifter o.l. som får fokus fra koden (tabindex="-1", f.eks. ved
+   stegbytte i bookingen for skjermlesere) skal ikke få fokusramme – de kan
+   ikke tabbes til, så rammen er bare støy. */
+[tabindex="-1"]:focus,
+[tabindex="-1"]:focus-visible {
+  outline: none;
+}
+
 ::-webkit-scrollbar {
   width: 4px;
 }

@@ -267,8 +267,9 @@ export function BookingWizard({
         }
       }
       if (items.length) {
-        setCart(items);
-        setMode(saved.mode === "group" ? "group" : "single");
+        const group = saved.mode === "group";
+        setCart(group ? items : items.slice(0, 1));
+        setMode(group ? "group" : "single");
         if (saved.barber === ANY || barbers.some((b) => b.name === saved.barber)) setSingleBarber(saved.barber);
         if (saved.date && saved.time) {
           setDate(saved.date);
@@ -485,11 +486,11 @@ export function BookingWizard({
     person: "",
     addons: [],
   });
+  // «Bare meg»: én tjeneste (+ tillegg). Et nytt valg bytter ut det forrige;
+  // trykk på den valgte fjerner den. Flere tjenester = legg til person.
   const toggleService = (service: WizService) =>
     setCart((c) =>
-      c.some((l) => l.service.name === service.name)
-        ? c.filter((l) => l.service.name !== service.name)
-        : [...c, newLine(service)],
+      c.some((l) => l.service.name === service.name) ? [] : [newLine(service)],
     );
   const addLine = (service: WizService) => setCart((c) => [...c, newLine(service)]);
   // Gruppe: tjenesten gjelder personen som er aktiv (én tjeneste per person).
@@ -514,7 +515,6 @@ export function BookingWizard({
   const startNewPerson = () => {
     if (mode !== "group") {
       setMode("group");
-      // Flere tjenester på «meg» → behold den første som person 1.
       setCart((c) => c.slice(0, 1));
     }
     setActivePerson("new");
@@ -541,8 +541,8 @@ export function BookingWizard({
       setActivePerson(cart.length ? "new" : null);
     } else {
       setActivePerson(null);
-      // Tilbake til «bare meg»: én av hver tjeneste.
-      setCart((c) => c.filter((l, i) => c.findIndex((x) => x.service.name === l.service.name) === i));
+      // Tilbake til «bare meg»: bare én tjeneste – behold den første personens.
+      setCart((c) => c.slice(0, 1).map((l) => ({ ...l, person: "" })));
     }
   };
 
