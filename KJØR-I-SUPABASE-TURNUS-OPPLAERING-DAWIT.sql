@@ -33,10 +33,10 @@ begin
     raise exception 'Kjør KJØR-I-SUPABASE-TURNUS-OPPLAERING.sql først.';
   end if;
 
-  select count(*) into n from staff where full_name ilike '%dawit%' and active;
-  if n = 0 then raise exception 'Fant ingen aktiv ansatt som heter Dawit.'; end if;
-  if n > 1 then raise exception 'Fant flere aktive ansatte med «Dawit» i navnet – rett navnet i skriptet.'; end if;
-  select id into v_staff from staff where full_name ilike '%dawit%' and active;
+  select count(*) into n from staff where full_name ilike '%david%' and active;
+  if n = 0 then raise exception 'Fant ingen aktiv ansatt som heter David (Dawit).'; end if;
+  if n > 1 then raise exception 'Fant flere aktive ansatte med «David» i navnet – rett navnet i skriptet.'; end if;
+  select id into v_staff from staff where full_name ilike '%david%' and active;
 
   select coalesce((value->>'weeks')::int, 2) into v_n from settings where key = 'turnus_rotation';
   v_n := coalesce(v_n, 2);
@@ -115,6 +115,6 @@ select case h.weekday when 1 then 'Mandag' else 'Onsdag' end as dag,
        coalesce(h.pause_note || ' ' || to_char(h.pause_start, 'HH24:MI') || '–' || to_char(h.pause_end, 'HH24:MI'), '') as opplaering,
        h.valid_from as fra, h.valid_to as til
   from staff_hours h join staff s on s.id = h.staff_id
- where s.full_name ilike '%dawit%' and s.active and h.weekday in (1, 3)
+ where s.full_name ilike '%david%' and s.active and h.weekday in (1, 3)
    and (h.valid_to is null or h.valid_to >= date '2026-11-02')
  order by h.valid_from nulls first, h.weekday, h.week_parity;
