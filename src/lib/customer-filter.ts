@@ -1,3 +1,4 @@
+import { prepareSearch, searchScore } from "@/lib/search";
 import { createClient } from "@/lib/supabase/server";
 
 /* =====================================================================
@@ -194,14 +195,9 @@ export async function filterCustomers(
         : null;
 
     // Søk: alle ordene må finnes i navn/e-post, eller sifrene i telefonen.
-    const terms = (f.q ?? "").toLowerCase().trim().split(/\s+/).filter(Boolean);
-    const qDigits = (f.q ?? "").replace(/\D/g, "");
-    const matchesQ = (c: Cust) => {
-      if (!terms.length) return true;
-      const hay = `${c.full_name ?? ""} ${c.email ?? ""}`.toLowerCase();
-      if (terms.every((t) => hay.includes(t))) return true;
-      return qDigits.length >= 3 && (c.phone ?? "").replace(/\D/g, "").includes(qDigits);
-    };
+    const qPrep = prepareSearch(f.q ?? "");
+    const matchesQ = (c: Cust) =>
+      qPrep.empty || searchScore(qPrep, { text: [c.full_name, c.email], digits: [c.phone] }) > 0;
 
     const out: CustomerFilterRow[] = [];
     for (const c of customers) {

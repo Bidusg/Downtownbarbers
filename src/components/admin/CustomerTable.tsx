@@ -1,5 +1,6 @@
 import type { AdminCustomer } from "@/lib/admin-queries";
 import { Avatar } from "@/components/ui/Avatar";
+import { LiveSearchInput } from "@/components/ui/LiveSearchInput";
 import { Card } from "@/components/ui/Card";
 import {
   Table,
@@ -10,9 +11,7 @@ import {
   Td,
   TableEmpty,
 } from "@/components/ui/Table";
-import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { formatKr } from "@/lib/format";
 
 function fmtDate(iso: string | null) {
@@ -61,16 +60,12 @@ export function CustomerTable({
 
   return (
     <div>
-      <form method="get" action={basePath} className="mb-4 flex flex-wrap gap-2">
-        <Input
-          name="q"
-          defaultValue={q}
+      <form method="get" action={basePath} className="mb-4 flex flex-wrap items-center gap-2">
+        <LiveSearchInput
+          initial={q}
           placeholder="Søk på navn, e-post eller telefon…"
           className="min-w-0 flex-1 sm:max-w-sm sm:flex-none sm:w-80"
         />
-        <Button type="submit" className="px-5 py-2.5 text-sm">
-          Søk
-        </Button>
         {q && (
           <a
             href={basePath}

@@ -1,5 +1,6 @@
 "use client";
 
+import { matchesSearch } from "@/lib/search";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -109,16 +110,7 @@ function passes(p: ShopProduct, s: State, except?: FacetKey): boolean {
     if (!ok) return false;
   }
   if (except !== "inStock" && s.inStock && p.stock <= 0) return false;
-  if (s.q) {
-    const hay = haystack(p);
-    if (
-      !norm(s.q)
-        .split(/\s+/)
-        .filter(Boolean)
-        .every((w) => hay.includes(w))
-    )
-      return false;
-  }
+  if (s.q && !matchesSearch(s.q, { text: [haystack(p)] })) return false;
   return true;
 }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { searchList } from "@/lib/search";
 import { useMemo, useState, useTransition } from "react";
 import { OrderCard } from "@/components/kasse/OnlineOrders";
 import { editOrder, returnOrder, addOrderNote } from "@/app/kasse/nettordrer/order-actions";
@@ -46,9 +47,11 @@ function Stepper({ value, min, max, onChange, label }: { value: number; min: num
 function ProductPicker({ products, onPick }: { products: PickableProduct[]; onPick: (p: PickableProduct) => void }) {
   const [q, setQ] = useState("");
   const hits = useMemo(() => {
-    const t = q.trim().toLowerCase();
-    if (t.length < 2) return [];
-    return products.filter((p) => p.name.toLowerCase().includes(t) || (p.barcode ?? "") === t).slice(0, 8);
+    const t = q.trim();
+    if (!t) return [];
+    const exact = products.filter((p) => (p.barcode ?? "") === t);
+    if (exact.length) return exact;
+    return searchList(products, t, (p) => ({ text: [p.name] })).slice(0, 8);
   }, [q, products]);
   return (
     <div>

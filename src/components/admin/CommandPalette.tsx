@@ -3,19 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { adminPages, type AdminPage } from "@/lib/admin-nav";
+import { matchesSearch } from "@/lib/search";
 
 /** Event navet (⌘K-hintet) sender for å åpne paletten. */
 export const OPEN_COMMAND_PALETTE_EVENT = "admin:open-command-palette";
 
 function matches(page: AdminPage, q: string): boolean {
-  if (!q) return true;
-  const haystack = `${page.label} ${page.group} ${page.description ?? ""}`.toLowerCase();
-  // Alle søkeordene må finnes (enkel fuzzy pr. ord).
-  return q
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean)
-    .every((term) => haystack.includes(term));
+  // Tilgivende: starten av ord og små skrivefeil holder.
+  return matchesSearch(q, { text: [page.label, page.group, page.description] });
 }
 
 export function CommandPalette() {

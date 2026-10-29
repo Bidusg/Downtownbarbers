@@ -256,6 +256,39 @@ export async function getCustomersPage(opts: {
   const to = from + pageSize - 1;
   try {
     const sb = await createClient();
+    const q = (opts.q ?? "").trim();
+
+    // Tilgivende søk (KJØR-I-SUPABASE-SOK.sql): rangerte treff, beste først.
+    if (q) {
+      const { data: ranked, error: rankErr } = await sb.rpc("customer_search_rank", { p_q: q, p_limit: 1000 });
+      if (!rankErr) {
+        const ids = ((ranked as { id: string }[] | null) ?? []).map((r) => r.id);
+        const pageIds = ids.slice(from, to + 1);
+        if (!pageIds.length) return { rows: [], total: ids.length, page, pageSize };
+        const { data } = await sb
+          .from("customers")
+          .select("id, full_name, phone, email, category, bookings(status, price_nok, start_at)")
+          .in("id", pageIds);
+        const byId = new Map((data ?? []).map((r) => [r.id as string, r]));
+        const rows = pageIds
+          .map((id) => byId.get(id))
+          .filter(Boolean)
+          .map((r) => {
+            const bk = (r!.bookings as CustomerBookingRow[] | null) ?? [];
+            return {
+              id: r!.id,
+              full_name: r!.full_name,
+              phone: r!.phone,
+              email: r!.email,
+              category: r!.category,
+              ...summarizeBookings(bk),
+            } as AdminCustomer;
+          });
+        return { rows, total: ids.length, page, pageSize };
+      }
+      // SQL ikke kjørt ennå → vanlig søk under.
+    }
+
     let query = sb
       .from("customers")
       .select(
@@ -265,7 +298,6 @@ export async function getCustomersPage(opts: {
       .order("full_name")
       .range(from, to);
 
-    const q = (opts.q ?? "").trim();
     if (q) {
       // Fjern tegn som ville brutt or/ilike-filteret.
       const esc = q.replace(/[%,()]/g, " ");

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { LiveSearchInput } from "@/components/ui/LiveSearchInput";
 import { cancelOrder, completeOrder, markOrderReady, pickItem, setItemMissing } from "@/app/kasse/nettordrer/actions";
 import type { OnlineOrder, OnlineOrderItem } from "@/lib/online-order-queries";
 import { formatKr } from "@/lib/format";
@@ -414,17 +415,12 @@ export function OnlineOrders({
     <div className="space-y-4">
       {basePath && (
         <form action={basePath} method="get" role="search" className="flex flex-wrap items-center gap-2">
-          <input
-            type="search"
-            name="q"
-            defaultValue={search}
+          <LiveSearchInput
+            initial={search}
             placeholder="Søk: ordrenr., navn, e-post, telefon eller vare"
-            aria-label="Søk i nettordrer"
-            className="h-10 min-w-0 flex-1 rounded-lg border border-line-2 bg-canvas px-3 text-sm [@media(pointer:coarse)]:h-11"
+            ariaLabel="Søk i nettordrer"
+            className="min-w-0 flex-1"
           />
-          <button type="submit" className={btnPrimary}>
-            Søk
-          </button>
           {search && (
             <a href={basePath} className="text-sm text-muted underline">
               Nullstill

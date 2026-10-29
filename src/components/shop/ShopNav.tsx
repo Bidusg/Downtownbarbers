@@ -16,6 +16,7 @@ import {
   type ShopProduct,
 } from "@/lib/shop-shared";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { searchList } from "@/lib/search";
 
 /* =====================================================================
  * BUTIKK-MENY (som ASOS / Zalando / Zara)
@@ -38,6 +39,19 @@ export function ShopNav() {
   const [sheet, setSheet] = useState(false);
   const [openDept, setOpenDept] = useState<string | null>(null);
   const [q, setQ] = useState("");
+  const [focus, setFocus] = useState<"desk" | "mob" | null>(null);
+  // Treff mens man skriver (tilgivende: starten av ord + små skrivefeil).
+  const hits = useMemo(
+    () =>
+      q.trim()
+        ? searchList(
+            products.filter((p) => !p.isGiftCard),
+            q,
+            (p) => ({ text: [p.name, p.brand, deptOf(p.category)?.no, p.tags.join(" ")] }),
+          ).slice(0, 6)
+        : [],
+    [q, products],
+  );
   const timer = useRef<number | null>(null);
 
   const activeDept = path.match(/^\/butikk\/kategori\/([^/?]+)/)?.[1] ?? null;
@@ -106,7 +120,64 @@ export function ShopNav() {
     if (!v) return;
     router.push(catUrl(null, null, `q=${encodeURIComponent(v)}`));
     setSheet(false);
+    setFocus(null);
   };
+
+  // Forslag under søkefeltet. onMouseDown hindrer at feltet mister fokus
+  // (og lukker listen) før klikket rekker å registreres.
+  const suggest = (pos: string) =>
+    q.trim() ? (
+      <div
+        className={
+          "absolute top-full z-50 mt-2 overflow-hidden rounded-2xl bg-canvas shadow-[0_0_0_1px_oklch(var(--line)),0_18px_40px_-16px_rgb(0_0_0/0.3)] " +
+          pos
+        }
+        onMouseDown={(e) => e.preventDefault()}
+      >
+        {hits.length === 0 ? (
+          <p className="px-4 py-3 text-sm text-muted">
+            {t(`Ingen treff på «${q.trim()}»`, `No results for “${q.trim()}”`)}
+          </p>
+        ) : (
+          <ul className="max-h-[60vh] overflow-y-auto py-1">
+            {hits.map((p) => (
+              <li key={p.id}>
+                <Link
+                  href={`/butikk/${p.slug}`}
+                  onClick={() => {
+                    setFocus(null);
+                    setSheet(false);
+                  }}
+                  className="flex items-center gap-3 px-3 py-2 hover:bg-surface"
+                >
+                  <span className="h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-surface">
+                    {p.images[0] ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.images[0]} alt="" loading="lazy" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center text-sm font-semibold text-muted" aria-hidden>
+                        {p.name.charAt(0)}
+                      </span>
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    {p.brand && <span className="block truncate text-[11px] tracking-wide text-muted uppercase">{p.brand}</span>}
+                    <span className="block truncate text-sm font-medium text-fg">{p.name}</span>
+                  </span>
+                  <span className="shrink-0 text-sm tabular-nums text-fg">{kr(p.price)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+        <button
+          type="submit"
+          className="block w-full border-t border-line px-4 py-2.5 text-left text-sm font-semibold text-fg hover:bg-surface"
+        >
+          {t(`Se alle treff for «${q.trim()}»`, `See all results for “${q.trim()}”`)} →
+        </button>
+      </div>
+    ) : null;
 
   const popularIn = (d: Dept): ShopProduct[] =>
     products
@@ -188,7 +259,7 @@ export function ShopNav() {
           className="flex items-center gap-2"
           onMouseEnter={() => openSoon(null)}
         >
-          <form role="search" onSubmit={search}>
+          <form role="search" onSubmit={search} className="relative">
             <label className="relative block">
               <span className="sr-only">
                 {t("Søk i butikken", "Search the shop")}
@@ -208,6 +279,10 @@ export function ShopNav() {
                 type="search"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
+                onFocus={() => setFocus("desk")}
+                onBlur={() => setFocus((f) => (f === "desk" ? null : f))}
+                onKeyDown={(e) => e.key === "Escape" && setFocus(null)}
+                autoComplete="off"
                 placeholder={t(
                   "Søk etter produkt eller merke",
                   "Search product or brand",
@@ -215,6 +290,7 @@ export function ShopNav() {
                 className="h-10 w-64 rounded-full bg-surface pr-4 pl-10 text-sm text-fg shadow-[0_0_0_1px_oklch(var(--line-2))] outline-none placeholder:text-muted focus:shadow-[0_0_0_2px_oklch(var(--fg))] lg:w-72"
               />
             </label>
+            {focus === "desk" && suggest("right-0 w-[24rem]")}
           </form>
           <CartButton className="h-10 min-h-10" />
         </div>
@@ -356,7 +432,7 @@ export function ShopNav() {
 
       {/* ---------- Mobil ---------- */}
       <div className="md:hidden">
-        <div className="flex items-center gap-2 px-4 pt-3">
+        <div className="relative flex items-center gap-2 px-4 pt-3">
           <button
             type="button"
             onClick={() => setSheet(true)}
@@ -384,10 +460,15 @@ export function ShopNav() {
                 type="search"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
+                onFocus={() => setFocus("mob")}
+                onBlur={() => setFocus((f) => (f === "mob" ? null : f))}
+                onKeyDown={(e) => e.key === "Escape" && setFocus(null)}
+                autoComplete="off"
                 placeholder={t("Søk …", "Search …")}
                 className="h-10 w-full rounded-full bg-surface px-4 text-[15px] text-fg shadow-[0_0_0_1px_oklch(var(--line-2))] outline-none placeholder:text-muted"
               />
             </label>
+            {focus === "mob" && suggest("inset-x-4")}
           </form>
           <CartButton className="h-10 min-h-10 px-3" />
         </div>

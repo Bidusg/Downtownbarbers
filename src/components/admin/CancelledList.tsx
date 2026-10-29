@@ -1,5 +1,6 @@
 "use client";
 
+import { searchList } from "@/lib/search";
 import { useMemo, useState } from "react";
 import type { CancelledBooking } from "@/lib/cancelled-queries";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -86,15 +87,8 @@ export function CancelledList({ items }: { items: CancelledBooking[] }) {
 
   const shown = useMemo(() => {
     const byWho = filter === "all" ? items : items.filter((i) => i.cancelledBy === filter);
-    const terms = q.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    if (!terms.length) return byWho;
-    // Telefon: søk på sifre uansett mellomrom og +47.
-    const digits = q.replace(/\D/g, "");
-    return byWho.filter((b) => {
-      const h = haystack(b);
-      if (terms.every((t) => h.includes(t))) return true;
-      return digits.length >= 3 && (b.customerPhone ?? "").replace(/\D/g, "").includes(digits);
-    });
+    // Tilgivende søk: hvert ord, starten av ord, små skrivefeil, telefon-sifre.
+    return searchList(byWho, q, (b) => ({ text: [haystack(b)], digits: [b.customerPhone] }));
   }, [items, filter, q]);
 
   const tabs: { key: Filter; label: string; n: number }[] = [

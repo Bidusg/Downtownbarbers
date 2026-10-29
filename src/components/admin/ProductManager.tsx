@@ -1,5 +1,6 @@
 "use client";
 
+import { searchList } from "@/lib/search";
 import { Fragment, useMemo, useState, useTransition } from "react";
 import { WebProductEditor } from "@/components/admin/WebshopAdmin";
 import { deptOf, subOf } from "@/lib/shop-shared";
@@ -171,9 +172,11 @@ export function ProductManager({ products }: { products: AdminProduct[] }) {
   const hasWeb = products.some((p) => p.slug !== undefined);
   const imgCount = (p: AdminProduct) => ((p.images ?? []).length || (p.image_url ? 1 : 0));
   const shown = useMemo(() => {
-    const n = q.trim().toLowerCase();
-    return products.filter((p) => {
-      if (n && !`${p.name} ${p.web_name ?? ""} ${p.brand ?? ""} ${p.barcode ?? ""} ${deptOf(p.category)?.no ?? ""}`.toLowerCase().includes(n)) return false;
+    const hits = searchList(products, q, (p) => ({
+      text: [p.name, p.web_name, p.brand, deptOf(p.category)?.no],
+      digits: [p.barcode],
+    }));
+    return hits.filter((p) => {
       if (filter === "review") return !!p.content_review;
       if (filter === "noimg") return !p.is_gift_card && imgCount(p) === 0;
       if (filter === "offline") return !p.is_gift_card && (p.online === false || !p.slug);
