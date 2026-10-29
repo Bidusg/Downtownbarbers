@@ -22,8 +22,9 @@ declare
   v_start date := date '2026-11-02';   -- mandag uke 45 (oddetall)
   v_split date := date '2027-01-04';   -- mandag uke 1 2027 (oddetall)
   v_note  text := 'Opplæring av Kochari';
-  v_odd1 int; v_even1 int; v_odd2 int; v_even2 int;
+  v_n  int;
   d int;
+  k int;
   r record;
   n int;
 begin
@@ -37,10 +38,14 @@ begin
   if n > 1 then raise exception 'Fant flere aktive ansatte med «Dawit» i navnet – rett navnet i skriptet.'; end if;
   select id into v_staff from staff where full_name ilike '%dawit%' and active;
 
-  v_odd1  := turnus_week_parity(v_start);
-  v_even1 := turnus_week_parity(v_start + 7);
-  v_odd2  := turnus_week_parity(v_split);
-  v_even2 := turnus_week_parity(v_split + 7);
+  select coalesce((value->>'weeks')::int, 2) into v_n from settings where key = 'turnus_rotation';
+  v_n := coalesce(v_n, 2);
+  -- Annenhver uke går bare opp når rotasjonen har et partall antall uker
+  -- (2, 4, 6 …): da er hver uke-indeks enten alltid oddetall eller alltid
+  -- partall. Opplæringen legges på de indeksene som er oddetallsuker.
+  if v_n < 2 or v_n % 2 <> 0 then
+    raise exception 'Turnusen roterer over % uke(r). Annenhver uke krever et partall antall uker i rotasjonen (Admin → Timelister).', v_n;
+  end if;
 
   -- Tidligere kjøring av dette skriptet: fjern opplæringsradene den laget og
   -- åpne igjen vakter den avsluttet (de kjennes igjen på merknaden/datoene).
@@ -56,10 +61,14 @@ begin
 
     if n = 0 then
       -- Ingen vakt: egen opplæringsøkt 11–13 i oddetallsukene.
-      insert into staff_hours (staff_id, weekday, start_time, end_time, week_parity, valid_from, valid_to,
-                               pause_start, pause_end, pause_note)
-      values (v_staff, d, '11:00', '13:00', v_odd1, v_start, v_split - 1, '11:00', '13:00', v_note),
-             (v_staff, d, '11:00', '13:00', v_odd2, v_split, null,        '11:00', '13:00', v_note);
+      for k in 0 .. v_n - 1 by 2 loop
+        insert into staff_hours (staff_id, weekday, start_time, end_time, week_parity, valid_from, valid_to,
+                                 pause_start, pause_end, pause_note)
+        values (v_staff, d, '11:00', '13:00', turnus_week_parity(v_start + 7 * k), v_start, v_split - 1,
+                '11:00', '13:00', v_note),
+               (v_staff, d, '11:00', '13:00', turnus_week_parity(v_split + 7 * k), v_split, null,
+                '11:00', '13:00', v_note);
+      end loop;
       continue;
     end if;
 
@@ -81,13 +90,17 @@ begin
     -- Vanlig vakt hver uke som dekker 11–13: avslutt den og legg inn samme
     -- vakt delt på oddetall (med opplæring) / partall (uten).
     update staff_hours set valid_to = v_start - 1 where id = r.id;
-    insert into staff_hours (staff_id, weekday, start_time, end_time, week_parity, valid_from, valid_to,
-                             pause_start, pause_end, pause_note)
-    values
-      (v_staff, d, r.start_time, r.end_time, v_odd1,  v_start, v_split - 1, '11:00', '13:00', v_note),
-      (v_staff, d, r.start_time, r.end_time, v_even1, v_start, v_split - 1, null, null, null),
-      (v_staff, d, r.start_time, r.end_time, v_odd2,  v_split, null,        '11:00', '13:00', v_note),
-      (v_staff, d, r.start_time, r.end_time, v_even2, v_split, null,        null, null, null);
+    for k in 0 .. v_n - 1 loop
+      insert into staff_hours (staff_id, weekday, start_time, end_time, week_parity, valid_from, valid_to,
+                               pause_start, pause_end, pause_note)
+      values
+        (v_staff, d, r.start_time, r.end_time, turnus_week_parity(v_start + 7 * k), v_start, v_split - 1,
+         case when k % 2 = 0 then time '11:00' end, case when k % 2 = 0 then time '13:00' end,
+         case when k % 2 = 0 then v_note end),
+        (v_staff, d, r.start_time, r.end_time, turnus_week_parity(v_split + 7 * k), v_split, null,
+         case when k % 2 = 0 then time '11:00' end, case when k % 2 = 0 then time '13:00' end,
+         case when k % 2 = 0 then v_note end);
+    end loop;
   end loop;
 
   raise notice 'Dawit: opplæring av Kochari lagt inn mandag og onsdag 11–13 i oddetallsuker fra %.', v_start;

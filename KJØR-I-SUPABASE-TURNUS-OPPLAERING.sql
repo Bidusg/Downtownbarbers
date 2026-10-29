@@ -30,9 +30,8 @@ declare
   v_n      int;
   v_start  date := date '2026-11-02';   -- mandag uke 45 (oddetall)
   v_split  date := date '2027-01-04';   -- mandag uke 1 2027 (oddetall)
-  v_odd1   int;  v_even1 int;            -- uke-indeks for odde/like uker 2026
-  v_odd2   int;  v_even2 int;            -- … og fra 2027
   d        int;
+  k        int;
 begin
   -- Pausen må faktisk blokkere booking (TURNUS-PAUSE kjørt).
   if not exists (select 1 from information_schema.columns
@@ -48,14 +47,13 @@ begin
   end if;
 
   select coalesce((value->>'weeks')::int, 2) into v_n from settings where key = 'turnus_rotation';
-  if coalesce(v_n, 2) <> 2 then
-    raise exception 'Turnusen roterer over % uker. Annenhver uke krever 2-ukers rotasjon (Admin → Timelister).', v_n;
+  v_n := coalesce(v_n, 2);
+  -- Annenhver uke går bare opp når rotasjonen har et partall antall uker
+  -- (2, 4, 6 …): da er hver uke-indeks enten alltid oddetall eller alltid
+  -- partall. Opplæringen legges på de indeksene som er oddetallsuker.
+  if v_n < 2 or v_n % 2 <> 0 then
+    raise exception 'Turnusen roterer over % uke(r). Annenhver uke krever et partall antall uker i rotasjonen (Admin → Timelister).', v_n;
   end if;
-
-  v_odd1  := turnus_week_parity(v_start);
-  v_even1 := turnus_week_parity(v_start + 7);
-  v_odd2  := turnus_week_parity(v_split);
-  v_even2 := turnus_week_parity(v_split + 7);
 
   -- Rydd: fjern framtidige vakter (også fra en tidligere kjøring av skriptet),
   -- avslutt dagens vakter dagen før den nye turnusen starter.
@@ -70,18 +68,23 @@ begin
          (v_staff, 5, '17:00', '20:00', 0, v_start);
 
   -- Mandag (1) og onsdag (3): 11–19 hver uke, opplæring 11–13 i oddetallsukene.
+  -- Én rad per uke-indeks i rotasjonen; k = 0, 2, 4 … er oddetallsuker
+  -- (startdatoene er mandag i en oddetallsuke).
   foreach d in array array[1, 3] loop
-    insert into staff_hours (staff_id, weekday, start_time, end_time, week_parity, valid_from, valid_to,
-                             pause_start, pause_end, pause_note)
-    values
-      (v_staff, d, '11:00', '19:00', v_odd1,  v_start, v_split - 1, '11:00', '13:00', 'Opplæring'),
-      (v_staff, d, '11:00', '19:00', v_even1, v_start, v_split - 1, null, null, null),
-      (v_staff, d, '11:00', '19:00', v_odd2,  v_split, null,        '11:00', '13:00', 'Opplæring'),
-      (v_staff, d, '11:00', '19:00', v_even2, v_split, null,        null, null, null);
+    for k in 0 .. v_n - 1 loop
+      insert into staff_hours (staff_id, weekday, start_time, end_time, week_parity, valid_from, valid_to,
+                               pause_start, pause_end, pause_note)
+      values
+        (v_staff, d, '11:00', '19:00', turnus_week_parity(v_start + 7 * k), v_start, v_split - 1,
+         case when k % 2 = 0 then time '11:00' end, case when k % 2 = 0 then time '13:00' end,
+         case when k % 2 = 0 then 'Opplæring' end),
+        (v_staff, d, '11:00', '19:00', turnus_week_parity(v_split + 7 * k), v_split, null,
+         case when k % 2 = 0 then time '11:00' end, case when k % 2 = 0 then time '13:00' end,
+         case when k % 2 = 0 then 'Opplæring' end);
+    end loop;
   end loop;
 
-  raise notice 'Kochari: ny turnus fra %. Opplæring i uke-indeks % (2026) og % (fra 2027).',
-    v_start, v_odd1, v_odd2;
+  raise notice 'Kochari: ny turnus fra % (rotasjon over % uker).', v_start, v_n;
 end $$;
 
 -- «Min turnus» for ansatte: vaktene som gjelder i dag (ikke avsluttede eller
