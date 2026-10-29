@@ -104,7 +104,7 @@ begin
   if v_p.once_per_customer and v_cust is not null and exists (
        select 1 from bookings b
         where b.promo_id = v_p.id and b.customer_id = v_cust
-          and b.id <> all(p_bookings) and coalesce(b.status, '') <> 'cancelled') then
+          and b.id <> all(p_bookings) and coalesce(b.status::text, '') <> 'cancelled') then
     return 0;
   end if;
 
@@ -142,7 +142,7 @@ begin
   select * into v_o from online_orders where id = p_order and access_token = p_token for update;
   if v_o.id is null then return null; end if;
   if v_o.promo_id is not null or v_o.created_at < now() - interval '15 minutes'
-     or coalesce(v_o.payment_status, '') in ('paid', 'captured', 'authorized', 'reserved') then
+     or coalesce(v_o.payment_status::text, '') in ('paid', 'captured', 'authorized', 'reserved') then
     return json_build_object('total_nok', v_o.total_nok);
   end if;
 
@@ -188,15 +188,15 @@ returns table (id uuid, bookings int, booked_people int, completed int, orders i
 language sql stable security definer set search_path = public as $$
   select p.id,
          (select count(distinct coalesce(b.group_id, b.id))::int from bookings b
-           where b.promo_id = p.id and coalesce(b.status, '') <> 'cancelled'),
+           where b.promo_id = p.id and coalesce(b.status::text, '') <> 'cancelled'),
          (select count(*)::int from bookings b
-           where b.promo_id = p.id and coalesce(b.status, '') <> 'cancelled'),
+           where b.promo_id = p.id and coalesce(b.status::text, '') <> 'cancelled'),
          (select count(*)::int from bookings b
-           where b.promo_id = p.id and b.status = 'completed'),
+           where b.promo_id = p.id and b.status::text = 'completed'),
          (select count(*)::int from online_orders o
-           where o.promo_id = p.id and coalesce(o.status, '') <> 'cancelled'),
+           where o.promo_id = p.id and coalesce(o.status::text, '') <> 'cancelled'),
          (select coalesce(sum(o.total_nok), 0) from online_orders o
-           where o.promo_id = p.id and coalesce(o.status, '') <> 'cancelled')
+           where o.promo_id = p.id and coalesce(o.status::text, '') <> 'cancelled')
     from promo_campaigns p
    where is_admin();
 $$;
