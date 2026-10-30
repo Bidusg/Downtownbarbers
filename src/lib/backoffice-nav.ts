@@ -47,6 +47,7 @@ export const ansattNav: BoNav = {
   kind: "flat",
   links: [
     { href: "/ansatt", label: "Min side", exact: true },
+    { href: "/ansatt/bookinger", label: "Mine bookinger" },
     { href: "/ansatt/turnus", label: "Min turnus" },
     { href: "/ansatt/fravaer", label: "Mine fravær" },
     { href: "/ansatt/timer", label: "Mine timer" },

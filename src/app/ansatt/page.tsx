@@ -4,7 +4,8 @@ import { Card } from "@/components/ui/Card";
 import { StatTile } from "@/components/ui/StatTile";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { requireRole, getUserRole } from "@/lib/auth";
-import { getMyAgenda } from "@/lib/ansatt-queries";
+import { getMyAgenda, getMyUpcomingShifts } from "@/lib/ansatt-queries";
+import { dayLabel, firstName, nowMs, osloDate, osloTime } from "@/lib/ansatt-format";
 import { getGoalProgress } from "@/lib/analytics-queries";
 import { NoticeBanner } from "@/components/admin/NoticeBanner";
 import { getActiveNotices } from "@/lib/notices-queries";
@@ -20,17 +21,6 @@ function periodLabel(p: string | null): string {
 
 export const dynamic = "force-dynamic";
 
-function fmtDay(iso: string) {
-  try {
-    return new Date(iso).toLocaleDateString("nb-NO", {
-      weekday: "long",
-      day: "2-digit",
-      month: "short",
-    });
-  } catch {
-    return iso;
-  }
-}
 function fmtTime(iso: string) {
   try {
     return new Date(iso).toLocaleTimeString("nb-NO", {
@@ -44,12 +34,28 @@ function fmtTime(iso: string) {
 
 export default async function AnsattDashboard() {
   await requireRole(["staff", "admin"]);
-  const [me, agenda, notices, docs] = await Promise.all([
+  const [me, agenda, notices, docs, shifts] = await Promise.all([
     getUserRole(),
     getMyAgenda(),
     getActiveNotices("ansatt"),
     getMyDocuments().catch(() => []),
+    getMyUpcomingShifts(21),
   ]);
+
+  // ---- I dag: vakt, opplæring, kunder ----
+  const today = osloDate();
+  const nowT = nowMs();
+  const nowHHMM = new Date().toLocaleTimeString("nb-NO", { timeZone: "Europe/Oslo", hour: "2-digit", minute: "2-digit" });
+  const todayShifts = shifts.filter((s) => s.work_date === today);
+  const nextShift = shifts.find((s) => s.work_date > today || (s.work_date === today && s.end_time > nowHHMM));
+  const training = todayShifts.find((s) => s.pause_start && s.pause_end && s.pause_note);
+  const active = agenda.bookings.filter((b) => b.status !== "cancelled");
+  const todayList = active.filter((b) => osloDate(b.start_at) === today);
+  const nextUp = todayList.filter((b) => Date.parse(b.start_at) >= nowT - 15 * 60000);
+  const greeting = (() => {
+    const h = Number(nowHHMM.slice(0, 2));
+    return h < 10 ? "God morgen" : h < 17 ? "Hei" : "God kveld";
+  })();
   // Siste lønnsoversikt – vises øverst de første 45 dagene etter at den kom.
   const latestSlip = docs
     .filter((d) => d.category === "lonnslipp")
@@ -67,16 +73,57 @@ export default async function AnsattDashboard() {
   const goalPct = myGoal?.pct ?? 0;
 
   // Grupper timer per dag
+  // Forsiden viser de neste 6 – resten ligger under «Bookinger».
   const byDay = new Map<string, typeof agenda.bookings>();
-  for (const b of agenda.bookings) {
-    const key = fmtDay(b.start_at);
+  for (const b of active.filter((x) => Date.parse(x.start_at) >= nowT - 15 * 60000).slice(0, 6)) {
+    const key = dayLabel(osloDate(b.start_at), today);
     if (!byDay.has(key)) byDay.set(key, []);
     byDay.get(key)!.push(b);
   }
 
   return (
-    <main className="mx-auto max-w-3xl space-y-8 p-6">
-        <PageHeader title="Min side" />
+    <main className="mx-auto max-w-3xl space-y-6 px-4 py-6 sm:space-y-8 sm:p-6">
+        <div>
+          <p className="text-[13px] font-medium text-muted first-letter:uppercase">
+            {new Date().toLocaleDateString("nb-NO", { timeZone: "Europe/Oslo", weekday: "long", day: "numeric", month: "long" })}
+          </p>
+          <PageHeader title={`${greeting}${agenda.staffName ? `, ${firstName(agenda.staffName)}` : ""}`} />
+        </div>
+
+        {/* I DAG – vakt, opplæring og kunder på ett blikk */}
+        {agenda.linked && (
+          <section className="overflow-hidden rounded-3xl bg-fg text-canvas shadow-[0_20px_50px_-24px_rgb(0_0_0/0.5)]">
+            <div className="grid grid-cols-2 divide-x divide-canvas/15">
+              <div className="p-5">
+                <p className="text-[11px] font-semibold tracking-[0.14em] text-canvas/60 uppercase">Vakt i dag</p>
+                <p className="mt-1 font-display text-xl font-bold whitespace-nowrap tabular-nums sm:text-2xl">
+                  {todayShifts.length ? todayShifts.map((s) => `${s.start_time}–${s.end_time}`).join(", ") : "Fri"}
+                </p>
+                {!todayShifts.length && nextShift && (
+                  <p className="mt-1 text-[13px] text-canvas/70">
+                    Neste: {dayLabel(nextShift.work_date, today).toLowerCase()} {nextShift.start_time}
+                  </p>
+                )}
+              </div>
+              <div className="p-5">
+                <p className="text-[11px] font-semibold tracking-[0.14em] text-canvas/60 uppercase">Kunder i dag</p>
+                <p className="mt-1 font-display text-2xl font-bold tabular-nums">{todayList.length}</p>
+                {nextUp[0] && (
+                  <p className="mt-1 truncate text-[13px] text-canvas/70">
+                    Neste: {osloTime(nextUp[0].start_at)} · {nextUp[0].customer}
+                  </p>
+                )}
+              </div>
+            </div>
+            {training && (
+              <div className="flex items-center gap-3 border-t border-canvas/15 bg-accent-soft/90 px-5 py-3 text-[14px] font-semibold text-white">
+                <span aria-hidden>📘</span>
+                {training.pause_note} {training.pause_start}–{training.pause_end}
+              </div>
+            )}
+          </section>
+        )}
+
         <NoticeBanner notices={notices} />
         {showSlip && latestSlip && (
           <Card>
@@ -96,14 +143,21 @@ export default async function AnsattDashboard() {
         {/* MIN TIMEPLAN */}
         <Card padded={false}>
           <div className="p-6">
-            <h2 className="mb-4 font-display text-lg font-bold">Min timeplan</h2>
+            <div className="mb-4 flex items-baseline justify-between gap-3">
+              <h2 className="font-display text-lg font-bold">Kommende kunder</h2>
+              {agenda.linked && active.length > 0 && (
+                <Link href="/ansatt/bookinger" className="text-sm font-semibold text-accent-soft">
+                  Se alle ({active.length}) →
+                </Link>
+              )}
+            </div>
             {!agenda.linked ? (
               <p className="text-sm text-muted">
                 Kontoen din ({me?.email}) er ikke koblet til en ansattprofil
                 enda. Be admin sette e-posten din på din ansatt-rad, så dukker
                 timene dine og tallene dine opp her.
               </p>
-            ) : agenda.bookings.length === 0 ? (
+            ) : byDay.size === 0 ? (
               <EmptyState description="Ingen kommende timer akkurat nå." />
             ) : (
               <div className="space-y-5">
@@ -164,7 +218,7 @@ export default async function AnsattDashboard() {
 
             <StatTile
               label="Kommende timer"
-              value={`${agenda.bookings.length}`}
+              value={`${active.length}`}
               sub="registrerte bookinger"
             />
 

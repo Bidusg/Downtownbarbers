@@ -920,6 +920,7 @@ export function Topbar({
   badge,
   email,
   initial,
+  hideMobileMenu = false,
 }: {
   role: string;
   homeHref: string;
@@ -928,6 +929,8 @@ export function Topbar({
   badge?: string | null;
   email?: string | null;
   initial?: string;
+  /** Ansatt-appen har egen bunnmeny på mobil – da trengs ikke hamburgeren. */
+  hideMobileMenu?: boolean;
 }) {
   const path = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -1053,7 +1056,8 @@ export function Topbar({
               aria-label={mobileOpen ? "Lukk meny" : "Åpne meny"}
               aria-expanded={mobileOpen}
               className={
-                "bo-burger flex h-10 w-10 flex-col items-center justify-center gap-1.5 rounded-lg " +
+                "bo-burger h-10 w-10 flex-col items-center justify-center gap-1.5 rounded-lg " +
+                (hideMobileMenu ? "hidden " : "flex ") +
                 (nav.kind === "grouped" ? "lg:hidden" : "md:hidden")
               }
             >
