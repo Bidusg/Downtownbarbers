@@ -4,6 +4,7 @@ import { getMyStaffLink } from "@/lib/ansatt-queries";
 import { Topbar } from "@/components/backoffice/Topbar";
 import { PageTransition } from "@/components/backoffice/PageTransition";
 import { AppTabBar } from "@/components/ansatt/AppTabBar";
+import { NativeBridge } from "@/components/ansatt/NativeBridge";
 import { ansattNav } from "@/lib/backoffice-nav";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +43,7 @@ export default async function AnsattLayout({
       />
       <PageTransition>{children}</PageTransition>
       <AppTabBar />
+      <NativeBridge />
     </div>
   );
 }

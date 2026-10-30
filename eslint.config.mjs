@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // App-skallet (Capacitor) – egne native-prosjekter, ikke en del av nettsiden.
+    "app-ansatt/**",
   ]),
 ]);
 

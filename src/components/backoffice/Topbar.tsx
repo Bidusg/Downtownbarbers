@@ -979,7 +979,7 @@ export function Topbar({
 
   return (
     <>
-      <header className="bo-topbar sticky top-0 z-40" data-scrolled={scrolled}>
+      <header className="bo-topbar sticky top-0 z-40 pt-[env(safe-area-inset-top)]" data-scrolled={scrolled}>
         <div className="relative mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">
           {brand}
 

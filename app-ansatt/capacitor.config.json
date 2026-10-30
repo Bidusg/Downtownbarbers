@@ -1,0 +1,31 @@
+{
+  "appId": "no.downtownbarbers.ansatt",
+  "appName": "DTB Ansatt",
+  "webDir": "www",
+  "server": {
+    "url": "https://downtownbarbers.no/ansatt",
+    "cleartext": false,
+    "errorPath": "offline.html"
+  },
+  "backgroundColor": "#F8F5EF",
+  "ios": {
+    "contentInset": "never",
+    "limitsNavigationsToAppBoundDomains": false
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "launchAutoHide": true,
+      "backgroundColor": "#F8F5EF",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "LIGHT",
+      "backgroundColor": "#F8F5EF",
+      "overlaysWebView": true
+    }
+  }
+}

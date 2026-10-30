@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DTB Ansatt</string>
+    <string name="title_activity_main">DTB Ansatt</string>
+    <string name="package_name">no.downtownbarbers.ansatt</string>
+    <string name="custom_url_scheme">no.downtownbarbers.ansatt</string>
+</resources>

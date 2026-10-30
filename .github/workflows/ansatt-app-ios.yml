@@ -1,0 +1,83 @@
+# DTB Ansatt – iPhone-app
+# Uten nøkler: sjekker at appen bygger (simulator) – ingen Mac nødvendig.
+# Med nøkler: bygger, signerer og laster opp til TestFlight automatisk.
+#
+# Legg inn under GitHub → Settings → Secrets and variables → Actions:
+#   APPLE_TEAM_ID          – Team ID fra developer.apple.com (Membership)
+#   ASC_KEY_ID             – App Store Connect API-nøkkel: Key ID
+#   ASC_ISSUER_ID          – App Store Connect API-nøkkel: Issuer ID
+#   ASC_KEY_P8_BASE64      – selve .p8-fila, base64 (rollen må være «Admin»)
+# Appen må først være opprettet i App Store Connect med bundle-ID
+# no.downtownbarbers.ansatt.
+name: Ansatt-app (iPhone)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["app-ansatt/**", ".github/workflows/ansatt-app-ios.yml"]
+
+jobs:
+  ios:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: app-ansatt
+    env:
+      HAS_ASC: ${{ secrets.ASC_KEY_P8_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app-ansatt/package-lock.json
+
+      - name: Installer
+        run: npm ci
+
+      - name: Synk Capacitor
+        run: npx cap sync ios
+
+      - name: Bygg for simulator (sjekk)
+        if: env.HAS_ASC != 'true'
+        working-directory: app-ansatt/ios/App
+        run: |
+          xcodebuild -project App.xcodeproj -scheme App -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build
+
+      - name: Arkiver, signer og last opp til TestFlight
+        if: env.HAS_ASC == 'true'
+        working-directory: app-ansatt/ios/App
+        env:
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          KEY_B64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: |
+          KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+          echo "$KEY_B64" | base64 -d > "$KEY_PATH"
+          AUTH="-allowProvisioningUpdates -authenticationKeyPath $KEY_PATH -authenticationKeyID $KEY_ID -authenticationKeyIssuerID $ISSUER_ID"
+
+          xcodebuild -project App.xcodeproj -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            $AUTH archive
+
+          cat > "$RUNNER_TEMP/export.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingStyle</key><string>automatic</string>
+          </dict></plist>
+          PLIST
+
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/export.plist" \
+            -exportPath "$RUNNER_TEMP/export" $AUTH

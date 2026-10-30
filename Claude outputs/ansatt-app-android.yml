@@ -1,0 +1,80 @@
+# DTB Ansatt – Android-app
+# Bygger en installerbar APK hver gang app-ansatt/ endres (eller når du trykker
+# «Run workflow» under Actions). APK-en lastes ned under Actions → kjøringen →
+# «Artifacts» → dtb-ansatt-android.
+#
+# Signert utgave for Google Play (valgfritt, legges inn under Settings → Secrets):
+#   ANDROID_KEYSTORE_BASE64   – keystore-fila, base64
+#   ANDROID_KEYSTORE_PASSWORD – passord til keystore
+#   ANDROID_KEY_ALIAS         – alias
+#   ANDROID_KEY_PASSWORD      – passord til nøkkelen
+name: Ansatt-app (Android)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["app-ansatt/**", ".github/workflows/ansatt-app-android.yml"]
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app-ansatt
+    env:
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app-ansatt/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Installer
+        run: npm ci
+
+      - name: Synk Capacitor
+        run: npx cap sync android
+
+      - name: Bygg APK (test/utlevering)
+        working-directory: app-ansatt/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dtb-ansatt-android
+          path: app-ansatt/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+
+      - name: Signert AAB for Google Play
+        if: env.HAS_KEYSTORE == 'true'
+        working-directory: app-ansatt/android
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          ./gradlew bundleRelease \
+            -Pandroid.injected.signing.store.file="$RUNNER_TEMP/release.jks" \
+            -Pandroid.injected.signing.store.password="$KS_PASS" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEY_PASS"
+
+      - uses: actions/upload-artifact@v4
+        if: env.HAS_KEYSTORE == 'true'
+        with:
+          name: dtb-ansatt-play
+          path: app-ansatt/android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 30
