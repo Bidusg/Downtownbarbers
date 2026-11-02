@@ -17,8 +17,32 @@ function no(iso: string) {
   return `${d}.${m}.${y}`;
 }
 
-function total(b: { cash: number; card: number; vipps: number }) {
-  return b.cash + b.card + b.vipps;
+const MONTHS = [
+  "januar", "februar", "mars", "april", "mai", "juni",
+  "juli", "august", "september", "oktober", "november", "desember",
+];
+
+/** Siste 12 måneder (inkl. denne) som {value: "yyyy-mm", label}. */
+function lastMonths(endDate: string, n = 12) {
+  const [y0, m0] = endDate.split("-").map(Number);
+  const out: { value: string; label: string }[] = [];
+  for (let i = 0; i < n; i++) {
+    const d = new Date(Date.UTC(y0, m0 - 1 - i, 1));
+    const y = d.getUTCFullYear();
+    const m = d.getUTCMonth();
+    out.push({
+      value: `${y}-${String(m + 1).padStart(2, "0")}`,
+      label: `${MONTHS[m][0].toUpperCase()}${MONTHS[m].slice(1)} ${y}`,
+    });
+  }
+  return out;
+}
+
+/** «2026-10» → første og siste dato i måneden. */
+function monthRange(ym: string): { from: string; to: string } {
+  const [y, m] = ym.split("-").map(Number);
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return { from: `${ym}-01`, to: `${ym}-${String(last).padStart(2, "0")}` };
 }
 
 /** −1 dag på en yyyy-mm-dd (UTC), som streng. */
@@ -60,6 +84,14 @@ export function DailyReconciliation({
   const [start, setStart] = useState(windowStart);
   const [done, setDone] = useState(false);
   const [pending, startTransition] = useTransition();
+  const months = lastMonths(endDate);
+  // Standard: forrige måned (den som skal avstemmes mot regnskapet).
+  const [period, setPeriod] = useState<string>(months[1]?.value ?? months[0].value);
+  const [customFrom, setCustomFrom] = useState(windowStart);
+  const [customTo, setCustomTo] = useState(endDate);
+  const range =
+    period === "custom" ? { from: customFrom, to: customTo } : monthRange(period);
+  const pdfHref = `/admin/kasseoppgjor/pdf?from=${range.from}&to=${range.to}`;
 
   function loadOlder() {
     startTransition(async () => {
@@ -79,19 +111,70 @@ export function DailyReconciliation({
 
   return (
     <div>
+      <Card className="mb-6">
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <h2 className="font-display text-lg font-bold">Rapport for periode</h2>
+            <p className="text-xs text-muted">
+              Kasseoppgjør dag for dag som PDF – totalsalg, kontant, kort, Vipps og gavekort.
+            </p>
+          </div>
+          <div className="ml-auto flex flex-wrap items-end gap-2">
+            <label className="text-xs text-muted">
+              <span className="mb-1 block">Periode</span>
+              <select
+                value={period}
+                onChange={(e) => setPeriod(e.target.value)}
+                className="h-10 border border-line-2 bg-surface px-3 text-sm text-fg"
+              >
+                {months.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+                <option value="custom">Velg datoer …</option>
+              </select>
+            </label>
+            {period === "custom" && (
+              <>
+                <label className="text-xs text-muted">
+                  <span className="mb-1 block">Fra</span>
+                  <input
+                    type="date"
+                    value={customFrom}
+                    max={customTo}
+                    onChange={(e) => setCustomFrom(e.target.value)}
+                    className="h-10 border border-line-2 bg-surface px-2 text-sm text-fg"
+                  />
+                </label>
+                <label className="text-xs text-muted">
+                  <span className="mb-1 block">Til</span>
+                  <input
+                    type="date"
+                    value={customTo}
+                    min={customFrom}
+                    max={endDate}
+                    onChange={(e) => setCustomTo(e.target.value)}
+                    className="h-10 border border-line-2 bg-surface px-2 text-sm text-fg"
+                  />
+                </label>
+              </>
+            )}
+            <a
+              href={pdfHref}
+              className="inline-flex h-10 items-center bg-accent px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            >
+              Last ned PDF
+            </a>
+          </div>
+        </div>
+      </Card>
+
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-display text-lg font-bold">Dag for dag</h2>
-        <div className="flex items-center gap-3">
-          <span className="hidden text-xs text-muted sm:inline">
-            Forventet fra salget · talt fra oppgjøret · avvik = talt − forventet
-          </span>
-          <a
-            href={`/admin/kasseoppgjor/pdf?from=${start}&to=${endDate}`}
-            className="border border-line-2 px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-accent-soft hover:text-fg"
-          >
-            Last ned PDF
-          </a>
-        </div>
+        <span className="hidden text-xs text-muted sm:inline">
+          Kort og Vipps føres automatisk · bare kontant telles · avvik = talt − forventet kontant
+        </span>
       </div>
 
       <Card padded={false}>
@@ -99,24 +182,25 @@ export function DailyReconciliation({
           <THead>
             <Tr head className="bg-surface-2 tracking-wide uppercase">
               <Th>Dato</Th>
-              <Th align="right">Forventet</Th>
-              <Th align="right">Talt</Th>
+              <Th align="right">Totalt salg</Th>
+              <Th align="right">Kort + Vipps</Th>
+              <Th align="right">Kontant forventet</Th>
+              <Th align="right">Kontant talt</Th>
               <Th align="right">Avvik</Th>
               <Th>Status</Th>
             </Tr>
           </THead>
           <TBody>
             {rows.length === 0 && (
-              <TableEmpty colSpan={5}>
+              <TableEmpty colSpan={7}>
                 Ingen salg eller oppgjør i perioden.
               </TableEmpty>
             )}
             {rows.map((r) => {
-              const exp = total(r.expected);
-              const cnt = r.counted ? total(r.counted) : null;
-              const methodTitle = `Kontant ${kr(r.expected.cash)} · Kort ${kr(
-                r.expected.card,
-              )} · Vipps ${kr(r.expected.vipps)}`;
+              const cashCounted = r.counted ? r.counted.cash : null;
+              const extra =
+                (r.gift ? ` · Gavekort ${kr(r.gift)}` : "") +
+                (r.other ? ` · Annet ${kr(r.other)}` : "");
               return (
                 <Tr key={r.date} className="align-top">
                   <Td className="font-medium text-fg">
@@ -125,17 +209,36 @@ export function DailyReconciliation({
                       <span className="block text-xs text-muted">{r.note}</span>
                     )}
                   </Td>
-                  <Td align="right" muted nums title={methodTitle}>
-                    {kr(exp)}
+                  <Td
+                    align="right"
+                    nums
+                    className="text-fg"
+                    title={`${r.salesCount} salg${extra}`}
+                  >
+                    {kr(r.salesTotal)}
+                    {(r.gift > 0 || r.other > 0) && (
+                      <span className="block text-[11px] text-muted">{extra.slice(3)}</span>
+                    )}
+                  </Td>
+                  <Td
+                    align="right"
+                    muted
+                    nums
+                    title={`Kort ${kr(r.expected.card)} · Vipps ${kr(r.expected.vipps)}`}
+                  >
+                    {kr(r.expected.card + r.expected.vipps)}
+                  </Td>
+                  <Td align="right" muted nums>
+                    {kr(r.expected.cash)}
                   </Td>
                   <Td align="right" nums className="font-display text-accent-soft">
-                    {cnt == null ? "—" : kr(cnt)}
+                    {cashCounted == null ? "—" : kr(cashCounted)}
                   </Td>
                   <Td align="right">
-                    {cnt == null ? (
+                    {cashCounted == null ? (
                       <span className="text-xs text-muted">—</span>
                     ) : (
-                      <Avvik diff={cnt - exp} />
+                      <Avvik diff={cashCounted - r.expected.cash} />
                     )}
                   </Td>
                   <Td>

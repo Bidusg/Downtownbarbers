@@ -355,11 +355,20 @@ export async function getDiscountTotalForDate(isoDate: string): Promise<number> 
 export type DailyReconRow = {
   /** UTC-dagsnøkkel yyyy-mm-dd (samme dagsvindu som getExpectedByMethodForDate). */
   date: string;
+  /** Forventet per betalingsmåte (kontant/kort/Vipps) fra salget. */
   expected: MethodBreakdown;
   /** Talt beløp fra dagsoppgjøret, eller null hvis dagen ikke er avstemt. */
   counted: MethodBreakdown | null;
   note: string | null;
   settled: boolean;
+  /** Totalt registrert salg (alle betalingsmåter, inkl. gavekort o.l.). */
+  salesTotal: number;
+  /** Betalt med gavekort (innløst – ikke penger inn den dagen). */
+  gift: number;
+  /** Annen/ukjent betalingsmåte (f.eks. «betal ved henting»). */
+  other: number;
+  /** Antall salg. */
+  salesCount: number;
 };
 
 const chunk = <T>(arr: T[], n: number): T[][] => {
@@ -368,12 +377,20 @@ const chunk = <T>(arr: T[], n: number): T[][] => {
   return out;
 };
 
+const isGift = (m: string | null | undefined) => {
+  const s = (m ?? "").trim().toLowerCase();
+  return s.includes("gave") || s.includes("gift");
+};
+
 /**
  * Dag-for-dag avstemming: for hver dag i vinduet [endDate − (days−1), endDate]
  * gir vi forventet salg per betalingsmåte (fra salget, splitt-bevisst – samme
- * grunnlag som selve oppgjøret) og talt beløp fra dagsoppgjøret om det finnes.
- * Avviket regnes ut ved visning. Nyeste dag først; dager helt uten salg OG uten
- * oppgjør utelates. Defensivt: tom liste ved feil.
+ * grunnlag som selve oppgjøret), totalsalg inkl. gavekort/annet, og talt beløp
+ * fra dagsoppgjøret om det finnes. Nyeste dag først; dager helt uten salg OG
+ * uten oppgjør utelates. Defensivt: tom liste ved feil.
+ *
+ * Henter salg i sider à 1000 (Supabase returnerer maks 1000 rader per kall –
+ * ellers ville en travel måned blitt kuttet).
  */
 export async function getDailyReconciliation(
   endDate: string,
@@ -388,28 +405,37 @@ export async function getDailyReconciliation(
     endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
     const startKey = startD.toISOString().slice(0, 10);
 
-    // Salg i vinduet.
-    const { data: sales } = await sb
-      .from("sales")
-      .select("id, sold_at, total_nok, payment_method")
-      .gte("sold_at", startD.toISOString())
-      .lt("sold_at", endExclusive.toISOString())
-      .limit(100000);
-    const salesRows = (sales ?? []) as {
+    type SaleRow = {
       id: string;
       sold_at: string;
       total_nok: number;
       payment_method: string | null;
-    }[];
+    };
+    const salesRows: SaleRow[] = [];
+    const PAGE = 1000;
+    for (let from = 0; from < 100000; from += PAGE) {
+      const { data, error } = await sb
+        .from("sales")
+        .select("id, sold_at, total_nok, payment_method")
+        .gte("sold_at", startD.toISOString())
+        .lt("sold_at", endExclusive.toISOString())
+        .order("sold_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) break;
+      const page = (data ?? []) as SaleRow[];
+      salesRows.push(...page);
+      if (page.length < PAGE) break;
+    }
 
-    // Splittbetalinger (autoritativ per måte) – hentet i sider for å unngå
-    // for lange spørringer.
+    // Splittbetalinger (autoritativ per måte) – hentet i biter.
     const bySale = new Map<string, { method: string; amount: number }[]>();
-    for (const ids of chunk(salesRows.map((s) => s.id), 500)) {
+    for (const ids of chunk(salesRows.map((s) => s.id), 300)) {
       const { data: pays } = await sb
         .from("sale_payments")
         .select("sale_id, method, amount")
-        .in("sale_id", ids);
+        .in("sale_id", ids)
+        .limit(5000);
       for (const p of (pays ?? []) as {
         sale_id: string;
         method: string;
@@ -421,30 +447,36 @@ export async function getDailyReconciliation(
       }
     }
 
-    // Forventet per dag.
-    const expByDay = new Map<string, MethodBreakdown>();
+    type DayAcc = MethodBreakdown & { gift: number; other: number; total: number; count: number };
+    const expByDay = new Map<string, DayAcc>();
+    const add = (acc: DayAcc, method: string | null, amount: number) => {
+      const b = methodBucket(method as string);
+      if (b) acc[b] += amount;
+      else if (isGift(method)) acc.gift += amount;
+      else acc.other += amount;
+    };
     for (const s of salesRows) {
       const key = new Date(s.sold_at).toISOString().slice(0, 10);
-      const acc = expByDay.get(key) ?? { cash: 0, card: 0, vipps: 0 };
+      const acc =
+        expByDay.get(key) ?? { cash: 0, card: 0, vipps: 0, gift: 0, other: 0, total: 0, count: 0 };
+      acc.total += Number(s.total_nok) || 0;
+      acc.count += 1;
       const plist = bySale.get(s.id);
       if (plist && plist.length > 0) {
-        for (const p of plist) {
-          const b = methodBucket(p.method);
-          if (b) acc[b] += p.amount;
-        }
+        for (const p of plist) add(acc, p.method, p.amount);
       } else {
-        const b = methodBucket(s.payment_method as string);
-        if (b) acc[b] += Number(s.total_nok) || 0;
+        add(acc, s.payment_method, Number(s.total_nok) || 0);
       }
       expByDay.set(key, acc);
     }
 
-    // Oppgjør i vinduet.
+    // Oppgjør i vinduet (nyeste per dag vinner).
     const { data: setts } = await sb
       .from("cash_settlements")
-      .select("settle_date, counted_cash, counted_card, counted_vipps, note")
+      .select("settle_date, counted_cash, counted_card, counted_vipps, note, created_at")
       .gte("settle_date", startKey)
-      .lte("settle_date", endDate);
+      .lte("settle_date", endDate)
+      .order("created_at", { ascending: true });
     const settByDay = new Map<
       string,
       { counted: MethodBreakdown; note: string | null }
@@ -474,19 +506,18 @@ export async function getDailyReconciliation(
       const exp = expByDay.get(key);
       const st = settByDay.get(key);
       if (!exp && !st) continue;
-      const expected = exp
-        ? {
-            cash: Math.round(exp.cash),
-            card: Math.round(exp.card),
-            vipps: Math.round(exp.vipps),
-          }
-        : { cash: 0, card: 0, vipps: 0 };
       rows.push({
         date: key,
-        expected,
+        expected: exp
+          ? { cash: Math.round(exp.cash), card: Math.round(exp.card), vipps: Math.round(exp.vipps) }
+          : { cash: 0, card: 0, vipps: 0 },
         counted: st ? st.counted : null,
         note: st?.note ?? null,
         settled: !!st,
+        salesTotal: Math.round(exp?.total ?? 0),
+        gift: Math.round(exp?.gift ?? 0),
+        other: Math.round(exp?.other ?? 0),
+        salesCount: exp?.count ?? 0,
       });
     }
     return rows;

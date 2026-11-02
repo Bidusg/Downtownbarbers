@@ -137,33 +137,17 @@ export async function deliverShopSettlement(
   const settle_date = String(formData.get("settle_date") ?? "");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(settle_date))
     return { error: "Velg en gyldig dato." };
-  for (const f of ["counted_cash", "counted_card", "counted_vipps"]) {
-    const raw = String(formData.get(f) ?? "").trim();
-    if (raw !== "" && (!Number.isFinite(Number(raw)) || Number(raw) < 0)) {
-      return { error: "Talte beløp må være 0 eller mer." };
-    }
+  // Kort og Vipps føres automatisk fra salgene i kassen – bare kontant telles.
+  const cashRaw = String(formData.get("counted_cash") ?? "").trim();
+  if (cashRaw === "" || !Number.isFinite(Number(cashRaw)) || Number(cashRaw) < 0) {
+    return { error: "Fyll inn talt kontantbeholdning (skriv 0 hvis det ikke er kontanter)." };
   }
-
-
-  // Vern mot tomt skjema: ingen talte felt fylt ut, men det finnes salg den
-  // dagen → nesten alltid et feiltrykk (det var slik «0 kr (manko)»-radene
-  // oppsto). Bevisst 0 må tastes inn som 0.
-  {
-    const anyFilled = ["counted_cash", "counted_card", "counted_vipps"].some(
-      (f) => String(formData.get(f) ?? "").trim() !== "",
-    );
-    const exp = await getExpectedByMethodForDate(settle_date);
-    if (!anyFilled && exp.cash + exp.card + exp.vipps > 0) {
-      return { error: "Fyll inn talte beløp før du lagrer (skriv 0 hvis det faktisk er 0)." };
-    }
-  }
-
   const counted_cash = num(formData.get("counted_cash"));
-  const counted_card = num(formData.get("counted_card"));
-  const counted_vipps = num(formData.get("counted_vipps"));
 
   // Forventet regnes server-side (snapshot) – aldri fra klienten.
   const expected = await getExpectedByMethodForDate(settle_date);
+  const counted_card = expected.card;
+  const counted_vipps = expected.vipps;
 
   const sb = await createClient();
   const {
@@ -242,19 +226,18 @@ export async function editShopSettlement(
   if (!id || !/^\d{4}-\d{2}-\d{2}$/.test(settle_date)) return { error: "Ugyldig oppgjør." };
   const reason = String(formData.get("reason") ?? "").trim();
   if (reason.length < 3) return { error: "Skriv kort hvorfor oppgjøret endres." };
-  for (const f of ["counted_cash", "counted_card", "counted_vipps"]) {
-    const raw = String(formData.get(f) ?? "").trim();
-    if (raw === "" || !Number.isFinite(Number(raw)) || Number(raw) < 0) {
-      return { error: "Fyll inn talte beløp (0 eller mer) i alle feltene." };
-    }
+  const cashRaw = String(formData.get("counted_cash") ?? "").trim();
+  if (cashRaw === "" || !Number.isFinite(Number(cashRaw)) || Number(cashRaw) < 0) {
+    return { error: "Fyll inn talt kontantbeholdning (0 eller mer)." };
   }
   const expected = await getExpectedByMethodForDate(settle_date);
   const sb = await createClient();
   const { error } = await sb.rpc("edit_cash_settlement", {
     p_id: id,
     p_cash: num(formData.get("counted_cash")),
-    p_card: num(formData.get("counted_card")),
-    p_vipps: num(formData.get("counted_vipps")),
+    // Kort/Vipps følger salgene automatisk.
+    p_card: expected.card,
+    p_vipps: expected.vipps,
     p_expected_cash: expected.cash,
     p_expected_card: expected.card,
     p_expected_vipps: expected.vipps,

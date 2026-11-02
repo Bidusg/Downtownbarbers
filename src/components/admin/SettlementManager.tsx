@@ -22,10 +22,10 @@ function no(iso: string) {
   return `${d}.${m}.${y}`;
 }
 
-const METHODS: { key: keyof MethodBreakdown; label: string; field: string }[] = [
-  { key: "cash", label: "Kontant", field: "counted_cash" },
-  { key: "card", label: "Kort", field: "counted_card" },
-  { key: "vipps", label: "Vipps", field: "counted_vipps" },
+/** Bare kontant telles opp – kort og Vipps føres automatisk fra salgene. */
+const AUTO_METHODS: { key: keyof MethodBreakdown; label: string }[] = [
+  { key: "card", label: "Kort" },
+  { key: "vipps", label: "Vipps" },
 ];
 
 /** Avvik-celle: talt − forventet. 0 = stemmer, ellers uthevet. */
@@ -150,10 +150,9 @@ export function SettlementManager({
     const n = Number(counted[field]);
     return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
   };
-  const countedTotal =
-    countedNum("counted_cash") +
-    countedNum("counted_card") +
-    countedNum("counted_vipps");
+  const cashFilled = counted.counted_cash.trim() !== "";
+  const countedCash = countedNum("counted_cash");
+  const countedTotal = countedCash + expected.card + expected.vipps;
   const expectedTotal = expected.cash + expected.card + expected.vipps;
 
   return (
@@ -213,36 +212,55 @@ export function SettlementManager({
               </Tr>
             </THead>
             <TBody>
-              {METHODS.map((m) => {
-                const exp = expected[m.key];
-                const cnt = countedNum(m.field);
-                return (
-                  <Tr key={m.key}>
-                    <Td className="font-medium text-fg">{m.label}</Td>
-                    <Td align="right" muted nums>
-                      {loadingExp ? "…" : kr(exp)}
-                    </Td>
-                    <Td align="right">
-                      <Input
-                        name={m.field}
-                        type="number"
-                        min={0}
-                        step="1"
-                        inputMode="numeric"
-                        placeholder="0"
-                        value={counted[m.field]}
-                        onChange={(e) =>
-                          setCounted((c) => ({ ...c, [m.field]: e.target.value }))
-                        }
-                        className="w-28 text-right"
-                      />
-                    </Td>
-                    <Td align="right">
-                      <Avvik diff={cnt - exp} />
-                    </Td>
-                  </Tr>
-                );
-              })}
+              <Tr>
+                <Td className="font-medium text-fg">
+                  Kontant
+                  <span className="block text-xs font-normal text-muted">Tell opp kassa</span>
+                </Td>
+                <Td align="right" muted nums>
+                  {loadingExp ? "…" : kr(expected.cash)}
+                </Td>
+                <Td align="right">
+                  <Input
+                    name="counted_cash"
+                    type="number"
+                    min={0}
+                    step="1"
+                    inputMode="numeric"
+                    placeholder="0"
+                    aria-label="Talt kontant"
+                    value={counted.counted_cash}
+                    onChange={(e) =>
+                      setCounted((c) => ({ ...c, counted_cash: e.target.value }))
+                    }
+                    className="w-28 text-right"
+                  />
+                </Td>
+                <Td align="right">
+                  {cashFilled ? (
+                    <Avvik diff={countedCash - expected.cash} />
+                  ) : (
+                    <span className="text-xs text-muted">—</span>
+                  )}
+                </Td>
+              </Tr>
+              {AUTO_METHODS.map((m) => (
+                <Tr key={m.key}>
+                  <Td className="font-medium text-fg">
+                    {m.label}
+                    <span className="block text-xs font-normal text-muted">Automatisk fra kassen</span>
+                  </Td>
+                  <Td align="right" muted nums>
+                    {loadingExp ? "…" : kr(expected[m.key])}
+                  </Td>
+                  <Td align="right" nums className="text-fg">
+                    {loadingExp ? "…" : kr(expected[m.key])}
+                  </Td>
+                  <Td align="right">
+                    <span className="text-xs text-muted">auto</span>
+                  </Td>
+                </Tr>
+              ))}
               <Tr className="border-t border-line-2">
                 <Td className="font-semibold text-fg">Sum</Td>
                 <Td align="right" muted nums className="font-semibold">
@@ -252,7 +270,7 @@ export function SettlementManager({
                   {kr(countedTotal)}
                 </Td>
                 <Td align="right">
-                  <Avvik diff={countedTotal - expectedTotal} />
+                  {cashFilled ? <Avvik diff={countedTotal - expectedTotal} /> : null}
                 </Td>
               </Tr>
             </TBody>
@@ -263,13 +281,15 @@ export function SettlementManager({
             placeholder="Notat (valgfritt) – f.eks. forklaring på avvik"
           />
           {err && <p className="text-sm text-danger">{err}</p>}
-          {!Object.values(counted).some((v) => v.trim() !== "") && (
-            <p className="text-xs text-muted">Fyll inn talte beløp for å kunne lagre.</p>
+          {!cashFilled && (
+            <p className="text-xs text-muted">
+              Fyll inn kontantbeholdningen for å kunne lagre (skriv 0 hvis det ikke er kontanter).
+            </p>
           )}
           <Button
             type="submit"
             variant="primary"
-            disabled={pending || !Object.values(counted).some((v) => v.trim() !== "")}
+            disabled={pending || !cashFilled}
             className="px-4 py-2 text-sm"
           >
             {pending ? "Lagrer …" : "Lagre oppgjør"}
