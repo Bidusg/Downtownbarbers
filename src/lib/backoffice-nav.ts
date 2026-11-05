@@ -30,6 +30,7 @@ export const revisorNav: BoNav = {
         { href: "/revisor/lonnslipper", label: "Lønnsoversikt", description: "Generer og send lønnsslipper" },
         { href: "/revisor/ansatte", label: "Lønn per ansatt", description: "Grunnlag og manuelle linjer" },
         { href: "/revisor/arbeidstid", label: "Arbeidstid", description: "Stemplede timer per ansatt" },
+        { href: "/revisor/fravaer", label: "Fravær", description: "Fravær og trekk i lønn" },
       ],
     },
     {

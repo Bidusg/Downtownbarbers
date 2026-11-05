@@ -2,20 +2,15 @@ import { requireRole } from "@/lib/auth";
 import { StatTile } from "@/components/ui/StatTile";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
-import {
-  Table,
-  THead,
-  TBody,
-  Tr,
-  Th,
-  Td,
-  TableEmpty,
-} from "@/components/ui/Table";
 import { Field, Select } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { PAYROLL } from "@/lib/ops-queries";
 import { getPayrollForMonth } from "@/lib/payroll-slips";
 import { GeneratePayslipsButton } from "@/components/revisor/GeneratePayslipsButton";
+import { PayrollTable } from "@/components/admin/PayrollTable";
+import { SalaryReportPicker } from "@/components/admin/SalaryReportPicker";
+import { getSalaryReportStaff } from "@/lib/salary/report";
+import { absenceDeductionStatus } from "@/lib/absence-pay";
 import { formatKr as kr } from "@/lib/format";
 
 // @react-pdf/renderer kjøres i server-action mot denne siden – krever Node.
@@ -44,7 +39,11 @@ export default async function RevisorLonnslipper({
   const year = Number(sp.year) || osloY;
   const month = spMonth >= 1 && spMonth <= 12 ? spMonth : osloM;
 
-  const rows = await getPayrollForMonth(year, month);
+  const [rows, deductionError, reportStaff] = await Promise.all([
+    getPayrollForMonth(year, month),
+    absenceDeductionStatus(year, month),
+    getSalaryReportStaff(year, month),
+  ]);
   const totalPay = rows.reduce((s, r) => s + r.totalNok, 0);
   const totalGross = rows.reduce((s, r) => s + r.grossNok, 0);
   const monthLabel = MONTHS[month - 1] ?? String(month);
@@ -53,7 +52,7 @@ export default async function RevisorLonnslipper({
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <PageHeader
-        title="Lønnsoversikt (foreløpig)"
+        title="Lønnsoversikt"
         description={`Grunnlønn (standard ${kr(PAYROLL.BASE_NOK)}, kan være satt per ansatt) + ${Math.round(
           PAYROLL.RATE * 100,
         )} % provisjon av omsetning (eks. mva) over ${kr(
@@ -107,79 +106,18 @@ export default async function RevisorLonnslipper({
         />
       </div>
 
-      {/* Forhåndsvisning */}
-      <Card padded={false}>
-        <Table className="min-w-[820px]">
-          <THead>
-            <Tr head>
-              <Th>Ansatt</Th>
-              <Th align="right">Grunnlønn</Th>
-              <Th align="right">Omsetning inkl.</Th>
-              <Th align="right">Netto eks. mva</Th>
-              <Th align="right">Prov.grunnlag</Th>
-              <Th align="right">Provisjon</Th>
-              <Th align="right">Sum utbetalt</Th>
-            </Tr>
-          </THead>
-          <TBody>
-            {rows.length === 0 && (
-              <TableEmpty colSpan={7}>
-                Ingen aktive ansatte funnet for perioden.
-              </TableEmpty>
-            )}
-            {rows.map((r) => (
-              <Tr key={r.staffId}>
-                <Td className="font-medium text-fg">
-                  {r.name}
-                  <span className="ml-2 text-xs text-muted">
-                    {r.title ?? "Barber"}
-                  </span>
-                </Td>
-                <Td align="right" nums muted>
-                  {kr(r.baseNok)}
-                </Td>
-                <Td align="right" nums muted>
-                  {kr(r.grossNok)}
-                </Td>
-                <Td align="right" nums muted>
-                  {kr(r.netNok)}
-                </Td>
-                <Td align="right" nums muted>
-                  {kr(r.commissionBaseNok)}
-                </Td>
-                <Td align="right" nums className="text-accent-soft">
-                  {kr(r.commissionNok)}
-                </Td>
-                <Td align="right" nums className="font-display font-bold text-fg">
-                  {kr(r.totalNok)}
-                </Td>
-              </Tr>
-            ))}
-          </TBody>
-          {rows.length > 0 && (
-            <tfoot>
-              <tr className="border-t border-line-2 bg-surface-2 font-semibold">
-                <Td className="text-fg">Sum</Td>
-                <Td align="right" nums muted>
-                  {kr(rows.reduce((s, r) => s + r.baseNok, 0))}
-                </Td>
-                <Td align="right" nums muted>
-                  {kr(totalGross)}
-                </Td>
-                <Td align="right" nums muted>
-                  {kr(rows.reduce((s, r) => s + r.netNok, 0))}
-                </Td>
-                <Td></Td>
-                <Td align="right" nums className="text-accent-soft">
-                  {kr(rows.reduce((s, r) => s + r.commissionNok, 0))}
-                </Td>
-                <Td align="right" nums className="font-display text-fg">
-                  {kr(totalPay)}
-                </Td>
-              </tr>
-            </tfoot>
-          )}
-        </Table>
+      {/* Samme lønnstabell som admin ser (inkl. trekk for fravær) */}
+      <PayrollTable rows={rows} ratePct={Math.round(PAYROLL.RATE * 100)} thresholdNok={PAYROLL.THRESHOLD_NOK} />
+
+      {deductionError && (
+        <p className="rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
+          {deductionError}
+        </p>
+      )}
+
+      {/* Samlet lønnsrapport (PDF) for valgte ansatte */}
+      <Card>
+        <SalaryReportPicker year={year} month={month} monthLabel={monthLabel} staff={reportStaff} />
       </Card>
 
       {/* Generer + send */}

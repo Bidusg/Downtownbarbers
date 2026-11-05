@@ -1,10 +1,10 @@
 import { StatTile } from "@/components/ui/StatTile";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
-import { Table, THead, TBody, Tr, Th, Td, TableEmpty } from "@/components/ui/Table";
 import { Field, Select } from "@/components/ui/Input";
 import { getPayroll, PAYROLL } from "@/lib/ops-queries";
 import { absenceDeductionStatus } from "@/lib/absence-pay";
+import { PayrollTable } from "@/components/admin/PayrollTable";
 import { GeneratePayslipsButton } from "@/components/revisor/GeneratePayslipsButton";
 import { SalaryReportPicker } from "@/components/admin/SalaryReportPicker";
 import { getSalaryReportStaff } from "@/lib/salary/report";
@@ -35,7 +35,6 @@ export default async function AdminLonn({
     absenceDeductionStatus(year, month),
     getSalaryReportStaff(year, month),
   ]);
-  const trekk = (r: (typeof rows)[number]) => (r.deductionNok ?? 0) + (r.employmentDeductionNok ?? 0);
   const totalPay = rows.reduce((s, r) => s + r.totalNok, 0);
   const totalNet = rows.reduce((s, r) => s + r.netNok, 0);
   const overThreshold = rows.filter((r) => r.commissionBaseNok > 0).length;
@@ -77,94 +76,7 @@ export default async function AdminLonn({
         <StatTile label="Over terskel" value={`${overThreshold} av ${rows.length}`} sub={`terskel ${kr(PAYROLL.THRESHOLD_NOK)}`} />
       </div>
 
-      <Card padded={false}>
-        <Table className="min-w-[720px]">
-          <THead>
-            <Tr head className="bg-surface-2 tracking-wide uppercase">
-              <Th>Barber</Th>
-              <Th align="right">Omsetning inkl.</Th>
-              <Th align="right">Eks. mva</Th>
-              <Th align="right">Over terskel</Th>
-              <Th align="right">Provisjon 40 %</Th>
-              <Th align="right">Grunnlønn</Th>
-              <Th align="right">Trekk</Th>
-              <Th align="right">Total lønn</Th>
-            </Tr>
-          </THead>
-          <TBody>
-            {rows.length === 0 && (
-              <TableEmpty colSpan={8}>
-                Ingen aktive barbere eller ingen salg registrert for perioden.
-              </TableEmpty>
-            )}
-            {rows.map((r) => (
-              <Tr key={r.staffId}>
-                <Td className="font-medium text-fg">
-                  {r.name}
-                  <span className="ml-2 text-xs text-muted">{r.title ?? "Barber"}</span>
-                </Td>
-                <Td align="right" muted nums>
-                  {kr(r.grossNok)}
-                  {(r.importedNok ?? 0) > 0 && (
-                    <span
-                      className="ml-1.5 rounded-full border border-accent-soft/40 px-1.5 py-0.5 text-[10px] text-accent-soft"
-                      title="Omsetningen er importert fra det gamle kassesystemet"
-                    >
-                      importert
-                    </span>
-                  )}
-                </Td>
-                <Td align="right" muted nums>{kr(r.netNok)}</Td>
-                <Td align="right" muted nums>{kr(r.commissionBaseNok)}</Td>
-                <Td align="right" nums className="text-accent-soft">{kr(r.commissionNok)}</Td>
-                <Td align="right" muted nums>{kr(r.baseNok)}</Td>
-                <Td align="right" nums className={trekk(r) > 0 ? "text-danger" : "text-muted"}>
-                  {trekk(r) > 0 ? (
-                    <span
-                      title={[
-                        (r.employmentDeductionNok ?? 0) > 0
-                          ? `Ansatt ${r.employedDays} av ${r.daysInMonth} dager: − ${kr(r.employmentDeductionNok ?? 0)}`
-                          : "",
-                        (r.deductionNok ?? 0) > 0
-                          ? `Fravær ${String(Math.round((r.absenceDays ?? 0) * 100) / 100).replace(".", ",")} av ${r.workdays} arbeidsdager: − ${kr(r.deductionNok ?? 0)}`
-                          : "",
-                      ].filter(Boolean).join("\n")}
-                    >
-                      − {kr(trekk(r))}
-                      <span className="block text-[10px]">
-                        {(r.employmentDeductionNok ?? 0) > 0 ? `ansatt ${r.employedDays}/${r.daysInMonth} d` : ""}
-                        {(r.employmentDeductionNok ?? 0) > 0 && (r.deductionNok ?? 0) > 0 ? " · " : ""}
-                        {(r.deductionNok ?? 0) > 0 ? `fravær ${String(Math.round((r.absenceDays ?? 0) * 100) / 100).replace(".", ",")} d` : ""}
-                      </span>
-                    </span>
-                  ) : (
-                    "—"
-                  )}
-                </Td>
-                <Td align="right" nums className="font-display font-bold text-fg">{kr(r.totalNok)}</Td>
-              </Tr>
-            ))}
-          </TBody>
-          {rows.length > 0 && (
-            <tfoot>
-              <tr className="border-t border-line-2 bg-surface-2 font-semibold">
-                <Td className="text-fg">Sum</Td>
-                <Td align="right" muted nums>{kr(rows.reduce((s, r) => s + r.grossNok, 0))}</Td>
-                <Td align="right" muted nums>{kr(totalNet)}</Td>
-                <Td></Td>
-                <Td align="right" nums className="text-accent-soft">{kr(rows.reduce((s, r) => s + r.commissionNok, 0))}</Td>
-                <Td align="right" muted nums>{kr(rows.reduce((s, r) => s + r.baseNok, 0))}</Td>
-                <Td align="right" nums className="text-danger">
-                  {rows.some((r) => trekk(r) > 0)
-                    ? `− ${kr(rows.reduce((s, r) => s + trekk(r), 0))}`
-                    : "—"}
-                </Td>
-                <Td align="right" nums className="font-display text-fg">{kr(totalPay)}</Td>
-              </tr>
-            </tfoot>
-          )}
-        </Table>
-      </Card>
+      <PayrollTable rows={rows} ratePct={Math.round(PAYROLL.RATE * 100)} thresholdNok={PAYROLL.THRESHOLD_NOK} />
 
       {deductionError && (
         <p className="rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
