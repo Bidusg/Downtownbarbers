@@ -56,15 +56,28 @@ export async function createService(formData: FormData): Promise<ActionResult> {
   const parsed = readServiceForm(formData);
   if ("error" in parsed) return { error: parsed.error };
   const sb = await createClient();
+  // Ny tjeneste havner nederst (kan flyttes under «Rekkefølge»).
+  let nextSort = 0;
+  try {
+    const { data: last } = await sb
+      .from("services")
+      .select("sort_order")
+      .order("sort_order", { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+    nextSort = (Number((last as { sort_order?: number } | null)?.sort_order) || 0) + 10;
+  } catch {
+    /* uten sort_order: som før */
+  }
   let { data: inserted, error } = await sb
     .from("services")
-    .insert({ ...parsed.row, active: true })
+    .insert({ ...parsed.row, active: true, ...(nextSort ? { sort_order: nextSort } : {}) })
     .select("id")
     .single();
   if (error && missingEnCol(error.message)) {
     ({ data: inserted, error } = await sb
       .from("services")
-      .insert({ ...withoutEn(parsed.row), active: true })
+      .insert({ ...withoutEn(parsed.row), active: true, ...(nextSort ? { sort_order: nextSort } : {}) })
       .select("id")
       .single());
   }
@@ -191,4 +204,37 @@ export async function setServiceExclusion(
   revalidatePath("/admin/tjenester");
   revalidatePath("/booking");
   refreshSiteConfig();
+}
+
+/* ------------------------- REKKEFØLGE ------------------------- */
+
+/**
+ * Lagre rekkefølgen på kategorier og tjenester (booking, forside, kasse).
+ * `categoryIds` i ønsket rekkefølge; `serviceIds` i ønsket rekkefølge
+ * (gruppert per kategori). Kun admin.
+ */
+export async function saveServiceOrder(
+  categoryIds: string[],
+  serviceIds: string[],
+): Promise<ActionResult> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { error: "Kun admin." };
+  const cats = Array.from(new Set((categoryIds ?? []).filter((x) => typeof x === "string" && x)));
+  const svcs = Array.from(new Set((serviceIds ?? []).filter((x) => typeof x === "string" && x)));
+  if (!svcs.length) return { error: "Ingen tjenester." };
+  const sb = await createClient();
+  for (let i = 0; i < cats.length; i++) {
+    const { error } = await sb.from("service_categories").update({ sort_order: i + 1 }).eq("id", cats[i]);
+    if (error) return { error: `Kunne ikke lagre kategori-rekkefølgen: ${error.message}` };
+  }
+  for (let i = 0; i < svcs.length; i++) {
+    const { error } = await sb.from("services").update({ sort_order: (i + 1) * 10 }).eq("id", svcs[i]);
+    if (error) return { error: `Kunne ikke lagre rekkefølgen: ${error.message}` };
+  }
+  revalidatePath("/admin/tjenester");
+  revalidatePath("/booking");
+  revalidatePath("/kasse");
+  refreshSiteConfig();
+  revalidatePath("/", "layout");
+  return { ok: true };
 }

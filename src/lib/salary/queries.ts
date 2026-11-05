@@ -59,6 +59,9 @@ export async function getSalarySettings(staffId: string): Promise<SalarySettings
       holidayBonusNok: Number(data.holiday_bonus_nok ?? 0),
       enableSickPay: data.enable_sick_pay ?? false,
       sickRateNok: Number(data.sick_rate_nok ?? 0),
+      taxPercent: Number(data.tax_percent ?? 0),
+      hoursPerMonth: Number(data.hours_per_month ?? DEFAULT_SALARY_SETTINGS.hoursPerMonth) || 162.5,
+      accountNumber: (data.account_number as string | null) ?? "",
     };
   } catch {
     return { ...DEFAULT_SALARY_SETTINGS };
@@ -86,6 +89,12 @@ export async function getSalaryPeriod(
       sundayHours: Number(data.sunday_hours ?? 0),
       sickHours: Number(data.sick_hours ?? 0),
       vacationHours: Number(data.vacation_hours ?? 0),
+      overtime50Hours: Number(data.overtime50_hours ?? 0),
+      overtime100Hours: Number(data.overtime100_hours ?? 0),
+      holidayHours: Number(data.holiday_hours ?? 0),
+      correctionNok: Number(data.correction_nok ?? 0),
+      taxNok: data.tax_nok == null ? null : Number(data.tax_nok),
+      workedHours: data.worked_hours == null ? null : Number(data.worked_hours),
       note: data.note ?? "",
     };
   } catch {
@@ -146,6 +155,25 @@ async function getRevenueSplit(
   }
 }
 
+/** Planlagte timer per ansatt i måneden fra turnusen (RPC turnus_capacity_minutes). */
+export async function getPlannedHours(year: number, month: number): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  try {
+    const sb = await createClient();
+    const from = `${year}-${String(month).padStart(2, "0")}-01`;
+    const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    const to = `${year}-${String(month).padStart(2, "0")}-${String(last).padStart(2, "0")}`;
+    const { data, error } = await sb.rpc("turnus_capacity_minutes", { p_from: from, p_to: to });
+    if (error || !data) return out;
+    for (const r of data as { staff_id: string; minutes: number }[]) {
+      out.set(r.staff_id, Math.round((Number(r.minutes) / 60) * 100) / 100);
+    }
+  } catch {
+    /* ukjent → 0 */
+  }
+  return out;
+}
+
 /**
  * Bygger SalaryContext for én ansatt/måned ved å GJENBRUKE de reelle
  * lønnstallene fra getPayrollForMonth (omsetning, grunnlønn, ansettelse,
@@ -157,10 +185,12 @@ export async function getSalaryContext(
   year: number,
   month: number,
 ): Promise<SalaryContext | null> {
-  const [rows, split] = await Promise.all([
+  const [rows, split, planned] = await Promise.all([
     getPayrollForMonth(year, month),
     getRevenueSplit(staffId, year, month),
+    getPlannedHours(year, month),
   ]);
+  const plannedHours = planned.get(staffId) ?? 0;
   const row = rows.find((r) => r.staffId === staffId);
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
   if (!row) {
@@ -177,6 +207,7 @@ export async function getSalaryContext(
       productInclVatNok: split.product,
       splitAvailable: split.available,
       mva: PAYROLL.MVA,
+      plannedHours,
     };
   }
   return {
@@ -190,5 +221,6 @@ export async function getSalaryContext(
     productInclVatNok: split.product,
     splitAvailable: split.available,
     mva: PAYROLL.MVA,
+    plannedHours,
   };
 }

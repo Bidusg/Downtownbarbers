@@ -197,3 +197,119 @@ export async function moreReconciliation(
   if (!/^\d{4}-\d{2}-\d{2}$/.test(endDate)) return [];
   return getDailyReconciliation(endDate, Math.min(Math.max(days, 1), 92));
 }
+
+/**
+ * Admin-overstyring av et dagsoppgjør: sett kontant, kort og Vipps manuelt.
+ * Brukes når kort-/Vipps-beløpet fra kassen er feil – f.eks. fordi noen salg
+ * bare er slått inn i Fixit, eller prisene der er annerledes. Begrunnelse er
+ * påkrevd; de gamle tallene tas vare på i historikken (edit_cash_settlement).
+ * Finnes ingen rad for dagen, opprettes et bekreftet oppgjør.
+ */
+export async function overrideSettlement(
+  formData: FormData,
+): Promise<{ ok?: true; error?: string }> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { error: "Bare admin/eier kan overstyre oppgjøret." };
+
+  const settle_date = String(formData.get("settle_date") ?? "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(settle_date)) return { error: "Velg en gyldig dato." };
+  for (const [f, label] of [
+    ["counted_cash", "kontant"],
+    ["counted_card", "kort"],
+    ["counted_vipps", "Vipps"],
+  ] as const) {
+    const raw = String(formData.get(f) ?? "").trim();
+    if (raw === "" || !Number.isFinite(Number(raw)) || Number(raw) < 0) {
+      return { error: `Fyll inn beløp for ${label} (0 eller mer).` };
+    }
+  }
+  const reason = String(formData.get("reason") ?? "").trim();
+  if (reason.length < 3) return { error: "Skriv kort hvorfor beløpet overstyres (f.eks. «salg bare i Fixit»)." };
+
+  const cash = num(formData.get("counted_cash"));
+  const card = num(formData.get("counted_card"));
+  const vipps = num(formData.get("counted_vipps"));
+  const note = String(formData.get("note") ?? "").trim();
+  const expected = await getExpectedByMethodForDate(settle_date);
+  const sb = await createClient();
+
+  const { data: prev } = await sb
+    .from("cash_settlements")
+    .select("id")
+    .eq("settle_date", settle_date)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const revalidate = () => {
+    revalidatePath("/admin/kasseoppgjor");
+    revalidatePath("/kasse/kasseoppgjor");
+    revalidatePath("/revisor/kasseoppgjor");
+  };
+
+  if (prev?.id) {
+    const { error } = await sb.rpc("edit_cash_settlement", {
+      p_id: prev.id,
+      p_cash: cash,
+      p_card: card,
+      p_vipps: vipps,
+      p_expected_cash: expected.cash,
+      p_expected_card: expected.card,
+      p_expected_vipps: expected.vipps,
+      p_note: note,
+      p_reason: `Admin-overstyring: ${reason}`,
+    });
+    if (!error) {
+      revalidate();
+      return { ok: true };
+    }
+    // RPC-en finnes ikke (KASSEOPPGJOR-ENDRE.sql ikke kjørt) → vanlig oppdatering.
+    if (!(error.code === "PGRST202" || /edit_cash_settlement/.test(error.message ?? ""))) {
+      return { error: `Kunne ikke lagre: ${error.message}` };
+    }
+    const { error: upErr } = await sb
+      .from("cash_settlements")
+      .update({
+        counted_cash: cash,
+        counted_card: card,
+        counted_vipps: vipps,
+        total_nok: cash + card + vipps,
+        expected_cash: expected.cash,
+        expected_card: expected.card,
+        expected_vipps: expected.vipps,
+        note: [note, `Overstyrt av admin: ${reason}`].filter(Boolean).join(" · "),
+      })
+      .eq("id", prev.id as string);
+    if (upErr) return { error: `Kunne ikke lagre: ${upErr.message}` };
+    revalidate();
+    return { ok: true };
+  }
+
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
+  const row = {
+    settle_date,
+    counted_cash: cash,
+    counted_card: card,
+    counted_vipps: vipps,
+    total_nok: cash + card + vipps,
+    expected_cash: expected.cash,
+    expected_card: expected.card,
+    expected_vipps: expected.vipps,
+    note: [note, `Overstyrt av admin: ${reason}`].filter(Boolean).join(" · "),
+    opened_by: user?.id ?? null,
+  };
+  let { error } = await sb.from("cash_settlements").insert({ ...row, confirmed: true });
+  if (error && /confirmed/.test(error.message)) {
+    ({ error } = await sb.from("cash_settlements").insert(row));
+  }
+  if (error) return { error: `Kunne ikke lagre: ${error.message}` };
+  revalidate();
+  try {
+    await postDailyVoucher(settle_date);
+  } catch {
+    /* oppgjøret er lagret; natt-cron er backup */
+  }
+  return { ok: true };
+}

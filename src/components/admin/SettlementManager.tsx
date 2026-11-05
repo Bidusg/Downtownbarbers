@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import type { CashSettlement, MethodBreakdown } from "@/lib/ops-queries";
 import {
   createSettlement,
   deleteSettlement,
   expectedByMethod,
+  overrideSettlement,
 } from "@/app/admin/kasseoppgjor/actions";
 import { Card } from "@/components/ui/Card";
 import { Table, THead, TBody, Tr, Th, Td } from "@/components/ui/Table";
@@ -76,6 +77,145 @@ function shortRange(mon: string) {
   return `${f(mon)} – ${f(addDays(mon, 6))} ${toDate(addDays(mon, 6)).getUTCFullYear()}`;
 }
 
+type OverrideInit = {
+  date: string;
+  cash: number | null;
+  card: number | null;
+  vipps: number | null;
+  note: string | null;
+};
+
+/**
+ * Admin-overstyring: sett kontant, kort og Vipps manuelt for en dag – når
+ * beløpet fra kassen er feil (salg som bare ligger i Fixit, ulike priser).
+ */
+function OverridePanel({ init, onClose }: { init: OverrideInit; onClose: () => void }) {
+  const [pending, start] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
+  const [exp, setExp] = useState<MethodBreakdown | null>(null);
+  const [vals, setVals] = useState({
+    counted_cash: init.cash == null ? "" : String(init.cash),
+    counted_card: init.card == null ? "" : String(init.card),
+    counted_vipps: init.vipps == null ? "" : String(init.vipps),
+  });
+
+  useEffect(() => {
+    let live = true;
+    expectedByMethod(init.date).then((e) => {
+      if (!live) return;
+      setExp(e);
+      // Ny dag uten oppgjør: start med tallene fra kassen.
+      setVals((v) => ({
+        counted_cash: v.counted_cash === "" ? String(e.cash) : v.counted_cash,
+        counted_card: v.counted_card === "" ? String(e.card) : v.counted_card,
+        counted_vipps: v.counted_vipps === "" ? String(e.vipps) : v.counted_vipps,
+      }));
+    });
+    return () => {
+      live = false;
+    };
+  }, [init.date]);
+
+  const n = (v: string) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.round(Number(v)) : 0);
+  const total = n(vals.counted_cash) + n(vals.counted_card) + n(vals.counted_vipps);
+  const rows: { field: keyof typeof vals; label: string; key: keyof MethodBreakdown }[] = [
+    { field: "counted_cash", label: "Kontant", key: "cash" },
+    { field: "counted_card", label: "Kort", key: "card" },
+    { field: "counted_vipps", label: "Vipps", key: "vipps" },
+  ];
+
+  return (
+    <form
+      action={(fd) =>
+        start(async () => {
+          setErr(null);
+          fd.set("settle_date", init.date);
+          const res = await overrideSettlement(fd);
+          if (res.error) {
+            setErr(res.error);
+            return;
+          }
+          onClose();
+        })
+      }
+      className="space-y-4 border border-accent-soft/50 bg-surface p-5"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="font-semibold text-fg">Overstyr oppgjøret for {no(init.date)}</p>
+          <p className="mt-0.5 text-sm text-muted">
+            Sett riktig kontant, kort og Vipps når beløpet fra kassen er feil – f.eks. salg som bare
+            er slått inn i Fixit, eller andre priser der. De gamle tallene lagres i historikken.
+          </p>
+        </div>
+        <Button type="button" variant="ghost" onClick={onClose} className="px-3 py-1.5 text-sm">
+          Lukk
+        </Button>
+      </div>
+
+      <Table>
+        <THead>
+          <Tr head>
+            <Th>Betalingsmåte</Th>
+            <Th align="right">Fra kassen</Th>
+            <Th align="right">Riktig beløp</Th>
+            <Th align="right">Forskjell</Th>
+          </Tr>
+        </THead>
+        <TBody>
+          {rows.map((r) => {
+            const e = exp ? exp[r.key] : null;
+            const d = e == null ? null : n(vals[r.field]) - e;
+            return (
+              <Tr key={r.field}>
+                <Td className="font-medium text-fg">{r.label}</Td>
+                <Td align="right" muted nums>
+                  {e == null ? "…" : kr(e)}
+                </Td>
+                <Td align="right">
+                  <Input
+                    name={r.field}
+                    type="number"
+                    min={0}
+                    step="1"
+                    inputMode="numeric"
+                    aria-label={`${r.label}, riktig beløp`}
+                    value={vals[r.field]}
+                    onChange={(ev) => setVals((v) => ({ ...v, [r.field]: ev.target.value }))}
+                    className="w-28 text-right"
+                  />
+                </Td>
+                <Td align="right" nums className={d ? "text-xs font-semibold text-fg" : "text-xs text-muted"}>
+                  {d == null ? "" : d === 0 ? "lik" : signedKr(d)}
+                </Td>
+              </Tr>
+            );
+          })}
+          <Tr className="border-t border-line-2">
+            <Td className="font-semibold text-fg">Sum</Td>
+            <Td align="right" muted nums className="font-semibold">
+              {exp ? kr(exp.cash + exp.card + exp.vipps) : "…"}
+            </Td>
+            <Td align="right" nums className="font-semibold text-fg">
+              {kr(total)}
+            </Td>
+            <Td></Td>
+          </Tr>
+        </TBody>
+      </Table>
+
+      <Field label="Hvorfor overstyres beløpet?">
+        <Input name="reason" required placeholder="F.eks. 3 klipp bare slått inn i Fixit (Fixit-oppgjør nr. 2063)" />
+      </Field>
+      <Input name="note" defaultValue={init.note ?? ""} placeholder="Notat på oppgjøret (valgfritt)" />
+      {err && <p className="text-sm text-danger">{err}</p>}
+      <Button type="submit" variant="primary" disabled={pending} className="px-4 py-2 text-sm">
+        {pending ? "Lagrer …" : "Lagre overstyring"}
+      </Button>
+    </form>
+  );
+}
+
 export function SettlementManager({
   settlements,
   defaultDate,
@@ -84,6 +224,7 @@ export function SettlementManager({
   defaultDate: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [override, setOverride] = useState<OverrideInit | null>(null);
   // Uke-visning: én uke om gangen, mandag–søndag.
   const thisWeek = mondayOf(defaultDate);
   const oldestWeek = useMemo(
@@ -297,6 +438,10 @@ export function SettlementManager({
         </form>
       )}
 
+      {override && (
+        <OverridePanel key={override.date} init={override} onClose={() => setOverride(null)} />
+      )}
+
       <Card padded={false} className="overflow-hidden">
         {/* Uke-velger */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3">
@@ -362,7 +507,19 @@ export function SettlementManager({
                         </span>
                       </Td>
                       <Td muted>—</Td>
-                      <Td></Td>
+                      <Td align="right">
+                        {!future && (
+                          <button
+                            type="button"
+                            className="act"
+                            onClick={() =>
+                              setOverride({ date: iso, cash: null, card: null, vipps: null, note: null })
+                            }
+                          >
+                            Registrer
+                          </button>
+                        )}
+                      </Td>
                     </Tr>
                   );
                 }
@@ -392,8 +549,33 @@ export function SettlementManager({
                           <Avvik diff={s.total_nok - expTotal} />
                         )}
                       </Td>
-                      <Td muted>{s.note ?? "—"}</Td>
+                      <Td muted>
+                        {s.note ?? "—"}
+                        {s.expected_card != null &&
+                          (Number(s.counted_card ?? 0) !== Number(s.expected_card ?? 0) ||
+                            Number(s.counted_vipps ?? 0) !== Number(s.expected_vipps ?? 0)) && (
+                            <span className="ml-2 rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold text-fg">
+                              kort/Vipps overstyrt
+                            </span>
+                          )}
+                      </Td>
                       <Td align="right">
+                        <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          className="act"
+                          onClick={() =>
+                            setOverride({
+                              date: iso,
+                              cash: s.counted_cash == null ? null : Number(s.counted_cash),
+                              card: s.counted_card == null ? null : Number(s.counted_card),
+                              vipps: s.counted_vipps == null ? null : Number(s.counted_vipps),
+                              note: s.note,
+                            })
+                          }
+                        >
+                          Overstyr
+                        </button>
                         <ConfirmButton
                           label="Slett"
                           question="Slette dette oppgjøret?"
@@ -402,6 +584,7 @@ export function SettlementManager({
                           disabled={pending}
                           onConfirm={() => deleteSettlement(s.id)}
                         />
+                        </div>
                       </Td>
                     </Tr>
                   );

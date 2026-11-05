@@ -29,6 +29,12 @@ export type SalarySettings = {
   holidayBonusNok: number;
   enableSickPay: boolean;
   sickRateNok: number;
+  /** Skattetrekk i prosent (0.3 = 30 %) fra skattekortet. 0 = ikke trekk. */
+  taxPercent: number;
+  /** Timer per måned som timesatsen regnes av (fulltid 162,5). */
+  hoursPerMonth: number;
+  /** Kontonummer lønnen utbetales til (vises på lønnsrapporten). */
+  accountNumber: string;
 };
 
 /** Periode-input (timer) per ansatt/måned. Speiler salary_period. */
@@ -38,6 +44,18 @@ export type SalaryPeriodInputs = {
   sundayHours: number;
   sickHours: number;
   vacationHours: number;
+  /** Overtid med 50 % tillegg (timer). */
+  overtime50Hours: number;
+  /** Overtid med 100 % tillegg (timer). */
+  overtime100Hours: number;
+  /** Timer jobbet på helligdag (100 % tillegg). */
+  holidayHours: number;
+  /** Korreksjon for perioden (kr, + eller −) – f.eks. etterbetaling. */
+  correctionNok: number;
+  /** Skattetrekk i kr (fra tabell). null → regnes med prosent fra innstillingene. */
+  taxNok: number | null;
+  /** Arbeidede timer. null → planlagte timer fra turnusen. */
+  workedHours: number | null;
   note: string;
 };
 
@@ -65,6 +83,8 @@ export type SalaryContext = {
   /** true hvis split-tallene faktisk ble hentet (ellers merkes de stubbet). */
   splitAvailable: boolean;
   mva: number; // 0.25
+  /** Planlagte timer i måneden fra turnusen (0 hvis ukjent). */
+  plannedHours?: number;
 };
 
 /** Én linje i rapporten (Type | Formel | Beløp). */
@@ -79,6 +99,20 @@ export type SalaryLine = {
 
 export type SalaryResult = {
   lines: SalaryLine[];
-  /** Brutto sum beregnet lønn (sum av alle linjer). */
+  /** Sum beregnet lønn (sum av alle linjer). */
   totalNok: number;
+  /** Korreksjon for perioden. */
+  correctionNok: number;
+  /** Sum BRUTTO lønn = beregnet + korreksjon. */
+  grossNok: number;
+  /** Skattetrekk (kr). */
+  taxNok: number;
+  /** Sum NETTO lønn = brutto − skattetrekk. */
+  netNok: number;
+  /** Timer brukt i rapporten (arbeidet eller fra turnus). */
+  hours: number;
+  /** Timesats for overtid (fastlønn ÷ timer per måned). */
+  hourlyRateNok: number;
+  /** Snittlønn per time (brutto ÷ timer), 0 hvis timer ukjent. */
+  avgPerHourNok: number;
 };

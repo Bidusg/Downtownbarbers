@@ -185,6 +185,38 @@ export function computeSalary(
     });
   }
 
+  // 4b) Overtid og helligdag – timesats = fastlønn ÷ timer per måned.
+  const hpm = settings.hoursPerMonth > 0 ? settings.hoursPerMonth : 162.5;
+  const hourly = base > 0 ? base / hpm : 0;
+  const rateNote = hourly > 0 ? "" : " (ingen fastlønn – timesats 0, legg inn manuelt)";
+  if (period.overtime50Hours > 0) {
+    const amt = period.overtime50Hours * hourly * 1.5;
+    lines.push({
+      key: "overtid-50",
+      label: "Overtid 50 %",
+      formula: `${num2(period.overtime50Hours)} timer × ${kr2(hourly)} × 1,5 = ${kr2(amt)}${rateNote}`,
+      amountNok: amt,
+    });
+  }
+  if (period.overtime100Hours > 0) {
+    const amt = period.overtime100Hours * hourly * 2;
+    lines.push({
+      key: "overtid-100",
+      label: "Overtid 100 %",
+      formula: `${num2(period.overtime100Hours)} timer × ${kr2(hourly)} × 2 = ${kr2(amt)}${rateNote}`,
+      amountNok: amt,
+    });
+  }
+  if (period.holidayHours > 0) {
+    const amt = period.holidayHours * hourly;
+    lines.push({
+      key: "helligdag",
+      label: "Helligdagstillegg 100 %",
+      formula: `${num2(period.holidayHours)} timer × ${kr2(hourly)} = ${kr2(amt)}${rateNote}`,
+      amountNok: amt,
+    });
+  }
+
   // 5) Lønninger-kortet: sykefravær, ferielønn, feriebonus (forenklet)
   if (settings.enableSickPay && period.sickHours > 0) {
     const amt = period.sickHours * settings.sickRateNok;
@@ -231,5 +263,25 @@ export function computeSalary(
   }
 
   const totalNok = lines.reduce((s, l) => s + l.amountNok, 0);
-  return { lines, totalNok };
+  const correctionNok = Number(period.correctionNok) || 0;
+  const grossNok = totalNok + correctionNok;
+  const taxNok =
+    period.taxNok != null && Number.isFinite(period.taxNok)
+      ? Math.round(period.taxNok)
+      : Math.round(Math.max(0, grossNok) * (settings.taxPercent || 0));
+  const hours =
+    period.workedHours != null && period.workedHours > 0
+      ? period.workedHours
+      : ctx.plannedHours ?? 0;
+  return {
+    lines,
+    totalNok,
+    correctionNok,
+    grossNok,
+    taxNok,
+    netNok: grossNok - taxNok,
+    hours,
+    hourlyRateNok: hourly,
+    avgPerHourNok: hours > 0 ? grossNok / hours : 0,
+  };
 }

@@ -17,6 +17,10 @@ export type ActionResult = { ok?: true; error?: string };
 const SQL_HINT =
   "Lønnstabellene mangler – kjør KJØR-I-SUPABASE-LONN-ANSATT.sql i Supabase.";
 
+const SQL_HINT_REPORT =
+  "Nye lønnsfelt mangler – kjør KJØR-I-SUPABASE-LONNSRAPPORT.sql i Supabase.";
+const NEW_COLS = /tax_percent|hours_per_month|account_number|overtime50_hours|overtime100_hours|holiday_hours|correction_nok|tax_nok|worked_hours/;
+
 function missingTable(msg: string | undefined): boolean {
   return !!msg && /relation|does not exist|schema cache|salary_/i.test(msg);
 }
@@ -65,6 +69,9 @@ export async function saveSalarySettings(fd: FormData): Promise<ActionResult> {
     holidayBonusNok: toNum(fd, "holidayBonusNok", 0),
     enableSickPay: toBool(fd, "enableSickPay"),
     sickRateNok: toNum(fd, "sickRateNok", 0),
+    taxPercent: Math.min(1, Math.max(0, toNum(fd, "taxPercent", 0))),
+    hoursPerMonth: toNum(fd, "hoursPerMonth", 162.5) > 0 ? toNum(fd, "hoursPerMonth", 162.5) : 162.5,
+    accountNumber: String(fd.get("accountNumber") ?? "").replace(/[^\d.\s]/g, "").trim().slice(0, 20),
   };
 
   try {
@@ -95,17 +102,24 @@ export async function saveSalarySettings(fd: FormData): Promise<ActionResult> {
         holiday_bonus_nok: settings.holidayBonusNok,
         enable_sick_pay: settings.enableSickPay,
         sick_rate_nok: settings.sickRateNok,
+        tax_percent: settings.taxPercent,
+        hours_per_month: settings.hoursPerMonth,
+        account_number: settings.accountNumber || null,
         updated_at: new Date().toISOString(),
         updated_by: me?.userId ?? null,
       },
       { onConflict: "staff_id" },
     );
-    if (error) return { error: missingTable(error.message) ? SQL_HINT : error.message };
+    if (error) {
+      if (NEW_COLS.test(error.message)) return { error: SQL_HINT_REPORT };
+      return { error: missingTable(error.message) ? SQL_HINT : error.message };
+    }
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Lagring feilet." };
   }
 
   revalidatePath(`/revisor/ansatte/${staffId}`);
+  revalidatePath("/admin/lonn");
   return { ok: true };
 }
 
@@ -123,6 +137,12 @@ export async function saveSalaryPeriod(fd: FormData): Promise<ActionResult> {
     sundayHours: toNum(fd, "sundayHours"),
     sickHours: toNum(fd, "sickHours"),
     vacationHours: toNum(fd, "vacationHours"),
+    overtime50Hours: toNum(fd, "overtime50Hours"),
+    overtime100Hours: toNum(fd, "overtime100Hours"),
+    holidayHours: toNum(fd, "holidayHours"),
+    correctionNok: toNum(fd, "correctionNok"),
+    taxNok: String(fd.get("taxNok") ?? "").trim() === "" ? null : toNum(fd, "taxNok"),
+    workedHours: String(fd.get("workedHours") ?? "").trim() === "" ? null : toNum(fd, "workedHours"),
     note: String(fd.get("note") ?? "").trim(),
   };
 
@@ -137,18 +157,28 @@ export async function saveSalaryPeriod(fd: FormData): Promise<ActionResult> {
         sunday_hours: period.sundayHours,
         sick_hours: period.sickHours,
         vacation_hours: period.vacationHours,
+        overtime50_hours: period.overtime50Hours,
+        overtime100_hours: period.overtime100Hours,
+        holiday_hours: period.holidayHours,
+        correction_nok: period.correctionNok,
+        tax_nok: period.taxNok,
+        worked_hours: period.workedHours,
         note: period.note || null,
         updated_at: new Date().toISOString(),
         updated_by: me?.userId ?? null,
       },
       { onConflict: "staff_id,period" },
     );
-    if (error) return { error: missingTable(error.message) ? SQL_HINT : error.message };
+    if (error) {
+      if (NEW_COLS.test(error.message)) return { error: SQL_HINT_REPORT };
+      return { error: missingTable(error.message) ? SQL_HINT : error.message };
+    }
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Lagring feilet." };
   }
 
   revalidatePath(`/revisor/ansatte/${staffId}`);
+  revalidatePath("/admin/lonn");
   return { ok: true };
 }
 

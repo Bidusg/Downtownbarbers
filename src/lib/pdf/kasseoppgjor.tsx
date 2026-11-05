@@ -90,8 +90,8 @@ function SettlementDoc({ r }: { r: SettlementReport }) {
     (a, x) => {
       a.sales += x.salesTotal;
       a.count += x.salesCount;
-      a.card += x.expected.card;
-      a.vipps += x.expected.vipps;
+      a.card += x.counted ? x.counted.card : x.expected.card;
+      a.vipps += x.counted ? x.counted.vipps : x.expected.vipps;
       a.cash += x.expected.cash;
       a.gift += x.gift;
       a.other += x.other;
@@ -158,8 +158,8 @@ function SettlementDoc({ r }: { r: SettlementReport }) {
                 <Text style={s.cDate}>{no(x.date)}</Text>
                 <Text style={[s.cNum, s.muted]}>{x.salesCount}</Text>
                 <Text style={s.cMoney}>{kr(x.salesTotal)}</Text>
-                <Text style={[s.cMoney, s.muted]}>{kr(x.expected.card)}</Text>
-                <Text style={[s.cMoney, s.muted]}>{kr(x.expected.vipps)}</Text>
+                <Text style={[s.cMoney, s.muted]}>{kr(x.counted ? x.counted.card : x.expected.card)}</Text>
+                <Text style={[s.cMoney, s.muted]}>{kr(x.counted ? x.counted.vipps : x.expected.vipps)}</Text>
                 <Text style={[s.cMoney, s.muted]}>{kr(x.gift + x.other)}</Text>
                 <Text style={[s.cMoney, s.muted]}>{kr(x.expected.cash)}</Text>
                 <Text style={s.cMoney}>{cc == null ? "—" : kr(cc)}</Text>
@@ -184,7 +184,8 @@ function SettlementDoc({ r }: { r: SettlementReport }) {
           <Text style={s.cStat}> </Text>
         </View>
         <Text style={s.note}>
-          Kort og Vipps føres automatisk fra salgene i kassen. Bare kontantbeholdningen telles opp,
+          Kort og Vipps føres automatisk fra salgene i kassen, eller fra oppgjøret der admin har
+          overstyrt beløpet (f.eks. salg som bare ligger i Fixit). Bare kontantbeholdningen telles opp,
           og avviket gjelder kontant (talt minus forventet). Gavekort er innløste gavekort – ikke
           penger inn den dagen. Nettbutikk-ordrer som er fullført i kassen er med i salget.
         </Text>

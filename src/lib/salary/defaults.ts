@@ -31,6 +31,9 @@ export const DEFAULT_SALARY_SETTINGS: SalarySettings = {
   holidayBonusNok: 0,
   enableSickPay: false,
   sickRateNok: 0,
+  taxPercent: 0,
+  hoursPerMonth: 162.5,
+  accountNumber: "",
 };
 
 export const DEFAULT_SALARY_PERIOD: SalaryPeriodInputs = {
@@ -39,5 +42,11 @@ export const DEFAULT_SALARY_PERIOD: SalaryPeriodInputs = {
   sundayHours: 0,
   sickHours: 0,
   vacationHours: 0,
+  overtime50Hours: 0,
+  overtime100Hours: 0,
+  holidayHours: 0,
+  correctionNok: 0,
+  taxNok: null,
+  workedHours: null,
   note: "",
 };

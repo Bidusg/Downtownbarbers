@@ -6,6 +6,8 @@ import { Field, Select } from "@/components/ui/Input";
 import { getPayroll, PAYROLL } from "@/lib/ops-queries";
 import { absenceDeductionStatus } from "@/lib/absence-pay";
 import { GeneratePayslipsButton } from "@/components/revisor/GeneratePayslipsButton";
+import { SalaryReportPicker } from "@/components/admin/SalaryReportPicker";
+import { getSalaryReportStaff } from "@/lib/salary/report";
 
 // Lønnsslipp-PDF (@react-pdf) kjøres i server-action fra denne siden – krever Node.
 export const runtime = "nodejs";
@@ -28,9 +30,10 @@ export default async function AdminLonn({
   const year = Number(sp.year) || now.getFullYear();
   const month = Number(sp.month) || now.getMonth() + 1;
 
-  const [rows, deductionError] = await Promise.all([
+  const [rows, deductionError, reportStaff] = await Promise.all([
     getPayroll(year, month),
     absenceDeductionStatus(year, month),
+    getSalaryReportStaff(year, month),
   ]);
   const trekk = (r: (typeof rows)[number]) => (r.deductionNok ?? 0) + (r.employmentDeductionNok ?? 0);
   const totalPay = rows.reduce((s, r) => s + r.totalNok, 0);
@@ -168,6 +171,16 @@ export default async function AdminLonn({
           {deductionError}
         </p>
       )}
+
+      {/* Samlet lønnsrapport (PDF) for valgte ansatte */}
+      <Card>
+        <SalaryReportPicker
+          year={year}
+          month={month}
+          monthLabel={MONTHS[month - 1]}
+          staff={reportStaff}
+        />
+      </Card>
 
       {/* Generer + send lønnsoversikter (samme som revisor-siden) */}
       <Card>

@@ -194,6 +194,9 @@ export function SalaryEditor({
     fd.set("holidayBonusNok", String(s.holidayBonusNok));
     fd.set("enableSickPay", s.enableSickPay ? "on" : "");
     fd.set("sickRateNok", String(s.sickRateNok));
+    fd.set("taxPercent", String(s.taxPercent));
+    fd.set("hoursPerMonth", String(s.hoursPerMonth));
+    fd.set("accountNumber", s.accountNumber);
     startSettings(async () => {
       setSettingsMsg(null);
       const res = await saveSalarySettings(fd);
@@ -211,6 +214,12 @@ export function SalaryEditor({
     fd.set("sundayHours", String(p.sundayHours));
     fd.set("sickHours", String(p.sickHours));
     fd.set("vacationHours", String(p.vacationHours));
+    fd.set("overtime50Hours", String(p.overtime50Hours));
+    fd.set("overtime100Hours", String(p.overtime100Hours));
+    fd.set("holidayHours", String(p.holidayHours));
+    fd.set("correctionNok", String(p.correctionNok));
+    fd.set("taxNok", p.taxNok == null ? "" : String(p.taxNok));
+    fd.set("workedHours", p.workedHours == null ? "" : String(p.workedHours));
     fd.set("note", p.note);
     startPeriod(async () => {
       setPeriodMsg(null);
@@ -228,7 +237,15 @@ export function SalaryEditor({
     const body = result.lines
       .map((l) => [esc(l.label), esc(l.formula), amt(l.amountNok)].join(sep))
       .join("\n");
-    const sum = ["Sum beregnet lønn (brutto)", "", amt(result.totalNok)].join(sep);
+    const sum = [
+      ["Sum beregnet lønn", "", amt(result.totalNok)],
+      ["Korreksjon for periode", "", amt(result.correctionNok)],
+      ["Sum BRUTTO lønn", "", amt(result.grossNok)],
+      ["Skattetrekk", "", amt(-result.taxNok)],
+      ["Sum NETTO lønn", "", amt(result.netNok)],
+    ]
+      .map((r) => r.join(sep))
+      .join("\n");
     const csv = "﻿" + [head, body, sum].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -265,10 +282,29 @@ export function SalaryEditor({
             <Row label="Sykefravær" toggle={{ checked: s.enableSickPay, onChange: (v) => set("enableSickPay", v) }}>
               <NumBox value={s.sickRateNok} onChange={(v) => set("sickRateNok", v)} suffix="kr/t" disabled={!s.enableSickPay} />
             </Row>
+            <Row label="Skattetrekk (skattekort)">
+              <NumBox value={Math.round(s.taxPercent * 1000) / 10} onChange={(v) => set("taxPercent", v / 100)} step="0.5" suffix="%" />
+            </Row>
+            <Row label="Timer per måned (timesats)">
+              <NumBox value={s.hoursPerMonth} onChange={(v) => set("hoursPerMonth", v)} step="0.5" suffix="t" />
+            </Row>
+            <Row label="Kontonummer">
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                value={s.accountNumber}
+                onChange={(e) => set("accountNumber", e.target.value)}
+                placeholder="1234.56.78901"
+                aria-label="Kontonummer"
+                className="h-10 w-40 rounded-[10px] border border-line-2 bg-canvas px-2.5 text-right text-sm tabular-nums text-fg"
+              />
+            </Row>
           </div>
           <p className="mt-3 text-xs leading-relaxed text-muted">
-            Fastlønn hentes fra ansattkortet. Feriebonus, ferielønn og sykefravær er
-            forenklet – se merknad i rapporten.
+            Fastlønn hentes fra ansattkortet. Timesats for overtid = fastlønn ÷ timer per
+            måned. Skattetrekk i % brukes hvis ikke et fast trekk i kr er lagt inn for
+            måneden. Feriebonus, ferielønn og sykefravær er forenklet – se merknad i rapporten.
           </p>
         </Card>
 
@@ -294,8 +330,7 @@ export function SalaryEditor({
             </Row>
           </div>
           <p className="mt-3 text-xs leading-relaxed text-muted">
-            Antall timer per tillegg føres under «Timer for perioden». Overtid og
-            helligdager føres som manuelle linjer.
+            Antall timer per tillegg, overtid og helligdag føres under «Timer for perioden».
           </p>
         </Card>
 
@@ -373,7 +408,49 @@ export function SalaryEditor({
             <span className="mb-1 block text-xs font-semibold tracking-wide text-muted uppercase">Sykefravær (timer)</span>
             <Input type="number" step="0.25" value={p.sickHours} onChange={(e) => setPer("sickHours", Number(e.target.value))} />
           </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-xs font-semibold tracking-wide text-muted uppercase">Overtid 50 % (timer)</span>
+            <Input type="number" step="0.25" min={0} value={p.overtime50Hours} onChange={(e) => setPer("overtime50Hours", Number(e.target.value))} />
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-xs font-semibold tracking-wide text-muted uppercase">Overtid 100 % (timer)</span>
+            <Input type="number" step="0.25" min={0} value={p.overtime100Hours} onChange={(e) => setPer("overtime100Hours", Number(e.target.value))} />
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-xs font-semibold tracking-wide text-muted uppercase">Helligdag (timer)</span>
+            <Input type="number" step="0.25" min={0} value={p.holidayHours} onChange={(e) => setPer("holidayHours", Number(e.target.value))} />
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-xs font-semibold tracking-wide text-muted uppercase">Arbeidede timer</span>
+            <Input
+              type="number"
+              step="0.25"
+              min={0}
+              value={p.workedHours ?? ""}
+              placeholder={context.plannedHours ? `${String(context.plannedHours).replace(".", ",")} (turnus)` : "fra turnus"}
+              onChange={(e) => setPer("workedHours", e.target.value === "" ? null : Number(e.target.value))}
+            />
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-xs font-semibold tracking-wide text-muted uppercase">Korreksjon (kr)</span>
+            <Input type="number" step="1" value={p.correctionNok} onChange={(e) => setPer("correctionNok", Number(e.target.value))} />
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-xs font-semibold tracking-wide text-muted uppercase">Skattetrekk (kr)</span>
+            <Input
+              type="number"
+              step="1"
+              min={0}
+              value={p.taxNok ?? ""}
+              placeholder={`${Math.round(s.taxPercent * 1000) / 10} % av brutto`}
+              onChange={(e) => setPer("taxNok", e.target.value === "" ? null : Number(e.target.value))}
+            />
+          </label>
         </div>
+        <p className="mt-3 text-xs text-muted">
+          Tomt felt for arbeidede timer = planlagte timer fra turnusen. Tomt skattetrekk = prosent fra
+          innstillingene. Korreksjon kan være negativ (f.eks. for mye utbetalt forrige måned).
+        </p>
         <div className="mt-4 flex items-center gap-3">
           <Button onClick={savePeriod} disabled={savingPeriod} variant="subtle" className="px-4 py-2 text-sm">
             {savingPeriod ? "Lagrer…" : "Lagre timer"}
@@ -422,9 +499,39 @@ export function SalaryEditor({
           </TBody>
           <tfoot>
             <tr className="border-t border-line-2 bg-surface-2 font-semibold">
-              <Td className="text-fg">Sammendrag</Td>
-              <Td muted className="text-xs">Sum beregnet lønn (brutto, før skattetrekk)</Td>
-              <Td align="right" nums className="font-display text-fg">{kr2(result.totalNok)}</Td>
+              <Td className="text-fg">Sum beregnet lønn</Td>
+              <Td muted className="text-xs">Sum av linjene over</Td>
+              <Td align="right" nums className="text-fg">{kr2(result.totalNok)}</Td>
+            </tr>
+            {result.correctionNok !== 0 && (
+              <tr className="bg-surface-2">
+                <Td className="text-fg">Korreksjon for perioden</Td>
+                <Td muted className="text-xs"></Td>
+                <Td align="right" nums className={result.correctionNok < 0 ? "text-danger" : "text-fg"}>
+                  {result.correctionNok < 0 ? "−" : ""}{kr2(Math.abs(result.correctionNok))}
+                </Td>
+              </tr>
+            )}
+            <tr className="bg-surface-2 font-semibold">
+              <Td className="text-fg">Sum BRUTTO lønn</Td>
+              <Td muted className="text-xs"></Td>
+              <Td align="right" nums className="text-fg">{kr2(result.grossNok)}</Td>
+            </tr>
+            <tr className="bg-surface-2">
+              <Td className="text-fg">− Skattetrekk</Td>
+              <Td muted className="text-xs">
+                {p.taxNok != null ? "fast trekk for måneden" : `${Math.round(s.taxPercent * 1000) / 10} % av brutto`}
+              </Td>
+              <Td align="right" nums className="text-danger">−{kr2(result.taxNok)}</Td>
+            </tr>
+            <tr className="border-t border-line-2 bg-surface-2 font-semibold">
+              <Td className="text-fg">Sum NETTO lønn</Td>
+              <Td muted className="text-xs">
+                {result.hours > 0
+                  ? `${String(Math.round(result.hours * 100) / 100).replace(".", ",")} timer · snitt ${kr2(result.avgPerHourNok)}/time`
+                  : ""}
+              </Td>
+              <Td align="right" nums className="font-display text-fg">{kr2(result.netNok)}</Td>
             </tr>
           </tfoot>
         </Table>

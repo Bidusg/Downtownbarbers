@@ -173,7 +173,7 @@ export function DailyReconciliation({
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-display text-lg font-bold">Dag for dag</h2>
         <span className="hidden text-xs text-muted sm:inline">
-          Kort og Vipps føres automatisk · bare kontant telles · avvik = talt − forventet kontant
+          Kort og Vipps føres automatisk (kan overstyres av admin) · bare kontant telles · avvik = talt − forventet kontant
         </span>
       </div>
 
@@ -220,14 +220,33 @@ export function DailyReconciliation({
                       <span className="block text-[11px] text-muted">{extra.slice(3)}</span>
                     )}
                   </Td>
-                  <Td
-                    align="right"
-                    muted
-                    nums
-                    title={`Kort ${kr(r.expected.card)} · Vipps ${kr(r.expected.vipps)}`}
-                  >
-                    {kr(r.expected.card + r.expected.vipps)}
-                  </Td>
+                  {(() => {
+                    // Oppgjøret (evt. overstyrt av admin) vinner over kassens tall.
+                    const card = r.counted ? r.counted.card : r.expected.card;
+                    const vipps = r.counted ? r.counted.vipps : r.expected.vipps;
+                    const overridden =
+                      !!r.counted &&
+                      (r.counted.card !== r.expected.card || r.counted.vipps !== r.expected.vipps);
+                    return (
+                      <Td
+                        align="right"
+                        muted={!overridden}
+                        nums
+                        className={overridden ? "text-fg" : undefined}
+                        title={
+                          `Kort ${kr(card)} · Vipps ${kr(vipps)}` +
+                          (overridden
+                            ? ` (fra kassen: kort ${kr(r.expected.card)} · Vipps ${kr(r.expected.vipps)})`
+                            : "")
+                        }
+                      >
+                        {kr(card + vipps)}
+                        {overridden && (
+                          <span className="block text-[11px] text-muted">overstyrt</span>
+                        )}
+                      </Td>
+                    );
+                  })()}
                   <Td align="right" muted nums>
                     {kr(r.expected.cash)}
                   </Td>
