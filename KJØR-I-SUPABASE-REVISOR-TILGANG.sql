@@ -4,7 +4,8 @@
 -- Revisor skal se det samme som admin når det gjelder tall, lønn og
 -- regnskap – men ingenting av det daglige arbeidet (booking, kunder,
 -- markedsføring, innstillinger). Dette skriptet gir revisor LESETILGANG
--- (select) til tabellene bak lønn, fravær, omsetning, kasse og lager.
+-- (select) til tabellene bak lønn, fravær, omsetning, kasse og lager,
+-- og til ansattdokumentene (kontrakter, lønnsoversikter, oppsigelser).
 -- Revisor kan fortsatt ikke endre noe av dette.
 --
 -- Tabeller som ikke finnes hoppes over. Trygt å kjøre flere ganger.
@@ -49,12 +50,31 @@ begin
   raise notice 'Revisor har nå lesetilgang til % tabeller.', n;
 end $$;
 
+-- Ansattdokumenter: revisor kan lese ALLE dokumenter (kontrakt, lønnsoversikt,
+-- oppsigelse, annet) og åpne filene i den private bøtta «staff-docs».
+-- Revisor kan fortsatt bare skrive lønnsoversikter (eksisterende policy).
+do $$
+begin
+  if to_regclass('public.staff_documents') is not null then
+    drop policy if exists staff_documents_revisor_les on staff_documents;
+    create policy staff_documents_revisor_les on staff_documents
+      for select using (is_admin_or_revisor());
+    raise notice 'Revisor kan lese ansattdokumenter.';
+  else
+    raise notice 'Tabellen staff_documents finnes ikke – ansattdokumenter hoppes over.';
+  end if;
+end $$;
+
+drop policy if exists "staff_docs_revisor_les" on storage.objects;
+create policy "staff_docs_revisor_les" on storage.objects
+  for select using (bucket_id = 'staff-docs' and public.is_admin_or_revisor());
+
 -- Fraværstrekket i lønn (RPC) – revisor har allerede tilgang der den finnes.
 
 notify pgrst, 'reload schema';
 
 -- Sjekk: lese-policyene for revisor.
-select tablename, policyname
+select schemaname, tablename, policyname
   from pg_policies
- where schemaname = 'public' and policyname like '%\_revisor\_les' escape '\'
- order by tablename;
+ where schemaname in ('public', 'storage') and policyname like '%revisor\_les' escape '\'
+ order by schemaname, tablename;
