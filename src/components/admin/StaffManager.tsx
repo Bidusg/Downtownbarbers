@@ -51,6 +51,7 @@ function EditStaffModal({
   const [baseSalary, setBaseSalary] = useState(
     staff.base_salary_nok != null ? String(staff.base_salary_nok) : "",
   );
+  const [accountNo, setAccountNo] = useState(staff.account_number ?? "");
   const [startDate, setStartDate] = useState(staff.start_date ?? "");
   const [endDate, setEndDate] = useState(staff.end_date ?? "");
   const [docMsg, setDocMsg] = useState<string | null>(null);
@@ -93,6 +94,7 @@ function EditStaffModal({
         display_name: displayName,
         start_date: startDate,
         end_date: endDate,
+        account_number: accountNo,
       });
       if (r.error) {
         setErr(r.error);
@@ -171,6 +173,17 @@ function EditStaffModal({
               onChange={(e) => setBaseSalary(e.target.value)}
               inputMode="numeric"
               placeholder="27000"
+            />
+          </Field>
+
+          <Field label="Kontonummer for lønn" hint="(11 siffer – vises på lønnsrapporten, ses bare av admin og revisor)">
+            <Input
+              value={accountNo}
+              onChange={(e) => setAccountNo(e.target.value)}
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder="1234.56.78901"
+              maxLength={14}
             />
           </Field>
 

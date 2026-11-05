@@ -327,6 +327,16 @@ export async function setStaffPostnummer(
   return { ok: true };
 }
 
+/** Norsk kontonummer: 11 siffer med MOD11-kontrollsiffer. */
+function validKontonr(d: string): boolean {
+  if (!/^\d{11}$/.test(d)) return false;
+  const w = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  const sum = w.reduce((s, x, i) => s + x * Number(d[i]), 0);
+  const r = 11 - (sum % 11);
+  const ctrl = r === 11 ? 0 : r;
+  return ctrl !== 10 && ctrl === Number(d[10]);
+}
+
 /**
  * Rediger grunndata på en ansatt: navn, e-post, tittel, ansattnr. E-post er
  * det som trengs for å opprette innlogging. Kun admin.
@@ -342,9 +352,20 @@ export async function updateStaff(
     display_name?: string; // navn kundene ser (tom = fullt navn)
     start_date?: string; // YYYY-MM-DD eller tom
     end_date?: string; // YYYY-MM-DD eller tom (sluttdato ved oppsigelse)
+    account_number?: string; // kontonr for lønn (11 siffer), tom = fjern
   },
 ): Promise<{ ok?: true; error?: string }> {
   await requireRole(["admin"]);
+  // Kontonummer: valideres og lagres i lønnstabellen (salary_settings), som
+  // bare admin/eier/revisor kan lese – ikke i staff, som kassa kan lese.
+  let accountNumber: string | null | undefined;
+  if (fields.account_number !== undefined) {
+    const digits = fields.account_number.replace(/\D/g, "");
+    if (digits === "") accountNumber = null;
+    else if (digits.length !== 11) return { error: "Kontonummer må ha 11 siffer (f.eks. 1234.56.78901)." };
+    else if (!validKontonr(digits)) return { error: "Kontonummeret er ugyldig – sjekk at sifrene stemmer." };
+    else accountNumber = `${digits.slice(0, 4)}.${digits.slice(4, 6)}.${digits.slice(6)}`;
+  }
   const patch: Record<string, string | number | null> = {};
   if (fields.base_salary_nok !== undefined) {
     const raw = fields.base_salary_nok.replace(/\s/g, "").replace(",", ".");
@@ -383,8 +404,26 @@ export async function updateStaff(
   if (patch.start_date && patch.end_date && String(patch.end_date) < String(patch.start_date))
     return { error: "Sluttdato kan ikke være før startdato." };
 
-  if (Object.keys(patch).length === 0) return { ok: true };
   const sb = await createClient();
+  if (accountNumber !== undefined) {
+    const { error: accErr } = await sb
+      .from("salary_settings")
+      .upsert({ staff_id: id, account_number: accountNumber }, { onConflict: "staff_id" });
+    // Tomt felt og lønnstabellen mangler: ikke stopp resten av lagringen.
+    if (accErr && accountNumber !== null) {
+      return {
+        error: /account_number/.test(accErr.message)
+          ? "Kontonummer krever SQL: kjør KJØR-I-SUPABASE-LONNSRAPPORT.sql i Supabase."
+          : /salary_settings/.test(accErr.message)
+            ? "Kontonummer krever SQL: kjør KJØR-I-SUPABASE-LONN-ANSATT.sql og KJØR-I-SUPABASE-LONNSRAPPORT.sql."
+            : `Kunne ikke lagre kontonummer: ${accErr.message}`,
+      };
+    }
+  }
+  if (Object.keys(patch).length === 0) {
+    revalidatePath("/admin/ansatte");
+    return { ok: true };
+  }
   const { error } = await sb.from("staff").update(patch).eq("id", id);
   if (error) {
     if (/start_date|end_date/.test(error.message))

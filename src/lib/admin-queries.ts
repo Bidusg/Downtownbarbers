@@ -34,6 +34,8 @@ export type AdminStaff = {
   display_name: string | null;
   start_date?: string | null;
   end_date?: string | null;
+  /** Kontonummer for lønn (salary_settings – kun admin/revisor). */
+  account_number?: string | null;
 };
 
 export type AdminBooking = {
@@ -170,9 +172,23 @@ export async function getStaffAdmin(): Promise<AdminStaff[]> {
       data = (fb.data ?? []) as unknown as typeof data;
       error = fb.error;
     }
+    // Kontonummer ligger i lønnstabellen (ikke i staff, som kassa kan lese).
+    const accounts = new Map<string, string>();
+    try {
+      const { data: acc } = await sb.from("salary_settings").select("staff_id, account_number");
+      for (const a of (acc ?? []) as { staff_id: string; account_number: string | null }[]) {
+        if (a.account_number) accounts.set(a.staff_id, a.account_number);
+      }
+    } catch {
+      /* tabell/kolonne mangler → uten kontonr */
+    }
     return (data ?? []).map((r) => {
       const { pin_hash, ...rest } = r as Record<string, unknown>;
-      return { ...rest, has_pin: pin_hash != null } as AdminStaff;
+      return {
+        ...rest,
+        has_pin: pin_hash != null,
+        account_number: accounts.get(String(rest.id)) ?? null,
+      } as AdminStaff;
     });
   } catch {
     return [];
