@@ -369,6 +369,8 @@ export type DailyReconRow = {
   other: number;
   /** Antall salg. */
   salesCount: number;
+  /** Totalsum fra importert Fixit-kasseoppgjør (null = ikke importert). */
+  fixitTotal: number | null;
 };
 
 const chunk = <T>(arr: T[], n: number): T[][] => {
@@ -498,6 +500,23 @@ export async function getDailyReconciliation(
       });
     }
 
+    // Importerte Fixit-oppgjør (KJØR-I-SUPABASE-FIXIT-OPPGJOR.sql) – valgfritt.
+    const fixitByDay = new Map<string, number>();
+    try {
+      const { data: fx, error: fxErr } = await sb
+        .from("fixit_settlements")
+        .select("settle_date, total_nok")
+        .gte("settle_date", startKey)
+        .lte("settle_date", endDate);
+      if (!fxErr) {
+        for (const r of (fx ?? []) as { settle_date: string; total_nok: number }[]) {
+          fixitByDay.set(r.settle_date, (fixitByDay.get(r.settle_date) ?? 0) + (Number(r.total_nok) || 0));
+        }
+      }
+    } catch {
+      /* tabellen finnes ikke ennå */
+    }
+
     const rows: DailyReconRow[] = [];
     for (let i = 0; i < days; i++) {
       const d = new Date(endD);
@@ -505,7 +524,8 @@ export async function getDailyReconciliation(
       const key = d.toISOString().slice(0, 10);
       const exp = expByDay.get(key);
       const st = settByDay.get(key);
-      if (!exp && !st) continue;
+      const fixit = fixitByDay.get(key);
+      if (!exp && !st && fixit == null) continue;
       rows.push({
         date: key,
         expected: exp
@@ -518,6 +538,7 @@ export async function getDailyReconciliation(
         gift: Math.round(exp?.gift ?? 0),
         other: Math.round(exp?.other ?? 0),
         salesCount: exp?.count ?? 0,
+        fixitTotal: fixit == null ? null : Math.round(fixit),
       });
     }
     return rows;

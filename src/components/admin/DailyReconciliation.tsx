@@ -81,6 +81,7 @@ export function DailyReconciliation({
   windowDays?: number;
 }) {
   const [rows, setRows] = useState<DailyReconRow[]>(initialRows);
+  const hasFixit = rows.some((r) => r.fixitTotal != null);
   const [start, setStart] = useState(windowStart);
   const [done, setDone] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -183,6 +184,7 @@ export function DailyReconciliation({
             <Tr head className="bg-surface-2 tracking-wide uppercase">
               <Th>Dato</Th>
               <Th align="right">Totalt salg</Th>
+              {hasFixit && <Th align="right">Fixit</Th>}
               <Th align="right">Kort + Vipps</Th>
               <Th align="right">Kontant forventet</Th>
               <Th align="right">Kontant talt</Th>
@@ -192,7 +194,7 @@ export function DailyReconciliation({
           </THead>
           <TBody>
             {rows.length === 0 && (
-              <TableEmpty colSpan={7}>
+              <TableEmpty colSpan={hasFixit ? 8 : 7}>
                 Ingen salg eller oppgjør i perioden.
               </TableEmpty>
             )}
@@ -220,6 +222,23 @@ export function DailyReconciliation({
                       <span className="block text-[11px] text-muted">{extra.slice(3)}</span>
                     )}
                   </Td>
+                  {hasFixit && (
+                    <Td align="right" nums className="text-fg" title="Totalt fra importert Fixit-kasseoppgjør">
+                      {r.fixitTotal == null ? (
+                        <span className="text-muted">—</span>
+                      ) : (
+                        <>
+                          {kr(r.fixitTotal)}
+                          {Math.abs(r.fixitTotal - r.salesTotal) >= 1 && (
+                            <span className="block text-[11px] text-danger">
+                              {r.fixitTotal - r.salesTotal > 0 ? "+" : "−"}
+                              {kr(Math.abs(r.fixitTotal - r.salesTotal))} mot nytt
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </Td>
+                  )}
                   {(() => {
                     // Oppgjøret (evt. overstyrt av admin) vinner over kassens tall.
                     const card = r.counted ? r.counted.card : r.expected.card;

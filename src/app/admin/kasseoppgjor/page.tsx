@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/Card";
 import { Table, TBody, Tr, Td, TableEmpty } from "@/components/ui/Table";
 import { SettlementManager } from "@/components/admin/SettlementManager";
 import { DailyReconciliation } from "@/components/admin/DailyReconciliation";
+import { FixitImport } from "@/components/admin/FixitImport";
 import {
   getCashSettlements,
   getSalesTotalForDate,
@@ -89,6 +90,8 @@ export default async function AdminKasseoppgjor() {
       </Card>
 
       <SettlementManager settlements={settlements} defaultDate={today} />
+
+      <FixitImport />
 
       <DailyReconciliation
         initialRows={reconRows}

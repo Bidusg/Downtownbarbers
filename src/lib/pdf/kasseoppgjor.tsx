@@ -95,6 +95,11 @@ function SettlementDoc({ r }: { r: SettlementReport }) {
       a.cash += x.expected.cash;
       a.gift += x.gift;
       a.other += x.other;
+      if (x.fixitTotal != null) {
+        a.fixit += x.fixitTotal;
+        a.fixitDays += 1;
+        a.salesOnFixitDays += x.salesTotal;
+      }
       if (x.counted) {
         a.cashCounted += x.counted.cash;
         a.cashDiff += x.counted.cash - x.expected.cash;
@@ -102,7 +107,7 @@ function SettlementDoc({ r }: { r: SettlementReport }) {
       }
       return a;
     },
-    { sales: 0, count: 0, card: 0, vipps: 0, cash: 0, gift: 0, other: 0, cashCounted: 0, cashDiff: 0, settled: 0 },
+    { sales: 0, count: 0, card: 0, vipps: 0, cash: 0, gift: 0, other: 0, cashCounted: 0, cashDiff: 0, settled: 0, fixit: 0, fixitDays: 0, salesOnFixitDays: 0 },
   );
   const unsettled = rows.filter((x) => !x.settled && x.salesTotal > 0).length;
 
@@ -132,6 +137,12 @@ function SettlementDoc({ r }: { r: SettlementReport }) {
           <Stat label="Gavekort" value={kr(t.gift + t.other)} />
           <Stat label="Kontantavvik" value={signedKr(t.cashDiff)} />
         </View>
+        {t.fixitDays > 0 && (
+          <Text style={s.metaLine}>
+            Fixit (importert, {t.fixitDays} dager): {kr(t.fixit)} · nytt system samme dager: {kr(t.salesOnFixitDays)} ·
+            forskjell {signedKr(t.fixit - t.salesOnFixitDays)}
+          </Text>
+        )}
 
         <View style={s.thead} fixed>
           <Text style={[s.th, s.cDate]}>Dato</Text>
