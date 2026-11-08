@@ -354,8 +354,24 @@ export async function updateStaff(
     end_date?: string; // YYYY-MM-DD eller tom (sluttdato ved oppsigelse)
     account_number?: string; // kontonr for lønn (11 siffer), tom = fjern
   },
-): Promise<{ ok?: true; error?: string }> {
+  opts?: { force?: boolean },
+): Promise<{ ok?: true; error?: string; upcoming?: UpcomingBooking[]; afterDate?: string }> {
   await requireRole(["admin"]);
+  // Ny/endret sluttdato med bookede timer etter den: stopp og vis timene.
+  if (fields.end_date && /^\d{4}-\d{2}-\d{2}$/.test(fields.end_date.trim()) && !opts?.force) {
+    const end = fields.end_date.trim();
+    const next = new Date(`${end}T00:00:00Z`);
+    next.setUTCDate(next.getUTCDate() + 1);
+    const after = next.toISOString().slice(0, 10);
+    const up = await upcomingBookingsForStaff(id, after);
+    if (up.bookings && up.bookings.length > 0) {
+      return {
+        error: `Det finnes ${up.bookings.length} bookede ${up.bookings.length === 1 ? "time" : "timer"} etter sluttdatoen.`,
+        upcoming: up.bookings,
+        afterDate: after,
+      };
+    }
+  }
   // Kontonummer: valideres og lagres i lønnstabellen (salary_settings), som
   // bare admin/eier/revisor kan lese – ikke i staff, som kassa kan lese.
   let accountNumber: string | null | undefined;
@@ -465,8 +481,150 @@ export async function updateStaffPhoto(
   return { ok: true };
 }
 
-export async function toggleStaff(id: string, active: boolean): Promise<{ ok?: true; error?: string }> {
+/* ---------------- Kommende timer før deaktivering / sluttdato ---------------- */
+
+export type UpcomingBooking = {
+  id: string;
+  start_at: string;
+  end_at: string;
+  service: string;
+  customer: string;
+  phone: string | null;
+  email: string | null;
+  status: string;
+};
+
+/**
+ * Kommende timer (ikke avlyst/fullført/ikke møtt) for en ansatt fra og med
+ * `fromDate` (yyyy-mm-dd, Oslo) – standard: nå. Blokkeringer uten tjeneste
+ * tas ikke med. Kun admin.
+ */
+export async function upcomingBookingsForStaff(
+  id: string,
+  fromDate?: string,
+): Promise<{ bookings?: UpcomingBooking[]; error?: string }> {
   await requireRole(["admin"]);
+  const sb = await createClient();
+  const fromIso =
+    fromDate && /^\d{4}-\d{2}-\d{2}$/.test(fromDate)
+      ? new Date(
+          new Date(`${fromDate}T00:00:00Z`).getTime() -
+            // Oslo-midnatt ≈ UTC −1/−2 t: ta med hele dagen trygt.
+            2 * 3600 * 1000,
+        ).toISOString()
+      : new Date().toISOString();
+  const { data, error } = await sb
+    .from("bookings")
+    .select("id, start_at, end_at, status, service_id, services(name), customers(full_name, phone, email)")
+    .eq("staff_id", id)
+    .gte("start_at", fromIso)
+    .in("status", ["pending", "confirmed"])
+    .not("service_id", "is", null)
+    .order("start_at")
+    .limit(500);
+  if (error) return { error: `Kunne ikke hente timer: ${error.message}` };
+  const rows = (data ?? []) as unknown as {
+    id: string;
+    start_at: string;
+    end_at: string;
+    status: string;
+    services: { name?: string } | null;
+    customers: { full_name?: string; phone?: string | null; email?: string | null } | null;
+  }[];
+  const onOrAfter = (iso: string) =>
+    !fromDate || new Date(iso).toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" }) >= fromDate;
+  return {
+    bookings: rows
+      .filter((b) => onOrAfter(b.start_at))
+      .map((b) => ({
+        id: b.id,
+        start_at: b.start_at,
+        end_at: b.end_at,
+        service: b.services?.name ?? "Time",
+        customer: b.customers?.full_name ?? "Ukjent kunde",
+        phone: b.customers?.phone ?? null,
+        email: b.customers?.email ?? null,
+        status: b.status,
+      })),
+  };
+}
+
+/**
+ * Flytt valgte timer fra én barber til en annen. En time flyttes bare hvis
+ * mottakeren er aktiv og ikke har en annen time som overlapper. Resten
+ * rapporteres som konflikter (må flyttes manuelt i kalenderen). Kun admin.
+ */
+export async function moveStaffBookings(
+  fromId: string,
+  toId: string,
+  bookingIds: string[],
+): Promise<{ moved?: number; conflicts?: string[]; error?: string }> {
+  await requireRole(["admin"]);
+  if (!toId || toId === fromId) return { error: "Velg en annen barber å flytte til." };
+  const ids = Array.from(new Set((bookingIds ?? []).filter(Boolean)));
+  if (!ids.length) return { error: "Ingen timer valgt." };
+  const sb = await createClient();
+  const { data: target } = await sb.from("staff").select("id, active, full_name").eq("id", toId).maybeSingle();
+  if (!target || target.active === false) return { error: "Barberen du flytter til er ikke aktiv." };
+
+  const { data: rows, error } = await sb
+    .from("bookings")
+    .select("id, start_at, end_at, staff_id")
+    .in("id", ids)
+    .eq("staff_id", fromId);
+  if (error) return { error: `Kunne ikke hente timene: ${error.message}` };
+
+  let moved = 0;
+  const conflicts: string[] = [];
+  const fmt = (iso: string) =>
+    new Date(iso).toLocaleString("nb-NO", {
+      timeZone: "Europe/Oslo",
+      weekday: "short",
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  for (const b of (rows ?? []) as { id: string; start_at: string; end_at: string }[]) {
+    const { data: clash } = await sb
+      .from("bookings")
+      .select("id")
+      .eq("staff_id", toId)
+      .not("status", "in", "(cancelled,no_show)")
+      .lt("start_at", b.end_at)
+      .gt("end_at", b.start_at)
+      .limit(1);
+    if (clash && clash.length) {
+      conflicts.push(`${fmt(b.start_at)} – ${target.full_name} er opptatt`);
+      continue;
+    }
+    const { error: upErr } = await sb.from("bookings").update({ staff_id: toId }).eq("id", b.id).eq("staff_id", fromId);
+    if (upErr) conflicts.push(`${fmt(b.start_at)} – ${upErr.message}`);
+    else moved++;
+  }
+  revalidatePath("/admin/ansatte");
+  revalidatePath("/admin/bookinger");
+  revalidatePath("/kasse");
+  return { moved, conflicts };
+}
+
+export async function toggleStaff(
+  id: string,
+  active: boolean,
+  opts?: { force?: boolean },
+): Promise<{ ok?: true; error?: string; upcoming?: UpcomingBooking[] }> {
+  await requireRole(["admin"]);
+  // Deaktivering med kommende timer: stopp og vis timene (med mindre admin
+  // har sett lista og valgt «Deaktiver likevel»).
+  if (!active && !opts?.force) {
+    const up = await upcomingBookingsForStaff(id);
+    if (up.bookings && up.bookings.length > 0) {
+      return {
+        error: `Det finnes ${up.bookings.length} kommende ${up.bookings.length === 1 ? "time" : "timer"} – flytt eller avlys dem først.`,
+        upcoming: up.bookings,
+      };
+    }
+  }
   const sb = await createClient();
   const { error } = await sb.from("staff").update({ active }).eq("id", id);
   if (error) return { error: `Kunne ikke lagre: ${error.message}` };

@@ -15,6 +15,8 @@ import { Input, Select, Field } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
+import { UpcomingBookingsDialog } from "@/components/admin/UpcomingBookingsDialog";
+import type { UpcomingBooking } from "@/app/admin/ansatte/actions";
 import {
   createStaff,
   updateStaff,
@@ -34,14 +36,18 @@ function EditStaffModal({
   levels,
   services,
   currentServiceIds,
+  others,
   onClose,
 }: {
   staff: AdminStaff;
   levels: StaffLevel[];
   services: PickerService[];
   currentServiceIds: string[];
+  /** Andre aktive barbere (for flytting av timer ved sluttdato). */
+  others: { id: string; name: string }[];
   onClose: () => void;
 }) {
+  const [endWarn, setEndWarn] = useState<{ list: UpcomingBooking[]; after: string } | null>(null);
   const [fullName, setFullName] = useState(staff.full_name);
   const [displayName, setDisplayName] = useState(staff.display_name ?? "");
   const [email, setEmail] = useState(staff.email ?? "");
@@ -82,10 +88,10 @@ function EditStaffModal({
     g.rows.push(s);
   }
 
-  function save() {
-    setErr(null);
-    start(async () => {
-      const r = await updateStaff(staff.id, {
+  async function persist(force: boolean): Promise<{ error?: string; blocked?: boolean }> {
+    const r = await updateStaff(
+      staff.id,
+      {
         full_name: fullName,
         email,
         title,
@@ -95,19 +101,28 @@ function EditStaffModal({
         start_date: startDate,
         end_date: endDate,
         account_number: accountNo,
-      });
+      },
+      { force },
+    );
+    if (r.upcoming && r.upcoming.length && !force) {
+      setEndWarn({ list: r.upcoming, after: r.afterDate ?? endDate });
+      return { blocked: true };
+    }
+    if (r.error) return { error: r.error };
+    const lr = await setStaffLevel(staff.id, levelId || null);
+    if (lr.error) return { error: lr.error };
+    const sr = await setStaffServices(staff.id, Array.from(serviceIds));
+    if (sr.error) return { error: sr.error };
+    return {};
+  }
+
+  function save() {
+    setErr(null);
+    start(async () => {
+      const r = await persist(false);
+      if (r.blocked) return;
       if (r.error) {
         setErr(r.error);
-        return;
-      }
-      const lr = await setStaffLevel(staff.id, levelId || null);
-      if (lr.error) {
-        setErr(lr.error);
-        return;
-      }
-      const sr = await setStaffServices(staff.id, Array.from(serviceIds));
-      if (sr.error) {
-        setErr(sr.error);
         return;
       }
       onClose();
@@ -117,6 +132,7 @@ function EditStaffModal({
   // Portal til <body>: dialogen må ligge utenfor sideanimasjonen (.bo-page)
   // og topplinja, ellers havner den bak/over feil ting og kuttes i toppen.
   return createPortal(
+    <>
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3 sm:p-6"
       onClick={onClose}
@@ -350,7 +366,25 @@ function EditStaffModal({
           {err && <p className="text-xs text-danger">{err}</p>}
         </div>
       </div>
-    </div>,
+    </div>
+    {endWarn && (
+      <UpcomingBookingsDialog
+        staffId={staff.id}
+        staffName={staff.full_name}
+        initial={endWarn.list}
+        fromDate={endWarn.after}
+        others={others}
+        title={`Timer etter sluttdatoen for ${staff.full_name}`}
+        proceedLabel="Lagre"
+        onProceed={async () => {
+          const r = await persist(true);
+          if (r.error) return { error: r.error };
+          onClose();
+        }}
+        onClose={() => setEndWarn(null)}
+      />
+    )}
+    </>,
     document.body,
   );
 }
@@ -613,6 +647,7 @@ export function StaffManager({
 }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<AdminStaff | null>(null);
+  const [deactivating, setDeactivating] = useState<{ staff: AdminStaff; list: UpcomingBooking[] } | null>(null);
   const [createErr, setCreateErr] = useState<string | null>(null);
   const [pending] = useTransition();
 
@@ -689,7 +724,7 @@ export function StaffManager({
             label={s.active ? "Deaktiver" : "Aktiver"}
             question={
               s.active
-                ? `Deaktivere ${s.full_name}? Kan ikke bookes lenger.`
+                ? `Deaktivere ${s.full_name}? Kan ikke bookes lenger. Har ${s.full_name} timer framover, får du se dem først.`
                 : `Aktivere ${s.full_name}?`
             }
             confirmLabel={s.active ? "Ja, deaktiver" : "Ja, aktiver"}
@@ -699,11 +734,13 @@ export function StaffManager({
             disabled={pending}
             onConfirm={async () => {
               try {
-                // toggleStaff returnerer i dag void; støtt { error } om den utvides.
-                const r = (await toggleStaff(s.id, !s.active)) as unknown as
-                  | { error?: string }
-                  | undefined;
-                if (r?.error) return { ok: false, error: r.error };
+                const r = await toggleStaff(s.id, !s.active);
+                // Kommende timer: vis dem og la admin flytte før deaktivering.
+                if (r.upcoming && r.upcoming.length) {
+                  setDeactivating({ staff: s, list: r.upcoming });
+                  return { ok: true };
+                }
+                if (r.error) return { ok: false, error: r.error };
                 return { ok: true };
               } catch {
                 return { ok: false, error: "Kunne ikke endre status. Prøv igjen." };
@@ -733,11 +770,30 @@ export function StaffManager({
     <div className="space-y-6">
       {editing && (
         <EditStaffModal
+          key={editing.id}
           staff={editing}
           levels={levels}
           services={services}
           currentServiceIds={staffServices[editing.id] ?? []}
+          others={staff.filter((x) => x.active && x.id !== editing.id).map((x) => ({ id: x.id, name: x.full_name }))}
           onClose={() => setEditing(null)}
+        />
+      )}
+      {deactivating && (
+        <UpcomingBookingsDialog
+          staffId={deactivating.staff.id}
+          staffName={deactivating.staff.full_name}
+          initial={deactivating.list}
+          others={staff
+            .filter((x) => x.active && x.id !== deactivating.staff.id)
+            .map((x) => ({ id: x.id, name: x.full_name }))}
+          title={`Deaktivere ${deactivating.staff.full_name}?`}
+          proceedLabel="Deaktiver"
+          onProceed={async () => {
+            const r = await toggleStaff(deactivating.staff.id, false, { force: true });
+            if (r.error) return { error: r.error };
+          }}
+          onClose={() => setDeactivating(null)}
         />
       )}
       <div className="flex items-center justify-between">
