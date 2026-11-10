@@ -160,9 +160,9 @@ export const adminGroups: AdminNavGroup[] = [
         description: "Per barber, no-show, turnus",
       },
       {
-        label: "Rapporter",
+        label: "Rapportsenter (Excel)",
         href: "/admin/rapporter",
-        description: "Eksport og grunndata",
+        description: "Last ned alle tall og rapporter i Excel",
       },
     ],
   },

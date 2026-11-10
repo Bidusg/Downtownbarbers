@@ -546,6 +546,34 @@ function buildCover(ws: ExcelJS.Worksheet, opts: ReportWorkbookInput, items: Ind
 
 /* ---------- Offentlig API ---------- */
 
+/* ---- Hvitt «papir» ----
+ * Excel i mørk modus tegner celler UTEN egen fyllfarge svarte, mens teksten
+ * vår er mørk → arket ser helt svart ut. Derfor får hvert ark eksplisitt
+ * hvit bakgrunn: kolonnestil (gjelder også tomme celler) + alle celler som
+ * ikke har egen farge. */
+const PAPER: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFFFF" } };
+const PAPER_COLS = 40;
+
+/** Kalles FØR innhold tegnes: nye celler arver hvit kolonnestil. */
+function paperColumns(ws: ExcelJS.Worksheet) {
+  for (let c = 1; c <= PAPER_COLS; c++) ws.getColumn(c).fill = PAPER;
+}
+
+/** Kalles ETTER innhold: celler som fikk stilen overskrevet uten fyll blir hvite. */
+function paperCells(ws: ExcelJS.Worksheet) {
+  // Bare brukte celler – resten dekkes av kolonnestilen (holder fila liten).
+  const maxCol = ws.columnCount;
+  const maxRow = ws.rowCount;
+  for (let r = 1; r <= maxRow; r++) {
+    const row = ws.getRow(r);
+    for (let c = 1; c <= maxCol; c++) {
+      const cell = row.getCell(c);
+      const f = cell.fill as ExcelJS.FillPattern | undefined;
+      if (!f || f.pattern === "none") cell.fill = PAPER;
+    }
+  }
+}
+
 /** Lager hele rapport-arbeidsboka (forside + ett ark per ReportSheet). */
 export async function renderReportWorkbook(opts: ReportWorkbookInput): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
@@ -558,6 +586,7 @@ export async function renderReportWorkbook(opts: ReportWorkbookInput): Promise<B
 
   const used = new Set<string>(["forside"]);
   const cover = wb.addWorksheet("Forside", { properties: { tabColor: { argb: ACCENT } } });
+  paperColumns(cover);
 
   const items: IndexItem[] = [];
   for (const group of opts.sheets) {
@@ -566,12 +595,15 @@ export async function renderReportWorkbook(opts: ReportWorkbookInput): Promise<B
       const ws = wb.addWorksheet(name, {
         properties: { tabColor: { argb: TAB_COLOR[group.report.category] ?? ACCENT } },
       });
+      paperColumns(ws);
       buildSheet(ws, sheet);
+      paperCells(ws);
       items.push({ category: group.report.category, reportTitle: group.report.title, sheetName: name });
     }
   }
 
   buildCover(cover, opts, items);
+  paperCells(cover);
   wb.views = [{ x: 0, y: 0, width: 20000, height: 12000, firstSheet: 0, activeTab: 0, visibility: "visible" }];
 
   const out = await wb.xlsx.writeBuffer();
