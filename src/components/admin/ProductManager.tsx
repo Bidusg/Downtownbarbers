@@ -24,9 +24,47 @@ import {
   Td,
   TableEmpty,
 } from "@/components/ui/Table";
-import { Input } from "@/components/ui/Input";
+import { Input, Field } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { formatKr } from "@/lib/format";
+import type { ProductCost } from "@/app/admin/produkter/costs";
+
+const MVA = 0.25;
+const COST_HINT = "Kjør KJØR-I-SUPABASE-INNKJOPSPRIS.sql i Supabase først";
+
+/** Margin % = (pris eks. mva − innkjøp) / pris eks. mva. Null hvis ikke regnbart. */
+function marginPct(priceInkl: number, cost: number | undefined): number | null {
+  if (cost === undefined) return null;
+  const eks = priceInkl / (1 + MVA);
+  if (!(eks > 0)) return null;
+  return ((eks - cost) / eks) * 100;
+}
+
+/** Felter for innkjøpspris/leverandør (deles av «nytt» og «rediger»). */
+function CostFields({ cost, ok }: { cost?: ProductCost; ok: boolean }) {
+  if (!ok) {
+    return <p className="text-xs text-muted sm:col-span-2">Innkjøpspris: {COST_HINT}.</p>;
+  }
+  return (
+    <>
+      <Field label="Innkjøpspris (eks. mva)" hint="Per enhet, i kr. Kun synlig for admin og revisor.">
+        <Input
+          name="cost_nok"
+          type="text"
+          inputMode="decimal"
+          placeholder="f.eks. 89,50"
+          defaultValue={cost ? String(cost.cost_nok).replace(".", ",") : ""}
+        />
+      </Field>
+      <Field label="Leverandør">
+        <Input name="supplier" defaultValue={cost?.supplier ?? ""} />
+      </Field>
+      <Field label="Leverandørens varenr.">
+        <Input name="supplier_sku" defaultValue={cost?.supplier_sku ?? ""} />
+      </Field>
+    </>
+  );
+}
 
 /** Inline strekkode-celle: vis/sett/endre strekkode, med skann-mulighet. */
 function BarcodeCell({
@@ -97,9 +135,13 @@ function BarcodeCell({
 /** Inline redigeringsskjema: endre navn/pris/beskrivelse og evt. bytt bilde. */
 function EditProductForm({
   product,
+  cost,
+  costsOk,
   onDone,
 }: {
   product: AdminProduct;
+  cost?: ProductCost;
+  costsOk: boolean;
   onDone: () => void;
 }) {
   const [saving, startSave] = useTransition();
@@ -112,6 +154,7 @@ function EditProductForm({
           setErr(null);
           const res = await updateProduct(fd);
           if (res.error) setErr(res.error);
+          else if (res.warning) setErr(`Produktet er lagret. ${res.warning}`);
           else onDone();
         })
       }
@@ -132,6 +175,7 @@ function EditProductForm({
         defaultValue={product.description ?? ""}
         className="sm:col-span-2"
       />
+      <CostFields cost={cost} ok={costsOk} />
       <label className="text-xs text-muted sm:col-span-2">
         Bilde
         {product.image_url && (
@@ -159,7 +203,15 @@ function EditProductForm({
   );
 }
 
-export function ProductManager({ products }: { products: AdminProduct[] }) {
+export function ProductManager({
+  products,
+  costs = {},
+  costsOk = false,
+}: {
+  products: AdminProduct[];
+  costs?: Record<string, ProductCost>;
+  costsOk?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [saving, startSave] = useTransition();
@@ -230,7 +282,9 @@ export function ProductManager({ products }: { products: AdminProduct[] }) {
                 setErr(null);
                 const res = await createProduct(fd);
                 if (res.error) setErr(res.error);
-                else setOpen(false);
+                else if (res.warning) {
+                  setErr(`Produktet er lagret. ${res.warning}`);
+                } else setOpen(false);
               })
             }
             className="grid gap-3 sm:grid-cols-2"
@@ -243,6 +297,7 @@ export function ProductManager({ products }: { products: AdminProduct[] }) {
               <input name="is_gift_card" type="checkbox" /> Gavekort
             </label>
             <Input name="description" placeholder="Beskrivelse" className="sm:col-span-2" />
+            <CostFields ok={costsOk} />
             <label className="text-xs text-muted sm:col-span-2">
               Bilde
               <input name="image" type="file" accept="image/*" className="mt-1 block w-full text-xs" />
@@ -261,6 +316,8 @@ export function ProductManager({ products }: { products: AdminProduct[] }) {
             <Tr head className="bg-surface-2 uppercase tracking-wide">
               <Th>Produkt</Th>
               <Th>Pris</Th>
+              <Th>Innkjøp</Th>
+              <Th>Margin</Th>
               <Th>Lager</Th>
               <Th>Strekkode</Th>
               <Th>Type</Th>
@@ -270,7 +327,7 @@ export function ProductManager({ products }: { products: AdminProduct[] }) {
           </THead>
           <TBody>
             {shown.length === 0 && (
-              <TableEmpty colSpan={7}>
+              <TableEmpty colSpan={9}>
                 Ingen produkter enda – legg til det første, eller koble til databasen.
               </TableEmpty>
             )}
@@ -307,6 +364,15 @@ export function ProductManager({ products }: { products: AdminProduct[] }) {
                   </span>
                 </Td>
                 <Td className="font-display">{formatKr(p.price_nok)}</Td>
+                <Td muted>
+                  {!costsOk || !costs[p.id] ? "—" : `${costs[p.id].cost_nok.toLocaleString("nb-NO", { maximumFractionDigits: 2 })} kr`}
+                </Td>
+                <Td muted>
+                  {(() => {
+                    const m = costsOk && !p.is_gift_card ? marginPct(Number(p.price_nok), costs[p.id]?.cost_nok) : null;
+                    return m === null ? "—" : `${m.toLocaleString("nb-NO", { maximumFractionDigits: 1 })} %`;
+                  })()}
+                </Td>
                 <Td muted>{p.stock}</Td>
                 <Td>
                   <BarcodeCell id={p.id} barcode={p.barcode} />
@@ -370,15 +436,15 @@ export function ProductManager({ products }: { products: AdminProduct[] }) {
               </Tr>
               {webId === p.id && (
                 <Tr>
-                  <Td colSpan={7}>
+                  <Td colSpan={9}>
                     <WebProductEditor product={p} onDone={() => setWebId(null)} />
                   </Td>
                 </Tr>
               )}
               {editId === p.id && (
                 <Tr>
-                  <Td colSpan={7}>
-                    <EditProductForm product={p} onDone={() => setEditId(null)} />
+                  <Td colSpan={9}>
+                    <EditProductForm product={p} cost={costs[p.id]} costsOk={costsOk} onDone={() => setEditId(null)} />
                   </Td>
                 </Tr>
               )}

@@ -45,8 +45,8 @@ export function StaffWebOrder({ rows, ready }: { rows: StaffWebOrderRow[]; ready
         <div>
           <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-fg">Rekkefølge på nettsiden</h2>
           <p className="mt-0.5 text-xs text-muted">
-            Øverst vises først i booking og under «Teamet». «Hvilken som helst» gir også timen til
-            første ledige i denne rekkefølgen.
+            Øverst vises først i booking og under «Teamet». «Hvilken som helst» gir timen til den
+            ledige barberen med færrest kunder den dagen – ved likt antall den første i denne rekkefølgen.
           </p>
         </div>
         <button

@@ -4,9 +4,10 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { getProductsAdmin } from "@/lib/admin-queries";
 import { getWebshopSettings } from "@/lib/shop";
 import { config } from "@/lib/config";
+import { getProductCosts } from "./costs";
 
 export default async function AdminProdukter() {
-  const [products, settings] = await Promise.all([getProductsAdmin(), getWebshopSettings()]);
+  const [products, settings, cost] = await Promise.all([getProductsAdmin(), getWebshopSettings(), getProductCosts()]);
   const hasWeb = products.some((p) => p.slug !== undefined);
   const items = products.filter((p) => !p.is_gift_card && p.active);
   const stats = {
@@ -30,7 +31,7 @@ export default async function AdminProdukter() {
           Kjør KJØR-I-SUPABASE-NETTBUTIKK.sql i Supabase for å slå på nettbutikken (tekster, bilder og bestilling).
         </p>
       )}
-      <ProductManager products={products} />
+      <ProductManager products={products} costs={cost.costs} costsOk={cost.ok} />
     </div>
   );
 }

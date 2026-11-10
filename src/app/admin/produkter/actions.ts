@@ -6,9 +6,66 @@ import { createClient } from "@/lib/supabase/server";
 
 const BUCKET = "staff-files";
 
+const COST_MISSING_HINT = "Kjør KJØR-I-SUPABASE-INNKJOPSPRIS.sql i Supabase først.";
+
+/** «1 234,50» / «1234.5» → tall. Tom streng → null. NaN → NaN. */
+function parseNok(raw: FormDataEntryValue | null): number | null {
+  const s = String(raw ?? "").replace(/\s/g, "").replace(",", ".");
+  if (!s) return null;
+  return Number(s);
+}
+
+/**
+ * Lagrer innkjøpspris/leverandør i product_costs (egen tabell – products er
+ * lesbar for nettbutikken). Feil her er IKKE fatale for selve produktet:
+ * returnerer en feilmelding som vises ved siden av «lagret».
+ * Tomt prisfelt = fjern raden. Ikke-felt i skjemaet (undefined) = ikke rør.
+ */
+async function saveCost(
+  sb: Awaited<ReturnType<typeof createClient>>,
+  productId: string,
+  formData: FormData,
+): Promise<string | null> {
+  if (!formData.has("cost_nok")) return null;
+  const cost = parseNok(formData.get("cost_nok"));
+  const supplier = clean(formData.get("supplier"), 120);
+  const supplierSku = clean(formData.get("supplier_sku"), 120);
+  if (cost !== null && (!Number.isFinite(cost) || cost < 0)) return "Ugyldig innkjøpspris – ikke lagret.";
+  try {
+    if (cost === null) {
+      if (!supplier && !supplierSku) {
+        const { error } = await sb.from("product_costs").delete().eq("product_id", productId);
+        return error ? costError(error.message) : null;
+      }
+      return "Leverandør kan ikke lagres uten innkjøpspris.";
+    }
+    const { data: u } = await sb.auth.getUser();
+    const { error } = await sb.from("product_costs").upsert(
+      {
+        product_id: productId,
+        cost_nok: cost,
+        supplier,
+        supplier_sku: supplierSku,
+        updated_at: new Date().toISOString(),
+        updated_by: u.user?.id ?? null,
+      },
+      { onConflict: "product_id" },
+    );
+    return error ? costError(error.message) : null;
+  } catch (e) {
+    return costError(e instanceof Error ? e.message : String(e));
+  }
+}
+
+function costError(msg: string): string {
+  return /product_costs|relation|schema cache|does not exist/i.test(msg)
+    ? `Innkjøpspris ble ikke lagret. ${COST_MISSING_HINT}`
+    : `Innkjøpspris ble ikke lagret: ${msg}`;
+}
+
 export async function createProduct(
   formData: FormData,
-): Promise<{ ok?: true; error?: string }> {
+): Promise<{ ok?: true; error?: string; warning?: string }> {
   await requireRole(["admin"]);
   const name = String(formData.get("name") ?? "").trim();
   const price = Number(formData.get("price_nok") ?? 0);
@@ -33,7 +90,7 @@ export async function createProduct(
     image_url = sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
   }
 
-  const { error } = await sb.from("products").insert({
+  const { data: created, error } = await sb.from("products").insert({
     name,
     description: String(formData.get("description") ?? "") || null,
     price_nok: price,
@@ -42,7 +99,7 @@ export async function createProduct(
     barcode: String(formData.get("barcode") ?? "").trim() || null,
     image_url,
     active: true,
-  });
+  }).select("id").single();
   if (error) {
     return {
       error: /duplicate|unique/i.test(error.message)
@@ -50,14 +107,15 @@ export async function createProduct(
         : `Kunne ikke lagre produktet: ${error.message}`,
     };
   }
+  const warning = created?.id ? await saveCost(sb, created.id as string, formData) : null;
   revalidatePath("/admin/produkter");
   revalidatePath("/butikk");
-  return { ok: true };
+  return warning ? { ok: true, warning } : { ok: true };
 }
 
 export async function updateProduct(
   formData: FormData,
-): Promise<{ ok?: true; error?: string }> {
+): Promise<{ ok?: true; error?: string; warning?: string }> {
   await requireRole(["admin"]);
   const id = String(formData.get("id") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
@@ -100,9 +158,10 @@ export async function updateProduct(
         : `Kunne ikke lagre produktet: ${error.message}`,
     };
   }
+  const warning = await saveCost(sb, id, formData);
   revalidatePath("/admin/produkter");
   revalidatePath("/butikk");
-  return { ok: true };
+  return warning ? { ok: true, warning } : { ok: true };
 }
 
 /** Sett/endre strekkode på et produkt (tom = fjern). Kun admin/eier. */

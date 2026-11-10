@@ -7,6 +7,8 @@ import { Table, THead, TBody, Tr, Th, Td, TableEmpty } from "@/components/ui/Tab
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Field, Input } from "@/components/ui/Input";
 import { RevenueChart } from "@/components/admin/RevenueChart";
+import { ReportCenter } from "@/components/admin/ReportCenter";
+import { reportMeta } from "@/lib/reports/registry";
 import {
   resolveRange,
   getRevenueByGranularity,
@@ -112,6 +114,12 @@ export default async function AdminRapporter({
           </>
         }
       />
+
+      {/* Rapportsenter: én Excel-fil med valgte rapporter */}
+      <section className="space-y-3">
+        <h2 className="font-display text-lg font-bold">Rapportsenter (Excel)</h2>
+        <ReportCenter reports={reportMeta()} from={r.from} to={r.to} />
+      </section>
 
       {/* Periodevelger */}
       <Card>

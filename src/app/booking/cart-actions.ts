@@ -270,12 +270,44 @@ export async function createBookingGroup(
         );
         candidates = perLine.reduce((acc, cur) => acc.filter((n) => cur.includes(n)));
       }
-      // «Hvem som helst»: første barber som faktisk er ledig hele blokka.
-      for (const b of candidates) {
-        if (await isFree(b, total)) {
-          resolvedBarber = b;
-          break;
+      if (candidates.length === 1) {
+        if (await isFree(candidates[0], total)) resolvedBarber = candidates[0];
+      } else {
+        // «Hvem som helst»: blant de ledige, barberen med færrest bookinger
+        // den dagen (så en travel barber ikke også får «første ledige»-kundene).
+        // Likt antall → færrest minutter → opprinnelig rekkefølge.
+        const [free, load] = await Promise.all([
+          Promise.all(candidates.map((b) => isFree(b, total))),
+          (async () => {
+            const m = new Map<string, { bookings: number; minutes: number }>();
+            try {
+              const { data, error } = await sb.rpc("barber_day_load", { p_date: input.date });
+              if (error) {
+                // KJØR-I-SUPABASE-FORDEL-LEDIG-BARBER.sql ikke kjørt ennå → første ledige.
+                console.warn("barber_day_load feilet:", error.message);
+              } else {
+                for (const r of (data as { barber: string; bookings: number; minutes: number }[]) ?? [])
+                  m.set(r.barber, { bookings: r.bookings ?? 0, minutes: r.minutes ?? 0 });
+              }
+            } catch (e) {
+              console.warn("barber_day_load feilet:", e);
+            }
+            return m;
+          })(),
+        ]);
+        let best: { b: string; bookings: number; minutes: number } | null = null;
+        for (let i = 0; i < candidates.length; i++) {
+          if (!free[i]) continue;
+          const b = candidates[i];
+          const l = load.get(b) ?? { bookings: 0, minutes: 0 };
+          if (
+            !best ||
+            l.bookings < best.bookings ||
+            (l.bookings === best.bookings && l.minutes < best.minutes)
+          )
+            best = { b, ...l };
         }
+        resolvedBarber = best?.b ?? null;
       }
       if (!resolvedBarber) return TAKEN;
       let cursor = new Date(baseStart);
