@@ -10,6 +10,8 @@ export type ImportRow = {
   /** Linjenummer i fila (1-basert, som i Excel). */
   line: number;
   barcode: string | null;
+  /** Ekstra strekkoder for samme vare (Fixit kan ha flere). */
+  altBarcodes?: string[];
   name: string;
   brand: string | null;
   cost: number | null;
@@ -136,7 +138,71 @@ function findCol(header: string[], patterns: RegExp[], skip: Set<number> = new S
   return -1;
 }
 
+/** Celle som ser ut som en kolonneoverskrift (ikke en dataverdi som «Strekkoder: 123»). */
+const isLabel = (h: string) => h.length > 0 && !h.includes(":") && !/\d{5,}/.test(h);
+
+/**
+ * Rå Fixit-eksport «Lagerverdi» (SSRS-CSV). Overskriftsraden har tekniske
+ * navn (txtProductName, Textbox78 …). Kolonner:
+ *   textbox27 = merke · textbox34 = «Innpris/Kostpris, eks mva» ·
+ *   txtProductName = varenavn · Textbox78 = hovedstrekkode ·
+ *   textbox25 = innkjøpspris eks. mva · Textbox80 = «Strekkoder: a b c».
+ */
+function parseFixitSheet(rows: unknown[][]): { rows: ImportRow[]; costHeader: string; warnings: string[] } | null {
+  const limit = Math.min(rows.length, 30);
+  for (let i = 0; i < limit; i++) {
+    const header = (rows[i] ?? []).map((c) => cellText(c).toLowerCase());
+    const name = header.indexOf("txtproductname");
+    if (name < 0) continue;
+    const col = (k: string) => header.indexOf(k);
+    const cost = col("textbox25");
+    if (cost < 0) return { rows: [], costHeader: "", warnings: ["Fixit-fil uten kolonne for innkjøpspris (textbox25)."] };
+    const brand = col("textbox27");
+    const mode = col("textbox34");
+    const code = col("textbox78");
+    const codes = col("textbox80");
+    const out: ImportRow[] = [];
+    let modeText = "";
+    for (let j = i + 1; j < rows.length; j++) {
+      const r = rows[j] ?? [];
+      const n = cellText(r[name]);
+      // Tom rad eller gjentatt overskriftsrad (SSRS sideskift).
+      if (!n || n.toLowerCase() === "txtproductname") continue;
+      const all: string[] = [];
+      const main = code >= 0 ? barcodeDigits(r[code]) : null;
+      if (main) all.push(main);
+      if (codes >= 0) {
+        for (const t of cellText(r[codes]).replace(/^strekkoder:/i, "").split(/[\s,;]+/)) {
+          const d = t.replace(/\D/g, "");
+          if (d && !all.includes(d)) all.push(d);
+        }
+      }
+      if (!modeText && mode >= 0) modeText = cellText(r[mode]);
+      out.push({
+        line: j + 1,
+        barcode: all[0] ?? null,
+        altBarcodes: all.slice(1),
+        name: n,
+        brand: brand >= 0 ? cellText(r[brand]) || null : null,
+        cost: parseNumber(r[cost]),
+        priceInkl: null,
+        note: modeText ? `Fixit: ${modeText}` : "Fixit",
+        isEstimate: false,
+      });
+    }
+    const label = modeText || "Innpris (Fixit)";
+    return {
+      rows: out,
+      costHeader: label,
+      warnings: [`Rå Fixit-eksport gjenkjent (${label}). Fixit har hele katalogen, så mange varer som ikke finnes i nettbutikken blir «ikke matchet» – det er normalt.`],
+    };
+  }
+  return null;
+}
+
 export function parseCostSheet(rows: unknown[][]): { rows: ImportRow[]; costHeader: string; warnings: string[] } {
+  const fixit = parseFixitSheet(rows);
+  if (fixit) return fixit;
   const warnings: string[] = [];
   const empty = { rows: [] as ImportRow[], costHeader: "", warnings };
 
@@ -145,7 +211,7 @@ export function parseCostSheet(rows: unknown[][]): { rows: ImportRow[]; costHead
   let firstCandidate = -1;
   const limit = Math.min(rows.length, 30);
   for (let i = 0; i < limit; i++) {
-    const header = (rows[i] ?? []).map(cellText);
+    const header = (rows[i] ?? []).map(cellText).map((h) => (isLabel(h) ? h : ""));
     if (!header.some((h) => /strekkode/i.test(h) || /varenavn/i.test(h))) continue;
     if (firstCandidate < 0) firstCandidate = i;
     const cost = findCol(header, [/brukt innkj/i, /innkjøpspris/i, /kostpris/i, /innpris/i]);
@@ -248,9 +314,10 @@ export function matchCostRows(
     let candidates: ImportProduct[] = [];
     let ambiguousReason = "";
 
-    if (r.barcode) {
-      const exact = byExact.get(r.barcode) ?? [];
-      const stripped = stripZeros(r.barcode);
+    const codes = r.barcode ? [r.barcode, ...(r.altBarcodes ?? [])] : [];
+    for (const bc of codes) {
+      const exact = byExact.get(bc) ?? [];
+      const stripped = stripZeros(bc);
       const loose = stripped ? (byStripped.get(stripped) ?? []) : [];
       if (exact.length === 1) hit = exact[0];
       else {
@@ -261,6 +328,7 @@ export function matchCostRows(
           ambiguousReason = "strekkoden finnes på flere varer";
         }
       }
+      if (hit || candidates.length > 0) break;
     }
 
     if (!hit && candidates.length === 0 && r.name) {

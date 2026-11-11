@@ -9,3 +9,8 @@ next-env.d.ts
 /playwright-report
 /test-results
 /blob-report
+
+# Lokale filer som ikke skal i git
+*.tsbuildinfo
+*.stackdump
+Claude outputs/*.xlsx
