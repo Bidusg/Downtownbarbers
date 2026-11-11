@@ -1,4 +1,5 @@
 import { fetchAll } from "@/lib/reports/fetch-all";
+import { LEVEL_LABEL, MVA, calcPrice } from "@/lib/pricing";
 import type { Cell, Column, ReportContext, ReportDef, ReportSheet, Supa } from "@/lib/reports/types";
 
 /* =====================================================================
@@ -11,7 +12,6 @@ import type { Cell, Column, ReportContext, ReportDef, ReportSheet, Supa } from "
  *   forholdsmessig på linjene (som i kpi-revenue.ts).
  * ===================================================================== */
 
-const MVA = 0.25;
 const COST_SQL_NOTE =
   "Innkjøpspris mangler: kjør KJØR-I-SUPABASE-INNKJOPSPRIS.sql i Supabase og legg inn innkjøpspriser under Admin > Produkter.";
 
@@ -27,7 +27,7 @@ type Prod = {
   price: number; // inkl. mva
   isGift: boolean;
 };
-type Cost = { cost: number; supplier: string | null; sku: string | null };
+type Cost = { cost: number; supplier: string | null; sku: string | null; source: string | null; note: string | null };
 
 const osloDay = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" });
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -76,23 +76,41 @@ async function loadProducts(sb: Supa): Promise<Prod[]> {
   }
 }
 
-async function loadCosts(sb: Supa): Promise<{ ok: boolean; costs: Map<string, Cost> }> {
-  type Row = { product_id: string; cost_nok: number | string; supplier: string | null; supplier_sku: string | null };
-  try {
-    const rows = await fetchAll<Row>((from, to) =>
-      sb
-        .from("product_costs")
-        .select("product_id, cost_nok, supplier, supplier_sku")
-        .order("product_id")
-        .range(from, to)
-        .returns<Row[]>(),
+async function loadCosts(sb: Supa): Promise<{ ok: boolean; hasMeta: boolean; costs: Map<string, Cost> }> {
+  type Row = {
+    product_id: string;
+    cost_nok: number | string;
+    supplier: string | null;
+    supplier_sku: string | null;
+    cost_source?: string | null;
+    note?: string | null;
+  };
+  const load = (cols: string) =>
+    fetchAll<Row>((from, to) =>
+      sb.from("product_costs").select(cols).order("product_id").range(from, to).returns<Row[]>(),
     );
-    return {
-      ok: true,
-      costs: new Map(rows.map((r) => [r.product_id, { cost: Number(r.cost_nok) || 0, supplier: r.supplier, sku: r.supplier_sku }])),
-    };
+  const toMap = (rows: Row[]) =>
+    new Map<string, Cost>(
+      rows.map((r) => [
+        r.product_id,
+        {
+          cost: Number(r.cost_nok) || 0,
+          supplier: r.supplier,
+          sku: r.supplier_sku,
+          source: r.cost_source ?? null,
+          note: r.note ?? null,
+        },
+      ]),
+    );
+  try {
+    return { ok: true, hasMeta: true, costs: toMap(await load("product_id, cost_nok, supplier, supplier_sku, cost_source, note")) };
   } catch {
-    return { ok: false, costs: new Map() };
+    // cost_source/note finnes ikke ennå (KJØR-I-SUPABASE-PRISKALKULATOR.sql) - prøv uten.
+  }
+  try {
+    return { ok: true, hasMeta: false, costs: toMap(await load("product_id, cost_nok, supplier, supplier_sku")) };
+  } catch {
+    return { ok: false, hasMeta: false, costs: new Map() };
   }
 }
 
@@ -139,8 +157,7 @@ async function buildListe({ sb }: ReportContext): Promise<ReportSheet[]> {
 
   const rows: Record<string, Cell>[] = prods.map((p) => {
     const cost = c.costs.get(p.id);
-    const eks = p.price / (1 + MVA);
-    const marginKr = cost ? eks - cost.cost : null;
+    const calc = calcPrice({ priceInkl: p.price, cost: cost ? cost.cost : null, stock: p.stock });
     return {
       name: p.name,
       brand: p.brand,
@@ -150,20 +167,20 @@ async function buildListe({ sb }: ReportContext): Promise<ReportSheet[]> {
       online: p.online ? "Ja" : "Nei",
       stock: p.stock,
       priceInkl: r2(p.price),
-      priceEks: r2(eks),
+      priceEks: calc.priceEks === null ? null : r2(calc.priceEks),
       cost: cost ? r2(cost.cost) : null,
       supplier: cost?.supplier ?? null,
       sku: cost?.sku ?? null,
-      marginKr: marginKr === null ? null : r2(marginKr),
-      marginPct: marginKr !== null && eks > 0 ? marginKr / eks : null,
-      stockValCost: cost ? r2(p.stock * cost.cost) : null,
+      marginKr: calc.profit === null ? null : r2(calc.profit),
+      marginPct: calc.margin,
+      stockValCost: calc.stockValueCost === null ? null : r2(calc.stockValueCost),
       stockValSale: r2(p.stock * p.price),
     };
   });
-  const costedStock = sum(prods.map((p) => (c.costs.has(p.id) ? p.stock * c.costs.get(p.id)!.cost : 0)));
+  const costedStock = sum(prods.map((p) => (c.costs.has(p.id) ? Math.max(0, p.stock) * c.costs.get(p.id)!.cost : 0)));
   const costed = prods.filter((p) => c.costs.has(p.id) && p.price > 0);
   const avgMargin = costed.length
-    ? sum(costed.map((p) => 1 - c.costs.get(p.id)!.cost / (p.price / (1 + MVA)))) / costed.length
+    ? sum(costed.map((p) => (calcPrice({ priceInkl: p.price, cost: c.costs.get(p.id)!.cost }).margin ?? 0))) / costed.length
     : null;
 
   const columns: Column[] = [
@@ -472,6 +489,99 @@ async function buildHylle({ sb, range }: ReportContext): Promise<ReportSheet[]> 
   ];
 }
 
+/* ---------- varer-margin ---------- */
+async function buildMargin({ sb }: ReportContext): Promise<ReportSheet[]> {
+  const [all, c] = await Promise.all([loadProducts(sb), loadCosts(sb)]);
+  const prods = all.filter((p) => !p.isGift).sort((a, b) => a.name.localeCompare(b.name, "nb-NO"));
+  const rows: Record<string, Cell>[] = [];
+  let wProfit = 0;
+  let wEks = 0;
+  let potential = 0;
+  let svCost = 0;
+  let svInkl = 0;
+  let svEks = 0;
+  for (const p of prods) {
+    const cost = c.costs.get(p.id);
+    const k = calcPrice({ priceInkl: p.price, cost: cost ? cost.cost : null, stock: p.stock });
+    svInkl += k.stockValueRetail ?? 0;
+    svEks += k.stockValueRetailEks ?? 0;
+    if (k.profit !== null && k.priceEks !== null) {
+      svCost += k.stockValueCost ?? 0;
+      potential += k.stock * k.profit;
+      wProfit += k.profit * k.stock;
+      wEks += k.priceEks * k.stock;
+    }
+    rows.push({
+      name: p.name,
+      brand: p.brand,
+      category: p.category,
+      barcode: p.barcode,
+      active: p.active ? "Ja" : "Nei",
+      stock: p.stock,
+      cost: cost ? r2(cost.cost) : null,
+      priceInkl: r2(p.price),
+      priceEks: k.priceEks === null ? null : r2(k.priceEks),
+      profit: k.profit === null ? null : r2(k.profit),
+      margin: k.margin,
+      markup: k.markup,
+      level: LEVEL_LABEL[k.level],
+      stockValCost: k.stockValueCost === null ? null : r2(k.stockValueCost),
+      stockValSale: k.stockValueRetail === null ? null : r2(k.stockValueRetail),
+      stockValSaleEks: k.stockValueRetailEks === null ? null : r2(k.stockValueRetailEks),
+      source: cost?.source ?? null,
+      note: cost?.note ?? null,
+    });
+  }
+  const columns: Column[] = [
+    { key: "name", header: "Varenavn", type: "text", width: 36 },
+    { key: "brand", header: "Merke", type: "text" },
+    { key: "category", header: "Kategori", type: "text" },
+    { key: "barcode", header: "Strekkode", type: "text" },
+    { key: "active", header: "Aktiv", type: "text", width: 8 },
+    { key: "stock", header: "Lager", type: "int", total: "sum" },
+    { key: "cost", header: "Innkjøp eks. mva", type: "money2" },
+    { key: "priceInkl", header: "Utsalg inkl. mva", type: "money2" },
+    { key: "priceEks", header: "Utsalg eks. mva", type: "money2" },
+    { key: "profit", header: "Profitt per stk", type: "money2" },
+    { key: "margin", header: "Margin %", type: "pct" },
+    { key: "markup", header: "Påslag %", type: "pct" },
+    { key: "level", header: "Vurdering", type: "text", width: 28 },
+    { key: "stockValCost", header: "Lagerverdi innkjøp", type: "money", total: "sum" },
+    { key: "stockValSale", header: "Lagerverdi utsalg inkl. mva", type: "money", total: "sum" },
+    { key: "stockValSaleEks", header: "Lagerverdi utsalg eks. mva", type: "money", total: "sum" },
+  ];
+  if (c.hasMeta) {
+    columns.push(
+      { key: "source", header: "Kilde", type: "text", width: 12 },
+      { key: "note", header: "Merknad", type: "text", width: 40 },
+    );
+  }
+  const notes = [
+    "Utsalg er inkl. 25 % mva, innkjøp er eks. mva. Margin = profitt / utsalg eks. mva. Påslag = profitt / innkjøp.",
+    "Lagerverdi innkjøp og potensiell fortjeneste regnes bare for varer med innkjøpspris. Negativt lager teller som 0.",
+    c.hasMeta
+      ? "Kilde «anslag» = innkjøpsprisen er et anslag og bør sjekkes mot faktura."
+      : c.ok
+        ? "Kilde/merknad mangler: kjør KJØR-I-SUPABASE-PRISKALKULATOR.sql."
+        : COST_SQL_NOTE,
+  ];
+  return [
+    {
+      name: "Varemargin",
+      title: "Varemargin og lagerverdi",
+      subtitle: "Alle varer (nå-status), gavekort er holdt utenfor",
+      kpis: [
+        { label: "Antall varer", value: prods.length, type: "int", hint: `${prods.filter((p) => p.active).length} aktive` },
+        { label: "Lagerverdi innkjøp", value: c.ok ? r2(svCost) : null, type: "money", hint: "eks. mva, varer med innkjøpspris" },
+        { label: "Lagerverdi utsalg", value: r2(svInkl), type: "money", hint: `${Math.round(svEks).toLocaleString("nb-NO")} kr eks. mva` },
+        { label: "Potensiell fortjeneste", value: c.ok ? r2(potential) : null, type: "money", hint: "lager × profitt" },
+        { label: "Vektet snittmargin", value: wEks > 0 ? wProfit / wEks : null, type: "pct" },
+      ],
+      tables: [{ columns, rows, note: notes.join(" ") }],
+    },
+  ];
+}
+
 export const REPORTS: ReportDef[] = [
   {
     key: "varer-liste",
@@ -480,6 +590,14 @@ export const REPORTS: ReportDef[] = [
     category: "Varer",
     usesRange: false,
     build: buildListe,
+  },
+  {
+    key: "varer-margin",
+    title: "Varemargin og lagerverdi",
+    description: "Innkjøp, utsalg, profitt, margin, påslag og lagerverdi per vare (nå-status, med kilde).",
+    category: "Varer",
+    usesRange: false,
+    build: buildMargin,
   },
   {
     key: "varer-salg",

@@ -1,7 +1,7 @@
 "use client";
 
 import { searchList } from "@/lib/search";
-import { Fragment, useMemo, useState, useTransition } from "react";
+import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
 import { WebProductEditor } from "@/components/admin/WebshopAdmin";
 import { deptOf, subOf } from "@/lib/shop-shared";
 import type { AdminProduct } from "@/lib/admin-queries";
@@ -24,47 +24,17 @@ import {
   Td,
   TableEmpty,
 } from "@/components/ui/Table";
-import { Input, Field } from "@/components/ui/Input";
+import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { formatKr } from "@/lib/format";
 import type { ProductCost } from "@/app/admin/produkter/costs";
+import { PriceCalculator } from "@/components/admin/PriceCalculator";
+import { calcPrice } from "@/lib/pricing";
 
-const MVA = 0.25;
-const COST_HINT = "Kjør KJØR-I-SUPABASE-INNKJOPSPRIS.sql i Supabase først";
-
-/** Margin % = (pris eks. mva − innkjøp) / pris eks. mva. Null hvis ikke regnbart. */
-function marginPct(priceInkl: number, cost: number | undefined): number | null {
-  if (cost === undefined) return null;
-  const eks = priceInkl / (1 + MVA);
-  if (!(eks > 0)) return null;
-  return ((eks - cost) / eks) * 100;
-}
-
-/** Felter for innkjøpspris/leverandør (deles av «nytt» og «rediger»). */
-function CostFields({ cost, ok }: { cost?: ProductCost; ok: boolean }) {
-  if (!ok) {
-    return <p className="text-xs text-muted sm:col-span-2">Innkjøpspris: {COST_HINT}.</p>;
-  }
-  return (
-    <>
-      <Field label="Innkjøpspris (eks. mva)" hint="Per enhet, i kr. Kun synlig for admin og revisor.">
-        <Input
-          name="cost_nok"
-          type="text"
-          inputMode="decimal"
-          placeholder="f.eks. 89,50"
-          defaultValue={cost ? String(cost.cost_nok).replace(".", ",") : ""}
-        />
-      </Field>
-      <Field label="Leverandør">
-        <Input name="supplier" defaultValue={cost?.supplier ?? ""} />
-      </Field>
-      <Field label="Leverandørens varenr.">
-        <Input name="supplier_sku" defaultValue={cost?.supplier_sku ?? ""} />
-      </Field>
-    </>
-  );
-}
+const MARGIN_CLS: Record<string, string> = {
+  tap: "text-danger font-medium",
+  lav: "text-amber-600 dark:text-amber-400 font-medium",
+};
 
 /** Inline strekkode-celle: vis/sett/endre strekkode, med skann-mulighet. */
 function BarcodeCell({
@@ -163,19 +133,17 @@ function EditProductForm({
       <input type="hidden" name="id" value={product.id} />
       <Input name="name" placeholder="Navn" defaultValue={product.name} required />
       <Input
-        name="price_nok"
-        type="number"
-        placeholder="Pris (kr)"
-        defaultValue={product.price_nok}
-        required
-      />
-      <Input
         name="description"
         placeholder="Beskrivelse"
         defaultValue={product.description ?? ""}
         className="sm:col-span-2"
       />
-      <CostFields cost={cost} ok={costsOk} />
+      <PriceCalculator
+        defaultPrice={product.price_nok}
+        defaultStock={product.stock}
+        cost={cost}
+        costsOk={costsOk}
+      />
       <label className="text-xs text-muted sm:col-span-2">
         Bilde
         {product.image_url && (
@@ -221,6 +189,23 @@ export function ProductManager({
   const [webId, setWebId] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | "review" | "noimg" | "offline" | "nocat">("all");
+  // ?rediger=<id> åpner redigering av den varen og ruller den inn i bildet.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("rediger");
+    if (!id || !products.some((p) => p.id === id)) return;
+    const t = setTimeout(() => {
+      setEditId(id);
+      setWebId(null);
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`produkt-${id}`);
+        const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        el?.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
+      });
+    }, 0);
+    return () => clearTimeout(t);
+    // kun ved første innlasting
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const hasWeb = products.some((p) => p.slug !== undefined);
   const imgCount = (p: AdminProduct) => ((p.images ?? []).length || (p.image_url ? 1 : 0));
   const shown = useMemo(() => {
@@ -290,14 +275,12 @@ export function ProductManager({
             className="grid gap-3 sm:grid-cols-2"
           >
             <Input name="name" placeholder="Navn" required />
-            <Input name="price_nok" type="number" placeholder="Pris (kr)" required />
-            <Input name="stock" type="number" placeholder="Lager" defaultValue={0} />
             <Input name="barcode" placeholder="Strekkode (valgfritt)" />
             <label className="flex items-center gap-2 text-sm text-muted">
               <input name="is_gift_card" type="checkbox" /> Gavekort
             </label>
             <Input name="description" placeholder="Beskrivelse" className="sm:col-span-2" />
-            <CostFields ok={costsOk} />
+            <PriceCalculator defaultStock={0} costsOk={costsOk} showStock />
             <label className="text-xs text-muted sm:col-span-2">
               Bilde
               <input name="image" type="file" accept="image/*" className="mt-1 block w-full text-xs" />
@@ -334,7 +317,7 @@ export function ProductManager({
             {shown.map((p) => (
               <Fragment key={p.id}>
               <Tr>
-                <Td className="font-medium text-fg">
+                <Td className="font-medium text-fg" id={`produkt-${p.id}`}>
                   <span className="flex items-center gap-3">
                     {p.image_url || (p.images ?? [])[0] ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -367,12 +350,23 @@ export function ProductManager({
                 <Td muted>
                   {!costsOk || !costs[p.id] ? "—" : `${costs[p.id].cost_nok.toLocaleString("nb-NO", { maximumFractionDigits: 2 })} kr`}
                 </Td>
-                <Td muted>
-                  {(() => {
-                    const m = costsOk && !p.is_gift_card ? marginPct(Number(p.price_nok), costs[p.id]?.cost_nok) : null;
-                    return m === null ? "—" : `${m.toLocaleString("nb-NO", { maximumFractionDigits: 1 })} %`;
-                  })()}
-                </Td>
+                {(() => {
+                  const c =
+                    costsOk && !p.is_gift_card && costs[p.id]
+                      ? calcPrice({ priceInkl: p.price_nok, cost: costs[p.id].cost_nok })
+                      : null;
+                  const m = c?.margin ?? null;
+                  return (
+                    <Td muted={!c || !MARGIN_CLS[c.level]} className={c ? MARGIN_CLS[c.level] : undefined}>
+                      <span className="tabular-nums">
+                        {m === null ? "—" : `${(m * 100).toLocaleString("nb-NO", { maximumFractionDigits: 1 })} %`}
+                      </span>
+                      {c && (c.level === "tap" || c.level === "lav") && (
+                        <span className="ml-1 text-[11px]">{c.level === "tap" ? "Under innkjøp" : "Lav"}</span>
+                      )}
+                    </Td>
+                  );
+                })()}
                 <Td muted>{p.stock}</Td>
                 <Td>
                   <BarcodeCell id={p.id} barcode={p.barcode} />

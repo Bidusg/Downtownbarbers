@@ -501,6 +501,12 @@ for «betal ved henting») → RPC `complete_online_order` (lager salg). Retur/r
   Strekkode på produkter (`products.barcode`).
 - Gavekort: selges fra admin (`/admin/gavekort`), innløses kun som betaling i `record_sale`.
   Regnskap: salg av gavekort = forskudd (konto 2900, uten mva), innløsning = omsetning med mva.
+- Innkjøp og margin: `product_costs` (innkjøpspris eks. mva per vare, evt. leverandør, `cost_source` = manuell/import/anslag og `note`;
+  de to siste kommer med `KJØR-I-SUPABASE-PRISKALKULATOR.sql`, koden tåler at den ikke er kjørt). All prisregning
+  (margin, påslag, lagerverdi, forslag til pris) ligger i `src/lib/pricing.ts`. Oversikten `/admin/varemargin`
+  viser margin og lagerverdi med filtre og har import av innkjøpspriser fra Excel/CSV (`src/lib/cost-import.ts`,
+  `src/app/admin/varemargin/import-actions.ts`: forhåndsvisning uten skriving, så lagring med server-validering).
+  Excel-rapport: `varer-margin` i rapportsenteret.
 
 ### 8.7 Kundesøk (live og skrivefeil-tolerant)
 - Server: RPC `customer_search_rank` / `shop_customer_search` (`KJØR-I-SUPABASE-SOK.sql`, pg_trgm,

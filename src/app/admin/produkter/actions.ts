@@ -40,17 +40,32 @@ async function saveCost(
       return "Leverandør kan ikke lagres uten innkjøpspris.";
     }
     const { data: u } = await sb.auth.getUser();
-    const { error } = await sb.from("product_costs").upsert(
-      {
-        product_id: productId,
-        cost_nok: cost,
-        supplier,
-        supplier_sku: supplierSku,
-        updated_at: new Date().toISOString(),
-        updated_by: u.user?.id ?? null,
-      },
-      { onConflict: "product_id" },
-    );
+    const base = {
+      product_id: productId,
+      cost_nok: cost,
+      supplier,
+      supplier_sku: supplierSku,
+      updated_at: new Date().toISOString(),
+      updated_by: u.user?.id ?? null,
+    };
+    // Kilde settes til «manuell» bare når prisen er ny eller endret (ellers
+    // overskrives «import»/«anslag» ved hver produktlagring).
+    const { data: existing } = await sb
+      .from("product_costs")
+      .select("cost_nok")
+      .eq("product_id", productId)
+      .maybeSingle();
+    const unchanged =
+      existing != null &&
+      Math.round(Number(existing.cost_nok) * 100) === Math.round(cost * 100);
+    const payload: typeof base & { cost_source?: string } = unchanged
+      ? base
+      : { ...base, cost_source: "manuell" };
+    let { error } = await sb.from("product_costs").upsert(payload, { onConflict: "product_id" });
+    if (error && !unchanged && /cost_source/i.test(error.message)) {
+      // KJØR-I-SUPABASE-PRISKALKULATOR.sql er ikke kjørt – lagre uten kilde.
+      ({ error } = await sb.from("product_costs").upsert(base, { onConflict: "product_id" }));
+    }
     return error ? costError(error.message) : null;
   } catch (e) {
     return costError(e instanceof Error ? e.message : String(e));

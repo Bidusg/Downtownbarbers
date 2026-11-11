@@ -70,6 +70,7 @@ export const adminGroups: AdminNavGroup[] = [
       { label: "Produkter", href: "/admin/produkter", description: "Produkter og nettbutikk" },
       { label: "Nettordrer", href: "/admin/nettordrer", description: "Bestillinger fra nettbutikken" },
       { label: "Lager", href: "/admin/lager" },
+      { label: "Varemargin & lagerverdi", href: "/admin/varemargin", description: "Innkjøp, margin, lagerverdi og import" },
       { label: "Gavekort", href: "/admin/gavekort" },
       {
         label: "Shop-innstillinger",
