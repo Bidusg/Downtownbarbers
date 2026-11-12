@@ -1,11 +1,12 @@
 import { requireRole } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { StatTile } from "@/components/ui/StatTile";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Field, Select } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { PAYROLL } from "@/lib/ops-queries";
-import { getPayrollForMonth } from "@/lib/payroll-slips";
+import { getPayrollForMonth, payrollGrossStatus } from "@/lib/payroll-slips";
 import { GeneratePayslipsButton } from "@/components/revisor/GeneratePayslipsButton";
 import { PayrollTable } from "@/components/admin/PayrollTable";
 import { SalaryReportPicker } from "@/components/admin/SalaryReportPicker";
@@ -41,9 +42,24 @@ export default async function RevisorLonnslipper({
 
   const [rows, deductionError, reportStaff] = await Promise.all([
     getPayrollForMonth(year, month),
-    absenceDeductionStatus(year, month),
+    Promise.all([absenceDeductionStatus(year, month), payrollGrossStatus(year, month)]).then(
+      ([a, g]) => g ?? a,
+    ),
     getSalaryReportStaff(year, month),
   ]);
+  // Finnes det lønnsoversikter for måneden fra før? Da er e-post av som standard.
+  let hasExisting = false;
+  try {
+    const sb = await createClient();
+    const { count } = await sb
+      .from("staff_documents")
+      .select("id", { count: "exact", head: true })
+      .eq("category", "lonnslipp")
+      .eq("period", `${year}-${String(month).padStart(2, "0")}`);
+    hasExisting = (count ?? 0) > 0;
+  } catch {
+    hasExisting = false;
+  }
   const totalPay = rows.reduce((s, r) => s + r.totalNok, 0);
   const totalGross = rows.reduce((s, r) => s + r.grossNok, 0);
   const monthLabel = MONTHS[month - 1] ?? String(month);
@@ -139,6 +155,7 @@ export default async function RevisorLonnslipper({
             month={month}
             monthLabel={monthLabel}
             staffCount={rows.length}
+            alreadyGenerated={hasExisting}
             recipients={rows.map((r) => ({ name: r.name, totalNok: r.totalNok }))}
           />
         </div>

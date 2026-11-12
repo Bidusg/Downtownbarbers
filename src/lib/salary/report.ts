@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getPayrollForMonth } from "@/lib/payroll-slips";
+import { employmentInMonth } from "@/lib/absence-pay";
 import { getStaffOptions, PAYROLL } from "@/lib/ops-queries";
 import {
   getSalarySettings,
@@ -95,9 +96,11 @@ export async function getSalaryReports(
       const row = rows.find((r) => r.staffId === st.id);
       const opt = staffAll.find((s) => s.id === st.id);
       const sp = split.map.get(st.id);
+      // Uten lønnsrad: regn ansettelse fra start/slutt-dato (ikke full måned).
+      const emp = employmentInMonth(year, month, opt?.start_date, opt?.end_date);
       const context: SalaryContext = {
         staffBaseSalaryNok: row?.baseNok ?? opt?.base_salary_nok ?? PAYROLL.BASE_NOK,
-        employedDays: row?.employedDays ?? daysInMonth,
+        employedDays: row?.employedDays ?? emp.employedDays,
         daysInMonth: row?.daysInMonth ?? daysInMonth,
         absenceDays: row?.absenceDays ?? 0,
         workdays: row?.workdays ?? 0,

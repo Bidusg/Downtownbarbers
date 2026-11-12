@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -123,8 +124,9 @@ type Row = Record<string, unknown>;
 
 /** Hent alle rader i en tabell, pagineret med .range() til alt er hentet. */
 async function fetchAllRows(
-  sb: Awaited<ReturnType<typeof createClient>>,
+  sb: Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createServiceClient>,
   table: string,
+  select = "*",
 ): Promise<Row[]> {
   const rows: Row[] = [];
   let from = 0;
@@ -133,12 +135,12 @@ async function fetchAllRows(
   while (from < MAX_ROWS) {
     const { data, error } = await sb
       .from(table)
-      .select("*")
+      .select(select)
       .order("id", { ascending: true })
       .range(from, from + PAGE_SIZE - 1);
     if (error) throw error; // manglende tabell e.l. -> fanges per ark
     if (!data || data.length === 0) break;
-    rows.push(...(data as Row[]));
+    rows.push(...(data as unknown as Row[]));
     if (data.length < PAGE_SIZE) break; // siste side
     from += PAGE_SIZE;
   }
@@ -213,6 +215,9 @@ export async function GET() {
   await requireRole(["admin"]);
 
   const sb = await createClient();
+  // Service-klient kun for staff: kolonnene (e-post, telefon, kontrakt …) er skjult for
+  // vanlige innloggede brukere (KJØR-I-SUPABASE-SIKKERHET-3.sql). Rollen er sjekket over.
+  const svc = createServiceClient();
 
   const wb = new ExcelJS.Workbook();
   wb.creator = "Downtown Barbers";
@@ -223,7 +228,8 @@ export async function GET() {
 
   for (const { table, sheet, columns } of TABLES) {
     try {
-      const rows = await fetchAllRows(sb, table);
+      // staff: eksplisitt kolonneliste (aldri pin_hash / lønn) i stedet for «*».
+      const rows = await fetchAllRows(table === "staff" ? svc : sb, table, table === "staff" ? columns.join(", ") : "*");
       addSheet(wb, sheet, columns, rows);
       included.push(sheet);
     } catch {

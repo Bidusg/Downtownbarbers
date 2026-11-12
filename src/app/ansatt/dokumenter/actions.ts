@@ -89,16 +89,22 @@ export async function deleteMyDocument(id: string): Promise<DocResult> {
     await requireRole(["staff", "admin"]);
     if (!id) return { ok: false, error: "Mangler dokument-id." };
 
+    const link = await getMyStaffLink();
+    if (!link.linked || !link.staffId) {
+      return { ok: false, error: "Kontoen din er ikke koblet til en ansattprofil." };
+    }
+
     const sb = await createClient();
 
-    // RLS begrenser select til egne rader; vi krever i tillegg by_staff + annet.
+    // RLS begrenser select til egne rader (admin ser alt), så vi krever i tillegg
+    // at raden tilhører egen staff_id, og by_staff + annet.
     const { data: row } = await sb
       .from("staff_documents")
-      .select("id, path, by_staff, category")
+      .select("id, staff_id, path, by_staff, category")
       .eq("id", id)
       .maybeSingle();
 
-    if (!row || !row.by_staff || row.category !== "annet") {
+    if (!row || row.staff_id !== link.staffId || !row.by_staff || row.category !== "annet") {
       return { ok: false, error: "Dette dokumentet kan ikke slettes." };
     }
 

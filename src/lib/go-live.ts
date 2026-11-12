@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
+import { getUserRole, isAdminRole } from "@/lib/auth";
 import { config } from "@/lib/config";
 import { siteUrl as resolveSiteUrl } from "@/lib/site-url";
 import { getSmsConfigAdmin } from "@/lib/sms";
@@ -193,10 +194,14 @@ export async function getGoLiveChecklist(): Promise<{
 /** Antall ansatte med kontrakt fortsatt i den offentlige bøtta. */
 async function countPublicContracts(): Promise<number> {
   try {
-    const sb = await createClient();
+    // contract_url er skjult for vanlige innloggede brukere (KJØR-I-SUPABASE-SIKKERHET-3.sql)
+    // → service-klient, kun for admin/eier.
+    const me = await getUserRole();
+    if (!me || !isAdminRole(me.role)) return 0;
+    const sb = createServiceClient();
     const { count } = await sb
       .from("staff")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .not("contract_url", "is", null);
     return count ?? 0;
   } catch {

@@ -1,3 +1,4 @@
+import { checkBearer } from "@/lib/cron-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { syncTripletexFinancials } from "@/lib/tripletex/sync";
 
@@ -10,20 +11,15 @@ import { syncTripletexFinancials } from "@/lib/tripletex/sync";
  * admin-/revisor-sidene viser ekte Tripletex-tall uten å kalle API-et direkte.
  *
  * Trygghet:
- *  - CRON_SECRET-header kreves hvis satt (som de andre cron-rutene).
+ *  - CRON_SECRET-header kreves (fail closed hvis den mangler) (som de andre cron-rutene).
  *  - Uten TRIPLETEX_API_TOKEN returnerer synken {configured:false} og rører
  *    ingenting.
  */
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const denied = checkBearer(req, "CRON_SECRET");
+  if (denied) return denied;
 
   const result = await syncTripletexFinancials();
   return NextResponse.json(result);

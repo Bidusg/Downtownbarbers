@@ -4,6 +4,7 @@ import { renderMarketingEmail, sendEmailBatch, type MarketingBarber } from "@/li
 import { getEmailGalleries } from "@/lib/portfolio";
 import { sendSms } from "@/lib/sms";
 import { siteUrl } from "@/lib/site-url";
+import { bearerMatches } from "@/lib/cron-auth";
 import { emailViewUrl } from "@/lib/email-link";
 import { deeplTranslate, getDeeplConfig } from "@/lib/deepl";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -19,16 +20,22 @@ import type { Lang } from "@/lib/i18n/dictionary";
 
 const BUDGET_MS = 50_000;
 
+/** CRON_SECRET er påkrevd – ingen fallback til service-nøkkelen (fail closed). */
 function workerSecret(): string {
-  return process.env.CRON_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY?.slice(-24) || "";
+  return process.env.CRON_SECRET || "";
 }
 
 /** Fyr av arbeideren (fire-and-forget). Brukes fra server actions og av arbeideren selv. */
 export async function kickMarketingWorker(base: string): Promise<void> {
+  const secret = workerSecret();
+  if (!secret) {
+    console.error("CRON_SECRET mangler – kan ikke starte markedsførings-arbeideren");
+    return;
+  }
   try {
     await fetch(`${base}/api/marketing/worker`, {
       method: "POST",
-      headers: { authorization: `Bearer ${workerSecret()}` },
+      headers: { authorization: `Bearer ${secret}` },
       // Vi venter ikke på at hele jobben er ferdig – bare at den er startet.
       signal: AbortSignal.timeout(3000),
     }).catch(() => undefined);
@@ -38,9 +45,68 @@ export async function kickMarketingWorker(base: string): Promise<void> {
 }
 
 export function isWorkerAuthorized(req: Request): boolean {
-  const auth = req.headers.get("authorization") ?? "";
-  const secret = workerSecret();
-  return !!secret && auth === `Bearer ${secret}`;
+  return bearerMatches(req, "CRON_SECRET");
+}
+
+type QueueRow = { id: number; email: string | null; phone: string | null; token: string | null; customer_id?: string | null };
+
+/** true = RPC-en finnes ikke ennå (SQL ikke kjørt). */
+function rpcMissing(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  return error.code === "PGRST202" || error.code === "42883" || /claim_marketing_batch/.test(error.message ?? "");
+}
+
+/**
+ * Hent neste bolk atomisk (claim_marketing_batch → status 'sending'). Faller
+ * tilbake til gammel select hvis RPC-en ikke er opprettet
+ * (KJØR-I-SUPABASE-UTSENDING-VERN.sql).
+ */
+async function claimRows(svc: SupabaseClient, sendId: string): Promise<{ rows: QueueRow[]; claimed: boolean }> {
+  const { data, error } = await svc.rpc("claim_marketing_batch", { p_send_id: sendId, p_limit: 100 });
+  if (!error) return { rows: (data ?? []) as QueueRow[], claimed: true };
+  if (!rpcMissing(error)) throw new Error(`claim_marketing_batch: ${error.message}`);
+  const { data: rows } = await svc
+    .from("marketing_queue")
+    .select("id, email, phone, token, customer_id")
+    .eq("send_id", sendId)
+    .eq("status", "queued")
+    .order("id")
+    .limit(100);
+  return { rows: (rows ?? []) as QueueRow[], claimed: false };
+}
+
+/**
+ * Sjekk samtykke på sendetidspunktet: kunder som har meldt seg av etter at
+ * køen ble laget hoppes over. Ukjente mottakere (ingen kunde funnet) beholdes
+ * som før.
+ */
+async function splitByConsent(svc: SupabaseClient, rows: QueueRow[]): Promise<{ ok: QueueRow[]; skip: QueueRow[] }> {
+  const ids = rows.map((r) => r.customer_id).filter((x): x is string => !!x);
+  const tokens = rows.map((r) => r.token).filter((x): x is string => !!x);
+  const byId = new Map<string, boolean | null>();
+  const byToken = new Map<string, boolean | null>();
+  try {
+    if (ids.length) {
+      const { data } = await svc.from("customers").select("id, marketing_consent").in("id", ids);
+      for (const c of (data ?? []) as { id: string; marketing_consent: boolean | null }[]) byId.set(c.id, c.marketing_consent);
+    }
+    if (tokens.length) {
+      const { data } = await svc.from("customers").select("portal_token, marketing_consent").in("portal_token", tokens);
+      for (const c of (data ?? []) as { portal_token: string; marketing_consent: boolean | null }[])
+        byToken.set(c.portal_token, c.marketing_consent);
+    }
+  } catch {
+    return { ok: rows, skip: [] };
+  }
+  const ok: QueueRow[] = [];
+  const skip: QueueRow[] = [];
+  for (const r of rows) {
+    const consent = r.customer_id && byId.has(r.customer_id) ? byId.get(r.customer_id) : r.token ? byToken.get(r.token) : undefined;
+    // undefined = fant ikke kunden → behold; ellers kreves eksplisitt true.
+    if (consent === undefined || consent === true) ok.push(r);
+    else skip.push(r);
+  }
+  return { ok, skip };
 }
 
 /** Kjør én runde. Returnerer hvor mange som ble sendt og om det er mer igjen. */
@@ -66,15 +132,23 @@ export async function runMarketingWorker(): Promise<{ sent: number; failed: numb
     await svc.from("marketing_sends").update({ status: "sending" }).eq("id", sendId);
     await svc.from("marketing_sends").update({ updated_at: new Date().toISOString() }).eq("id", sendId);
 
-    const { data: rows } = await svc
-      .from("marketing_queue")
-      .select("id, email, phone, token")
-      .eq("send_id", sendId)
-      .eq("status", "queued")
-      .order("id")
-      .limit(100);
+    let claimedRows: QueueRow[];
+    try {
+      claimedRows = (await claimRows(svc, sendId)).rows;
+    } catch (e) {
+      console.error("Markedsføring:", e instanceof Error ? e.message : e);
+      return { sent, failed, more: false };
+    }
+    let rows: QueueRow[] | null = claimedRows;
 
     if (!rows || rows.length === 0) {
+      // Andre arbeidere kan fortsatt sende rader de har hentet – ikke marker ferdig ennå.
+      const { count: inFlight } = await svc
+        .from("marketing_queue")
+        .select("id", { count: "exact", head: true })
+        .eq("send_id", sendId)
+        .eq("status", "sending");
+      if ((inFlight ?? 0) > 0) return { sent, failed, more: false };
       // Ferdig med denne utsendingen.
       const { count: okCount } = await svc
         .from("marketing_queue")
@@ -98,6 +172,24 @@ export async function runMarketingWorker(): Promise<{ sent: number; failed: numb
       continue;
     }
 
+    // Samtykke på sendetidspunktet: hopp over de som har meldt seg av siden køen ble laget.
+    const consent = await splitByConsent(svc, rows);
+    if (consent.skip.length) {
+      const skipIds = consent.skip.map((r) => r.id);
+      const upd = await svc
+        .from("marketing_queue")
+        .update({ status: "skipped", error: "Ikke samtykke ved utsendelse" })
+        .in("id", skipIds);
+      // 'skipped' finnes kanskje ikke i status-sjekken ennå (SQL ikke kjørt) → bruk 'failed'.
+      if (upd.error) {
+        await svc
+          .from("marketing_queue")
+          .update({ status: "failed", error: "Ikke samtykke ved utsendelse" })
+          .in("id", skipIds);
+      }
+    }
+    rows = consent.ok;
+    if (rows.length === 0) continue;
     const ids = rows.map((r) => r.id as number);
     const texts = await getSendTexts(svc, sendId, String(send.subject ?? ""), String(send.body ?? ""));
     if (send.channel === "sms") {

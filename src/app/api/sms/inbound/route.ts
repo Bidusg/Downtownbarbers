@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { classifyInbound, sendSms } from "@/lib/sms";
 import { notifySmsStop } from "@/lib/customer-notices";
+import { safeEqual } from "@/lib/cron-auth";
 
 /**
  * Innkommende SMS – leverandør-uavhengig webhook for A2P-svar (STOPP/START).
@@ -16,10 +17,10 @@ import { notifySmsStop } from "@/lib/customer-notices";
  *
  * Sett callback-URL hos leverandøren til:
  *   https://<domenet>/api/sms/inbound
- * Sikring (valgfri, men anbefalt): sett SMS_INBOUND_SECRET i Vercel og legg
- * enten header «x-sms-secret: <secret>» eller «?key=<secret>» på URL-en.
- * Uten SMS_INBOUND_SECRET er ruten åpen (som SMS-sending ellers), så den er
- * testbar før nøkkelen er satt.
+ * Sikring (PÅKREVD): sett SMS_INBOUND_SECRET i Vercel og legg
+ * enten header «x-sms-secret: <secret>» eller «?key=<secret>» på URL-en
+ * (SMS-leverandørene – GatewayAPI/Sveve – kan ikke sende egne headere, så
+ * ?key= beholdes). Uten SMS_INBOUND_SECRET avvises alle kall (fail closed).
  *
  * Konfigurér avsender-nøkler:
  *   GatewayAPI: {msisdn, message}   Sveve: {fra/telefon, melding/text}
@@ -91,13 +92,16 @@ async function parseRequest(
   return { from: pick(map, FROM_KEYS), body: pick(map, BODY_KEYS) };
 }
 
-/** Sjekk delt hemmelighet hvis SMS_INBOUND_SECRET er satt. */
+/** Sjekk delt hemmelighet. Mangler SMS_INBOUND_SECRET → avvis (fail closed). */
 function secretOk(req: NextRequest): boolean {
   const secret = process.env.SMS_INBOUND_SECRET;
-  if (!secret) return true;
-  const header = req.headers.get("x-sms-secret");
-  const query = req.nextUrl.searchParams.get("key");
-  return header === secret || query === secret;
+  if (!secret) {
+    console.error("SMS_INBOUND_SECRET mangler");
+    return false;
+  }
+  const header = req.headers.get("x-sms-secret") ?? "";
+  const query = req.nextUrl.searchParams.get("key") ?? "";
+  return safeEqual(header, secret) || safeEqual(query, secret);
 }
 
 async function handle(req: NextRequest): Promise<NextResponse> {

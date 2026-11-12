@@ -2,6 +2,22 @@
 
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
+// Hjelpekomponenter på modulnivå (ikke inni PrivacyContent) så de ikke
+// gjenskapes ved hver render.
+const H = ({ children }: { children: React.ReactNode }) => (
+  <h2 className="mt-10 font-display text-xl font-bold">{children}</h2>
+);
+const P = ({ children }: { children: React.ReactNode }) => (
+  <p className="mt-3 text-sm leading-relaxed text-fg-soft">{children}</p>
+);
+const UL = ({ items }: { items: React.ReactNode[] }) => (
+  <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-fg-soft">
+    {items.map((it, i) => (
+      <li key={i}>{it}</li>
+    ))}
+  </ul>
+);
+
 /**
  * Personvernerklæring (NO/EN). Teksten beskriver hvordan systemet FAKTISK
  * behandler opplysninger (booking, kasse, min-side, markedsføring, cookies).
@@ -19,19 +35,6 @@ export function PrivacyContent({
   phone: string;
 }) {
   const { lang } = useLanguage();
-  const H = ({ children }: { children: React.ReactNode }) => (
-    <h2 className="mt-10 font-display text-xl font-bold">{children}</h2>
-  );
-  const P = ({ children }: { children: React.ReactNode }) => (
-    <p className="mt-3 text-sm leading-relaxed text-fg-soft">{children}</p>
-  );
-  const UL = ({ items }: { items: React.ReactNode[] }) => (
-    <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-fg-soft">
-      {items.map((it, i) => (
-        <li key={i}>{it}</li>
-      ))}
-    </ul>
-  );
 
   if (lang === "en") {
     return (

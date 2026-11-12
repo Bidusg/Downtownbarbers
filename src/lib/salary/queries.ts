@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getPayrollForMonth } from "@/lib/payroll-slips";
+import { employmentInMonth } from "@/lib/absence-pay";
 import { getStaffOptions, PAYROLL } from "@/lib/ops-queries";
 import {
   DEFAULT_SALARY_SETTINGS,
@@ -195,10 +196,13 @@ export async function getSalaryContext(
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
   if (!row) {
     // Ansatt uten omsetning/ikke i lønnskjøringen → nøytral kontekst.
-    const staff = (await getStaffOptions()).find((s) => s.id === staffId);
+    const staff = (await getStaffOptions({ includeInactive: true })).find((s) => s.id === staffId);
+    // Ikke ansatt i måneden (start/slutt-dato) → ikke med, ingen full grunnlønn.
+    const emp = employmentInMonth(year, month, staff?.start_date, staff?.end_date);
+    if (emp.employedDays <= 0) return null;
     return {
       staffBaseSalaryNok: staff?.base_salary_nok ?? PAYROLL.BASE_NOK,
-      employedDays: daysInMonth,
+      employedDays: emp.employedDays,
       daysInMonth,
       absenceDays: 0,
       workdays: 0,

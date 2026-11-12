@@ -5,12 +5,15 @@ import { submitLeaveRequest } from "@/app/ansatt/fravaer/actions";
 import { Card } from "@/components/ui/Card";
 import { Field, Input, Select } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { osloDate } from "@/lib/ansatt-format";
 
 export function LeaveRequestForm() {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  // Tidligste valgbare dato = i dag (Oslo-tid).
+  const minDate = osloDate();
 
   return (
     <div className="space-y-4">
@@ -48,10 +51,10 @@ export function LeaveRequestForm() {
             className="grid gap-3 sm:grid-cols-2"
           >
             <Field label="Fra">
-              <Input name="from_date" type="date" required />
+              <Input name="from_date" type="date" min={minDate} required />
             </Field>
             <Field label="Til">
-              <Input name="to_date" type="date" required />
+              <Input name="to_date" type="date" min={minDate} required />
             </Field>
 
             <Field label="Type">

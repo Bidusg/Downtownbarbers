@@ -6,7 +6,7 @@ import { getUserRole, isAdminRole } from "@/lib/auth";
 import { postDailyVoucher } from "@/lib/tripletex/voucher";
 import { parseFixitSettlementPdf, type FixitSettlementRow } from "@/lib/fixit-settlement";
 import {
-  getExpectedByMethodForDate,
+  getExpectedByMethodForDateStrict,
   getDailyReconciliation,
   type MethodBreakdown,
   type DailyReconRow,
@@ -19,13 +19,17 @@ function num(v: FormDataEntryValue | null): number {
 
 /** Forventet salg per betalingsmåte for en dato (til live-avstemming i skjemaet). */
 export async function expectedByMethod(date: string): Promise<MethodBreakdown> {
+  const me = await getUserRole();
+  if (!me || !(isAdminRole(me.role) || me.role === "revisor")) return { cash: 0, card: 0, vipps: 0 };
   if (!date) return { cash: 0, card: 0, vipps: 0 };
-  return getExpectedByMethodForDate(date);
+  return (await getExpectedByMethodForDateStrict(date)) ?? { cash: 0, card: 0, vipps: 0 };
 }
 
 export async function createSettlement(
   formData: FormData,
 ): Promise<{ ok?: true; error?: string }> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { error: "Ingen tilgang." };
   const sb = await createClient();
   const settle_date = String(formData.get("settle_date") ?? "");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(settle_date)) return { error: "Velg en gyldig dato." };
@@ -37,7 +41,10 @@ export async function createSettlement(
   const counted_cash = num(formData.get("counted_cash"));
 
   // Forventet regnes ut server-side (snapshot) – aldri fra klienten.
-  const expected = await getExpectedByMethodForDate(settle_date);
+  const expected = await getExpectedByMethodForDateStrict(settle_date);
+  if (!expected) {
+    return { error: "Kunne ikke hente dagens salg fra databasen. Prøv igjen – ingenting er lagret." };
+  }
   const counted_card = expected.card;
   const counted_vipps = expected.vipps;
 
@@ -70,11 +77,12 @@ export async function createSettlement(
       .limit(1)
       .maybeSingle();
     if (draft?.id) {
-      const { error: upErr } = await sb
+      const { data: upRows, error: upErr } = await sb
         .from("cash_settlements")
         .update({ ...values, confirmed: true })
-        .eq("id", draft.id);
-      if (!upErr) {
+        .eq("id", draft.id)
+        .select("id");
+      if (!upErr && (upRows?.length ?? 0) > 0) {
         revalidatePath("/admin/kasseoppgjor");
         try {
           await postDailyVoucher(settle_date);
@@ -88,9 +96,9 @@ export async function createSettlement(
     // confirmed-kolonnen finnes ikke enda → fall videre til vanlig insert.
   }
 
-  // Finnes det allerede et oppgjør for dagen, OPPDATERER vi det i stedet for å
-  // lage en ny rad. Tidligere ble det to rader samme dag (én med 0 kr som så
-  // ut som manko).
+  // Finnes det allerede et oppgjør for dagen, nekter vi å overskrive det her:
+  // endringer skal gå via «Endre» (edit_cash_settlement) så historikk/årsak
+  // lagres. Tidligere ble det to rader samme dag (én med 0 kr som så ut som manko).
   {
     const { data: prev } = await sb
       .from("cash_settlements")
@@ -100,13 +108,10 @@ export async function createSettlement(
       .limit(1)
       .maybeSingle();
     if (prev?.id) {
-      const { error: upErr } = await sb
-        .from("cash_settlements")
-        .update(values)
-        .eq("id", prev.id as string);
-      if (upErr) return { error: `Kunne ikke lagre oppgjøret: ${upErr.message}` };
-      revalidatePath("/admin/kasseoppgjor");
-      return { ok: true };
+      return {
+        error:
+          "Det finnes allerede et oppgjør for denne dagen. Bruk «Endre» på oppgjøret for å rette det.",
+      };
     }
   }
 
@@ -158,8 +163,9 @@ export async function confirmSettlement(
       .eq("id", id)
       .maybeSingle();
     const exp = row?.settle_date
-      ? await getExpectedByMethodForDate(String(row.settle_date))
+      ? await getExpectedByMethodForDateStrict(String(row.settle_date))
       : { cash: 0, card: Math.round(counted.card || 0), vipps: Math.round(counted.vipps || 0) };
+    if (!exp) return { ok: false, error: "Kunne ikke hente dagens salg. Prøv igjen – ingenting er endret." };
     const c = Math.max(0, Math.round(counted.cash || 0));
     const k = Math.max(0, exp.card);
     const v = Math.max(0, exp.vipps);
@@ -258,7 +264,10 @@ async function writeSettlementOverride(o: {
   postVoucher: boolean;
 }): Promise<{ ok?: true; error?: string }> {
   const { settle_date, cash, card, vipps, note } = o;
-  const expected = await getExpectedByMethodForDate(settle_date);
+  const expected = await getExpectedByMethodForDateStrict(settle_date);
+  if (!expected) {
+    return { error: "Kunne ikke hente dagens salg fra databasen. Prøv igjen – ingenting er lagret." };
+  }
   const sb = await createClient();
 
   const { data: prev } = await sb
@@ -295,7 +304,7 @@ async function writeSettlementOverride(o: {
     if (!(error.code === "PGRST202" || /edit_cash_settlement/.test(error.message ?? ""))) {
       return { error: `Kunne ikke lagre: ${error.message}` };
     }
-    const { error: upErr } = await sb
+    const { data: fbRows, error: upErr } = await sb
       .from("cash_settlements")
       .update({
         counted_cash: cash,
@@ -307,8 +316,10 @@ async function writeSettlementOverride(o: {
         expected_vipps: expected.vipps,
         note: [note, o.noteReason].filter(Boolean).join(" · "),
       })
-      .eq("id", prev.id as string);
+      .eq("id", prev.id as string)
+      .select("id");
     if (upErr) return { error: `Kunne ikke lagre: ${upErr.message}` };
+    if ((fbRows?.length ?? 0) === 0) return { error: "Kunne ikke lagre: ingen rad ble oppdatert." };
     revalidate();
     return { ok: true };
   }
@@ -484,7 +495,8 @@ export async function applyFixitImport(
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-      const exp = cur ? null : await getExpectedByMethodForDate(date);
+      const exp = cur ? null : await getExpectedByMethodForDateStrict(date);
+      if (!cur && !exp) return { error: `${date}: Kunne ikke hente dagens salg. Prøv igjen.`, saved: clean.length, overridden };
       const now = {
         cash: Number(cur?.counted_cash ?? exp?.cash ?? 0),
         card: Number(cur?.counted_card ?? exp?.card ?? 0),

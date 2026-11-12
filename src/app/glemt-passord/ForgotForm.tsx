@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { requestPasswordReset, type ForgotState } from "./actions";
 
 const initial: ForgotState = {};
@@ -31,12 +32,12 @@ export function ForgotForm() {
               Sjekk innboksen (og eventuelt søppelpost). Lenken er gyldig en
               begrenset periode.
             </p>
-            <a
+            <Link
               href="/?login=1"
               className="mt-5 inline-block text-xs text-accent-soft hover:underline"
             >
               Tilbake til innlogging
-            </a>
+            </Link>
           </div>
         ) : (
           <form
@@ -71,12 +72,12 @@ export function ForgotForm() {
             </button>
 
             <p className="text-center text-xs">
-              <a
+              <Link
                 href="/?login=1"
                 className="text-muted hover:text-accent-soft hover:underline"
               >
                 Tilbake til innlogging
-              </a>
+              </Link>
             </p>
           </form>
         )}

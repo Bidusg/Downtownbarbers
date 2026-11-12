@@ -45,7 +45,7 @@ export function ProgressBar({ value, label, caption, className }: Props) {
         aria-label={label}
       >
         <div
-          className="bo-bar-fill h-full transition-[width] duration-[900ms] ease-out"
+          className="bo-bar-fill h-full transition-[width] duration-[900ms] ease-out motion-reduce:transition-none"
           style={{ width: `${w}%` }}
         />
       </div>

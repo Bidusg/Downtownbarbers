@@ -62,7 +62,13 @@ export async function GET(req: NextRequest) {
     if (reference.startsWith("web-")) {
       await markOrderAuthorized(reference.slice(4));
       const back = req.nextUrl.searchParams.get("back");
-      const dest = back && back.startsWith(config.baseUrl) ? back : new URL("/butikk", req.url).toString();
+      // Sammenlign parset origin (startsWith lot «https://site.no.evil.com» slippe gjennom).
+      let dest = new URL("/butikk", req.url).toString();
+      try {
+        if (back && new URL(back).origin === new URL(config.baseUrl).origin) dest = new URL(back).toString();
+      } catch {
+        /* ugyldig back-URL → bruk /butikk */
+      }
       return NextResponse.redirect(dest);
     }
     await markPaid(reference);

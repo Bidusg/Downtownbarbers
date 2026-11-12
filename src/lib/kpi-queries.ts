@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAll } from "@/lib/reports/fetch-all";
 import { getStaffOptions } from "@/lib/ops-queries";
 import { getRevenueBreakdown, type Range } from "@/lib/report-queries";
 
@@ -69,30 +70,39 @@ export async function getKpiOverview(r: Range): Promise<KpiOverview> {
       getRevenueBreakdown(r),
       getStaffOptions(),
       // Alle ikke-avlyste bookinger fra periodestart og framover (til rebooking).
-      sb.from("bookings")
-        .select("customer_id, start_at, status")
-        .gte("start_at", r.startIso)
-        .neq("status", "cancelled")
-        .not("customer_id", "is", null)
-        .limit(100000),
+      fetchAll((from, to) =>
+        sb.from("bookings")
+          .select("customer_id, start_at, status")
+          .gte("start_at", r.startIso)
+          .neq("status", "cancelled")
+          .not("customer_id", "is", null)
+          .order("id", { ascending: true })
+          .range(from, to),
+      ).then((data) => ({ data })),
       // Bookinger i perioden med varighet (til timeutnyttelse).
-      sb.from("bookings")
-        .select("staff_id, start_at, end_at, status, service_id")
-        .gte("start_at", r.startIso)
-        .lt("start_at", r.endIso)
-        .limit(100000),
+      fetchAll((from, to) =>
+        sb.from("bookings")
+          .select("staff_id, start_at, end_at, status, service_id")
+          .gte("start_at", r.startIso)
+          .lt("start_at", r.endIso)
+          .order("id", { ascending: true })
+          .range(from, to),
+      ).then((data) => ({ data })),
       // Antall nye kunder i perioden – ekte count (unngår PostgREST 1000-rad-tak).
       sb.from("customers")
         .select("*", { count: "exact", head: true })
         .gte("created_at", r.startIso)
         .lt("created_at", r.endIso),
       // Kilde-fordeling for anbefaling % (kun de som oppga kilde).
-      sb.from("customers")
-        .select("source")
-        .gte("created_at", r.startIso)
-        .lt("created_at", r.endIso)
-        .not("source", "is", null)
-        .limit(100000),
+      fetchAll((from, to) =>
+        sb.from("customers")
+          .select("source")
+          .gte("created_at", r.startIso)
+          .lt("created_at", r.endIso)
+          .not("source", "is", null)
+          .order("id", { ascending: true })
+          .range(from, to),
+      ).then((data) => ({ data })),
       // Turnus-presis kapasitet (minutter per staff) – samme RPC som Produktivitet.
       sb.rpc("turnus_capacity_minutes", { p_from: r.from, p_to: r.to }),
     ]);

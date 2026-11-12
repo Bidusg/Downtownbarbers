@@ -302,6 +302,8 @@ export async function createStaffHour(formData: FormData): Promise<Res> {
 }
 
 export async function deleteStaffHour(id: string) {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return;
   const sb = await createClient();
   await sb.from("staff_hours").delete().eq("id", id);
   revalidateSchedule();
@@ -535,6 +537,8 @@ export async function setTurnusRotation(
 
 /** Sett A/B-ankeret: hvilken paritet en partalls ISO-uke er. */
 export async function setTurnusAnchor(formData: FormData) {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return;
   const sb = await createClient();
   const aIsEven = String(formData.get("a_is_even")) === "even";
   await sb

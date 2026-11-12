@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAll } from "@/lib/reports/fetch-all";
 import { getBudgets, getStaffOptions } from "@/lib/ops-queries";
 import type { Range } from "@/lib/report-queries";
 import { getHistoricalForMonth } from "@/lib/historical-revenue";
@@ -43,8 +44,14 @@ export async function getGoalProgress(year: number, month: number): Promise<Goal
     const [budgets, staff, salesRes, bookingRes, targetRes] = await Promise.all([
       getBudgets(year, month),
       getStaffOptions(),
-      sb.from("sales").select("staff_id, total_nok").gte("sold_at", start).lt("sold_at", end),
-      sb.from("bookings").select("id, status, start_at").gte("start_at", start).lt("start_at", end),
+      fetchAll((from, to) =>
+        sb.from("sales").select("staff_id, total_nok").gte("sold_at", start).lt("sold_at", end)
+          .order("id", { ascending: true }).range(from, to),
+      ).then((data) => ({ data })),
+      fetchAll((from, to) =>
+        sb.from("bookings").select("id, status, start_at").gte("start_at", start).lt("start_at", end)
+          .order("id", { ascending: true }).range(from, to),
+      ).then((data) => ({ data })),
       sb.from("daily_targets").select("target_value, metric, target_date").gte("target_date", start.slice(0, 10)).lt("target_date", end.slice(0, 10)),
     ]);
 
@@ -130,17 +137,20 @@ export async function getRevisitStats(r: Range): Promise<RevisitStats> {
   try {
     const sb = await createClient();
     // Alle fullførte besøk fram til periodeslutt (trenger historikk før perioden).
-    const { data } = await sb
-      .from("bookings")
-      .select("customer_id, start_at")
-      .eq("status", "completed")
-      .lt("start_at", r.endIso)
-      .not("customer_id", "is", null)
-      .order("start_at", { ascending: true })
-      .limit(100000);
+    const data = await fetchAll((from, to) =>
+      sb
+        .from("bookings")
+        .select("customer_id, start_at")
+        .eq("status", "completed")
+        .lt("start_at", r.endIso)
+        .not("customer_id", "is", null)
+        .order("start_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    );
 
     const byCustomer = new Map<string, string[]>();
-    for (const b of data ?? []) {
+    for (const b of data) {
       const cid = b.customer_id as string;
       const arr = byCustomer.get(cid) ?? [];
       arr.push(b.start_at as string);
@@ -203,16 +213,19 @@ export type TopCustomer = {
 export async function getTopCustomers(r: Range, limit = 20): Promise<TopCustomer[]> {
   try {
     const sb = await createClient();
-    const { data } = await sb
-      .from("sales")
-      .select("total_nok, customer_id, customers(full_name)")
-      .gte("sold_at", r.startIso)
-      .lt("sold_at", r.endIso)
-      .not("customer_id", "is", null)
-      .limit(100000);
+    const data = await fetchAll((from, to) =>
+      sb
+        .from("sales")
+        .select("total_nok, customer_id, customers(full_name)")
+        .gte("sold_at", r.startIso)
+        .lt("sold_at", r.endIso)
+        .not("customer_id", "is", null)
+        .order("id", { ascending: true })
+        .range(from, to),
+    );
 
     const agg = new Map<string, { name: string; spend: number; visits: number }>();
-    for (const s of data ?? []) {
+    for (const s of data) {
       const cid = s.customer_id as string;
       const name = (s.customers as { full_name?: string } | null)?.full_name ?? "—";
       const cur = agg.get(cid) ?? { name, spend: 0, visits: 0 };

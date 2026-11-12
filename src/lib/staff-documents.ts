@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getMyStaffLink } from "@/lib/ansatt-queries";
 
 export const STAFF_DOCS_BUCKET = "staff-docs";
 
@@ -48,13 +49,17 @@ async function withUrls(
   );
 }
 
-/** Innlogget ansatts egne dokumenter (RLS: self_read), med signerte URL-er. */
+/** Innlogget ansatts egne dokumenter (filtrert på egen staff_id), med signerte URL-er.
+ *  Uten filter ville admin/revisor (som RLS lar se alt) fått ALLES dokumenter. */
 export async function getMyDocuments(): Promise<StaffDocumentWithUrl[]> {
   try {
+    const link = await getMyStaffLink();
+    if (!link.linked || !link.staffId) return [];
     const sb = await createClient();
     const { data } = await sb
       .from("staff_documents")
       .select(SELECT)
+      .eq("staff_id", link.staffId)
       .order("category")
       .order("created_at", { ascending: false });
     return withUrls(sb, (data as StaffDocument[] | null) ?? []);

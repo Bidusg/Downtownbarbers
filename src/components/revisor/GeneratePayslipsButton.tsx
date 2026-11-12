@@ -19,6 +19,7 @@ export function GeneratePayslipsButton({
   monthLabel,
   staffCount,
   recipients = [],
+  alreadyGenerated = false,
 }: {
   year: number;
   month: number;
@@ -26,8 +27,11 @@ export function GeneratePayslipsButton({
   staffCount: number;
   /** Mottakere med beløp – vises i bekreftelsen så revisor ser hva som går ut. */
   recipients?: { name: string; totalNok: number }[];
+  /** Finnes lønnsoversikter for måneden fra før? Da er «send e-post» av som standard. */
+  alreadyGenerated?: boolean;
 }) {
   const [confirming, setConfirming] = useState(false);
+  const [sendEmail, setSendEmail] = useState(!alreadyGenerated);
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{
     ok: boolean;
@@ -41,7 +45,7 @@ export function GeneratePayslipsButton({
     start(async () => {
       let r: GeneratePayslipsResult;
       try {
-        r = await generatePayslips(year, month);
+        r = await generatePayslips(year, month, sendEmail);
       } catch {
         setMsg({ ok: false, text: "Noe gikk galt. Prøv igjen." });
         return;
@@ -66,6 +70,7 @@ export function GeneratePayslipsButton({
           type="button"
           onClick={() => {
             setMsg(null);
+            setSendEmail(!alreadyGenerated);
             setConfirming(true);
           }}
           disabled={pending || staffCount === 0}
@@ -85,10 +90,23 @@ export function GeneratePayslipsButton({
             Send lønnsoversikter for {monthLabel} {year}?
           </p>
           <p className="mt-1 text-sm text-muted">
-            {staffCount} ansatte får lønnsoversikten på sin Min side (Dokumenter) og
-            en e-post med lenke dit – ingen vedlegg. Eksisterende lønnsoversikt for
-            måneden erstattes.
+            {staffCount} ansatte får lønnsoversikten på sin Min side (Dokumenter).
+            Eventuell e-post med lenke dit sendes uten vedlegg. Eksisterende
+            lønnsoversikt for måneden erstattes.
           </p>
+          <label className="mt-3 flex items-center gap-2 text-sm text-fg">
+            <input
+              type="checkbox"
+              name="sendEmail"
+              checked={sendEmail}
+              onChange={(e) => setSendEmail(e.target.checked)}
+              className="size-4 accent-accent"
+            />
+            Send e-post til de ansatte
+            {alreadyGenerated && (
+              <span className="text-muted">(finnes fra før – av som standard)</span>
+            )}
+          </label>
           {recipients.length > 0 && (
             <ul className="mt-3 divide-y divide-line border-y border-line text-sm">
               {recipients.map((r) => (
@@ -106,7 +124,7 @@ export function GeneratePayslipsButton({
               disabled={pending}
               className="bg-accent px-5 py-2 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
             >
-              Ja, generer og send til {staffCount}
+              {sendEmail ? `Ja, generer og send til ${staffCount}` : "Ja, generer (uten e-post)"}
             </button>
             <button
               type="button"

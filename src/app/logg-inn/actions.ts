@@ -1,7 +1,6 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getUserRole, homeForRole } from "@/lib/auth";
 import { createHash, randomInt, randomUUID, timingSafeEqual } from "crypto";
@@ -15,20 +14,11 @@ import { siteUrl } from "@/lib/site-url";
 import { getRequestLang } from "@/lib/i18n/server-lang";
 
 /**
- * Basis-URL for lenker i e-post. Bygges fra den faktiske forespørselen
- * (vertsnavnet kunden er inne på) slik at lenken alltid peker til samme
- * domene de bruker nå – ikke et hardkodet domene som kanskje ikke er lansert.
- * Faller tilbake til NEXT_PUBLIC_SITE_URL hvis header mangler.
+ * Basis-URL for lenker i e-post. Bruker alltid det kanoniske domenet
+ * (siteUrl) – aldri Host/X-Forwarded-Host fra forespørselen, siden en
+ * angriper kan sende falsk Host og få innloggingslenken til å peke dit.
  */
 async function requestBaseUrl(): Promise<string> {
-  try {
-    const h = await headers();
-    const host = h.get("x-forwarded-host") ?? h.get("host");
-    const proto = h.get("x-forwarded-proto") ?? "https";
-    if (host) return `${proto}://${host}`;
-  } catch {
-    // ignorer – bruk fallback
-  }
   return siteUrl();
 }
 
@@ -174,7 +164,9 @@ export async function requestLoginCode(
     const found = await customerByEmail(svc, email);
     const c = found ? await ensurePortal(svc, found) : null;
     const r = c ? await issueCode(svc, c, email) : "sent";
-    if (r !== "sent") return { step: "code", email, at: Date.now(), notice: r };
+    // «limited» svares likt som «sent» – ellers røper vi at e-posten finnes.
+    if (r === "limited") console.error("requestLoginCode: for mange koder siste time for en kunde.");
+    else if (r !== "sent") return { step: "code", email, at: Date.now(), notice: r };
   } catch (e) {
     console.error("requestLoginCode:", e instanceof Error ? e.message : e);
     return { error: "notConfigured" };
@@ -225,7 +217,9 @@ export async function registerCustomer(
         /* lang-kolonnen finnes kanskje ikke ennå */
       }
       const r = await issueCode(svc, c, email, welcome);
-      if (r !== "sent") return { step: "code", email, at: Date.now(), notice: r };
+      // «limited» svares likt som «sent» – ellers røper vi at e-posten finnes.
+      if (r === "limited") console.error("registerCustomer: for mange koder siste time for en kunde.");
+      else if (r !== "sent") return { step: "code", email, at: Date.now(), notice: r };
     }
   } catch (e) {
     console.error("registerCustomer:", e instanceof Error ? e.message : e);
@@ -266,6 +260,16 @@ export async function verifyLoginCode(
     const b = Buffer.from(r.code_hash);
     const ok = a.length === b.length && timingSafeEqual(a, b);
     if (!ok) {
+      // Atomisk teller (consume_login_attempt) så parallelle gjetninger ikke
+      // slipper forbi grensen. Faller tilbake til les-så-skriv hvis SQL ikke er kjørt.
+      const { data: n, error: rpcErr } = await svc.rpc("consume_login_attempt", { p_id: r.id });
+      if (!rpcErr) {
+        const used = typeof n === "number" ? n : MAX_ATTEMPTS;
+        return { error: used >= MAX_ATTEMPTS ? "expired" : "badCode" };
+      }
+      if (rpcErr.code !== "PGRST202" && rpcErr.code !== "42883") {
+        console.error("consume_login_attempt:", rpcErr.message);
+      }
       await svc.from("customer_login_codes").update({ attempts: r.attempts + 1 }).eq("id", r.id);
       return { error: r.attempts + 1 >= MAX_ATTEMPTS ? "expired" : "badCode" };
     }
@@ -288,12 +292,28 @@ export async function requestPortalLink(
 ): Promise<PortalLinkState> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const neutral: PortalLinkState = { sent: true };
-  if (!email) return neutral;
+  if (!email || !isValidEmail(email)) return neutral;
+  if (await ipRateLimited()) return neutral;
 
   try {
     const svc = createServiceClient();
     const c = await customerByEmail(svc, email);
     if (c?.portal_token) {
+      // Samme tak som koder: maks MAX_CODES_PER_HOUR e-poster per kunde per time
+      // (teller i customer_login_codes; hver lenke logges som en rad uten bruk).
+      const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const { count } = await svc
+        .from("customer_login_codes")
+        .select("id", { count: "exact", head: true })
+        .eq("customer_id", c.id)
+        .gte("created_at", since);
+      if ((count ?? 0) >= MAX_CODES_PER_HOUR) return neutral;
+      await svc.from("customer_login_codes").insert({
+        customer_id: c.id,
+        code_hash: "portal-link",
+        expires_at: new Date().toISOString(),
+        used_at: new Date().toISOString(),
+      });
       const base = await requestBaseUrl();
       await sendPortalLinkEmail({
         to: email,

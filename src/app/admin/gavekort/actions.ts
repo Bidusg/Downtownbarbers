@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth";
+import { requireRole, getUserRole, isAdminRole } from "@/lib/auth";
 
 function randomCode() {
   const s = Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -12,6 +12,8 @@ function randomCode() {
 export async function createGiftCard(
   formData: FormData,
 ): Promise<{ ok?: true; code?: string; error?: string }> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { error: "Ingen tilgang." };
   const initial = Number(formData.get("initial_nok") ?? 0);
   if (!Number.isFinite(initial) || initial <= 0) return { error: "Beløpet må være over 0 kr." };
   const code = String(formData.get("code") ?? "").trim() || randomCode();
@@ -110,6 +112,8 @@ export async function setGiftCardBarcode(
   id: string,
   barcode: string,
 ): Promise<{ ok?: true; error?: string }> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { error: "Ingen tilgang." };
   const sb = await createClient();
   const { error } = await sb
     .from("gift_cards")
@@ -168,6 +172,8 @@ export async function redeemGiftCardByCode(
   code: string,
   amount: number,
 ): Promise<{ ok?: true; redeemed?: number; newBalance?: number; error?: string }> {
+  const me = await getUserRole();
+  if (!me || !(isAdminRole(me.role) || me.role === "shop")) return { error: "Ingen tilgang." };
   const c = code.trim();
   const amt = Math.max(0, Math.round(Number(amount) || 0));
   if (!c || amt <= 0) return { error: "Ugyldig beløp." };
@@ -208,6 +214,8 @@ export async function redeemGiftCardByCode(
 export async function redeemGiftCard(
   formData: FormData,
 ): Promise<{ ok?: true; newBalance?: number; error?: string }> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { error: "Ingen tilgang." };
   const id = String(formData.get("id") ?? "");
   const amount = Number(formData.get("amount") ?? 0);
   if (!id) return { error: "Mangler gavekort." };
@@ -244,6 +252,8 @@ export async function redeemGiftCard(
 }
 
 export async function deleteGiftCard(id: string): Promise<{ ok: boolean; error?: string }> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { ok: false, error: "Ingen tilgang." };
   const sb = await createClient();
   const { error } = await sb.from("gift_cards").delete().eq("id", id);
   if (error) return { ok: false, error: `Kunne ikke slette: ${error.message}` };

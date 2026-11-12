@@ -12,6 +12,7 @@ import { SITE_BUCKET, type SiteSection } from "@/lib/site-images";
 export async function updateSite(
   patch: Partial<SiteSettings>,
 ): Promise<{ ok?: true; error?: string }> {
+  if (!(await adminGuard())) return { error: "Ingen tilgang." };
   const res = await saveSiteSettings(patch);
   if (res.ok) {
     revalidatePath("/");

@@ -6,6 +6,7 @@ import { getUserRole, isAdminRole } from "@/lib/auth";
 import { postDailyVoucher } from "@/lib/tripletex/voucher";
 import {
   getExpectedByMethodForDate,
+  getExpectedByMethodForDateStrict,
   type MethodBreakdown,
 } from "@/lib/ops-queries";
 
@@ -145,7 +146,9 @@ export async function deliverShopSettlement(
   const counted_cash = num(formData.get("counted_cash"));
 
   // Forventet regnes server-side (snapshot) – aldri fra klienten.
-  const expected = await getExpectedByMethodForDate(settle_date);
+  // Kan returnere null ved feil (aldri lagre 0/0/0 pga. en databasefeil).
+  const expected = await getExpectedByMethodForDateStrict(settle_date);
+  if (!expected) return { error: "Kunne ikke hente dagens salg – prøv igjen." };
   const counted_card = expected.card;
   const counted_vipps = expected.vipps;
 
@@ -202,7 +205,23 @@ export async function deliverShopSettlement(
   const { error } = await sb
     .from("cash_settlements")
     .insert({ settle_date, ...values });
-  if (error) return { error: `Kunne ikke lagre oppgjøret: ${error.message}` };
+  if (error) {
+    // Dobbel-innsending (to nettbrett / dobbelttrykk): unik-brudd = raden finnes.
+    if (error.code === "23505") {
+      return { error: "Dagen er allerede levert. Kontakt admin for å rette." };
+    }
+    // Race uten unik-indeks: sjekk om en rad dukket opp samtidig.
+    const { data: dup } = await sb
+      .from("cash_settlements")
+      .select("id")
+      .eq("settle_date", settle_date)
+      .limit(1)
+      .maybeSingle();
+    if (dup?.id) {
+      return { error: "Dagen er allerede levert. Kontakt admin for å rette." };
+    }
+    return { error: `Kunne ikke lagre oppgjøret: ${error.message}` };
+  }
   revalidatePath("/kasse/kasseoppgjor");
 
   try {
@@ -230,7 +249,9 @@ export async function editShopSettlement(
   if (cashRaw === "" || !Number.isFinite(Number(cashRaw)) || Number(cashRaw) < 0) {
     return { error: "Fyll inn talt kontantbeholdning (0 eller mer)." };
   }
-  const expected = await getExpectedByMethodForDate(settle_date);
+  // Kan returnere null ved feil (aldri lagre 0/0/0 pga. en databasefeil).
+  const expected = await getExpectedByMethodForDateStrict(settle_date);
+  if (!expected) return { error: "Kunne ikke hente dagens salg – prøv igjen." };
   const sb = await createClient();
   const { error } = await sb.rpc("edit_cash_settlement", {
     p_id: id,

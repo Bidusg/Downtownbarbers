@@ -53,6 +53,8 @@ function readServiceForm(formData: FormData):
 }
 
 export async function createService(formData: FormData): Promise<ActionResult> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { error: "Ingen tilgang." };
   const parsed = readServiceForm(formData);
   if ("error" in parsed) return { error: parsed.error };
   const sb = await createClient();
@@ -109,6 +111,8 @@ export async function createService(formData: FormData): Promise<ActionResult> {
 }
 
 export async function updateService(id: string, formData: FormData): Promise<ActionResult> {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return { error: "Ingen tilgang." };
   const parsed = readServiceForm(formData);
   if ("error" in parsed) return { error: parsed.error };
   const sb = await createClient();
@@ -126,6 +130,8 @@ export async function updateService(id: string, formData: FormData): Promise<Act
 }
 
 export async function toggleService(id: string, active: boolean) {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return;
   const sb = await createClient();
   await sb.from("services").update({ active }).eq("id", id);
 
@@ -159,6 +165,8 @@ export async function toggleService(id: string, active: boolean) {
 }
 
 export async function deleteService(id: string) {
+  const me = await getUserRole();
+  if (!me || !isAdminRole(me.role)) return;
   const sb = await createClient();
   await sb.from("services").delete().eq("id", id);
   revalidatePath("/admin/tjenester");

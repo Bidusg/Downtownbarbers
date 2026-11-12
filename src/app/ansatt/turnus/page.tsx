@@ -1,5 +1,13 @@
-import { getMyStaffLink, getMyTurnus, getMyUpcomingShifts } from "@/lib/ansatt-queries";
-import { getTurnusAnchor } from "@/lib/ops-queries";
+import {
+  getMyExceptions,
+  getMyStaffLink,
+  getMyTurnus,
+  getMyUpcomingShifts,
+  type MyTurnusRow,
+} from "@/lib/ansatt-queries";
+import { getTurnusRotation } from "@/lib/ops-queries";
+import { parityLabel, parityOptions } from "@/lib/turnus";
+import { osloDate } from "@/lib/ansatt-format";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -17,9 +25,10 @@ const DAYS: { n: number; l: string }[] = [
   { n: 0, l: "Søndag" },
 ];
 
-// ISO-ukenummer – samme regel som available_slots/turnus_week_parity i DB.
-function isoWeek(d: Date): number {
-  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+// ISO-ukenummer for en Oslo-dato (YYYY-MM-DD) – samme regel som turnus_week_parity i DB.
+function isoWeek(osloIso: string): number {
+  const [y, m, d] = osloIso.split("-").map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d));
   const day = t.getUTCDay() || 7;
   t.setUTCDate(t.getUTCDate() + 4 - day);
   const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
@@ -28,7 +37,8 @@ function isoWeek(d: Date): number {
 
 function fmtDay(iso: string) {
   try {
-    return new Date(iso + "T00:00:00").toLocaleDateString("nb-NO", {
+    return new Date(iso + "T12:00:00Z").toLocaleDateString("nb-NO", {
+      timeZone: "UTC",
       weekday: "long",
       day: "2-digit",
       month: "short",
@@ -38,77 +48,92 @@ function fmtDay(iso: string) {
   }
 }
 
+/** Radene som gjelder for en gitt rotasjonsuke (0 = hver uke gjelder alltid). */
+function rowsFor(turnus: MyTurnusRow[], parity: number, weekday: number): MyTurnusRow[] {
+  return turnus
+    .filter((r) => (r.week_parity === 0 || r.week_parity === parity) && r.weekday === weekday)
+    .sort((a, b) => a.start_time.localeCompare(b.start_time));
+}
+
+function DayCell({ rows }: { rows: MyTurnusRow[] }) {
+  if (rows.length === 0) return <span className="text-muted">Fri</span>;
+  return (
+    <span className="text-right">
+      <span className="font-display text-fg">
+        {rows.map((r) => `${r.start_time}–${r.end_time}`).join(", ")}
+      </span>
+      {rows
+        .filter((r) => r.pause_start && r.pause_end)
+        .map((r) => (
+          <span key={`${r.pause_start}`} className="block text-[11px] text-muted">
+            {r.pause_note || "Pause"} {r.pause_start}–{r.pause_end}
+          </span>
+        ))}
+    </span>
+  );
+}
+
+function WeekColumn({
+  parity,
+  isNow,
+  turnus,
+}: {
+  parity: number;
+  isNow: boolean;
+  turnus: MyTurnusRow[];
+}) {
+  return (
+    <Card padded={false}>
+      <div className="flex items-center justify-between border-b border-line px-4 py-3">
+        <h2 className="font-display text-sm font-bold text-fg">{parityLabel(parity)}</h2>
+        {isNow && (
+          <Badge tone="accent" className="uppercase">
+            Denne uken
+          </Badge>
+        )}
+      </div>
+      <ul className="divide-y divide-line">
+        {DAYS.map((d) => (
+          <li key={d.n} className="flex items-center justify-between px-4 py-2.5 text-sm">
+            <span className="text-muted">{d.l}</span>
+            <DayCell rows={rowsFor(turnus, parity, d.n)} />
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
 export default async function AnsattTurnus() {
-  const [link, turnus, upcoming, anchor] = await Promise.all([
+  const today = osloDate();
+  const horizon = osloDate(new Date(Date.parse(today + "T12:00:00Z") + 60 * 86400000));
+  const [link, turnus, upcoming, rotation, exceptions] = await Promise.all([
     getMyStaffLink(),
     getMyTurnus(),
     getMyUpcomingShifts(21),
-    getTurnusAnchor(),
+    getTurnusRotation(),
+    getMyExceptions(today, horizon),
   ]);
 
-  const wk = isoWeek(new Date());
-  const currentParity: 1 | 2 = (wk % 2 === 0) === anchor.aIsEven ? 1 : 2;
-  const currentLabel = currentParity === 1 ? "Uke A" : "Uke B";
+  const wk = isoWeek(today);
+  // Antall uker i rotasjonen: fra innstillingen, men aldri færre enn det turnusen/vaktene bruker.
+  const maxUsed = Math.max(0, ...turnus.map((r) => r.week_parity), ...upcoming.map((s) => s.week_parity));
+  const weeks = Math.max(rotation.weeks, maxUsed);
+  const options = parityOptions(weeks);
+  const currentParity = Math.min(Math.max(rotation.currentIndex, 1), weeks);
 
-  // parity 0 = hver uke, 1 = A, 2 = B
-  const forParity = (p: 1 | 2) =>
-    turnus.filter((r) => r.week_parity === 0 || r.week_parity === p);
-
-  const cell = (p: 1 | 2, weekday: number) => {
-    const rows = forParity(p)
-      .filter((r) => r.weekday === weekday)
-      .sort((a, b) => a.start_time.localeCompare(b.start_time));
-    if (rows.length === 0) return <span className="text-muted">Fri</span>;
-    return (
-      <span className="text-right">
-        <span className="font-display text-fg">
-          {rows.map((r) => `${r.start_time}–${r.end_time}`).join(", ")}
-        </span>
-        {rows
-          .filter((r) => r.pause_start && r.pause_end)
-          .map((r) => (
-            <span key={`${r.pause_start}`} className="block text-[11px] text-muted">
-              {r.pause_note || "Pause"} {r.pause_start}–{r.pause_end}
-            </span>
-          ))}
-      </span>
-    );
-  };
-
-  const WeekColumn = ({ p, label }: { p: 1 | 2; label: string }) => {
-    const isNow = (p === 1 ? 1 : 2) === currentParity;
-    return (
-      <Card padded={false}>
-        <div className="flex items-center justify-between border-b border-line px-4 py-3">
-          <h2 className="font-display text-sm font-bold text-fg">{label}</h2>
-          {isNow && (
-            <Badge tone="accent" className="uppercase">
-              Denne uken
-            </Badge>
-          )}
-        </div>
-        <ul className="divide-y divide-line">
-          {DAYS.map((d) => (
-            <li
-              key={d.n}
-              className="flex items-center justify-between px-4 py-2.5 text-sm"
-            >
-              <span className="text-muted">{d.l}</span>
-              {cell(p, d.n)}
-            </li>
-          ))}
-        </ul>
-      </Card>
-    );
-  };
+  // Kun kommende ekstravakter (fri vises allerede via fraværet som trekkes fra vaktene).
+  const extras = exceptions
+    .filter((e) => e.kind === "extra" && e.date >= today)
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   return (
     <main className="mx-auto max-w-3xl space-y-8 p-6">
       <div>
         <PageHeader title="Min turnus" />
         <p className="mt-1 text-sm text-muted">
-          Din faste ukeplan (uke A / uke B). Denne uken (uke {wk}) er{" "}
-          <strong className="text-accent-soft">{currentLabel}</strong>. Endringer
+          Din faste ukeplan ({options.map((p) => parityLabel(p).toLowerCase()).join(" / ")}). Denne uken (uke {wk}) er{" "}
+          <strong className="text-accent-soft">{parityLabel(currentParity)}</strong>. Endringer
           gjøres av admin.
         </p>
       </div>
@@ -119,9 +144,34 @@ export default async function AnsattTurnus() {
         <EmptyState description="Ingen turnus er satt opp for deg enda. Be admin legge inn ukeplanen din under Timelister." />
       ) : (
         <div className="grid gap-5 sm:grid-cols-2">
-          <WeekColumn p={1} label="Uke A" />
-          <WeekColumn p={2} label="Uke B" />
+          {options.map((p) => (
+            <WeekColumn key={p} parity={p} isNow={p === currentParity} turnus={turnus} />
+          ))}
         </div>
+      )}
+
+      {extras.length > 0 && (
+        <section>
+          <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted uppercase">
+            Ekstravakter
+          </h2>
+          <Card padded={false}>
+            <ul className="divide-y divide-line">
+              {extras.map((e) => (
+                <li key={e.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-sm">
+                  <span className="w-44 text-fg">{fmtDay(e.date)}</span>
+                  <span className="font-display font-bold text-fg">
+                    {e.start_time && e.end_time ? `${e.start_time}–${e.end_time}` : "Hele dagen"}
+                  </span>
+                  {e.note && <span className="text-[12px] text-muted">{e.note}</span>}
+                  <Badge tone="accent" className="ml-auto uppercase">
+                    Ekstra
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </section>
       )}
 
       <section>
@@ -148,7 +198,7 @@ export default async function AnsattTurnus() {
                     </span>
                   )}
                   <Badge tone="accent" className="ml-auto uppercase">
-                    {s.week_parity === 1 ? "Uke A" : "Uke B"}
+                    {parityLabel(s.week_parity)}
                   </Badge>
                 </li>
               ))}
@@ -157,7 +207,7 @@ export default async function AnsattTurnus() {
         )}
         <p className="mt-2 text-[11px] text-muted">
           Utledet av turnusen din. Heldags fravær og registrert ferie er trukket
-          fra. Ekstravakter for enkeltdatoer vises ikke her.
+          fra. Ekstravakter for enkeltdatoer vises i egen liste over.
         </p>
       </section>
     </main>

@@ -1,5 +1,5 @@
-import { forwardRef } from "react";
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
+import { Children, cloneElement, forwardRef, isValidElement, useId } from "react";
+import type { InputHTMLAttributes, ReactElement, ReactNode, SelectHTMLAttributes } from "react";
 
 /**
  * Delte skjema-primitiver: Input, Select og Field (label + hjelpetekst).
@@ -29,7 +29,12 @@ export const Select = forwardRef<
   );
 });
 
-/** Etikett + valgfri hjelpetekst rundt et felt. */
+/**
+ * Etikett + valgfri hjelpetekst rundt et felt. Når `htmlFor` ikke er gitt og
+ * barnet er ETT element uten eget id, får det en generert id (useId) slik at
+ * etiketten kobles til feltet (klikk på etikett + skjermleser). Eksplisitt
+ * `htmlFor` eller eget `id` på barnet vinner alltid.
+ */
 export function Field({
   label,
   hint,
@@ -43,15 +48,27 @@ export function Field({
   children: ReactNode;
   className?: string;
 }) {
+  const autoId = useId();
+  const only = Children.toArray(children);
+  const child =
+    only.length === 1 &&
+    isValidElement(only[0]) &&
+    typeof only[0].type !== "symbol" &&
+    (typeof only[0].type !== "string" || ["input", "select", "textarea"].includes(only[0].type))
+      ? (only[0] as ReactElement<{ id?: string }>)
+      : null;
+  const linkId = htmlFor ?? child?.props.id ?? (child ? autoId : undefined);
+  const control =
+    child && !htmlFor && !child.props.id ? cloneElement(child, { id: linkId }) : children;
   return (
     <div className={"space-y-1.5 " + className}>
       <label
-        htmlFor={htmlFor}
+        htmlFor={linkId}
         className="block text-[13px] font-medium text-fg"
       >
         {label}
       </label>
-      {children}
+      {control}
       {hint && <p className="text-xs text-muted">{hint}</p>}
     </div>
   );

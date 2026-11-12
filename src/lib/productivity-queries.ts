@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAll } from "@/lib/reports/fetch-all";
 import { getStaffOptions } from "@/lib/ops-queries";
 import type { Range } from "@/lib/report-queries";
 import { getHistoricalRevenue } from "@/lib/historical-revenue";
@@ -68,24 +69,33 @@ export async function getBarberScores(r: Range): Promise<BarberScoreReport> {
     const [salesRes, bookingsRangeRes, bookingsFwdRes, capacityRes] =
       await Promise.all([
         // Omsetning per barber i perioden (inkl. mva).
-        sb.from("sales")
-          .select("staff_id, total_nok")
-          .gte("sold_at", r.startIso)
-          .lt("sold_at", r.endIso)
-          .limit(100000),
+        fetchAll((from, to) =>
+          sb.from("sales")
+            .select("staff_id, total_nok")
+            .gte("sold_at", r.startIso)
+            .lt("sold_at", r.endIso)
+            .order("id", { ascending: true })
+            .range(from, to),
+        ).then((data) => ({ data })),
         // Bookinger som STARTER i perioden (fullført/no-show/bekreftet).
-        sb.from("bookings")
-          .select("staff_id, customer_id, start_at, end_at, status, service_id")
-          .gte("start_at", r.startIso)
-          .lt("start_at", r.endIso)
-          .limit(100000),
+        fetchAll((from, to) =>
+          sb.from("bookings")
+            .select("staff_id, customer_id, start_at, end_at, status, service_id")
+            .gte("start_at", r.startIso)
+            .lt("start_at", r.endIso)
+            .order("id", { ascending: true })
+            .range(from, to),
+        ).then((data) => ({ data })),
         // Alle ikke-avlyste bookinger fra periodestart og framover (rebooking).
-        sb.from("bookings")
-          .select("staff_id, customer_id, start_at, status")
-          .gte("start_at", r.startIso)
-          .neq("status", "cancelled")
-          .not("customer_id", "is", null)
-          .limit(100000),
+        fetchAll((from, to) =>
+          sb.from("bookings")
+            .select("staff_id, customer_id, start_at, status")
+            .gte("start_at", r.startIso)
+            .neq("status", "cancelled")
+            .not("customer_id", "is", null)
+            .order("id", { ascending: true })
+            .range(from, to),
+        ).then((data) => ({ data })),
         // Turnus-presis kapasitet (minutter per staff) via RPC (0042).
         sb.rpc("turnus_capacity_minutes", { p_from: r.from, p_to: r.to }),
       ]);
@@ -229,16 +239,19 @@ export async function getNoShowOverview(r: Range): Promise<NoShowOverview> {
   };
   try {
     const sb = await createClient();
-    const { data } = await sb
-      .from("bookings")
-      .select("status, start_at, staff(full_name), customers(full_name)")
-      .gte("start_at", r.startIso)
-      .lt("start_at", r.endIso)
-      .in("status", ["completed", "no_show"])
-      .not("service_id", "is", null)
-      .limit(100000);
+    const data = await fetchAll((from, to) =>
+      sb
+        .from("bookings")
+        .select("status, start_at, staff(full_name), customers(full_name)")
+        .gte("start_at", r.startIso)
+        .lt("start_at", r.endIso)
+        .in("status", ["completed", "no_show"])
+        .not("service_id", "is", null)
+        .order("id", { ascending: true })
+        .range(from, to),
+    );
 
-    const rows = (data ?? []) as {
+    const rows = data as unknown as {
       status: string;
       staff: { full_name?: string } | null;
       customers: { full_name?: string } | null;

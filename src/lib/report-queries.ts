@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAll } from "@/lib/reports/fetch-all";
 import { getHistoricalRevenue, HIST_METHOD_LABEL } from "@/lib/historical-revenue";
 
 /* =====================================================================
@@ -133,13 +134,16 @@ type SaleRaw = { sold_at: string; total_nok: number; payment_method: string | nu
 async function fetchInternalSales(r: Range): Promise<SaleRaw[]> {
   try {
     const sb = await createClient();
-    const { data } = await sb
-      .from("sales")
-      .select("sold_at, total_nok, payment_method, staff(full_name)")
-      .gte("sold_at", r.startIso)
-      .lt("sold_at", r.endIso)
-      .limit(100000);
-    return (data ?? []).map((s) => ({
+    const data = await fetchAll((from, to) =>
+      sb
+        .from("sales")
+        .select("sold_at, total_nok, payment_method, staff(full_name)")
+        .gte("sold_at", r.startIso)
+        .lt("sold_at", r.endIso)
+        .order("id", { ascending: true })
+        .range(from, to),
+    );
+    return data.map((s) => ({
       sold_at: s.sold_at as string,
       total_nok: Number(s.total_nok) || 0,
       payment_method: (s.payment_method as string) ?? null,
@@ -298,14 +302,17 @@ export async function getRelationSummary(r: Range): Promise<RelationSummary> {
   };
   try {
     const sb = await createClient();
-    const { data } = await sb
-      .from("sales")
-      .select("relation_type, total_nok")
-      .in("relation_type", ["venn", "familie"])
-      .gte("sold_at", r.startIso)
-      .lt("sold_at", r.endIso)
-      .limit(100000);
-    for (const s of (data ?? []) as {
+    const data = await fetchAll((from, to) =>
+      sb
+        .from("sales")
+        .select("relation_type, total_nok")
+        .in("relation_type", ["venn", "familie"])
+        .gte("sold_at", r.startIso)
+        .lt("sold_at", r.endIso)
+        .order("id", { ascending: true })
+        .range(from, to),
+    );
+    for (const s of data as {
       relation_type: string;
       total_nok: number;
     }[]) {
@@ -332,12 +339,15 @@ export async function getCategoryBreakdown(r: Range): Promise<CategoryReport> {
   try {
     const sb = await createClient();
     // sale_items i perioden (join på sales.sold_at). Kun tjenestelinjer finnes i dag.
-    const { data: items } = await sb
-      .from("sale_items")
-      .select("kind, quantity, price_nok, ref_id, sales!inner(sold_at)")
-      .gte("sales.sold_at", r.startIso)
-      .lt("sales.sold_at", r.endIso)
-      .limit(100000);
+    const items = await fetchAll((from, to) =>
+      sb
+        .from("sale_items")
+        .select("kind, quantity, price_nok, ref_id, sales!inner(sold_at)")
+        .gte("sales.sold_at", r.startIso)
+        .lt("sales.sold_at", r.endIso)
+        .order("id", { ascending: true })
+        .range(from, to),
+    );
 
     const [{ data: services }, { data: cats }] = await Promise.all([
       sb.from("services").select("id, name, category_id"),
@@ -444,14 +454,17 @@ export async function getSlowMovers(r: Range): Promise<SlowRow[]> {
     // Enheter solgt per produkt i perioden (om produktlinjer finnes i sale_items).
     const sold = new Map<string, number>();
     try {
-      const { data: items } = await sb
-        .from("sale_items")
-        .select("ref_id, quantity, kind, sales!inner(sold_at)")
-        .eq("kind", "product")
-        .gte("sales.sold_at", r.startIso)
-        .lt("sales.sold_at", r.endIso)
-        .limit(100000);
-      for (const it of items ?? []) {
+      const items = await fetchAll((from, to) =>
+        sb
+          .from("sale_items")
+          .select("ref_id, quantity, kind, sales!inner(sold_at)")
+          .eq("kind", "product")
+          .gte("sales.sold_at", r.startIso)
+          .lt("sales.sold_at", r.endIso)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
+      for (const it of items) {
         if (!it.ref_id) continue;
         sold.set(it.ref_id as string, (sold.get(it.ref_id as string) ?? 0) + (Number(it.quantity) || 1));
       }

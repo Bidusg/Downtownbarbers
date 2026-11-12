@@ -25,10 +25,46 @@ function missingTable(msg: string | undefined): boolean {
   return !!msg && /relation|does not exist|schema cache|salary_/i.test(msg);
 }
 
+/** Tomt felt gir fallback (ikke 0). Ugyldig tekst gir også fallback. */
 function toNum(fd: FormData, key: string, fallback = 0): number {
-  const v = Number(String(fd.get(key) ?? "").replace(",", "."));
+  const raw = String(fd.get(key) ?? "").trim().replace(",", ".");
+  if (raw === "") return fallback;
+  const v = Number(raw);
   return Number.isFinite(v) ? v : fallback;
 }
+
+/** Er feltet utfylt med noe? */
+function hasValue(fd: FormData, key: string): boolean {
+  return String(fd.get(key) ?? "").trim() !== "";
+}
+
+/** Samler feil for felt utenfor tillatt område (norske meldinger). */
+type Checker = { errors: string[]; range: (label: string, v: number | null, min: number, max: number) => void };
+function checker(): Checker {
+  const errors: string[] = [];
+  return {
+    errors,
+    range(label, v, min, max) {
+      if (v === null) return;
+      if (!Number.isFinite(v) || v < min || v > max) {
+        errors.push(`${label} må være mellom ${min.toLocaleString("nb-NO")} og ${max.toLocaleString("nb-NO")}.`);
+      }
+    },
+  };
+}
+
+/** Norsk kontonummer: 11 siffer med MOD11-kontrollsiffer. */
+function validKontonr(d: string): boolean {
+  if (!/^\d{11}$/.test(d)) return false;
+  const w = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  const sum = w.reduce((s, x, i) => s + x * Number(d[i]), 0);
+  const r = 11 - (sum % 11);
+  const ctrl = r === 11 ? 0 : r;
+  return ctrl !== 10 && ctrl === Number(d[10]);
+}
+
+const MAX_NOK = 10_000_000;
+const MAX_HOURS = 744; // timer i en måned (31 døgn)
 function toBool(fd: FormData, key: string): boolean {
   const v = String(fd.get(key) ?? "");
   return v === "on" || v === "true" || v === "1";
@@ -46,7 +82,7 @@ export async function saveSalarySettings(fd: FormData): Promise<ActionResult> {
 
   const baseOverrideRaw = String(fd.get("baseSalaryOverrideNok") ?? "").trim();
   const settings: SalarySettings = {
-    baseSalaryOverrideNok: baseOverrideRaw === "" ? null : toNum(fd, "baseSalaryOverrideNok"),
+    baseSalaryOverrideNok: baseOverrideRaw === "" ? null : toNum(fd, "baseSalaryOverrideNok", NaN),
     commissionModel: String(fd.get("commissionModel")) === "split" ? "split" : "terskel",
     commissionRate: toNum(fd, "commissionRate", 0.4),
     commissionThresholdNok: toNum(fd, "commissionThresholdNok", 72000),
@@ -69,10 +105,41 @@ export async function saveSalarySettings(fd: FormData): Promise<ActionResult> {
     holidayBonusNok: toNum(fd, "holidayBonusNok", 0),
     enableSickPay: toBool(fd, "enableSickPay"),
     sickRateNok: toNum(fd, "sickRateNok", 0),
-    taxPercent: Math.min(1, Math.max(0, toNum(fd, "taxPercent", 0))),
-    hoursPerMonth: toNum(fd, "hoursPerMonth", 162.5) > 0 ? toNum(fd, "hoursPerMonth", 162.5) : 162.5,
-    accountNumber: String(fd.get("accountNumber") ?? "").replace(/[^\d.\s]/g, "").trim().slice(0, 20),
+    taxPercent: toNum(fd, "taxPercent", 0),
+    hoursPerMonth: toNum(fd, "hoursPerMonth", 162.5),
+    accountNumber: String(fd.get("accountNumber") ?? "").replace(/[\s.]/g, ""),
   };
+
+  // Server-validering (klienten kan ikke stoles på).
+  const chk = checker();
+  const nokFields: [string, number | null][] = [
+    ["Grunnlønn", settings.baseSalaryOverrideNok],
+    ["Terskel", settings.commissionThresholdNok],
+    ["Kveldstillegg", settings.eveningRateNok],
+    ["Lørdagstillegg", settings.saturdayRateNok],
+    ["Søndagstillegg", settings.sundayRateNok],
+    ["Høytidsbonus", settings.holidayBonusNok],
+    ["Sykelønn per time", settings.sickRateNok],
+  ];
+  for (const [l, v] of nokFields) chk.range(l, v, 0, MAX_NOK);
+  const rateFields: [string, number][] = [
+    ["Provisjon", settings.commissionRate],
+    ["Tjenesteandel", settings.serviceRate],
+    ["Varandel", settings.productRate],
+    ["Markedsplass-andel", settings.marketplaceRate],
+    ["Feriepenger", settings.vacationPayRate],
+    ["Skatteprosent", settings.taxPercent],
+  ];
+  for (const [l, v] of rateFields) {
+    if (!Number.isFinite(v) || v < 0 || v > 1) {
+      chk.errors.push(`${l} må være mellom 0 og 100 %.`);
+    }
+  }
+  chk.range("Timer per måned", settings.hoursPerMonth, 1, MAX_HOURS);
+  if (settings.accountNumber && !validKontonr(settings.accountNumber)) {
+    chk.errors.push("Kontonummer må være 11 siffer og ha gyldig kontrollsiffer.");
+  }
+  if (chk.errors.length) return { error: chk.errors.join(" ") };
 
   try {
     const sb = await createClient();
@@ -129,7 +196,9 @@ export async function saveSalaryPeriod(fd: FormData): Promise<ActionResult> {
   const staffId = String(fd.get("staffId") ?? "");
   const year = Number(fd.get("year"));
   const month = Number(fd.get("month"));
-  if (!staffId || !year || !month) return { error: "Mangler ansatt/periode." };
+  if (!staffId) return { error: "Mangler ansatt/periode." };
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) return { error: "Ugyldig år (2000–2100)." };
+  if (!Number.isInteger(month) || month < 1 || month > 12) return { error: "Ugyldig måned (1–12)." };
 
   const period: SalaryPeriodInputs = {
     eveningHours: toNum(fd, "eveningHours"),
@@ -141,10 +210,27 @@ export async function saveSalaryPeriod(fd: FormData): Promise<ActionResult> {
     overtime100Hours: toNum(fd, "overtime100Hours"),
     holidayHours: toNum(fd, "holidayHours"),
     correctionNok: toNum(fd, "correctionNok"),
-    taxNok: String(fd.get("taxNok") ?? "").trim() === "" ? null : toNum(fd, "taxNok"),
-    workedHours: String(fd.get("workedHours") ?? "").trim() === "" ? null : toNum(fd, "workedHours"),
+    taxNok: hasValue(fd, "taxNok") ? toNum(fd, "taxNok", NaN) : null,
+    workedHours: hasValue(fd, "workedHours") ? toNum(fd, "workedHours", NaN) : null,
     note: String(fd.get("note") ?? "").trim(),
   };
+
+  const chk = checker();
+  const hourFields: [string, number | null][] = [
+    ["Kveldstimer", period.eveningHours],
+    ["Lørdagstimer", period.saturdayHours],
+    ["Søndagstimer", period.sundayHours],
+    ["Syketimer", period.sickHours],
+    ["Ferietimer", period.vacationHours],
+    ["Overtid 50 %", period.overtime50Hours],
+    ["Overtid 100 %", period.overtime100Hours],
+    ["Helligdagstimer", period.holidayHours],
+    ["Arbeidede timer", period.workedHours],
+  ];
+  for (const [l, v] of hourFields) chk.range(l, v, 0, MAX_HOURS);
+  chk.range("Skattetrekk", period.taxNok, 0, MAX_NOK);
+  chk.range("Korreksjon", period.correctionNok, -MAX_NOK, MAX_NOK);
+  if (chk.errors.length) return { error: chk.errors.join(" ") };
 
   try {
     const sb = await createClient();
@@ -190,9 +276,12 @@ export async function addManualLine(fd: FormData): Promise<ActionResult> {
   const month = Number(fd.get("month"));
   const label = String(fd.get("label") ?? "").trim();
   const amount = toNum(fd, "amountNok");
-  if (!staffId || !year || !month) return { error: "Mangler ansatt/periode." };
+  if (!staffId) return { error: "Mangler ansatt/periode." };
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) return { error: "Ugyldig år (2000–2100)." };
+  if (!Number.isInteger(month) || month < 1 || month > 12) return { error: "Ugyldig måned (1–12)." };
   if (!label) return { error: "Skriv en beskrivelse." };
   if (!amount) return { error: "Beløpet kan ikke være 0." };
+  if (Math.abs(amount) > MAX_NOK) return { error: "Beløpet er for stort." };
 
   try {
     const sb = await createClient();

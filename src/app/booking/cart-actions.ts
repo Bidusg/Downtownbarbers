@@ -38,6 +38,88 @@ async function eligibleBarbers(
 const lineMinutes = (l: CartLineInput) =>
   Math.max(5, (l.serviceMinutes || 30) + (l.addonMinutes || 0));
 
+const MAX_LINES = 6;
+const MAX_ADDONS_PER_LINE = 10;
+const MAX_DAYS_AHEAD = 366;
+/** Maks spenn per RPC-kall; available_slots_dur_range returnerer tomt over 60 dager. */
+const RANGE_CHUNK_DAYS = 58;
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** «I dag» i Oslo som yyyy-mm-dd (Vercel kjører i UTC). */
+function osloTodayISO(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Oslo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function addDaysISO(iso: string, n: number): string {
+  const d = new Date(iso + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Bygger kurven på nytt fra det SERVEREN vet: varighet kommer fra
+ * services-tabellen (tjeneste + tillegg), aldri fra klientens tall. Avviser
+ * ukjente tjenester/tillegg/barbere og barber som er ekskludert for tjenesten.
+ */
+async function resolveLines(
+  sb: Awaited<ReturnType<typeof createClient>>,
+  lines: CartLineInput[],
+  barbers: { name: string }[],
+  exclusions: Record<string, string[]>,
+): Promise<{ lines: CartLineInput[] } | { error: string }> {
+  if (!Array.isArray(lines) || lines.length === 0) return { error: "Kurven er tom." };
+  if (lines.length > MAX_LINES) return { error: "For mange behandlinger i én bestilling." };
+
+  const names = new Set<string>();
+  for (const l of lines) {
+    if (!l || typeof l.serviceName !== "string" || !l.serviceName) return { error: "Ugyldig tjeneste." };
+    const addons = Array.isArray(l.addonNames) ? l.addonNames : [];
+    if (addons.length > MAX_ADDONS_PER_LINE || addons.some((a) => typeof a !== "string"))
+      return { error: "Ugyldige tillegg." };
+    names.add(l.serviceName);
+    addons.forEach((a) => names.add(a));
+  }
+  const { data, error } = await sb
+    .from("services")
+    .select("name, duration_min")
+    .in("name", Array.from(names));
+  if (error) return { error: "Kunne ikke hente tjenestene. Prøv igjen." };
+  const dur = new Map<string, number>();
+  for (const r of (data ?? []) as { name: string; duration_min: number | null }[]) {
+    if (!dur.has(r.name)) dur.set(r.name, Math.max(0, Number(r.duration_min) || 0));
+  }
+
+  const known = new Set(barbers.map((b) => b.name));
+  const out: CartLineInput[] = [];
+  for (const l of lines) {
+    const addons = Array.isArray(l.addonNames) ? l.addonNames : [];
+    if (!dur.has(l.serviceName) || addons.some((a) => !dur.has(a))) return { error: "Ukjent tjeneste." };
+    const barberName = typeof l.barberName === "string" && l.barberName ? l.barberName : null;
+    if (barberName) {
+      if (!known.has(barberName)) return { error: "Ukjent barber." };
+      if ((exclusions[l.serviceName] ?? []).includes(barberName))
+        return { error: "Den barberen utfører ikke denne tjenesten. Velg en annen barber." };
+    }
+    const extra = addons.reduce((sum, a) => sum + (dur.get(a) ?? 0), 0);
+    out.push({
+      serviceName: l.serviceName,
+      serviceMinutes: dur.get(l.serviceName) ?? 0,
+      addonMinutes: Math.min(240, Math.max(0, extra)),
+      addonNames: addons,
+      barberName,
+      person: typeof l.person === "string" ? l.person.trim().slice(0, 40) : undefined,
+    });
+  }
+  return { lines: out };
+}
+
 /**
  * Felles ledige starttider for hele kurven, gruppert per dato.
  *  - single: én person, samme barber, tjenestene etter hverandre
@@ -52,25 +134,50 @@ export async function getCartSlots(
   fromISO: string,
   toISO: string,
 ): Promise<{ byDate: Record<string, string[]>; error?: boolean }> {
-  if (!lines.length || !fromISO || !toISO) return { byDate: {} };
+  if (!Array.isArray(lines) || !lines.length || !DATE_RE.test(fromISO ?? "") || !DATE_RE.test(toISO ?? ""))
+    return { byDate: {} };
+  if (lines.length > MAX_LINES) return { byDate: {} };
+  // Klem tidsrommet: ikke før i dag, ikke lenger enn ett år frem.
+  const today = osloTodayISO();
+  const lastDay = addDaysISO(today, MAX_DAYS_AHEAD);
+  const from = fromISO < today ? today : fromISO;
+  const to = toISO > lastDay ? lastDay : toISO;
+  if (to < from) return { byDate: {} };
   try {
     const sb = await createClient();
     const barbers = await getPublicBarbers();
     const exclusions = await getPublicServiceExclusions();
+    const resolved = await resolveLines(sb, lines, barbers, exclusions);
+    if ("error" in resolved) return { byDate: {}, error: true };
+    lines = resolved.lines;
+
+    // Delt opp i bolker (RPC-en returnerer tomt over 60 dager) og slå sammen.
+    const chunks: { from: string; to: string }[] = [];
+    for (let s = from; s <= to; s = addDaysISO(s, RANGE_CHUNK_DAYS + 1)) {
+      const e = addDaysISO(s, RANGE_CHUNK_DAYS);
+      chunks.push({ from: s, to: e > to ? to : e });
+    }
 
     async function slotsFor(
       barber: string,
       minutes: number,
     ): Promise<Record<string, string[]>> {
-      const { data } = await sb.rpc("available_slots_dur_range", {
-        p_barber: barber,
-        p_minutes: minutes,
-        p_from: fromISO,
-        p_to: toISO,
-      });
+      const parts = await Promise.all(
+        chunks.map(async (c) => {
+          const { data, error } = await sb.rpc("available_slots_dur_range", {
+            p_barber: barber,
+            p_minutes: minutes,
+            p_from: c.from,
+            p_to: c.to,
+          });
+          // Feil må ikke se ut som «ingen ledige tider» – kast så veiviseren viser feil.
+          if (error) throw new Error(error.message);
+          return (data as { slot_date: string; slot_time: string }[]) ?? [];
+        }),
+      );
       const byDate: Record<string, string[]> = {};
-      for (const r of (data as { slot_date: string; slot_time: string }[]) ?? []) {
-        (byDate[r.slot_date] ??= []).push(r.slot_time);
+      for (const rows of parts) {
+        for (const r of rows) (byDate[r.slot_date] ??= []).push(r.slot_time);
       }
       return byDate;
     }
@@ -126,7 +233,8 @@ export async function getCartSlots(
       if (common && common.length) byDate[d] = common.sort();
     }
     return { byDate };
-  } catch {
+  } catch (e) {
+    console.error("getCartSlots feilet:", e instanceof Error ? e.message : e);
     return { byDate: {}, error: true };
   }
 }
@@ -141,12 +249,8 @@ export async function findNextCartSlot(
   mode: CartMode,
   fromISO: string,
 ): Promise<{ date: string; time: string } | null> {
-  if (!lines.length || !/^\d{4}-\d{2}-\d{2}$/.test(fromISO)) return null;
-  const add = (iso: string, n: number) => {
-    const d = new Date(iso + "T12:00:00Z");
-    d.setUTCDate(d.getUTCDate() + n);
-    return d.toISOString().slice(0, 10);
-  };
+  if (!Array.isArray(lines) || !lines.length || lines.length > MAX_LINES || !DATE_RE.test(fromISO)) return null;
+  const add = addDaysISO;
   let start = fromISO;
   for (let chunk = 0; chunk < 7; chunk++) {
     const end = add(start, 27);
@@ -196,13 +300,22 @@ export async function createBookingGroup(
   cancelUrl?: string;
   barber?: string;
 }> {
-  const name = titleCase(input.name);
+  const name = titleCase(String(input.name ?? ""));
   if (!name) return { error: "Navn mangler." };
-  if (!isValidEmail(input.email)) return { error: "Ugyldig e-postadresse." };
+  if (name.length > 80) return { error: "Navnet er for langt." };
+  if (!isValidEmail(input.email) || input.email.length > 254) return { error: "Ugyldig e-postadresse." };
   if (!isValidNorwegianPhone(input.phone) && !/^\+\d/.test(input.phone))
     return { error: "Ugyldig telefonnummer." };
   if (!input.date || !input.time) return { error: "Dato og tid må velges." };
-  if (!input.lines.length) return { error: "Kurven er tom." };
+  if (!DATE_RE.test(input.date) || !TIME_RE.test(input.time)) return { error: "Ugyldig dato eller klokkeslett." };
+  {
+    const today = osloTodayISO();
+    if (input.date < today) return { error: "Datoen har allerede vært. Velg en ny tid." };
+    if (input.date > addDaysISO(today, MAX_DAYS_AHEAD))
+      return { error: "Du kan ikke bestille mer enn ett år frem i tid." };
+  }
+  if (!Array.isArray(input.lines) || !input.lines.length) return { error: "Kurven er tom." };
+  if (input.lines.length > MAX_LINES) return { error: "For mange behandlinger i én bestilling." };
 
   // Misbruksvern (se src/lib/abuse-guard.ts).
   if (isHoneypotTripped(input.website)) {
@@ -223,9 +336,13 @@ export async function createBookingGroup(
     const sb = await createClient();
     const barbers = await getPublicBarbers();
     const exclusions = await getPublicServiceExclusions();
+    // Varighet og tillegg regnes ut på serveren – klientens tall ignoreres.
+    const resolved = await resolveLines(sb, input.lines, barbers, exclusions);
+    if ("error" in resolved) return { error: resolved.error };
+    const lines = resolved.lines;
     // Gruppe-ID kun når det faktisk er flere linjer (ellers vises «Del av
     // gruppebooking» i kassa på helt vanlige enkeltbookinger).
-    const group = input.lines.length > 1 ? randomUUID() : null;
+    const group = lines.length > 1 ? randomUUID() : null;
     const noteClean = (input.note ?? "").trim().slice(0, 500) || null;
     // Starttid tolkes som Oslo-tid uansett hvor serveren kjører (Vercel = UTC).
     const baseStart = new Date(osloToUtcISO(input.date, input.time));
@@ -259,14 +376,14 @@ export async function createBookingGroup(
     let resolvedBarber: string | null = null; // faktisk barber (single-modus)
 
     if (input.mode === "single") {
-      const total = input.lines.reduce((s, l) => s + lineMinutes(l), 0);
-      const chosen = input.lines.find((l) => l.barberName)?.barberName ?? null;
+      const total = lines.reduce((s, l) => s + lineMinutes(l), 0);
+      const chosen = lines.find((l) => l.barberName)?.barberName ?? null;
       let candidates: string[];
       if (chosen) {
         candidates = [chosen];
       } else {
         const perLine = await Promise.all(
-          input.lines.map((l) => eligibleBarbers(l.serviceName, barbers, exclusions)),
+          lines.map((l) => eligibleBarbers(l.serviceName, barbers, exclusions)),
         );
         candidates = perLine.reduce((acc, cur) => acc.filter((n) => cur.includes(n)));
       }
@@ -311,7 +428,7 @@ export async function createBookingGroup(
       }
       if (!resolvedBarber) return TAKEN;
       let cursor = new Date(baseStart);
-      input.lines.forEach((l, i) => {
+      lines.forEach((l, i) => {
         rows.push({
           service: l.serviceName,
           barber: resolvedBarber as string,
@@ -325,7 +442,7 @@ export async function createBookingGroup(
         cursor = new Date(cursor.getTime() + lineMinutes(l) * 60000);
       });
     } else {
-      for (const l of input.lines) {
+      for (const l of lines) {
         if (!l.barberName) return { error: "Velg barber for hver person i gruppen." };
         rows.push({
           service: l.serviceName,
@@ -460,7 +577,7 @@ export async function createBookingGroup(
     }
 
     // Bekreftelse: ett sammendrag av alt kunden booket.
-    const summary = input.lines
+    const summary = lines
       .map((l) => l.serviceName + (l.addonNames.length ? ` + ${l.addonNames.join(", ")}` : ""))
       .join(" · ");
     try {
@@ -491,12 +608,12 @@ export async function createBookingGroup(
 
     // Bekreftelse på SMS. Varighet = sum av behandlingene i handlekurven.
     try {
-      const names = Array.from(new Set(input.lines.flatMap((l) => [l.serviceName, ...l.addonNames])));
+      const names = Array.from(new Set(lines.flatMap((l) => [l.serviceName, ...l.addonNames])));
       const { data: svcs } = await sb.from("services").select("name, duration_min").in("name", names);
       const dur = new Map(((svcs ?? []) as { name: string; duration_min: number | null }[]).map((x) => [x.name, x.duration_min ?? 0]));
       const total = input.mode === "group"
         ? 0
-        : input.lines.reduce(
+        : lines.reduce(
             (sum, l) => sum + (dur.get(l.serviceName) ?? 0) + l.addonNames.reduce((a, n) => a + (dur.get(n) ?? 0), 0),
             0,
           );
@@ -540,7 +657,7 @@ export async function createBookingGroup(
           phone: input.phone.trim(),
           email: input.email.trim(),
           when: `${whenDate.charAt(0).toUpperCase()}${whenDate.slice(1)} kl. ${input.time}`,
-          lines: input.lines.map(
+          lines: lines.map(
             (l) =>
               l.serviceName +
               (l.addonNames.length ? ` + ${l.addonNames.join(", ")}` : "") +

@@ -11,6 +11,7 @@ import { NoticeBanner } from "@/components/admin/NoticeBanner";
 import { getActiveNotices } from "@/lib/notices-queries";
 import { getMyDocuments } from "@/lib/staff-documents";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
 
 const MONTHS_NB = ["januar", "februar", "mars", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "desember"];
 /** «2026-10» → «oktober 2026». */
@@ -20,17 +21,6 @@ function periodLabel(p: string | null): string {
 }
 
 export const dynamic = "force-dynamic";
-
-function fmtTime(iso: string) {
-  try {
-    return new Date(iso).toLocaleTimeString("nb-NO", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return "";
-  }
-}
 
 export default async function AnsattDashboard() {
   await requireRole(["staff", "admin"]);
@@ -64,13 +54,35 @@ export default async function AnsattDashboard() {
     !!latestSlip && new Date().getTime() - new Date(latestSlip.created_at).getTime() < 45 * 24 * 60 * 60 * 1000;
 
   // Ekte månedsmål for innlogget barber (kun når kontoen er koblet til en profil).
-  const now = new Date();
-  const goal = agenda.linked
-    ? await getGoalProgress(now.getFullYear(), now.getMonth() + 1)
-    : null;
-  const myGoal = goal?.rows.find((r) => r.staffId === agenda.staffId) ?? null;
-  const hasTarget = (myGoal?.target ?? 0) > 0;
-  const goalPct = myGoal?.pct ?? 0;
+  // Måned i Oslo-tid (serveren kjører i UTC). Primært via RPC my_goal_progress
+  // (KJØR-I-SUPABASE-ANSATT-MAAL.sql) siden RLS stenger ansatte ute fra
+  // sales/budgets; faller tilbake til getGoalProgress hvis SQL ikke er kjørt.
+  const [goalYear, goalMonth] = today.split("-").map(Number);
+  let goalTarget = 0;
+  let goalPct = 0;
+  if (agenda.linked) {
+    let viaRpc = false;
+    try {
+      const sb = await createClient();
+      const { data, error } = await sb.rpc("my_goal_progress", { p_year: goalYear, p_month: goalMonth });
+      if (!error) {
+        const r = (Array.isArray(data) ? data[0] : data) as { target_nok?: number | string; achieved_nok?: number | string } | null;
+        goalTarget = Number(r?.target_nok) || 0;
+        const achieved = Number(r?.achieved_nok) || 0;
+        goalPct = goalTarget > 0 ? Math.round((achieved / goalTarget) * 100) : 0;
+        viaRpc = true;
+      }
+    } catch {
+      viaRpc = false;
+    }
+    if (!viaRpc) {
+      const goal = await getGoalProgress(goalYear, goalMonth);
+      const myGoal = goal.rows.find((r) => r.staffId === agenda.staffId) ?? null;
+      goalTarget = myGoal?.target ?? 0;
+      goalPct = myGoal?.pct ?? 0;
+    }
+  }
+  const hasTarget = goalTarget > 0;
 
   // Grupper timer per dag
   // Forsiden viser de neste 6 – resten ligger under «Bookinger».
@@ -170,7 +182,7 @@ export default async function AnsattDashboard() {
                       {list.map((b) => (
                         <li key={b.id} className="flex items-center gap-4 py-3">
                           <span className="font-display text-sm font-bold text-fg">
-                            {fmtTime(b.start_at)}
+                            {osloTime(b.start_at)}
                           </span>
                           <span className="flex-1 text-sm text-fg">
                             {b.customer}

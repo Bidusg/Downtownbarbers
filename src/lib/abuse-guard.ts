@@ -59,7 +59,9 @@ export function isHoneypotTripped(value: unknown): boolean {
 
 /**
  * true = kunden (e-post ELLER telefon) har allerede for mange kommende,
- * aktive bookinger. Tolerant: feiler oppslaget, slippes bookingen gjennom.
+ * aktive bookinger. Tolerant: feiler oppslaget, logges det og bookingen
+ * slippes gjennom (fail open) – en databasefeil skal ikke stenge alle
+ * ekte kunder ute; selve bookingen feiler uansett hvis databasen er nede.
  */
 export async function customerBookingLimited(
   email: string | null | undefined,
@@ -67,27 +69,45 @@ export async function customerBookingLimited(
 ): Promise<boolean> {
   try {
     const svc = createServiceClient();
-    const ors: string[] = [];
     const e = (email ?? "").trim().toLowerCase();
-    const p = (phone ?? "").replace(/\s/g, "");
-    if (e) ors.push(`email.ilike.${e}`);
-    if (p) ors.push(`phone.ilike.*${p.slice(-8)}*`);
-    if (ors.length === 0) return false;
-    const { data: customers } = await svc
-      .from("customers")
-      .select("id")
-      .or(ors.join(","))
-      .limit(10);
-    const ids = (customers ?? []).map((c) => c.id as string);
-    if (ids.length === 0) return false;
-    const { count } = await svc
+    const digits = (phone ?? "").replace(/\D/g, "");
+    const p = digits.slice(-8);
+    if (!e && p.length < 8) return false;
+
+    // Egne spørringer (ingen verdier limt inn i en .or()-streng, så
+    // komma/parenteser i input kan ikke endre filteret).
+    const ids = new Set<string>();
+    if (e) {
+      const esc = e.replace(/[%_\\]/g, "\\$&");
+      const { data, error } = await svc.from("customers").select("id").ilike("email", esc).limit(10);
+      if (error) {
+        console.error("customerBookingLimited (e-post):", error.message);
+        return false;
+      }
+      for (const c of data ?? []) ids.add(c.id as string);
+    }
+    if (p.length >= 8) {
+      const { data, error } = await svc.from("customers").select("id").ilike("phone", `%${p}%`).limit(10);
+      if (error) {
+        console.error("customerBookingLimited (telefon):", error.message);
+        return false;
+      }
+      for (const c of data ?? []) ids.add(c.id as string);
+    }
+    if (ids.size === 0) return false;
+    const { count, error } = await svc
       .from("bookings")
       .select("id", { count: "exact", head: true })
-      .in("customer_id", ids)
+      .in("customer_id", [...ids])
       .in("status", ["pending", "confirmed"])
       .gte("start_at", new Date().toISOString());
+    if (error) {
+      console.error("customerBookingLimited (bookinger):", error.message);
+      return false;
+    }
     return (count ?? 0) >= CUSTOMER_OPEN_LIMIT;
-  } catch {
+  } catch (err) {
+    console.error("customerBookingLimited:", err instanceof Error ? err.message : err);
     return false;
   }
 }

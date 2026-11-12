@@ -1,6 +1,7 @@
+import { checkBearer } from "@/lib/cron-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { getExpectedByMethodForDate } from "@/lib/ops-queries";
+import { getExpectedByMethodForDateStrict } from "@/lib/ops-queries";
 import { getMissingSettlementDays } from "@/lib/settlement-status";
 import { sendSettlementReminderEmail } from "@/lib/email";
 
@@ -19,7 +20,7 @@ import { sendSettlementReminderEmail } from "@/lib/email";
  *     mottaker som booking-varslingen: settings.booking_notify).
  *
  * Trygghet:
- *  - CRON_SECRET-header kreves hvis satt (som de andre cron-rutene).
+ *  - CRON_SECRET-header kreves (fail closed hvis den mangler) (som de andre cron-rutene).
  *  - Service-klient (RLS bypass) siden det ikke finnes en innlogget bruker.
  *  - Fungerer også FØR SQL-migrasjonen: mangler confirmed-kolonnen, feiler
  *    draft-insertet trygt (fanges), og ingen utkast opprettes før kolonnen
@@ -40,13 +41,8 @@ function osloYesterday(): string {
 }
 
 export async function GET(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const denied = checkBearer(req, "CRON_SECRET");
+  if (denied) return denied;
 
   const dateParam = req.nextUrl.searchParams.get("date");
   const date =
@@ -82,7 +78,9 @@ export async function GET(req: NextRequest) {
     if (existing && existing.length > 0) {
       draft.reason = "oppgjør finnes allerede";
     } else {
-      const expected = await getExpectedByMethodForDate(date, sb);
+      const expected = await getExpectedByMethodForDateStrict(date, sb);
+      // Aldri lag utkast med 0/0/0 pga. en databasefeil.
+      if (!expected) throw new Error("kunne ikke hente salg (prøv igjen)");
       const expectedTotal = expected.cash + expected.card + expected.vipps;
       draft.expectedTotal = expectedTotal;
 

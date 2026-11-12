@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAll } from "@/lib/reports/fetch-all";
 import {
   getRevenueBreakdown,
   type Range,
@@ -26,16 +27,20 @@ type SaleRow = {
 
 async function fetchSales(r: Range): Promise<SaleRow[]> {
   const sb = await createClient();
-  const { data } = await sb
-    .from("sales")
-    .select(
-      "sold_at, total_nok, discount_nok, payment_method, staff(full_name), customers(full_name)",
-    )
-    .gte("sold_at", r.startIso)
-    .lt("sold_at", r.endIso)
-    .order("sold_at", { ascending: false })
-    .limit(50000);
-  return (data ?? []) as SaleRow[];
+  // PostgREST gir maks 1000 rader per kall – hent alle sider.
+  const data = await fetchAll((from, to) =>
+    sb
+      .from("sales")
+      .select(
+        "sold_at, total_nok, discount_nok, payment_method, staff(full_name), customers(full_name)",
+      )
+      .gte("sold_at", r.startIso)
+      .lt("sold_at", r.endIso)
+      .order("sold_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, to),
+  );
+  return data as unknown as SaleRow[];
 }
 
 function osloDateTime(iso: string): string {

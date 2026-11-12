@@ -1,3 +1,4 @@
+import { checkBearer } from "@/lib/cron-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { sendBookingReminderEmail } from "@/lib/email";
@@ -13,7 +14,7 @@ import { bookingLangs, fmtDayLang, translateServiceText } from "@/lib/i18n/serve
  * og som ikke er påminnet før. Ment å kjøres av Vercel Cron (se vercel.json),
  * f.eks. hver time. Idempotent: hver booking påminnes kun én gang.
  *
- * Sikring: hvis CRON_SECRET er satt, kreves "Authorization: Bearer <secret>".
+ * Sikring: CRON_SECRET kreves (fail closed hvis den mangler): "Authorization: Bearer <secret>".
  * Vercel Cron sender denne automatisk når CRON_SECRET finnes i prosjektet.
  */
 export const dynamic = "force-dynamic";
@@ -45,13 +46,8 @@ function fmtTime(iso: string) {
 }
 
 export async function GET(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const denied = checkBearer(req, "CRON_SECRET");
+  if (denied) return denied;
 
   try {
     // Cron/server-til-server: due_reminders + mark_reminder_sent er låst til

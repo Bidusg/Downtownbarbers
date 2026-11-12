@@ -3,6 +3,7 @@
 import { memberDiscountFor } from "@/lib/member";
 import { createClient } from "@/lib/supabase/server";
 import { getUserRole } from "@/lib/auth";
+import { checkDiscountRules } from "@/lib/kasse/guards";
 import {
   createPayment,
   getPaymentStatus,
@@ -160,8 +161,10 @@ export async function pollVippsCharge(
   if (!me || !isShopOrAdmin(me.role)) return { status: "failed", error: "Ikke tilgang." };
 
   let state;
+  let authorizedOre = 0;
+  let capturedOre = 0;
   try {
-    ({ state } = await getPaymentStatus(reference));
+    ({ state, authorizedOre, capturedOre } = await getPaymentStatus(reference));
   } catch (e) {
     return {
       status: "pending",
@@ -169,23 +172,61 @@ export async function pollVippsCharge(
     };
   }
 
-  if (state === "AUTHORIZED") {
+  // CAPTURED finnes ikke i VippsPaymentState (Vipps beholder normalt AUTHORIZED
+  // etter capture), men behandles defensivt: pengene er allerede trukket, så
+  // salget skal bare registreres – aldri trekkes på nytt.
+  // Vipps ePayment: etter capture står state fortsatt AUTHORIZED, men
+  // aggregate.capturedAmount > 0. Da skal vi bare registrere salget.
+  const alreadyCaptured = String(state) === "CAPTURED" || capturedOre > 0;
+
+  if (state === "AUTHORIZED" || alreadyCaptured) {
+    const sb = await createClient();
+
+    // Idempotent: er timen allerede fullført (f.eks. dobbel poll), ikke gjør noe mer.
+    const { data: bk } = await sb
+      .from("bookings")
+      .select("status")
+      .eq("id", bookingId)
+      .maybeSingle();
+    if (!bk) return { status: "failed", error: "Fant ikke timen." };
+    if (String(bk.status) === "completed") return { status: "paid" };
+
+    // Valider rabattreglene FØR pengene trekkes – ellers kan Vipps trekke
+    // penger for et salg completeBooking likevel avviser.
+    const discountNok = Math.max(0, Math.round(input.discountNok ?? 0));
+    const rules = await checkDiscountRules(discountNok);
+    if (rules.error) return { status: "failed", error: rules.error };
+
     const { ore, error } = await computeNetOre(
       bookingId,
       input.products ?? [],
       input.discountNok ?? 0,
     );
     if (error) return { status: "failed", error };
-    try {
-      await capturePayment(reference, ore);
-    } catch (e) {
-      return {
-        status: "failed",
-        error:
-          "Vipps bekreftet, men trekket (capture) feilet: " +
-          (e instanceof Error ? e.message : String(e)),
-      };
+
+    if (!alreadyCaptured) {
+      // Beløpet Vipps har autorisert må stemme med det salget vil registrere.
+      // (authorizedOre er 0 i mock-modus – da hoppes sjekken over.)
+      if (authorizedOre > 0 && authorizedOre !== ore) {
+        console.error("Vipps-beløp avviker", { reference, bookingId, authorizedOre, ore });
+        return {
+          status: "failed",
+          error:
+            "Beløpet i Vipps stemmer ikke med salget. Ingenting er trukket – avbryt og start Vipps-betalingen på nytt.",
+        };
+      }
+      try {
+        await capturePayment(reference, ore);
+      } catch (e) {
+        return {
+          status: "failed",
+          error:
+            "Vipps bekreftet, men trekket (capture) feilet: " +
+            (e instanceof Error ? e.message : String(e)),
+        };
+      }
     }
+
     const res = await completeBooking(bookingId, {
       paymentMethod: "Vipps",
       products: input.products,
@@ -194,11 +235,16 @@ export async function pollVippsCharge(
       sendReceipt: input.sendReceipt,
     });
     if (res?.error) {
+      console.error("Vipps trukket, men salg ikke registrert", {
+        reference,
+        bookingId,
+        error: res.error,
+      });
       return {
         status: "failed",
         error:
-          "Betalingen er trukket i Vipps, men salget ble ikke registrert: " +
-          res.error,
+          `Betalingen er trukket i Vipps (ref. ${reference}), men salget ble IKKE registrert: ${res.error}. ` +
+          "Registrer salget manuelt (Vipps) og si fra til admin.",
       };
     }
     return { status: "paid" };

@@ -1,3 +1,4 @@
+import { checkBearer } from "@/lib/cron-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { tripletexConfigured } from "@/lib/tripletex/config";
 import { buildDailyVoucherPlan, postDailyVoucher } from "@/lib/tripletex/voucher";
@@ -8,7 +9,7 @@ import { buildDailyVoucherPlan, postDailyVoucher } from "@/lib/tripletex/voucher
  * er postet (logget i tripletex_voucher_log) postes ikke på nytt.
  *
  * Trygghet:
- *  - CRON_SECRET-header kreves hvis satt (som de andre cron-rutene).
+ *  - CRON_SECRET-header kreves (fail closed hvis den mangler) (som de andre cron-rutene).
  *  - Uten TRIPLETEX_API_TOKEN: returneres kun bilagsplanen (dry-run), ingen
  *    kontakt med Tripletex – nyttig for å verifisere kontoplanen med Kumar.
  *  - Med token men uten TRIPLETEX_POSTING_ENABLED: bygger bilaget mot Tripletex
@@ -28,13 +29,8 @@ function osloYesterday(): string {
 }
 
 export async function GET(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const denied = checkBearer(req, "CRON_SECRET");
+  if (denied) return denied;
 
   const dateParam = req.nextUrl.searchParams.get("date");
   const date =

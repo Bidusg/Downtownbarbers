@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
+import { getUserRole, isAdminRole } from "@/lib/auth";
 
 export type AdminService = {
   id: string;
@@ -153,7 +155,12 @@ export async function getServicesAdmin(): Promise<AdminService[]> {
 
 export async function getStaffAdmin(): Promise<AdminStaff[]> {
   try {
-    const sb = await createClient();
+    // Sensitive kolonner (e-post, PIN-hash, lønn, kontrakt) er skjult for vanlige
+    // innloggede brukere (KJØR-I-SUPABASE-SIKKERHET-3.sql) → les med service-klient,
+    // men kun for admin/eier.
+    const me = await getUserRole();
+    if (!me || !isAdminRole(me.role)) return [];
+    const sb = createServiceClient();
     const cols =
       "id, employee_number, full_name, title, bio, photo_url, contract_url, active, email, postnummer, profile_id, pin_hash, level_id, base_salary_nok, display_name";
     const withDates = await sb

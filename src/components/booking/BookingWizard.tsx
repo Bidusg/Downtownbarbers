@@ -53,6 +53,16 @@ const FIELD =
   "w-full rounded-xl border border-line-2 bg-surface px-4 py-3 text-base text-fg transition-colors placeholder:text-muted/70 focus:border-fg focus:outline-none aria-[invalid=true]:border-danger";
 const FIELD_LABEL = "mb-1.5 block text-sm font-medium text-fg";
 
+/** «I dag» i Oslo som yyyy-mm-dd. */
+function osloTodayIso(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Oslo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
 function isoDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
@@ -387,7 +397,8 @@ export function BookingWizard({
   // Åpne dager fremover (hopp over stengte ukedager).
   const openDays = useMemo(() => {
     const out: { iso: string; weekday: string; dayNum: string; month: string }[] = [];
-    const today = new Date();
+    // «I dag» i Oslo (ikke enhetens tidssone), ellers kan kunder utenfor Norge få feil første dag.
+    const today = new Date(`${osloTodayIso()}T12:00:00`);
     for (let i = 0; i < horizon; i++) {
       const day = new Date(today);
       day.setDate(today.getDate() + i);
@@ -629,7 +640,7 @@ export function BookingWizard({
         return;
       }
       const days = Math.ceil(
-        (new Date(found.date + "T12:00:00").getTime() - new Date(isoDate(new Date()) + "T12:00:00").getTime()) / 86400000,
+        (new Date(found.date + "T12:00:00").getTime() - new Date(osloTodayIso() + "T12:00:00").getTime()) / 86400000,
       );
       setJumpTo(found);
       setHorizon(Math.max(horizon, days + 7));

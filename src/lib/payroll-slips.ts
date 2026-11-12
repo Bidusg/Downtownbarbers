@@ -16,6 +16,20 @@ import { getAbsenceDays, baseSalaryForMonth } from "@/lib/absence-pay";
  *   satser hardkodes her.
  * ===================================================================== */
 
+/** Status for bruttosum-RPC-en – vises i UI hvis lønn ikke kan beregnes (ellers ville alt blitt 0). */
+export async function payrollGrossStatus(year: number, month: number): Promise<string | null> {
+  try {
+    const sb = await createClient();
+    const { error } = await sb.rpc("monthly_gross_by_staff", { p_year: year, p_month: month });
+    if (!error) return null;
+    if (/monthly_gross_by_staff|function|schema cache/i.test(error.message))
+      return "Lønn kunne ikke beregnes: omsetnings-funksjonen mangler i databasen. Kjør KJØR-I-SUPABASE-FRAVAER-LONN.sql (og KJØR-I-SUPABASE-LONN-OSLO-TID.sql) i Supabase.";
+    return `Lønn kunne ikke beregnes: ${error.message}`;
+  } catch {
+    return "Lønn kunne ikke beregnes.";
+  }
+}
+
 /**
  * Lønn per ansatt (også de som sluttet i måneden) for gitt måned, beregnet nøyaktig som `getPayroll`
  * men med bruttosum hentet via RPC (revisor-vennlig). Degraderer til tom
@@ -35,10 +49,12 @@ export async function getPayrollForMonth(
     const sb = await createClient();
     const staff = await getStaffOptions({ includeInactive: true });
 
-    const { data: grossRows } = await sb.rpc("monthly_gross_by_staff", {
+    const { data: grossRows, error: grossErr } = await sb.rpc("monthly_gross_by_staff", {
       p_year: year,
       p_month: month,
     });
+    // Feil her må ikke bli «0 kr omsetning» for alle – gi tom liste (UI viser payrollGrossStatus).
+    if (grossErr) throw new Error(grossErr.message);
 
     const grossByStaff = new Map<string, number>();
     for (const r of (grossRows as

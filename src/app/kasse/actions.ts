@@ -15,6 +15,7 @@ import { getUserRole, isAdminRole, requireRole } from "@/lib/auth";
 import { getLoyaltyStatus } from "@/lib/loyalty-queries";
 import { bookingMember, memberDiscountFor, type BookingMember } from "@/lib/member";
 import { getShopContext } from "@/lib/shop-settings";
+import { checkBackdate, checkDiscountRules } from "@/lib/kasse/guards";
 
 /** Venn/familie-salgstype (0054). Tagges på salget for bruk/hyppighet. */
 export type RelationType = "venn" | "familie";
@@ -226,12 +227,21 @@ function osloDay(d: Date | string): string {
  * og ikke på dagen det ble tastet inn. Service-rolle fordi sales bare har
  * admin-RLS. Best-effort: feiler stille (salget står da på i dag).
  */
-async function backdateSale(saleId: unknown, soldAtIso: string): Promise<void> {
-  if (typeof saleId !== "string") return;
+async function backdateSale(saleId: unknown, soldAtIso: string): Promise<string | null> {
+  if (typeof saleId !== "string") return null;
   try {
-    await createServiceClient().from("sales").update({ sold_at: soldAtIso }).eq("id", saleId);
-  } catch {
-    // best-effort
+    const { error } = await createServiceClient()
+      .from("sales")
+      .update({ sold_at: soldAtIso })
+      .eq("id", saleId);
+    if (error) {
+      console.error("backdateSale feilet", saleId, error);
+      return "Salget er registrert, men kunne ikke flyttes til riktig dag. Si fra til admin.";
+    }
+    return null;
+  } catch (e) {
+    console.error("backdateSale feilet", saleId, e);
+    return "Salget er registrert, men kunne ikke flyttes til riktig dag. Si fra til admin.";
   }
 }
 
@@ -249,20 +259,12 @@ export async function completeBooking(
   // Rabatt-flagg (type-bevisst): venn/familie-rabatt krever at venn/familie er
   // på; fri rabatt krever at fri rabatt er på. Eier/admin omgår. Blokkeres her
   // før noe registreres.
-  const { flags: sflags, canBypass: sBypass } = await getShopContext();
-  const ffEnabled = sBypass || sflags.friend_family_discount_enabled;
-  const freeEnabled = sBypass || sflags.discount_enabled;
   const discountNok = Math.max(0, Math.round(o.discountNok ?? 0));
-  if (discountNok > 0) {
-    const ok = o.relationType ? ffEnabled : freeEnabled;
-    if (!ok) {
-      return {
-        error: o.relationType
-          ? "Venn/familie-rabatt er slått av for kassa."
-          : "Rabatt er slått av for kassa.",
-      };
-    }
-  }
+  const { error: discountErr, ffEnabled } = await checkDiscountRules(
+    discountNok,
+    o.relationType,
+  );
+  if (discountErr) return { error: discountErr };
 
   // Booking-info til CRM/kvittering (leses før salget registreres).
   const { data: b } = await sb
@@ -286,21 +288,26 @@ export async function completeBooking(
   if (!b?.customer_id && dropHasInfo) {
     const em = dinfo!.email?.trim().toLowerCase() || null;
     const ph = dinfo!.phone?.trim() || null;
+    // Telefon sammenlignes uten mellomrom (som record_walkin_sale_v2).
+    const phNoSpace = ph ? ph.replace(/\s/g, "") : null;
     let cid: string | null = null;
     if (em) {
+      // Eksakt (store/små bokstaver ignoreres) – ILIKE-jokertegn escapes så
+      // «%» / «_» i brukerinput ikke matcher andre kunder.
+      const emEsc = em.replace(/[\\%_]/g, (c) => "\\" + c);
       const { data } = await sb
         .from("customers")
         .select("id")
-        .ilike("email", em)
+        .ilike("email", emEsc)
         .limit(1)
         .maybeSingle();
       cid = (data?.id as string) ?? null;
     }
-    if (!cid && ph) {
+    if (!cid && ph && phNoSpace) {
       const { data } = await sb
         .from("customers")
         .select("id")
-        .eq("phone", ph)
+        .in("phone", Array.from(new Set([ph, phNoSpace])))
         .limit(1)
         .maybeSingle();
       cid = (data?.id as string) ?? null;
@@ -321,6 +328,14 @@ export async function completeBooking(
       await sb.from("bookings").update({ customer_id: cid }).eq("id", bookingId);
       if (b) (b as { customer_id?: string | null }).customer_id = cid;
     }
+  }
+
+  // Etterregistrering: avvis for gamle dager / dager som er gjort opp FØR noe
+  // registreres (og før evt. Vipps-trekk er avhengig av at dette går igjennom).
+  const startAtPre = (b as { start_at?: string | null } | null)?.start_at;
+  if (startAtPre && osloDay(startAtPre) < osloDay(new Date())) {
+    const bd = await checkBackdate(osloDay(startAtPre));
+    if (bd.error) return { error: bd.error };
   }
 
   // Registrer salget atomisk. Prisene settes server-side (booking + products).
@@ -365,7 +380,11 @@ export async function completeBooking(
   // skal telles på timens dag – ikke på dagen det ble registrert.
   const startAt = (b as { start_at?: string | null } | null)?.start_at;
   if (startAt && osloDay(startAt) < osloDay(new Date())) {
-    await backdateSale(saleId, startAt);
+    const bdErr = await backdateSale(saleId, startAt);
+    if (bdErr) {
+      refresh();
+      return { error: bdErr };
+    }
   }
 
   // --- Alt under er best-effort. Salget er allerede trygt registrert. ---
@@ -712,6 +731,13 @@ export async function recordWalkinSale(
         ? Math.round(input.gift.amount)
         : null;
 
+    // Etterregistrering: avvis for gamle dager / dager som er gjort opp.
+    const sdPre = input.soldDate?.trim();
+    if (sdPre && /^\d{4}-\d{2}-\d{2}$/.test(sdPre) && sdPre < osloDay(new Date())) {
+      const bd = await checkBackdate(sdPre);
+      if (bd.error) return { error: bd.error };
+    }
+
     const { data: saleId, error } = await sb.rpc("record_walkin_sale_v2", {
       p_staff: input.staffId || null,
       p_payment_method: input.paymentMethod ?? null,
@@ -734,7 +760,11 @@ export async function recordWalkinSale(
     // Etterregistrert hurtigsalg: legg salget på valgt dag (midt på dagen).
     const sd = input.soldDate?.trim();
     if (sd && /^\d{4}-\d{2}-\d{2}$/.test(sd) && sd < osloDay(new Date())) {
-      await backdateSale(saleId, `${sd}T11:00:00.000Z`);
+      const bdErr = await backdateSale(saleId, `${sd}T11:00:00.000Z`);
+      if (bdErr) {
+        refresh();
+        return { error: bdErr };
+      }
     }
 
     // Venn/familie-tag på salget (0054) – kun når venn/familie er på. Service-

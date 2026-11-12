@@ -1,8 +1,11 @@
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAll } from "@/lib/reports/fetch-all";
 
 function cell(v: string | number | null): string {
-  const s = String(v ?? "");
+  let s = String(v ?? "");
+  // CSV-formelinjeksjon: tekst som starter med = + - @ tab/CR får ledende '. Tall røres ikke.
+  if (typeof v === "string" && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
   return `"${s.replace(/"/g, '""')}"`;
 }
 
@@ -30,7 +33,7 @@ export async function GET(req: Request) {
     .from("sales")
     .select("sold_at, total_nok, payment_method, staff(full_name), customers(full_name)")
     .order("sold_at", { ascending: false })
-    .limit(50000);
+    .order("id", { ascending: false });
 
   // Valgfri periode-avgrensning (yyyy-mm-dd, begge inklusive) for perioderapport.
   if (from && DATE_RE.test(from)) {
@@ -42,12 +45,13 @@ export async function GET(req: Request) {
     q = q.lt("sold_at", osloMidnight(y, m, d + 1)); // t.o.m. hele slutt-dagen
   }
 
-  const { data } = await q;
+  // PostgREST gir maks 1000 rader per kall – hent alle sider.
+  const data = await fetchAll((from, to) => q.range(from, to));
 
   const header = ["Dato", "Barber", "Kunde", "Beløp (kr)", "Betalingsmåte"];
   const lines = [header.map(cell).join(";")];
 
-  for (const s of data ?? []) {
+  for (const s of data) {
     const st = s.staff as { full_name?: string } | null;
     const c = s.customers as { full_name?: string } | null;
     let dato = "";

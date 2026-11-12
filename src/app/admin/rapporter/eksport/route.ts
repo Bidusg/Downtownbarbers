@@ -12,7 +12,10 @@ import { getTopCustomers } from "@/lib/analytics-queries";
 import { getBarberScores } from "@/lib/productivity-queries";
 
 function cell(v: string | number | null): string {
-  return `"${String(v ?? "").replace(/"/g, '""')}"`;
+  let s = String(v ?? "");
+  // CSV-formelinjeksjon: tekst som starter med = + - @ tab/CR får ledende '. Tall røres ikke.
+  if (typeof v === "string" && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  return `"${s.replace(/"/g, '""')}"`;
 }
 const kr = (n: number) => Math.round(n);
 

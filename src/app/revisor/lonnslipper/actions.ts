@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { requireRole, getUserRole } from "@/lib/auth";
 import { STAFF_DOCS_BUCKET } from "@/lib/staff-documents";
 import { getPayrollForMonth } from "@/lib/payroll-slips";
@@ -38,10 +39,13 @@ export type GeneratePayslipsResult = {
  * `staff_documents`-rad for (staff_id, period, category='lonnslipp') slettes
  * før ny insert (unikt indeks tillater maks én per ansatt per måned).
  * Ansatte med 0 omsetning får også lønnsoversikt (kun grunnlønn).
+ * E-post med lenke sendes kun når `sendEmail` er true (ellers re-sendes
+ * det til alle ved hver kjøring).
  */
 export async function generatePayslips(
   year: number,
   month: number,
+  sendEmail = false,
 ): Promise<GeneratePayslipsResult> {
   await requireRole(["revisor", "admin"]);
   const me = await getUserRole();
@@ -76,7 +80,9 @@ export async function generatePayslips(
     { email: string | null }
   >();
   {
-    const { data: staffRows } = await sb
+    // e-post er skjult for vanlige innloggede brukere (KJØR-I-SUPABASE-SIKKERHET-3.sql);
+    // rollen er allerede sjekket øverst (revisor/admin/eier) → service-klient.
+    const { data: staffRows } = await createServiceClient()
       .from("staff")
       .select("id, email, active");
     for (const s of (staffRows as
@@ -141,7 +147,7 @@ export async function generatePayslips(
         const contact = contactByStaff.get(row.staffId);
         const email = contact?.email ?? null;
 
-        if (email) {
+        if (sendEmail && email) {
           // Ingen vedlegg: slippen ligger på den ansattes Min side
           // (/ansatt/dokumenter), bak innlogging. Tryggere enn ZIP med
           // postnummer som passord.

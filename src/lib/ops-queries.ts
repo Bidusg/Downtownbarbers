@@ -1,8 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
+import { getUserRole, isAdminRole } from "@/lib/auth";
 import type { AbsenceKind } from "@/lib/absence-kinds";
 import { getHistoricalForMonth } from "@/lib/historical-revenue";
 import { getAbsenceDays, baseSalaryForMonth, employmentInMonth } from "@/lib/absence-pay";
+import { fetchAll } from "@/lib/reports/fetch-all";
+import { osloToUtcISO } from "@/lib/oslo-time";
 
 /* =====================================================================
  * Query-lag for admin-drift: lønn, gavekort, kasseoppgjør, fravær,
@@ -46,16 +50,22 @@ export async function getStaffOptions(
   opts: { includeInactive?: boolean } = {},
 ): Promise<StaffOption[]> {
   try {
-    const sb = await createClient();
+    // base_salary_nok er skjult for vanlige innloggede brukere
+    // (KJØR-I-SUPABASE-SIKKERHET-3.sql). Admin/eier/revisor leser med service-klient;
+    // alle andre får bare de trygge kolonnene (grunnlønn = null).
+    const me = await getUserRole();
+    const privileged = !!me && (isAdminRole(me.role) || me.role === "revisor");
+    const sb = privileged ? createServiceClient() : await createClient();
+    const salaryCol = privileged ? "base_salary_nok, " : "";
     let q1 = sb
       .from("staff")
-      .select("id, full_name, title, active, base_salary_nok, start_date, end_date");
+      .select(`id, full_name, title, active, ${salaryCol}start_date, end_date`);
     if (!opts.includeInactive) q1 = q1.eq("active", true);
     const first = await q1.order("employee_number");
     let data = first.data as Record<string, unknown>[] | null;
     if (first.error) {
       // start/slutt-kolonnene mangler (SQL ikke kjørt)
-      let q2 = sb.from("staff").select("id, full_name, title, active, base_salary_nok");
+      let q2 = sb.from("staff").select(`id, full_name, title, active${privileged ? ", base_salary_nok" : ""}`);
       if (!opts.includeInactive) q2 = q2.eq("active", true);
       const fb = await q2.order("employee_number");
       data = fb.data as Record<string, unknown>[] | null;
@@ -106,9 +116,34 @@ export type PayrollRow = {
 };
 
 function monthRange(year: number, month: number) {
-  const start = new Date(Date.UTC(year, month - 1, 1)).toISOString();
-  const end = new Date(Date.UTC(year, month, 1)).toISOString();
+  // Månedsgrenser i Oslo-tid (ikke UTC) – salg rundt midnatt havner i riktig måned.
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const start = osloToUtcISO(`${year}-${pad(month)}-01`, "00:00");
+  const ny = month === 12 ? year + 1 : year;
+  const nm = month === 12 ? 1 : month + 1;
+  const end = osloToUtcISO(`${ny}-${pad(nm)}-01`, "00:00");
   return { start, end };
+}
+
+/** Oslo-døgnet for en dato (yyyy-mm-dd) som [start, end) i UTC-ISO. */
+function osloDayRange(isoDate: string) {
+  const next = new Date(`${isoDate}T00:00:00.000Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return {
+    start: osloToUtcISO(isoDate, "00:00"),
+    end: osloToUtcISO(next.toISOString().slice(0, 10), "00:00"),
+  };
+}
+
+const osloDateFmt = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Europe/Oslo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+/** UTC-tidspunkt → yyyy-mm-dd i Oslo. */
+function osloDateKey(iso: string): string {
+  return osloDateFmt.format(new Date(iso));
 }
 
 export async function getPayroll(
@@ -119,14 +154,19 @@ export async function getPayroll(
     const sb = await createClient();
     const staff = await getStaffOptions({ includeInactive: true });
     const { start, end } = monthRange(year, month);
-    const { data: sales } = await sb
-      .from("sales")
-      .select("staff_id, total_nok")
-      .gte("sold_at", start)
-      .lt("sold_at", end);
+    const sales = await fetchAll<{ staff_id: string | null; total_nok: number | null }>(
+      (from, to) =>
+        sb
+          .from("sales")
+          .select("staff_id, total_nok")
+          .gte("sold_at", start)
+          .lt("sold_at", end)
+          .order("id", { ascending: true })
+          .range(from, to),
+    );
 
     const grossByStaff = new Map<string, number>();
-    for (const s of sales ?? []) {
+    for (const s of sales) {
       if (!s.staff_id) continue;
       grossByStaff.set(
         s.staff_id as string,
@@ -253,32 +293,50 @@ export async function getExpectedByMethodForDate(
   isoDate: string,
   client?: SupabaseClient,
 ): Promise<MethodBreakdown> {
+  // Bakoverkompatibel: 0/0/0 ved feil. Nye kall bør bruke
+  // getExpectedByMethodForDateStrict (null ved feil) og avbryte oppgjøret.
+  return (
+    (await getExpectedByMethodForDateStrict(isoDate, client)) ?? { cash: 0, card: 0, vipps: 0 }
+  );
+}
+
+/**
+ * Som getExpectedByMethodForDate, men returnerer null hvis spørringen feiler
+ * (så oppgjør aldri lagres med 0/0/0 pga. en databasefeil).
+ */
+export async function getExpectedByMethodForDateStrict(
+  isoDate: string,
+  client?: SupabaseClient,
+): Promise<MethodBreakdown | null> {
   const empty: MethodBreakdown = { cash: 0, card: 0, vipps: 0 };
   try {
     const sb = client ?? (await createClient());
-    const start = new Date(`${isoDate}T00:00:00.000Z`).toISOString();
-    const end = new Date(`${isoDate}T00:00:00.000Z`);
-    end.setUTCDate(end.getUTCDate() + 1);
-    const { data } = await sb
-      .from("sales")
-      .select("id, total_nok, payment_method")
-      .gte("sold_at", start)
-      .lt("sold_at", end.toISOString());
-    const rows = (data ?? []) as {
+    const { start, end } = osloDayRange(isoDate);
+    const rows = await fetchAll<{
       id: string;
       total_nok: number;
       payment_method: string | null;
-    }[];
+    }>((from, to) =>
+      sb
+        .from("sales")
+        .select("id, total_nok, payment_method")
+        .gte("sold_at", start)
+        .lt("sold_at", end)
+        .order("id", { ascending: true })
+        .range(from, to),
+    );
 
     // Splittbetalinger ligger i sale_payments – autoritativ per måte. Salg uten
     // slike rader (gamle salg, hurtigsalg) bøttes på sales.payment_method.
     const ids = rows.map((s) => s.id);
     const bySale = new Map<string, { method: string; amount: number }[]>();
-    if (ids.length > 0) {
-      const { data: pays } = await sb
+    for (const idChunk of chunk(ids, 300)) {
+      const { data: pays, error: payErr } = await sb
         .from("sale_payments")
         .select("sale_id, method, amount")
-        .in("sale_id", ids);
+        .in("sale_id", idChunk)
+        .limit(5000);
+      if (payErr) throw new Error(payErr.message);
       for (const p of (pays ?? []) as {
         sale_id: string;
         method: string;
@@ -308,7 +366,7 @@ export async function getExpectedByMethodForDate(
     res.vipps = Math.round(res.vipps);
     return res;
   } catch {
-    return empty;
+    return null;
   }
 }
 
@@ -316,14 +374,12 @@ export async function getExpectedByMethodForDate(
 export async function getSalesTotalForDate(isoDate: string): Promise<number> {
   try {
     const sb = await createClient();
-    const start = new Date(`${isoDate}T00:00:00.000Z`).toISOString();
-    const end = new Date(`${isoDate}T00:00:00.000Z`);
-    end.setUTCDate(end.getUTCDate() + 1);
+    const { start, end } = osloDayRange(isoDate);
     const { data } = await sb
       .from("sales")
       .select("total_nok")
       .gte("sold_at", start)
-      .lt("sold_at", end.toISOString());
+      .lt("sold_at", end);
     return (data ?? []).reduce((s, r) => s + (Number(r.total_nok) || 0), 0);
   } catch {
     return 0;
@@ -334,14 +390,12 @@ export async function getSalesTotalForDate(isoDate: string): Promise<number> {
 export async function getDiscountTotalForDate(isoDate: string): Promise<number> {
   try {
     const sb = await createClient();
-    const start = new Date(`${isoDate}T00:00:00.000Z`).toISOString();
-    const end = new Date(`${isoDate}T00:00:00.000Z`);
-    end.setUTCDate(end.getUTCDate() + 1);
+    const { start, end } = osloDayRange(isoDate);
     const { data } = await sb
       .from("sales")
       .select("discount_nok")
       .gte("sold_at", start)
-      .lt("sold_at", end.toISOString());
+      .lt("sold_at", end);
     return Math.round(
       (data ?? []).reduce((s, r) => s + (Number(r.discount_nok) || 0), 0),
     );
@@ -353,7 +407,7 @@ export async function getDiscountTotalForDate(isoDate: string): Promise<number> 
 /* ---------------------- DAG-FOR-DAG AVSTEMMING ---------------------- */
 
 export type DailyReconRow = {
-  /** UTC-dagsnøkkel yyyy-mm-dd (samme dagsvindu som getExpectedByMethodForDate). */
+  /** Oslo-dagsnøkkel yyyy-mm-dd (samme dagsvindu som getExpectedByMethodForDate). */
   date: string;
   /** Forventet per betalingsmåte (kontant/kort/Vipps) fra salget. */
   expected: MethodBreakdown;
@@ -403,9 +457,10 @@ export async function getDailyReconciliation(
     const endD = new Date(`${endDate}T00:00:00.000Z`);
     const startD = new Date(endD);
     startD.setUTCDate(startD.getUTCDate() - (days - 1));
-    const endExclusive = new Date(endD);
-    endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
     const startKey = startD.toISOString().slice(0, 10);
+    // Dagsvindu i Oslo-tid (ikke UTC)
+    const rangeStart = osloDayRange(startKey).start;
+    const rangeEnd = osloDayRange(endDate).end;
 
     type SaleRow = {
       id: string;
@@ -413,22 +468,16 @@ export async function getDailyReconciliation(
       total_nok: number;
       payment_method: string | null;
     };
-    const salesRows: SaleRow[] = [];
-    const PAGE = 1000;
-    for (let from = 0; from < 100000; from += PAGE) {
-      const { data, error } = await sb
+    const salesRows: SaleRow[] = await fetchAll<SaleRow>((from, to) =>
+      sb
         .from("sales")
         .select("id, sold_at, total_nok, payment_method")
-        .gte("sold_at", startD.toISOString())
-        .lt("sold_at", endExclusive.toISOString())
+        .gte("sold_at", rangeStart)
+        .lt("sold_at", rangeEnd)
         .order("sold_at", { ascending: true })
         .order("id", { ascending: true })
-        .range(from, from + PAGE - 1);
-      if (error) break;
-      const page = (data ?? []) as SaleRow[];
-      salesRows.push(...page);
-      if (page.length < PAGE) break;
-    }
+        .range(from, to),
+    );
 
     // Splittbetalinger (autoritativ per måte) – hentet i biter.
     const bySale = new Map<string, { method: string; amount: number }[]>();
@@ -458,7 +507,7 @@ export async function getDailyReconciliation(
       else acc.other += amount;
     };
     for (const s of salesRows) {
-      const key = new Date(s.sold_at).toISOString().slice(0, 10);
+      const key = osloDateKey(s.sold_at);
       const acc =
         expByDay.get(key) ?? { cash: 0, card: 0, vipps: 0, gift: 0, other: 0, total: 0, count: 0 };
       acc.total += Number(s.total_nok) || 0;

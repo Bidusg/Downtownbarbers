@@ -6,7 +6,7 @@
  * (Gjenbrukt fra tidligere app-versjon.)
  */
 
-import { config } from "./config";
+import { config, VIPPS_DISABLED_MESSAGE } from "./config";
 
 export type VippsUserFlow = "WEB_REDIRECT" | "PUSH_MESSAGE" | "QR";
 
@@ -45,6 +45,8 @@ export type VippsPaymentState =
 export interface VippsStatus {
   state: VippsPaymentState;
   authorizedOre: number;
+  /** Beløp som allerede er trukket (Vipps beholder state AUTHORIZED etter capture). */
+  capturedOre: number;
 }
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
@@ -87,6 +89,9 @@ export async function createPayment(
 ): Promise<CreatePaymentResult> {
   const reference = input.reference ?? `booking-${input.bookingId}`;
   const userFlow: VippsUserFlow = input.userFlow ?? "WEB_REDIRECT";
+
+  // Produksjon uten nøkler: avvis med norsk melding (kallerne fanger feilen).
+  if (config.vipps.disabled) throw new Error(VIPPS_DISABLED_MESSAGE);
 
   if (config.vipps.mode === "mock") {
     // Mock: nettbooking (WEB_REDIRECT) går via mock-webhooken som før. Kassa
@@ -150,7 +155,7 @@ export async function createPayment(
 /** Hent betalingsstatus (polling fra kassa). Mock → alltid AUTHORIZED. */
 export async function getPaymentStatus(reference: string): Promise<VippsStatus> {
   if (config.vipps.mode === "mock") {
-    return { state: "AUTHORIZED", authorizedOre: 0 };
+    return { state: "AUTHORIZED", authorizedOre: 0, capturedOre: 0 };
   }
   const token = await getAccessToken();
   const res = await fetch(
@@ -163,7 +168,7 @@ export async function getPaymentStatus(reference: string): Promise<VippsStatus> 
   }
   const json = (await res.json()) as {
     state?: string;
-    aggregate?: { authorizedAmount?: { value?: number } };
+    aggregate?: { authorizedAmount?: { value?: number }; capturedAmount?: { value?: number } };
   };
   const raw = String(json.state ?? "").toUpperCase();
   const known: VippsPaymentState[] = [
@@ -177,6 +182,7 @@ export async function getPaymentStatus(reference: string): Promise<VippsStatus> 
   return {
     state,
     authorizedOre: Number(json.aggregate?.authorizedAmount?.value ?? 0),
+    capturedOre: Number(json.aggregate?.capturedAmount?.value ?? 0),
   };
 }
 

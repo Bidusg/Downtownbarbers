@@ -16,20 +16,14 @@ export type MyAgenda = {
   bookings: MyBooking[];
 };
 
-/** Innlogget ansatts kommende timer (matchet på e-post mot staff). */
+/** Innlogget ansatts kommende timer (kobling via getMyStaffLink). */
 export async function getMyAgenda(): Promise<MyAgenda> {
   try {
-    const me = await getUserRole();
-    if (!me?.email) return { staffId: null, staffName: null, linked: false, bookings: [] };
+    // Samme kobling som resten av ansatt-appen: profile_id først, så eksakt e-post.
+    const link = await getMyStaffLink();
+    if (!link.linked || !link.staffId) return { staffId: null, staffName: null, linked: false, bookings: [] };
+    const staff = { id: link.staffId, full_name: link.staffName };
     const sb = await createClient();
-
-    const { data: staff } = await sb
-      .from("staff")
-      .select("id, full_name")
-      .ilike("email", me.email)
-      .maybeSingle();
-
-    if (!staff) return { staffId: null, staffName: null, linked: false, bookings: [] };
 
     // Bookinger leses via SECURITY DEFINER-RPC (0040) filtrert på
     // current_staff_id() – 'staff' har ingen direkte RLS-tilgang på
@@ -77,15 +71,47 @@ export async function getMyStaffLink(): Promise<StaffLink> {
     const me = await getUserRole();
     if (!me) return { staffId: null, staffName: null, linked: false };
     const sb = await createClient();
-    const filters: string[] = [`profile_id.eq.${me.userId}`];
-    if (me.email) filters.push(`email.ilike.${me.email}`);
-    const { data } = await sb
-      .from("staff")
-      .select("id, full_name")
-      .eq("active", true)
-      .or(filters.join(","))
-      .limit(1)
-      .maybeSingle();
+    // 0) current_staff_id() (security definer): finner egen rad uten å lese
+    //    profile_id/email direkte – de kolonnene er skjult for innloggede brukere
+    //    etter KJØR-I-SUPABASE-SIKKERHET-3.sql. Feiler RPC-en, brukes gammel logikk under.
+    {
+      const rpc = await sb.rpc("current_staff_id");
+      if (!rpc.error) {
+        const sid = rpc.data as string | null;
+        if (!sid) return { staffId: null, staffName: null, linked: false };
+        const r = await sb.from("staff").select("id, full_name").eq("id", sid).maybeSingle();
+        if (r.data) {
+          return {
+            staffId: r.data.id as string,
+            staffName: (r.data.full_name as string) ?? null,
+            linked: true,
+          };
+        }
+      }
+    }
+    // 1) profile_id (sikkerst), 2) eksakt e-post (case-insensitiv, uten jokertegn).
+    let data: { id: unknown; full_name: unknown } | null = null;
+    {
+      const r = await sb
+        .from("staff")
+        .select("id, full_name")
+        .eq("active", true)
+        .eq("profile_id", me.userId)
+        .limit(1)
+        .maybeSingle();
+      data = r.data;
+    }
+    const em = (me.email ?? "").trim().toLowerCase();
+    if (!data && em) {
+      const r = await sb
+        .from("staff")
+        .select("id, full_name")
+        .eq("active", true)
+        .ilike("email", em.replace(/[\\%_]/g, "\\$&"))
+        .limit(1)
+        .maybeSingle();
+      data = r.data;
+    }
     if (!data) return { staffId: null, staffName: null, linked: false };
     return {
       staffId: data.id as string,
