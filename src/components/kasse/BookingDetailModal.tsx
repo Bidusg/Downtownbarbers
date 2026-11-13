@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { AgendaBooking, ShopBarber, ShopService } from "@/lib/shop-queries";
 import { markNoShow, cancelBooking, reopenBooking } from "@/app/kasse/actions";
+import { notifyLate, type LateResult } from "@/app/kasse/late-actions";
 import { DeskBooking } from "@/components/kasse/DeskBooking";
 import { PaymentControls } from "@/components/kasse/PaymentControls";
 import { ServiceEditor } from "@/components/kasse/ServiceEditor";
@@ -38,8 +39,11 @@ export function BookingDetailModal({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [mode, setMode] = useState<
-    "actions" | "pay" | "service" | "cancel" | "noshow" | "reopen" | "noshowDone"
+    "actions" | "pay" | "service" | "cancel" | "noshow" | "reopen" | "noshowDone" | "late"
   >("actions");
+  // «Forsinket»: valgt antall minutter og resultatet av utsendingen.
+  const [lateMin, setLateMin] = useState(15);
+  const [lateRes, setLateRes] = useState<LateResult | null>(null);
   // Resultat av e-postvarsel ved «ikke møtt» (null = ikke forsøkt).
   const [notifyResult, setNotifyResult] = useState<boolean | null>(null);
   const [notify, setNotify] = useState(true);
@@ -294,6 +298,102 @@ export function BookingDetailModal({
               Lukk
             </button>
           </div>
+        ) : mode === "late" ? (
+          <div>
+            <p className="mb-3 text-xs font-semibold tracking-wide text-muted uppercase">
+              Varsle om forsinkelse
+            </p>
+            {lateRes?.ok ? (
+              <>
+                <p
+                  role="status"
+                  className="mb-3 rounded-md border border-line-2 bg-canvas px-3 py-2 text-sm text-fg"
+                >
+                  Sendt på {lateRes.via === "sms" ? "SMS" : "e-post"} til {lateRes.to} ✓
+                </p>
+                <button onClick={onClose} className="act min-h-11 px-4">
+                  Lukk
+                </button>
+              </>
+            ) : (
+              <>
+                <div
+                  role="radiogroup"
+                  aria-label="Hvor mange minutter forsinket"
+                  className="mb-3 grid grid-cols-4 gap-2"
+                >
+                  {[10, 15, 20, 30].map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      role="radio"
+                      aria-checked={lateMin === m}
+                      disabled={pending}
+                      onClick={() => {
+                        setLateMin(m);
+                        setLateRes(null);
+                      }}
+                      className={`act min-h-11 text-sm ${lateMin === m ? "act-accent" : ""}`}
+                    >
+                      {m} min
+                    </button>
+                  ))}
+                </div>
+                <p className="mb-3 text-sm text-muted">
+                  Kunden får beskjed om at timen kl. {hhmm(b.start_at)} starter rundt kl.{" "}
+                  <span className="font-semibold text-fg">
+                    {hhmm(new Date(new Date(b.start_at).getTime() + lateMin * 60_000).toISOString())}
+                  </span>
+                  {b.phone ? " (SMS)." : " (e-post – kunden har ikke telefonnummer)."}
+                </p>
+                {lateRes && !lateRes.ok && lateRes.alreadySentAt && (
+                  <p
+                    role="alert"
+                    className="mb-3 rounded-md border border-accent-soft/40 bg-accent-soft/10 px-3 py-2 text-xs text-fg"
+                  >
+                    Kunden fikk allerede et forsinkelsesvarsel kl. {lateRes.alreadySentAt}. Sende likevel?
+                  </p>
+                )}
+                <div className="flex items-center gap-2">
+                  <button
+                    disabled={pending}
+                    onClick={() =>
+                      start(async () => {
+                        setErr(null);
+                        try {
+                          const force = !!(lateRes && !lateRes.ok && lateRes.alreadySentAt);
+                          const r = await notifyLate(b.id, lateMin, { force });
+                          if (!r.ok && r.error) setErr(r.error);
+                          setLateRes(r);
+                        } catch (e) {
+                          setErr(e instanceof Error ? e.message : "Noe gikk galt. Prøv igjen.");
+                        }
+                      })
+                    }
+                    className="min-h-11 rounded-md bg-accent px-4 text-sm font-semibold text-accent-fg transition-[opacity,transform] duration-100 hover:opacity-90 active:scale-[0.97] disabled:opacity-50 motion-reduce:transition-none motion-reduce:active:scale-100"
+                  >
+                    {pending
+                      ? "Sender …"
+                      : lateRes && !lateRes.ok && lateRes.alreadySentAt
+                        ? "Send likevel"
+                        : "Send til kunden"}
+                  </button>
+                  <button
+                    disabled={pending}
+                    onClick={() => {
+                      setErr(null);
+                      setLateRes(null);
+                      setMode("actions");
+                    }}
+                    className="act min-h-11 px-4"
+                  >
+                    Avbryt
+                  </button>
+                </div>
+                {errBox}
+              </>
+            )}
+          </div>
         ) : mode === "cancel" ? (
           <div>
             <div className="flex items-center gap-2">
@@ -408,6 +508,18 @@ export function BookingDetailModal({
                 >
                   Endre behandling
                 </button>
+                {(b.phone || b.email) && (
+                  <button
+                    onClick={() => {
+                      setErr(null);
+                      setLateRes(null);
+                      setMode("late");
+                    }}
+                    className="min-h-11 rounded-md border border-line-2 px-3 py-2 text-sm text-fg transition-colors hover:border-accent-soft"
+                  >
+                    Forsinket
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setErr(null);

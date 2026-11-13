@@ -1189,6 +1189,36 @@ export async function sendContactReceipt(opts: { to: string; name: string; callb
   );
 }
 
+/** Salongen er forsinket – sendes fra kassa («Forsinket»-knappen) når SMS ikke kan brukes. */
+export async function sendDelayNotice(opts: {
+  to: string;
+  name: string;
+  minutes: number;
+  /** Opprinnelig og ny starttid, «14:30». */
+  oldTime: string;
+  newTime: string;
+  lang?: Lang;
+}): Promise<boolean> {
+  const en = opts.lang === "en";
+  const first = escapeHtml(opts.name.split(" ")[0] || (en ? "there" : "der"));
+  const html = shell(
+    en ? "We're running a little late" : "Vi er litt forsinket",
+    en
+      ? `Hi ${first}, sorry – we're running about ${opts.minutes} minutes behind today. Your appointment at ${opts.oldTime} will start around ${opts.newTime}. See you soon!`
+      : `Hei ${first}, beklager – vi ligger ca. ${opts.minutes} minutter etter skjema i dag. Timen din kl. ${opts.oldTime} starter derfor rundt kl. ${opts.newTime}. Vi sees snart!`,
+    [],
+    "",
+    { lang: opts.lang },
+  );
+  return sendEmail(
+    opts.to,
+    en
+      ? `Running ${opts.minutes} min late – Downtown Barbers`
+      : `Vi er ca. ${opts.minutes} min forsinket – Downtown Barbers`,
+    html,
+  );
+}
+
 /* ---- Bekreftelser på kundens egne handlinger ----------------------------
  * Alt kunden gjør selv (avbestille, flytte, melde seg av, be om krisetime)
  * bekreftes på e-post, så de vet at det gikk gjennom.
