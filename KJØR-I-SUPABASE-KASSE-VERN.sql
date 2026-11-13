@@ -309,7 +309,7 @@ declare
   v_o online_orders; v_l jsonb; v_it online_order_items; v_q int; v_stock int; v_prod record;
   v_sale uuid; v_items_sum numeric := 0; v_total numeric; v_log text[] := '{}'; v_repl text[] := '{}';
   v_refund numeric := round(coalesce(p_refund, 0), 2); v_extra numeric := round(coalesce(p_extra, 0), 2);
-  v_gift text := null; v_try int; v_ret_value numeric := 0;
+  v_gift text := null; v_try int; v_ret_value numeric := 0; v_ship_back numeric := 0;
 begin
   if not is_shop_or_admin() then raise exception 'Ikke tilgang'; end if;
   if p_kind not in ('retur', 'reklamasjon', 'bytte') then raise exception 'BAD_KIND'; end if;
@@ -377,13 +377,15 @@ begin
 
   -- Vern: kassa (ikke admin) kan ikke refundere mer enn verdien av varene som
   -- leveres tilbake (+ frakt når alt er returnert). Større refusjon må admin godkjenne.
+  -- (Frakt regnes i egen variabel: PL/pgSQL avslutter IF-uttrykket ved første
+  --  THEN, så en CASE WHEN … THEN inne i IF-en gir syntaksfeil.)
   if v_refund > 0 and not is_admin() then
-    if v_refund > v_ret_value
-         + case when not exists (
-                 select 1 from online_order_items i
-                  where i.order_id = p_order and i.qty - i.missing_qty - i.returned_qty > 0)
-                then coalesce(v_o.shipping_nok, 0) else 0 end
-         + 0.5 then
+    if not exists (
+         select 1 from online_order_items i
+          where i.order_id = p_order and i.qty - i.missing_qty - i.returned_qty > 0) then
+      v_ship_back := coalesce(v_o.shipping_nok, 0);
+    end if;
+    if v_refund > v_ret_value + v_ship_back + 0.5 then
       raise exception 'Refusjonen er større enn verdien av varene som returneres – må godkjennes av admin.';
     end if;
   end if;
